@@ -101,6 +101,38 @@ class FacebookUrlsTest {
     }
 
     @Test
+    fun `a story page that names its Page is asked on the Page's posts path`() {
+        // Decision 18: the app's browser opened a Page post's desktop link as story.php with the
+        // Page's name in `id`; with no identity no lookup ran and the page's every video showed.
+        val post = "pfbid0AbCdEfGhIjKlMn"
+        val cases = listOf(
+            "https://m.facebook.com/story.php?story_fbid=$post&id=Fixture.Page&mibextid=x"
+                to "https://www.facebook.com/Fixture.Page/posts/$post",
+            "https://www.facebook.com/story.php?story_fbid=1234567890123456&id=fixture_page-2"
+                to "https://www.facebook.com/fixture_page-2/posts/1234567890123456",
+            "https://m.facebook.com/permalink.php?id=FixturePage&story_fbid=$post"
+                to "https://www.facebook.com/FixturePage/posts/$post",
+        )
+        cases.forEach { (url, address) ->
+            val identity = FacebookUrls.identify(url)
+            assertEquals(url, address, identity?.canonicalPageUrl)
+            assertTrue(url, identity!!.requiresCanonicalResolution)
+            assertTrue(url, FacebookUrls.isPost(identity))
+        }
+        assertEquals("post:$post", FacebookUrls.identify(cases.first().first)?.contentId)
+
+        // Facebook's own surfaces are no Page, and a name has to look like one.
+        listOf(
+            "groups", "Watch", "profile.php", "MARKETPLACE",
+            "Fixture/Page", "Fixture%2FPage", "Fixture%20Page", "%E1%80%80", "..", "12345", "",
+            "a".repeat(81),
+        ).forEach { owner ->
+            val url = "https://m.facebook.com/story.php?story_fbid=$post&id=$owner"
+            assertNull(url, FacebookUrls.identify(url))
+        }
+    }
+
+    @Test
     fun `unrelated, non-video and malformed urls are not claimed`() {
         listOf(
             "http://www.facebook.com/watch/?v=1234567890123456",

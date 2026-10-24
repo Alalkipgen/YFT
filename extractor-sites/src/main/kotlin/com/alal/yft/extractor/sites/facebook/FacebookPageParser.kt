@@ -121,6 +121,19 @@ internal object FacebookPageParser {
         "VideoNotFoundError" to SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE,
     )
 
+    /**
+     * Social plan 0.3 fix (A1): Facebook's own route for the page (`initialRouteInfo.route`), the
+     * same in every language: the error route with its root's `privacy: true` (the "content isn't
+     * available" page) and the video's not-found route. Read only after [ACCESS_MARKERS] found
+     * nothing, so only on a page without playable media; at most [MAX_ROUTE_INFOS] route infos,
+     * each at most [MAX_ROUTE_CHARS] characters, as Master's judge reads them.
+     */
+    private const val ROUTE_INFO = "\"initialRouteInfo\":"
+    private const val ERROR_ROUTE = "comet.fbweb.CometErrorRoute"
+    private const val NOT_FOUND_ROUTE = "comet.fbweb.CometVideoHomeVideoNotFoundRoute"
+    private const val MAX_ROUTE_INFOS = 4
+    private const val MAX_ROUTE_CHARS = 256 * 1024
+
     fun parse(html: String, expectedVideoId: String?): FacebookParseResult {
         val node = mediaNode(html, expectedVideoId)
             ?: return FacebookParseResult.Failure(
@@ -396,6 +409,75 @@ internal object FacebookPageParser {
     private fun accessFailure(html: String): SiteExtractionFailure? =
         ACCESS_MARKERS.firstOrNull { (marker, _) -> html.contains(marker, ignoreCase = true) }
             ?.second
+            ?: routeFailure(html)
+
+    /**
+     * A1: the page's own route as an access outcome: the error route with its root's `privacy` a
+     * JSON `true`, or the video's not-found route → `PRIVATE_OR_UNAVAILABLE`; else null (the
+     * caller's reason, as before): no route, another one, no flag or another value, two routes
+     * that disagree.
+     */
+    private fun routeFailure(html: String): SiteExtractionFailure? {
+        val (name, privacy) = pageRoute(html) ?: return null
+        return SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE.takeIf {
+            (name == ERROR_ROUTE && privacy) || name == NOT_FOUND_ROUTE
+        }
+    }
+
+    /**
+     * The page's initial route (its name and whether its root's props say `privacy: true`), or
+     * null when the page names none, only broken ones or two that disagree.
+     */
+    private fun pageRoute(html: String): Pair<String, Boolean>? {
+        val routes = LinkedHashSet<Pair<String, Boolean>>()
+        var at = html.indexOf(ROUTE_INFO)
+        var read = 0
+        while (at >= 0 && read < MAX_ROUTE_INFOS) {
+            read += 1
+            var start = at + ROUTE_INFO.length
+            while (start < html.length && html[start].isWhitespace()) start += 1
+            routeObjectAt(html, start)
+                ?.let { BoundedJsonParser.parse(it) }
+                ?.let(::routeOf)
+                ?.let(routes::add)
+            at = html.indexOf(ROUTE_INFO, start)
+        }
+        return routes.singleOrNull()
+    }
+
+    private fun routeOf(info: JsonValue): Pair<String, Boolean>? {
+        val route = info["route"] as? JsonValue.Object ?: return null
+        val name = route["canonicalRouteName"].asStringOrNull?.takeIf(String::isNotBlank)
+            ?: return null
+        // Only a JSON true is the page's flag (a string "true" is not).
+        val privacy = (route.path("rootView", "props", "privacy") as? JsonValue.Bool)?.value == true
+        return name to privacy
+    }
+
+    /** The balanced `{…}` at [start], strings respected; null when it does not close in bounds. */
+    private fun routeObjectAt(text: String, start: Int): String? {
+        if (start !in text.indices || text[start] != '{') return null
+        var depth = 0
+        var inString = false
+        var escaped = false
+        var index = start
+        while (index < text.length && index - start < MAX_ROUTE_CHARS) {
+            val character = text[index]
+            when {
+                escaped -> escaped = false
+                inString && character == '\\' -> escaped = true
+                character == '"' -> inString = !inString
+                inString -> Unit
+                character == '{' || character == '[' -> depth += 1
+                character == '}' || character == ']' -> {
+                    depth -= 1
+                    if (depth == 0) return text.substring(start, index + 1)
+                }
+            }
+            index += 1
+        }
+        return null
+    }
 
     /**
      * Yields the body of every `<script type="application/json">` block.

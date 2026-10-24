@@ -1,0 +1,39 @@
+{
+  "schema": "n5b-raw/1",
+  "agent": "a",
+  "test": "m9b-m9bs",
+  "test_sha": "48dd744debcdaba0d2112cf801f8dfbe913fda8e",
+  "head": "48dd744debcdaba0d2112cf801f8dfbe913fda8e",
+  "head_ok": true,
+  "list_status": "done",
+  "result": "pass",
+  "node": "v24.14.1",
+  "machine": {
+    "cpus": 2,
+    "mem_gb": 4,
+    "platform": "linux x64"
+  },
+  "totals": {
+    "expected_runs": 1,
+    "runs": 1,
+    "seconds": 1767,
+    "max_peak_rss_mb": 1946
+  },
+  "runs": [
+    {
+      "n": "05",
+      "command": "node scripts/verify-own-solver-mutations.mjs --class M9b,M9bs --strategy P,B --ladder --judge ladder",
+      "exit": 0,
+      "seconds": 1767,
+      "peak_rss_mb": 1946,
+      "summary": [
+        "class   | ejs surv/safe/wrong | own P surv/safe/wrong | own B surv/safe/wrong | page P surv/safe/wrong | page B surv/safe/wrong | ladder PB+V   s/s/w | ladder PB off s/s/w | ladder B+V    s/s/w | ladder B off  s/s/w | skipped",
+        "M9b     |    0/32/ 0         |     0/32/ 0          |     0/32/ 0          |     32/ 0/ 0          |     10/22/ 0          |       32/ 0/ 0     |        0/32/ 0     |       10/22/ 0     |        0/32/ 0     | 0",
+        "M9bs    |    0/32/ 0         |     0/32/ 0          |     0/31/ 1          |     32/ 0/ 0          |     13/19/ 0          |       32/ 0/ 0     |        0/32/ 0     |       13/19/ 0     |        0/32/ 0     | 0",
+        "32 files x 2 classes x 2 seed(s) (own in the worker and in page mode); wrong values: 1; ladder wrong values: 0; judged by the ladder (other wrong values reported only)"
+      ],
+      "unsafe_lines_dropped": 0,
+      "stderr_lines": 687264
+    }
+  ]
+}

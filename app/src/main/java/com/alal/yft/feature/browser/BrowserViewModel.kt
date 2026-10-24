@@ -22,9 +22,21 @@ import com.alal.yft.core.model.media.MediaGroup
 import com.alal.yft.core.model.media.MediaGroups
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.PageVideoFacts
+import com.alal.yft.core.model.media.PageMediaRole
 import com.alal.yft.core.model.media.PlayingVideo
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.detection.SiteAdapterOutcome
+import com.alal.yft.detection.master.AndroidBrowserMasterFallback
+import com.alal.yft.detection.master.BrowserMasterFallback
+import com.alal.yft.detection.master.InstagramProbeSwitch
+import com.alal.yft.detection.master.SocialLadder
+import com.alal.yft.detection.master.YouTubeRouteB
+import com.alal.yft.BuildConfig
+import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
+import com.alal.yft.extractor.master.social.InstagramTabProbe
+import com.alal.yft.extractor.api.PlayerScriptRunner
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.detection.SiteScope
 import com.alal.yft.detection.TabData
@@ -38,6 +50,8 @@ import com.alal.yft.ui.components.isSavable
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.net.URI
 import javax.inject.Inject
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.EmptyCoroutineContext
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -70,6 +84,12 @@ class BrowserViewModel(
     private val detectedMediaStore: DetectedMediaStore = DetectedMediaStore(),
     private val clock: () -> Long = System::currentTimeMillis,
     private val homeSitesRepository: HomeSitesRepository? = null,
+    private val masterFallback: BrowserMasterFallback = BrowserMasterFallback.None,
+    // Social plan S2d (decisions 19 and 24): the switch of Instagram's tab-fetch rung; null (no
+    // rung in any lookup) in every build but a social-ladder one.
+    private val instagramProbeOn: (() -> Boolean)? = null,
+    // Task 13: the rung's debug proof (I2's rows set aside so the rung is asked); null: off.
+    private val instagramRungProof: (() -> Boolean)? = null,
 ) : ViewModel(), BrowserObservationSink {
     /**
      * Production entry point. Dagger has no sensible binding for the test clock lambda, so the
@@ -81,13 +101,28 @@ class BrowserViewModel(
         siteAdapters: SiteAdapterCoordinator,
         detectedMediaStore: DetectedMediaStore,
         homeSitesRepository: HomeSitesRepository,
+        // Phase 1.3 D5a: the app's player-script runner, handed to Master only for the client
+        // ladder's S (debug, -Pyft.clientLadder with the own solver on).
+        playerScriptRunner: PlayerScriptRunner,
+        // Phase 1.3 D7: only for the ladder's health file (app-private, found on first use).
+        @ApplicationContext appContext: Context,
     ) : this(
         okHttpClient,
         siteAdapters,
         detectedMediaStore,
         System::currentTimeMillis,
         homeSitesRepository,
+        AndroidBrowserMasterFallback.create(
+            BuildConfig.MASTER_CAPTURE_ENABLED, okHttpClient, siteAdapters, playerScriptRunner,
+            { appContext.filesDir },
+        ),
+        InstagramProbeSwitch.reader(appContext),
+        InstagramProbeSwitch.proofReader(appContext),
     )
+
+    val masterCapture: WebViewPlaybackCapture? get() = masterFallback.capture
+    private var masterLookup: Job? = null
+    private var masterLookupKey: String? = null
 
     private val mutableUiState = MutableStateFlow(BrowserUiState())
     val uiState: StateFlow<BrowserUiState> = mutableUiState.asStateFlow()
@@ -106,6 +141,43 @@ class BrowserViewModel(
      * screen collects them there is no tab to read, and lookups go on without waiting.
      */
     val tabDataReads: Flow<TabDataRequest> = tabDataRequests.asSharedFlow()
+
+    private val instagramProbeRequests =
+        MutableSharedFlow<InstagramProbeRequest>(extraBufferCapacity = TAB_DATA_BUFFER)
+
+    /**
+     * Social plan S2d (`MASTER_KEY_SOCIAL_PLAN.md` decisions 19 and 24, debug only): the asks of
+     * Instagram's tab-fetch rung the screen runs in its tab (`InstagramProbeScript`), at most one
+     * per Instagram lookup, only in a social-ladder build with the rung's own switch on
+     * (Instagram's ladder asks it after I2 gave no rows). While no screen collects them there is
+     * no tab to fetch in, and the ladder's line says so.
+     */
+    val instagramProbes: Flow<InstagramProbeRequest> = instagramProbeRequests.asSharedFlow()
+
+    /** S2d: the rung an Instagram lookup's context carries; none in every other build. */
+    private val instagramProbe: InstagramTabProbe? = instagramProbeOn?.let { switch ->
+        object : InstagramTabProbe {
+            override fun on(): Boolean = switch()
+
+            override fun proof(): Boolean = instagramRungProof?.invoke() == true
+
+            override suspend fun ask(request: InstagramTabProbe.Request): InstagramTabProbe.Reply {
+                if (instagramProbeRequests.subscriptionCount.value == 0) {
+                    return InstagramTabProbe.Reply.NotAsked(InstagramTabProbe.NO_TAB)
+                }
+                val asked = InstagramProbeRequest(request)
+                if (!instagramProbeRequests.tryEmit(asked)) {
+                    return InstagramTabProbe.Reply.NotAsked(InstagramTabProbe.NO_TAB)
+                }
+                // The ladder's own wait bounds this one.
+                return try {
+                    asked.await()
+                } finally {
+                    asked.giveUp()
+                }
+            }
+        }
+    }
 
     /** P40: the tab's data for a TikTok post; other sites have none to read. */
     private val tabData = TabDataSource { siteId, postId ->
@@ -249,6 +321,10 @@ class BrowserViewModel(
                 val lookup = detectedMediaStore.lookup.value
                 if (lookup?.key != key || !lookup.canRetry) return@collect
                 if (lookup.owner != LookupOwner.BROWSER) return@collect
+                if (key == masterLookupKey) {
+                    runMasterOnDemand()
+                    return@collect
+                }
                 // P16: a feed's video on screen is asked for again in the sheet.
                 focusedSheet?.takeIf { it.key == key }?.let { sheet ->
                     if (focusLookup?.isActive != true) {
@@ -275,6 +351,7 @@ class BrowserViewModel(
     override fun onCleared() {
         // The sheet must not wait on a lookup of a browser that is gone.
         detectedMediaStore.clearLookup(LookupOwner.BROWSER)
+        masterCapture?.session?.clear()
         super.onCleared()
     }
 
@@ -501,6 +578,13 @@ class BrowserViewModel(
      * P28: the wait for the page's video after its ad ends with the sheet.
      */
     private fun closeSheetLookup(key: String) {
+        if (key == masterLookupKey) {
+            masterLookup?.cancel()
+            masterLookupKey = null
+            detectedMediaStore.clearLookup(LookupOwner.BROWSER)
+            mutableUiState.update { it.copy(pageLookupRunning = false) }
+            return
+        }
         if (key == pageVideoWaitKey) {
             pageVideoWait?.cancel()
             pageVideoWait = null
@@ -577,13 +661,20 @@ class BrowserViewModel(
             val sheet = focusedSheet?.takeIf { it.key == siteAdapters.videoKey(url) }
             when (outcome) {
                 is SiteAdapterOutcome.Detected -> {
-                    val video = MediaGroups.pageVideos(outcome.candidates.filter { it.isSavable })
+                    val mainMore = masterFallback.mainAndMore(outcome.candidates)
+                    val video = mainMore?.main
+                        ?: MediaGroups.pageVideos(outcome.candidates.filter { it.isSavable })
                         .firstOrNull()
                     when {
                         video == null && sheet != null ->
                             showFocusedFailure(sheet, PROTECTED_FOCUSED_VIDEO_NOTICE, false)
                         video == null -> finishFocusLookup(PROTECTED_FOCUSED_VIDEO_NOTICE)
-                        else -> showFocusedVideo(video, sheet)
+                        else -> {
+                            if (mainMore != null) {
+                                mutableUiState.update { it.copy(sitePage = false) }
+                            }
+                            showFocusedVideo(video, sheet)
+                        }
                     }
                 }
 
@@ -728,6 +819,9 @@ class BrowserViewModel(
         focusNoticeTimer?.cancel()
         // P12: the old page's lookups and the sheet's wait for its video end with it.
         runningLookups.clear()
+        masterLookup = null
+        masterLookupKey = null
+        mutableUiState.update { it.copy(pageLookupRunning = false) }
         foundLookups.clear()
         pageLookupDone = CompletableDeferred()
         foundPageVideo = null
@@ -806,6 +900,13 @@ class BrowserViewModel(
                     }
                     candidateStore.submitAll(found)
                     showPageVideo(key, livePageUrl, pageTitle, found)
+                    // Phase 1.4 item 7 R4: a route-B build names route B's answer and its counts
+                    // (`master: route B after <reason>; replayed N; new M`); every other: nothing.
+                    // Social plan S1a (9): the Facebook trial APK names Facebook's line with the
+                    // trial's comparison (`…; trial: Master's rows M, main's N; …`) the same way.
+                    (YouTubeRouteB.notice(outcome) ?: SocialLadder.trialNotice(outcome))?.let { notice ->
+                        mutableUiState.update { it.copy(siteNotice = notice) }
+                    }
                 }
 
                 is SiteAdapterOutcome.Failed -> {
@@ -827,8 +928,13 @@ class BrowserViewModel(
                     // One automatic retry per page; after that the user decides with Try again.
                     awaitingPlayback = outcome.retriesAfterPlayback && !autoRetried
                     // P46: TikTok's check is shown to the user; the browser's own words.
+                    // Social plan task 15 (F4): the rung's proof's lookup (debug) adds its probe lines.
                     val checkUrl = SiteCheck.urlFor(outcome, livePageUrl)
-                    val message = if (checkUrl != null) SiteCheck.NOTICE else outcome.message
+                    val message = if (checkUrl != null) {
+                        SiteCheck.NOTICE
+                    } else {
+                        SocialLadder.proofNotice(outcome) ?: outcome.message
+                    }
                     mutableUiState.update {
                         it.copy(
                             siteNotice = message.takeUnless {
@@ -878,7 +984,9 @@ class BrowserViewModel(
     ) {
         pageLookupDone.complete(found.isNotEmpty())
         if (key == null) return
-        val video = MediaGroups.pageVideos(found.filter { it.isSavable }, adapterSite = true)
+        val mainMore = masterFallback.mainAndMore(found)
+        val video = mainMore?.main
+            ?: MediaGroups.pageVideos(found.filter { it.isSavable }, adapterSite = true)
             .firstOrNull()
         if (video == null) {
             detectedMediaStore.showLookup(
@@ -886,6 +994,7 @@ class BrowserViewModel(
             )
             return
         }
+        if (mainMore != null) mutableUiState.update { it.copy(sitePage = false) }
         foundPageVideo = video
         if (sheetAwaitsPageVideo) {
             sheetAwaitsPageVideo = false
@@ -908,15 +1017,33 @@ class BrowserViewModel(
         val key = siteAdapters.videoKey(url) ?: url
         if (!fresh) foundLookups[key]?.let { return it }
         val lookup = runningLookups[key]?.takeIf { it.isActive }
-            ?: viewModelScope.async(pageProbeJob) {
+            // Phase 1.4 item 7 R1: a route-B build's YouTube lookup carries its own request
+            // record (main's adapter and the backup); every other lookup runs as before.
+            // Social plan S2d part 1: an Instagram lookup carries the tab-fetch probe too (a
+            // social-ladder build only).
+            ?: viewModelScope.async(pageProbeJob + masterFallback.lookupContext(url) + probeContext(url)) {
                 // P17: the shared lookup cache answers unless this is Try again.
-                siteAdapters.inspect(
-                    pageUrl = url,
-                    requestContext = requestContext,
-                    nowEpochMs = clock(),
-                    fresh = fresh,
-                    tab = tabData,
+                // Phase 1.4 item 7 R4: in the route-B trial APK a YouTube page main found is
+                // answered as main's failure (after main asked); every other build: main's answer.
+                // Social plan S1a (9): a Facebook page so too in the Facebook trial APK.
+                // Social plan task 12: in that APK a social page's lookup asks main every time (P17's
+                // remembered answer would leave the ladder nothing of main's to read); else as before.
+                val primary = masterFallback.trialPrimary(
+                    url,
+                    siteAdapters.inspect(
+                        pageUrl = url,
+                        requestContext = requestContext,
+                        nowEpochMs = clock(),
+                        fresh = fresh || masterFallback.asksMainFresh(url),
+                        tab = tabData,
+                    ),
                 )
+                // Phase 1.4 item 2: in the h-only APK a found YouTube page goes through H too.
+                if (primary is SiteAdapterOutcome.Failed ||
+                    (primary is SiteAdapterOutcome.Detected && masterFallback.masterFirst(url))
+                ) {
+                    masterFallback.recover(url, primary, clock())
+                } else primary
             }.also { runningLookups[key] = it }
         val outcome = lookup.await()
         if (runningLookups[key] === lookup) runningLookups.remove(key)
@@ -954,6 +1081,13 @@ class BrowserViewModel(
         }
         return true
     }
+
+    /**
+     * Social plan S2d part 1: [url]'s lookup's probe: Instagram's tab-fetch probe on an Instagram
+     * page in a social-ladder build ([instagramProbe]); nothing on every other page and build.
+     */
+    private fun probeContext(url: String): CoroutineContext =
+        instagramProbe?.takeIf { siteAdapters.siteId(url) == SocialLadder.INSTAGRAM_SITE_ID } ?: EmptyCoroutineContext
 
     /**
      * P40 step 2: asks the screen for the TikTok tab's own data for [postId] and waits at most
@@ -1005,13 +1139,60 @@ class BrowserViewModel(
         mainVideoTimer = null
         val facts = mutableUiState.value.pageFacts
         val videos = MediaGroups.pageVideos(mutableUiState.value.candidates.filter { it.isSavable })
-        val main = MediaGroups.mainVideo(videos, playing, facts) ?: return
+        val main = MediaGroups.mainVideo(videos, playing, facts)
+        if (main == null) {
+            runMasterOnDemand()
+            return
+        }
         if (MediaGroups.mayBeAdBefore(main, facts)) {
             awaitVideoAfterAd(main)
         } else {
             detectedMediaStore.select(MediaGroups.withPageFacts(main, facts))
         }
         quickDownloads.trySend(Unit)
+    }
+
+    /** Only a user's Download tap asks the backup when generic detection found no main video. */
+    private fun runMasterOnDemand() {
+        if (!masterFallback.enabled || masterLookup?.isActive == true) return
+        val pageUrl = activePageUrl ?: return
+        if (!siteAdapters.allowsMasterFallback(pageUrl)) return
+        val generation = pageGeneration
+        val key = "master-capture:$generation"
+        masterLookupKey = key
+        detectedMediaStore.awaitPageVideo()
+        detectedMediaStore.showLookup(PageVideoLookup(key, pageUrl, lookupTitle(null)))
+        mutableUiState.update { it.copy(pageLookupRunning = true) }
+        quickDownloads.trySend(Unit)
+        masterLookup = viewModelScope.launch(pageProbeJob) {
+            val outcome = masterFallback.recover(
+                pageUrl, SiteAdapterOutcome.NotHandled, clock(), genericOnDemand = true,
+            )
+            if (generation != pageGeneration || masterLookupKey != key) return@launch
+            mutableUiState.update { it.copy(pageLookupRunning = false) }
+            if (outcome is SiteAdapterOutcome.Detected) {
+                val groups = MediaGroups.pageVideos(outcome.candidates.filter { it.isSavable })
+                val mainMore = masterFallback.mainAndMore(outcome.candidates)
+                val video = mainMore?.main ?: groups.singleOrNull()
+                if (video != null) {
+                    candidateStore.submitAll(outcome.candidates)
+                    if (mainMore != null) mutableUiState.update { it.copy(sitePage = false) }
+                    detectedMediaStore.select(video)
+                    detectedMediaStore.clearLookup(LookupOwner.BROWSER)
+                    masterLookupKey = null
+                    return@launch
+                }
+            }
+            val failed = outcome as? SiteAdapterOutcome.Failed
+            detectedMediaStore.showLookup(
+                PageVideoLookup(
+                    key, pageUrl, lookupTitle(null),
+                    failure = failed?.message
+                        ?: "Play the video on this page, then tap Try again.",
+                    canRetry = failed?.canRetry ?: true,
+                ),
+            )
+        }
     }
 
     /**
@@ -1127,7 +1308,12 @@ class BrowserViewModel(
             vastAds.onRequest(observation)
             BrowserObservationMapper.fromRequest(observation)
                 ?.let { vastAds.marked(it, observation) }
-                ?.let(candidateStore::submit)
+                ?.let { candidate ->
+                    if (candidate.pageRole == PageMediaRole.PREVIEW) {
+                        masterCapture?.session?.observe(observation, preview = true)
+                    }
+                    candidateStore.submit(candidate)
+                }
             val probeCandidate = BrowserObservationMapper.forMetadataProbe(observation)
                 ?: return@launch
             scheduleProbe(probeCandidate)

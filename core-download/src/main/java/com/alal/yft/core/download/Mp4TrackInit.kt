@@ -89,7 +89,8 @@ internal class TrackInit(
                     width = entry.u16(VISUAL_WIDTH) shl 16
                     height = entry.u16(VISUAL_WIDTH + 2) shl 16
                 }
-                nalLengthSize(entry)
+                // VP9 frames are copied whole: no avcC and no NAL lengths (item 5).
+                if (entry.type == VP9_ENTRY) null else nalLengthSize(entry)
             } else {
                 null
             }
@@ -178,6 +179,8 @@ internal class TrackInit(
         private class Edit(val duration: Long, val mediaTime: Long, val rate: Int) {
             val isNormal: Boolean get() = mediaTime >= 0 && rate == RATE_ONE
         }
+
+        private const val VP9_ENTRY = "vp09"
 
         private const val MATRIX_BYTES = 36
         private const val VISUAL_ENTRY_BYTES = 78

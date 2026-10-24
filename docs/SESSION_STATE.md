@@ -2,6 +2,302 @@
 
 Update this file before every checkpoint push. Keep it factual so another chat can resume.
 
+## Master backup prototype — `spike/master-extractor-backup`
+
+- Owner-approved isolated code spike, not a Phase 14/15 task or a merge candidate.
+- Base: stable `origin/main` `a9eea7ba8d9f3d67442ffc3a51f2ad9e00c4a6a9`; Phase 1 R1 merged
+  `origin/main` `34a4189002b7c9aaf6085ae4adab27b343ca28dc` into the spike (true merge; main
+  itself untouched). R1/R2 records: `PROGRESS.md`.
+- Workspace: `/data/YFT-Master`; original `/data/YFT` and TikTok work remain untouched.
+- Status: ANDROID FOUR-FIXTURE GATE PASSED; nine-site public preflight recorded.
+  Live app/engine validation remains incomplete; NOT APPROVED FOR MERGE.
+  Owner explicitly approved continuing Android Play & Capture connection after the JVM backup.
+  New `:extractor-master-android` producer and browser-only build-opt-in caller.
+  `yft.masterCapture` defaults false; debug/preview may opt in, release remains false.
+  Existing site-extractor modules, download engine and CI workflows remain unchanged.
+- Baseline: `:core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test`
+  passed: 360 tests, zero failures/errors/skips.
+- Branch-name exception: the owner explicitly approved `spike/master-extractor-backup`.
+  `scripts/checkpoint.sh` only accepts `work/phase-*`; this spike uses equivalent manual
+  staged-file/secret/diff/test checks and a direct push, without changing that script.
+- Initial remote checkpoint: `f8e7451804c5d297dc4b9b2672d5493793de980d` (56 module tests),
+  pushed by SSH. The sandbox later reset; recovered that exact checkpoint by HTTPS and
+  verified it with the GitHub MCP. Further pushes use the connected GitHub MCP, no new SSH key.
+- Hardened code checkpoint: `35213502d29690903e9cbd0dc3d68bf3aaab989d`, pushed and verified
+  through GitHub MCP. The final checkpoint changes only this section and the module README.
+- Hardened validation with a real browser snapshot: `:extractor-master:test :core-model:test
+  :extractor-api:test :extractor-generic:test :extractor-sites:test` passed: 437 tests,
+  zero failures/errors/skips (Master 77, unchanged baseline 360).
+- Hardening: independent companion probes/cache within the shared budget, preview veto,
+  private/regional payload gates, monotonic navigation generations, bounded request context,
+  safe debug wrappers, preserved grouping IDs, origin-only cross-origin referers, live-stream
+  refusal and stricter Content-Range validation. Existing adapters remain unchanged.
+- Real smoke: MDN neutral CC0 flower video played; 960 x 540, duration 5.055 s, two successful
+  HTTP 206 video/mp4 requests. Actual capture -> Master fallback -> real HTTPS prefix probe
+  passed. This is not Instagram/X, Android WebView or full download/mux validation.
+- Regression proof: the compatible pre-hardening engine failed five targeted tests; a
+  file-signature bypass failed the intended false-MIME test. Both are deliberate negative
+  checks, not unresolved hardened-code failures. Both source files were restored byte-for-byte.
+- Final restored-code offline validation: 436 passed, zero failures/errors, one intentional
+  optional live-smoke skip (Master 76 passed + one skip; unchanged baseline 360 passed).
+  Repository script tests: 30 passed. Diff, scope and sensitive-file checks passed.
+- CI: `spike/**` is not an automatic CI trigger; local JVM evidence only. No preview APK.
+- Android pre-edit baseline: Master 76 passed + optional skip; core-browser 138 passed;
+  app 807 cases, zero failures/errors, 66 existing skips; Android test Kotlin compiled.
+- Android module milestone: 15 unit tests passed, zero failures/errors/skips; lint no issues.
+  Native request context + bounded top-frame JS/API data, navigation generations, two-sample
+  playback evidence, DRM refusal and main-thread WebView boundary. App wiring not yet present.
+- Module checkpoint: `22d1ff6c94a4a69c8608e02342feb5b9b4ae5ee0`. A later sandbox reset
+  discarded unpushed wiring; the exact authored patches were recovered from session events.
+- App wiring checkpoint: `eddfa48b73655a28610430b62cb9f8b6ccedc89e`.
+  Initial full app-wiring validation passed: Android module 18 tests; app 826 cases, zero
+  failures/errors, 66 existing skips; both lints passed; four Android test methods compiled.
+  Opt-in debug/test flags true, release flag false. Command used `-Pyft.masterCapture=true`
+  and the Android module/app unit tests, lint, Android test compile and release BuildConfig.
+- Follow-on hardening: production focus-probe identity guard, GET-only observed media replay,
+  known VAST preview-veto forwarding. Code checkpoint `1e15d0f4f30b327ff9d2cd7ee3ed69e58c4374b4`.
+  Final offline run: 1,422 cases, zero failures/errors, 67 existing/optional skips; Android module
+  21, app 826. JS 11 and repository script 30 tests passed. Both lints have zero errors; app lint
+  has 96 dependency/API/vector warnings. Debug/test opt-in true, release false.
+- Internal x86_64 debug/test APKs built. First actual API 29 software-emulator run: paused
+  preload, navigation/disposal and DRM refusal passed; playback success returned NeedsPlayback.
+  Test-only change waits for read-only evidence that the actual user tap started playback,
+  rather than a fixed 500 ms delay, and asserts collector installation. Repeat run pending.
+  Production capture budgets and authorization rules unchanged.
+- Readiness-only device retest: 2/4 passed; DRM waited unnecessarily for playback; positive
+  playback reached readiness but capture still returned NeedsPlayback. Current follow-on uses
+  a 10-second neutral fixture, taps its actual visible control, and binds the collector once
+  per lookup. DRM must refuse probing even without playback. The 2.5-second capture deadline
+  and two-sample authorization remain unchanged. Build/device validation pending.
+- Optimization/fixture checkpoint: `b07bd5d2c05ebc2660f3c9431bd13e648e82ce50`.
+  Android module 21 tests passed; debug APK assembled. The combined build stopped because
+  app unit-test lint's Kotlin FIR resolver crashed on unchanged AppIdentityTest.kt (RAW_FIR
+  to TYPES), not a reported app lint violation. Test APK/final app-unit execution unfinished.
+  Next attempt separates compile/test assembly from lint and uses one Gradle worker, with
+  every lint check still enabled.
+- Serial retry passed without disabling checks: app unit tests 826 cases, zero failures/errors,
+  66 existing skips; Android module 21 passed. Internal app/test APKs rebuilt. Fresh module/app
+  lint passed with zero errors/fatal issues, zero module warnings and 96 app dependency/API/vector
+  warnings. Debug opt-in true and release false. Code under validation remains `b07bd5d`.
+- Current rebuilt-code device run: 3/4 passed (paused preload, navigation/disposal, DRM refusal).
+  Positive playback stopped before capture because WebView 74 did not expose the fixture button
+  through UiSelector text. No green positive-capture claim. Test now measures its known visible
+  DOM button rectangle and injects a real screen tap; no JavaScript play/seek/evidence forgery.
+  Production code remains `b07bd5d`; only test code/docs changed. Rebuild/retest pending.
+- Recovery retest after another sandbox restore: recovered exact branch `57a0654`, plus the
+  matching internal app/test APK session backups. Restored API 29 x86_64 / WebView 74.0.3729.185.
+  The unchanged full class again passed 3/4 and failed before capture at user-playback readiness;
+  the positive case alone passed `OK (1 test)`. Full-class logcat records SystemUI/input-channel
+  failure and an ANR window during the positive test. This is observed interference, not proof
+  that test ordering is the sole cause. JS transport 11/11 and repository scripts 30/30 passed.
+- Current test-only repair explicitly removes the fixture composition and verifies WebView/
+  capture-scope disposal before activity teardown. It waits for visible native window focus
+  before the one actual screen tap, and separately checks that a trusted click reached the
+  fixture. That receipt is not playback authorization. Production files, 2.5-second capture
+  deadline, two-progress-sample requirement, DRM refusal and navigation guards are unchanged.
+  Harness checkpoint `0a3416746232e5f48ac3e8913c3064727519f422` compiled successfully:
+  module 21/21 passed, internal x86_64 app/test APKs assembled, debug/test capture flags true,
+  release false. The guarded full class passed 3/4 and refused the tap because native window
+  focus never arrived; the same guarded positive case alone also refused while the dialog
+  remained. WindowManager and a screenshot directly confirmed the foreground window was
+  "Application Not Responding: com.android.systemui", not the fixture. Native Wait cleared it.
+  A subsequent repeat stopped before instrumentation because API 29 logcat could not clear
+  its main buffer; that diagnostic-only action is now bounded/best-effort, not a pass criterion.
+  After focus was restored, the unchanged full class reached trusted user playback but the
+  positive case returned NeedsPlayback (capture elapsed 2,949 ms); 3/4 passed. The identical
+  positive case alone then passed. Decoder creation and skipped frames are recorded in logcat;
+  emulator load/test readiness remain under investigation, not an established production fix.
+  Reduced-load repeats (480x854, density 240, identical APKs) produced `OK (4 tests)` once;
+  the next full class passed 3/4 with NeedsPlayback (capture elapsed 3,660 ms). Logs/metadata:
+  `lowres-1` and `lowres-2` under `/data/tmp/master-android/`. This is one aggregate pass, not
+  two consecutive passes and not a stable device-green claim.
+- Current follow-on is test readiness only: after the actual trusted tap, wait for at least
+  0.5 seconds of naturally observed video progress with future decoded data, handling the real
+  fixture loop. It never plays/seeks by instrumentation JS, changes currentTime, or feeds those
+  reads into session.accept. Production capture must still independently collect two fresh
+  progress samples within its unchanged 2.5-second timeout. Harness checkpoint `3acfd4f8`
+  compiled successfully. Before the following sandbox reset, the fresh full offline suite
+  passed 1,422 cases with zero failures/errors and 67 skips; JS 11/11 and repository scripts
+  30/30 passed. Both lints had zero errors/fatal issues, zero module warnings, 96 app warnings.
+  Debug/test capture was true and release false. These are verified previous-run results,
+  not a claim that restored tools reran the suite.
+  A subsequent device attempt stopped before tests: SystemUI ANR owned focus after boot and
+  the test APK update timed out. Temporary `wm size` did not persist on reboot. The next
+  attempt uses permanent 480x854/density 240 AVD hardware and 1,536 MiB guest RAM instead of
+  1,024 MiB, without Gradle/emulator overlap or changes to production security.
+  Another restore discarded the local workspace/tools; source was recovered at `3acfd4f8`
+  and the already-built internal app/test APK session backups were restored and SHA-256 checked.
+  App APK SHA-256: fa421fad73f356a770d1143044346189c01773ffe522d8f628738b9f796d417d.
+  Test APK SHA-256: 7e5f0e3e8d2dc9204bbecbe4e50167e6050e49b759ca4f62b76dea4488d1d39d.
+  Aggregate repeats remain PENDING; do not finalize on the earlier single 4/4 pass.
+- Latest restore (2026-10-09): old-session APK/runner attachments were unavailable in this
+  new chat. Cloned and verified `23f0c7e`; only the two documentation files differ from
+  `3acfd4f8`, and production remains byte-identical to `b07bd5d2`. Rebuilt the x86_64 debug/test
+  pair with `-Pyft.masterCapture=true`, Java 17 and SDK 35. Gradle build succeeded; APK archival
+  uses the signed package-task outputs under `app/build/intermediates/apk/`. Fresh module unit
+  tests 21/21, JS transport 11/11 and repository scripts 30/30 passed. Debug capture is true;
+  release is false. The earlier 1,422-case/lint totals remain previous-run evidence.
+  New app SHA-256: 1ba2334f1c4d7bff4c3118d08e2485540115f22275a5d666d39beca46373c90c.
+  New test SHA-256: bb27795923ebb6148476dd583268e8418d267923f39618fc8961677608fb4ce4.
+  Matching debug certificate SHA-256: 369d93b78f43a8252d45de7200e1173748bc55339cb88f3a3947cb4d0156b172.
+  Restored the strict local runner: explicit APK paths, installed-byte SHA comparison before
+  skipping reinstall, native ANR/focus rejection and exact `OK (4 tests)` aggregate criteria.
+  Targeted GitHub secret scanning was unavailable (Advanced Security is not enabled); the
+  equivalent local sensitive-path/added-line secret checks passed. No security setting changed.
+  Permanent AVD hardware is 480x854/density 240, RAM 1,536 MiB, two cores; cold boot is pending
+  preflight completion, without Gradle/emulator overlap. No restored device test has started.
+- Additional owner request: read-only P40 review at main `69bf022`. Latest TikTok branch
+  `1c4206e` is already included there; CI runs 37886371700, 37886371675 and 37886371676 were
+  queried directly and all report success for `ce04711`. P40 collects TikTok page/API data,
+  not the Master's native-Play/two-progress-sample proof. No TikTok or main code was changed.
+- Android finalization (2026-10-09): after the following reset, the same chat's saved APKs,
+  manifest and strict runner were recovered without rebuilding. Both APK SHA-256 values and
+  shared certificate matched the new-chat rebuild above; source stayed at `dbeee695`, with the
+  unchanged `3acfd4f8` harness. Fresh JS transport 11/11 and repo scripts 30/30 passed again.
+  API 29 x86_64 / WebView 74.0.3729.185 booted at 480x854, density 240, RAM 1,536 MiB, two
+  software-emulated cores. Device-side screencap/pull produced a valid 122,310-byte PNG of the
+  SystemUI ANR; the inspected native Wait action restored Launcher focus, confirmed by
+  WindowManager and a valid 191,958-byte screenshot. The focus guard was not weakened.
+  The exact same signed APK pair then passed two consecutive complete four-test classes:
+  `restored-pair1-1`: `OK (4 tests)`, JUnit 103.893 s (instrumentation wall 127 s);
+  `restored-pair1-2`: `OK (4 tests)`, JUnit 78.278 s (instrumentation wall 94 s).
+  Before/after installed APK bytes matched; the second run skipped reinstall only after its
+  hashes matched. Both metadata files identify the same source, harness, APKs and signer.
+  The positive fixture used its actual native tap, trusted-click receipt and sustained natural
+  playback; production collected its own fresh progress samples. No JS play/seek invocation
+  by instrumentation or forged playback evidence was added. Paused preload, DRM refusal and
+  navigation/disposal-generation cases also passed in both aggregates.
+  Portable APK/runner/setup/gate evidence backups were saved in this session. Production code,
+  the 2.5-second capture budget, independent progress authorization, DRM and navigation guards
+  remain unchanged. This proves the offline Android fixture gate only: no Master CI green,
+  live Instagram/X support, full TLS/download/mux or merge readiness claim.
+- Public live preflight (2026-10-09): owner expanded the read-only matrix to Instagram, X,
+  Facebook, YouTube, TikTok, Reddit, Vimeo, Dailymotion and Threads. All nine public pages
+  were rendered without signing in; no bot/age/DRM restriction was bypassed. This is desktop
+  browser observation, not Android WebView or final Master-engine/download validation.
+  The exact unmodified capture asset (SHA-256
+  13fefa36d643ea2b339d8db5a8c0de6c0f57b2cd3d5a098240831fc4fe0817dc) was exercised:
+  Instagram native player-surface click resumed visible natural playback, 720x1280/readyState 4.
+  Fresh collector samples advanced 0.444536 -> 0.802345 s in 360.7 ms; generation 1, no DRM,
+  60 request observations and eight bounded payload observations. Earlier autoplay was
+  1080x1920; these are adaptive displayed sizes, not a proved downloadable rendition list.
+  The Instagram diagnostic click listener missed the separate overlay ancestor and recorded
+  zero receipts; the actual browser-native click occurred. That zero was not rewritten.
+  X main-video native Play produced one trusted receipt; 720x1280/readyState 4 progressed
+  10.880927 -> 11.232045 s in 352.6 ms, generation 1, no DRM. This resumed buffered playback:
+  zero new request/payload observations. The offscreen 320x568 recommendation was excluded.
+  Both bounded observations fit 2.5 seconds, but neither invoked the full Master engine or
+  its independent HTTPS-prefix validator. Both clips were natively paused and hooks disposed.
+  TikTok's public NASA clip rendered an active visible 720x1280 video (26.166 s); the paused
+  offscreen recommendation was excluded. P40/native-Play Master capture is not yet verified.
+  Facebook rendered a public 20.921-s 1280x720 HTTPS video, explicitly an ISS teaser; it is
+  not full-length/4K/main-video proof. A non-teaser NASA sample was discovered for follow-up.
+  YouTube required sign-in to confirm the browser was not a bot; Reddit showed Prove your
+  humanity. These are access limitations in this environment, not universal incompatibility.
+  Vimeo rendered a video placeholder with readyState 0; Dailymotion exposed an iframe player;
+  Threads rendered the public caption without a top-frame video. Those playback/capture paths
+  remain unverified, rather than being declared supported or unsupported.
+  Sanitized summaries retain only page URLs, dimensions, states, counts and media hosts;
+  no cookies, signed CDN URLs or raw API response bodies were exported.
+- Multi-resolution feasibility: delivered progressive/HLS/DASH variants can be collected;
+  absent 240p/360p/480p/720p/1080p variants cannot be invented from one MP4. Existing readers
+  cover Instagram versions, X variants, YouTube formats, Facebook DASH and TikTok bitrateInfo.
+  TikTok nested PlayAddr Width/Height still needs reviewed dimension mapping/tests before
+  precise rendition labels; portrait sizes must not be mislabeled from height alone.
+  No production quality mapping/transcoding/download change was made under the frozen scope.
+- Stdin-only live harness milestone (2026-10-09): recompiled 46 unchanged pure production
+  sources, including CaptureFrameReader, MasterBrowserSession, MasterFallbackEngine and the
+  real OkHttpMediaValidator, with repo Kotlin 2.0.21 / Java 17. All 46 files were byte-compared
+  to b07bd5d2 and matched. Thirteen Maven artifacts were checked against published hashes.
+  A missing compiler-host annotation dependency was fixed only in the sandbox classpath.
+  No Gradle/app/production/CI file changed. This is an internal diagnostic, not a new APK
+  or full Android WebView caller test. Its recoverable RESPONSE_CHANGED input is test-only.
+  Raw collector packets and original monotonic sample times pass over stdin to the unchanged
+  production frame reader/session. No manual store.playing authorization, JS play/seek,
+  altered frame time, fake playing address or persisted packet/body/cookie is used.
+  Native Pause -> Play and read-only natural readiness precede a fresh <=2.5-second capture;
+  readiness reads are not submitted to session.accept. Visible optional login-teaser Close
+  is dismissed natively, never by bypassing an overlay or signing in.
+  Instagram repeated native resume produced one trusted receipt and 1080x1920/readyState 4.
+  Fresh samples advanced 1.609261 -> 1.966620 s in 359.8 ms, generation 1, no DRM.
+  Real production session accepted two raw frames: authorizedPlayback=true, 68 bounded
+  requests and eight payloads. Real Master ran for 111 ms and returned NEEDS_SELECTION with
+  the diagnostic's requested public shortcode Dcwk7e1yHaY. It refused to guess: zero probes,
+  validated candidates, TLS handshakes or body bytes. This proves live capture/session
+  authorization and engine selection refusal, NOT extraction success, HTTPS prefix,
+  Android caller integration or full download. Inspect actual caller expected-ID/focus
+  mapping before interpreting this refusal; do not delete an expected ID or weaken selection.
+  TikTok native main-surface Pause was observed at 720x1280/readyState 4. The first diagnostic
+  stopped at native_resume_not_observed; after test-only tap spacing/actual-resume waiting,
+  another attempt timed out before capture at decoded-player readiness (25 s). Neither
+  supplied live frames to the engine. P40/live Master Play-and-Capture proof remains pending.
+  Facebook's second non-teaser-caption NASA sample (1414737229683186) rendered 640x360,
+  duration metadata 83.283 s, readyState 4. Native Pause selection stopped the diagnostic.
+  Inspection found a visible role-button named Play video, not Pause. Activate it natively
+  and inspect the resulting controls before retrying; this is not full-play/download proof.
+  Compiled classes, verified runtime, driver, source hashes and sanitized failures were
+  backed up as session files. The passed same-APK two-run Android gate remains unchanged.
+- Caller-faithful live diagnosis (2026-10-09): the actual app factory registers TikTok,
+  Facebook, Vimeo and YouTube only. Their four unchanged URL helpers were compiled with the
+  existing harness (50 unchanged production files). Runtime probes returned no registry
+  match/expected ID for Instagram or X, TikTok ID 7670337149526379789 and Facebook ID
+  1414737229683186. This parameter now comes from those production delegates, not removal
+  of a requested ID to force success. Runtime flags/full Android caller remain unverified.
+
+  Instagram generic mode: actual native Pause/Play, one trusted receipt, decoded 1080x1920,
+  readyState 4. Fresh samples 2.277588 -> 2.633725 s in 357.9 ms. Session authorized playback
+  with 71 requests/eight payloads. Unchanged reader discovered 71 candidates, zero MAIN-role
+  candidates/groups and no secure playing address (blob). Real Master returned NEEDS_SELECTION
+  in 59 ms. Zero probes, TLS handshakes, body bytes or validated candidates. The measured
+  limitation is focused-address/main-role correlation, not absent or fabricated playback.
+  No playing address or MAIN role was invented; no Instagram extraction/download pass.
+  The earlier manual-shortcode result remains a separate diagnostic, not actual caller policy.
+
+  Facebook screenshot and accessibility confirmed the optional See more on Facebook login
+  teaser over the public video. The apparent Play video was aria-hidden fallback, correctly
+  not clicked. The real Close is dismissible natively. Subsequent native Pause actionability
+  still timed out; no FB live packets/engine proof. No sign-in or force-click was attempted.
+  Source/compiled runtime, caller probe and sanitized results are backed up. Production,
+  existing extractors, downloads, CI and security guards remain unchanged. TLS/full download,
+  mux, all resolutions, Android live caller, Master CI green and merge readiness are unverified.
+- Native public-player diagnostic checkpoint (2026-10-09): test-only native mouse hover
+  resolved Facebook's hidden playback controls after the optional login teaser was closed
+  normally. No force-click, login, JS play/seek, fabricated MAIN role or fake playing URL.
+  The observer now forwards every actually observed native GET response, without a media-MIME
+  prefilter; unchanged production MasterBrowserSession performs its own URL classification.
+
+  Facebook NASA 1414737229683186: actual native Pause/Play, one trusted receipt, 640x360,
+  readyState 4, sourceObjectType=MediaSourceHandle, no currentSrc/src address. Fresh samples
+  2.871860 -> 3.225809 s in 355.4 ms, generation 1, protected=false. Production authorized
+  playback and accepted eight payloads but zero media requests/candidates. Real Master returned
+  NEEDS_PLAYBACK in 30 ms; zero probes/TLS/body bytes. Here the result does NOT mean playback
+  was absent: no usable media address reached this page-level producer. Worker/opaque-handle
+  coverage remains unverified; do not invent a URL or declare universal FB incompatibility.
+
+  TikTok NASA 7670337149526379789: native Pause/Play, one trusted receipt, 720x1280/readyState 4,
+  blob source. Fresh samples 3.766892 -> 4.196915 s in 434.6 ms, generation 1, protected=false.
+  Production authorized playback, accepted three media requests/eight payloads and discovered
+  three candidates, zero MAIN-role candidates/groups, no secure playing address. Real Master
+  returned NEEDS_SELECTION in 38 ms; zero probes/TLS/body bytes. This is genuine live capture
+  and a safe selection refusal, not a Master extraction pass or a latest-P40 app/phone proof.
+
+  X's fresh caller-faithful repeat reached native Play selection but stopped before capture
+  when actual unpaused/decoded readiness did not arrive within ten seconds. Its earlier
+  native-click/two-progress desktop collector proof remains valid; no new live-engine pass.
+  YouTube/Reddit public access gates and Vimeo/Dailymotion/Threads unverified player paths
+  remain as recorded in the nine-site preflight. No supported/unsupported blanket claim.
+  The untouched producer's focus/address/MAIN-role limitations are recorded, not bypassed.
+  Production changes to address those limits are outside the frozen scope. The same-APK
+  Android two-pass gate remains passed. Default/release capture, 2.5-s bound, separate progress,
+  DRM and generation checks, existing extractors, downloads and CI remain unchanged. No TLS
+  media-prefix, full download/mux, all-quality, Master CI-green or merge-readiness claim.
+- Next: complete native-play observation for the remaining accessible public players, then
+  continue the recovered test-only harness through focus selection/HTTPS-prefix checks.
+  Keep bot/login/private/DRM failures terminal and distinguish teaser/iframe/MSE limitations.
+  TLS/full download/mux, all-resolution coverage, Master CI green and merge readiness remain
+  unverified. Run builds and emulator separately. Main/Phase 15/TikTok code remains untouched.
+  No merge, tag, release or owner-phone APK handout approval.
+
 Phase 15 runs three agents at the same time. **Each agent edits only its own section below**
 (`## Agent A …`, `## Agent B …`, `## Agent C …`); `## Overview` belongs to the plan and to P44.
 Keep at least the heading and one blank line between sections, so Git merges them cleanly.

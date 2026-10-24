@@ -1,0 +1,4 @@
+{"itemList":[
+ {"id":"7400000000000000001","desc":"main clip","video":{"id":"v-a","width":720,"height":1280,"duration":12,"format":"mp4","playAddrNew":"https://v16-webapp.example-cdn.test/video/tos/main/?mime_type=video_mp4","coverNew":"https://p16.example-cdn.test/obj/main-cover"}},
+ {"id":"7400000000000000002","desc":"next clip","video":{"id":"v-b","width":720,"height":1280,"duration":30,"format":"mp4","playAddrNew":"https://v16-webapp.example-cdn.test/video/tos/next/?mime_type=video_mp4"}}
+]}

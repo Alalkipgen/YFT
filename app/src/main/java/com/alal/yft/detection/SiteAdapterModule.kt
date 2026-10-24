@@ -4,6 +4,8 @@ import android.content.Context
 import android.webkit.WebSettings
 import com.alal.yft.BuildConfig
 import com.alal.yft.core.browser.policy.BrowserUserAgent
+import com.alal.yft.detection.master.SocialLadder
+import com.alal.yft.detection.master.YouTubeRouteB
 import com.alal.yft.detection.potoken.BotGuardPoTokenProvider
 import com.alal.yft.detection.script.WebViewSolverEngine
 import com.alal.yft.detection.script.YouTubePlayerScriptRunner
@@ -16,6 +18,15 @@ import com.alal.yft.extractor.api.PoTokenProvider
 import com.alal.yft.extractor.api.SiteAdapterFlags
 import com.alal.yft.extractor.api.SiteExtractor
 import com.alal.yft.extractor.api.SiteExtractorRegistry
+import com.alal.yft.extractor.master.android.solver.OwnSolverAppBreaker
+import com.alal.yft.extractor.master.android.solver.WebViewOwnSolverEngine
+import com.alal.yft.extractor.master.android.solver.WebViewPageSolverEngine
+import com.alal.yft.extractor.master.modules.youtube.YouTubeSignatureGuard
+import com.alal.yft.extractor.master.solver.AtomicTextFile
+import com.alal.yft.extractor.master.solver.OwnPlayerScriptRunner
+import com.alal.yft.extractor.master.solver.OwnSolverLocators
+import com.alal.yft.extractor.master.solver.OwnSolverVLedger
+import com.alal.yft.extractor.master.solver.OwnSolverSelection
 import com.alal.yft.extractor.sites.facebook.FacebookExtractor
 import com.alal.yft.extractor.sites.instagram.InstagramExtractor
 import com.alal.yft.extractor.sites.tiktok.TikTokAgents
@@ -28,6 +39,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import java.io.File
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -42,10 +54,17 @@ import okhttp3.OkHttpClient
 @Module
 @InstallIn(SingletonComponent::class)
 object SiteAdapterModule {
+    /**
+     * The client the site adapters share. Phase 1.4 item 7 (YouTube routing B) R1: in a route-B
+     * build (`-Pyft.youtubeRouteB`, debug only) it records each lookup's requests; otherwise it is
+     * the plain client. Social plan S1a (2): in a social-ladder build (`-Pyft.socialLadder`, debug
+     * only) it records them and keeps main's pages too ([SocialLadder.mainClient]); flag off: as
+     * before.
+     */
     @Provides
     @Singleton
     fun provideExtractorHttpClient(client: OkHttpClient): ExtractorHttpClient =
-        OkHttpExtractorClient(client)
+        SocialLadder.mainClient(client)
 
     @Provides
     @Singleton
@@ -65,22 +84,57 @@ object SiteAdapterModule {
      * The YouTube player-script host.
      *
      * Player scripts are larger than adapter pages, so they get their own client with a longer
-     * call timeout; every other transport rule is the same.
+     * call timeout; every other transport rule is the same. Master Phase 1.1 S5: with both
+     * opt-in flags on (`-Pyft.ownSolver`, `-Pyft.masterCapture`) Master's own solver runs instead
+     * of the bundled ejs solver; otherwise this is main's runner, built exactly as on main. Phase
+     * 1.4 item 7 (YouTube routing B): in a route-B build (`-Pyft.youtubeRouteB`, debug only) the
+     * player client follows route B's rules in a route-B run and marks a 429 in the lookup's record
+     * (`YouTubeRouteB.scriptClient`); otherwise it is the plain client.
      */
     @Provides
     @Singleton
     fun providePlayerScriptRunner(
         @ApplicationContext context: Context,
         client: OkHttpClient,
-    ): PlayerScriptRunner = YouTubePlayerScriptRunner(
-        http = OkHttpExtractorClient(
-            client = client,
-            policy = OkHttpExtractorClient.Policy(
-                callTimeoutSeconds = PLAYER_FETCH_TIMEOUT_SECONDS,
+    ): PlayerScriptRunner {
+        val http = YouTubeRouteB.scriptClient(
+            OkHttpExtractorClient(
+                client = client,
+                policy = OkHttpExtractorClient.Policy(
+                    callTimeoutSeconds = PLAYER_FETCH_TIMEOUT_SECONDS,
+                ),
             ),
-        ),
-        engine = WebViewSolverEngine(context),
-    )
+        )
+        return OwnSolverSelection.runner(
+            ownSolver = BuildConfig.OWN_SOLVER_ENABLED,
+            masterCapture = BuildConfig.MASTER_CAPTURE_ENABLED,
+            own = {
+                OwnPlayerScriptRunner(
+                    http = http,
+                    engine = WebViewOwnSolverEngine(context),
+                    // Phase 1.2 N5b: the ladder only with -Pyft.ownSolverNext (debug builds). A.4/A.5:
+                    // the locator cache and the V ledger in app-private files (data only; each
+                    // file is found on first use, off this thread).
+                    next = if (BuildConfig.OWN_SOLVER_NEXT_ENABLED) {
+                        OwnPlayerScriptRunner.Next(
+                            page = WebViewPageSolverEngine(context),
+                            // N7: the breaker the debug build's owner canary shares (one per process).
+                            breaker = OwnSolverAppBreaker.get(context),
+                            locators = OwnSolverLocators(
+                                AtomicTextFile { File(context.filesDir, OWN_SOLVER_LOCATORS_FILE) },
+                            ),
+                            ledger = OwnSolverVLedger(
+                                AtomicTextFile { File(context.filesDir, OWN_SOLVER_V_LEDGER_FILE) },
+                            ),
+                        )
+                    } else {
+                        null
+                    },
+                )
+            },
+            main = { YouTubePlayerScriptRunner(http = http, engine = WebViewSolverEngine(context)) },
+        )
+    }
 
     /**
      * The YouTube proof-of-origin host (ADR-006).
@@ -115,19 +169,24 @@ object SiteAdapterModule {
     ): List<SiteExtractor> = listOf(
         // P39 (TT_AGENT=CHROME, TT_HOME_COOKIES=ON): TikTok's pages are asked with the WebView's
         // own agent and desktop Chrome, and a short link's redirect cookies reach its page.
+        // Social plan S2b: in a social-ladder build its asks and pages are kept in the lookup
+        // (TikTok's ladder reads them, T2); flag off: today's client.
         TikTokExtractor(
-            http = OkHttpExtractorClient(
-                client = client,
-                policy = OkHttpExtractorClient.Policy(sendResponseCookies = true),
-            ),
+            http = SocialLadder.tiktokClient(client),
             agents = TikTokAgents(webViewAgent = WebViewAgent(context)::get),
-            // P46 (owner's choice B, TT_SERVICE=ON): the public download service when
-            // TikTok's own pages give no file; only the post's address goes there.
-            askDownloadService = true,
+            // Decision 22 (the owner, 2026-10-22; P46's choice B reversed, TT_SERVICE=OFF): the
+            // public download service (tikwm.com) is never asked, flag off and on alike; a post
+            // TikTok's own pages and the hidden page give no file fails with TikTok's own reason.
+            // Back on only on the owner's go (MASTER_KEY_SOCIAL_PLAN.md section 8, decision 22).
+            askDownloadService = false,
         ),
         FacebookExtractor(http),
         VimeoExtractor(http),
-        YouTubeExtractor(http, playerScripts, poTokens),
+        // Phase 1.2 N5b A.8: with the own solver (ownSolver, with or without ownSolverNext) its
+        // signatures are used only after the live check V; main's runner gets the reader as is.
+        YouTubeSignatureGuard.guard(http, playerScripts) { runner ->
+            YouTubeExtractor(http, runner, poTokens)
+        },
         // P48: X's public embed answer for a post's video (whole MP4 files with sound).
         XExtractor(http),
         // P49: Instagram's own answers (app API when signed in, GraphQL, page, embed page).
@@ -163,6 +222,10 @@ object SiteAdapterModule {
 
     private const val YOUTUBE_ADAPTER_ID = "youtube"
     private const val PLAYER_FETCH_TIMEOUT_SECONDS = 60L
+
+    /** N5b A.4/A.5 (ownSolverNext only), under `filesDir`: data only, never code. */
+    private const val OWN_SOLVER_LOCATORS_FILE = "own-solver/locators.json"
+    private const val OWN_SOLVER_V_LEDGER_FILE = "own-solver/v-ledger.json"
 }
 
 /** The WebView's own user agent (the tab's, without the WebView marks), read once on Main. */

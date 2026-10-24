@@ -775,7 +775,35 @@ class DownloadQueue(
         result: QueueTransferResult.Failure,
     ) = gate.withLock {
         val current = taskLocked(id) ?: return@withLock
-        val needsRefresh = result.failure.reason in REFRESH_FAILURES
+        val now = clock()
+        val plan = runtimeTasks[id]?.plan
+        // Item 7 Track B1: YouTube refusing a link with time left on it is not an expired link.
+        val reported = if (
+            plan != null && GoogleVideoLinkFacts.refusedWithTimeLeft(plan, result.failure, now)
+        ) {
+            result.failure.copy(reason = DownloadFailureReason.YOUTUBE_REFUSED)
+        } else {
+            result.failure
+        }
+        val needsRefresh = reported.reason in REFRESH_FAILURES
+        // F6 (debug spike): a YouTube media link's facts lead the details, without the link.
+        val failure = plan
+            ?.let { known ->
+                GoogleVideoLinkFacts.describe(
+                    plan = known,
+                    nowEpochMs = now,
+                    downloadedBytes = result.checkpoint.downloadedBytes,
+                    ageMs = now - current.createdAtEpochMs,
+                )
+            }
+            ?.let { facts ->
+                reported.copy(
+                    detail = DownloadFailureDetails.sanitize(
+                        listOfNotNull(facts, reported.detail).joinToString("; "),
+                    ),
+                )
+            }
+            ?: reported
         val checkpointTotal = (result.checkpoint as? DirectTransferCheckpoint)?.totalBytes
         val failed = current.copy(
             status = if (needsRefresh) {
@@ -790,10 +818,10 @@ class DownloadQueue(
                 },
             downloadedBytes = result.checkpoint.downloadedBytes,
             requiresLinkRefresh = needsRefresh,
-            failureReason = result.failure.reason,
-            failure = result.failure,
+            failureReason = failure.reason,
+            failure = failure,
             checkpoint = result.checkpoint,
-            updatedAtEpochMs = clock(),
+            updatedAtEpochMs = now,
         )
         if (needsRefresh) runtimeTasks.remove(id)
         saveAndPublishLocked(failed)
@@ -860,6 +888,8 @@ class DownloadQueue(
             DownloadFailureReason.AUTHENTICATION_REQUIRED,
             DownloadFailureReason.ACCESS_DENIED,
             DownloadFailureReason.GONE,
+            // Track B1: the refused link stays refused; a fresh lookup gives a new one.
+            DownloadFailureReason.YOUTUBE_REFUSED,
         )
     }
 }

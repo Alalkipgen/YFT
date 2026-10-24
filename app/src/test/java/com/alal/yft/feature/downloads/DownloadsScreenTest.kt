@@ -30,6 +30,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.alal.yft.core.download.DownloadDestinationKind
@@ -318,8 +319,48 @@ class DownloadsScreenTest {
         composeRule.onAllNodesWithTag("download-menu-details-f").assertCountEquals(0)
     }
 
+    /**
+     * F6: a download whose link expired or was refused offers its details too, with the
+     * reason, the HTTP status and the link's facts, from its button and from its menu.
+     */
     @Test
-    fun onlyAFailedTaskOffersDetails() {
+    fun aTaskThatNeedsAFreshLinkOffersItsDetails() {
+        setScreen(
+            DownloadsUiState(
+                listOf(
+                    row(
+                        id = "r",
+                        status = DownloadTaskStatus.NEEDS_REFRESH,
+                        downloaded = 0,
+                        total = null,
+                        progressPercent = 0,
+                        requiresLinkRefresh = true,
+                        failureReason = DownloadFailureReason.ACCESS_DENIED,
+                    ).copy(
+                        failure = DownloadFailure(
+                            reason = DownloadFailureReason.ACCESS_DENIED,
+                            httpStatusCode = 403,
+                            stage = DownloadFailureStage.CONNECT,
+                            detail = "WEB itag 18 · pot no · sig yes · ends 352 min (app 352)",
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        composeRule.onNodeWithTag("download-failure-details").performClick()
+
+        composeRule.onNodeWithTag("download-failure-text", useUnmergedTree = true)
+            .assert(hasText("HTTP status: 403", substring = true))
+            .assert(hasText("Detail: WEB itag 18 · pot no · sig yes", substring = true))
+        composeRule.onNodeWithTag("download-failure-close").performClick()
+        composeRule.onNodeWithTag("download-r").performClick()
+        composeRule.onNodeWithTag("download-menu-details-r").performClick()
+        composeRule.onNodeWithTag("download-failure-dialog").assertIsDisplayed()
+    }
+
+    @Test
+    fun onlyAFailedOrRefreshTaskOffersDetails() {
         setScreen(
             DownloadsUiState(
                 listOf(
@@ -359,10 +400,108 @@ class DownloadsScreenTest {
             .assertIsDisplayed()
         composeRule.onNodeWithTag("downloads-pause-all").assertIsNotEnabled()
         composeRule.onAllNodesWithTag("download-action-retry-old").assertCountEquals(0)
+        // Item 7 Track B3: Reset YouTube session is offered on a YouTube refusal only.
+        composeRule.onAllNodesWithTag("download-reset-youtube-old").assertCountEquals(0)
 
         composeRule.onNodeWithTag("download-action-delete-old").performClick()
 
         assertEquals(listOf(DownloadAction.DELETE to "old"), actions)
+    }
+
+    /**
+     * Item 7 Track B1: YouTube refused the download while its link had time left: the row says
+     * so instead of "Link expired" and says what to try instead of "reopen the page"; it offers
+     * removal and its details, no Retry (B3 adds Reset YouTube session, tested below).
+     */
+    @Test
+    fun aYouTubeRefusalSaysWhatToTryInsteadOfLinkExpired() {
+        val actions = mutableListOf<Pair<DownloadAction, String>>()
+        setScreen(
+            DownloadsUiState(
+                listOf(
+                    row(
+                        id = "yt",
+                        status = DownloadTaskStatus.NEEDS_REFRESH,
+                        downloaded = 1_048_576,
+                        total = 27_000_000,
+                        progressPercent = 3,
+                        requiresLinkRefresh = true,
+                        failureReason = DownloadFailureReason.YOUTUBE_REFUSED,
+                    ).copy(
+                        failure = DownloadFailure(
+                            reason = DownloadFailureReason.YOUTUBE_REFUSED,
+                            httpStatusCode = 403,
+                            stage = DownloadFailureStage.CONNECT,
+                        ),
+                    ),
+                ),
+            ),
+            onAction = { action, id -> actions += action to id },
+        )
+
+        composeRule.onNodeWithText("YouTube refused").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Link expired").assertCountEquals(0)
+        composeRule.onNodeWithTag("download-refresh-note-yt", useUnmergedTree = true)
+            .assertIsDisplayed()
+            .assertTextEquals(YOUTUBE_REFUSED_HINT)
+        composeRule.onAllNodesWithText("Reopen the page in the browser to get a fresh link.")
+            .assertCountEquals(0)
+        composeRule.onAllNodesWithTag("download-action-retry-yt").assertCountEquals(0)
+        composeRule.onNodeWithTag("download-failure-details").performClick()
+        composeRule.onNodeWithTag("download-failure-text", useUnmergedTree = true)
+            .assert(hasText("What to do: $YOUTUBE_REFUSED_HINT", substring = true))
+        composeRule.onNodeWithTag("download-failure-close").performClick()
+
+        composeRule.onNodeWithTag("download-action-delete-yt").performClick()
+
+        assertEquals(listOf(DownloadAction.DELETE to "yt"), actions)
+    }
+
+    /**
+     * Item 7 Track B3: a download YouTube refused offers Reset YouTube session on its card and in
+     * its menu. It asks first: Cancel resets nothing, Reset resets once; no download changes.
+     */
+    @Test
+    fun aYouTubeRefusalOffersResetYouTubeSessionAfterAsking() {
+        val actions = mutableListOf<Pair<DownloadAction, String>>()
+        var resets = 0
+        setScreen(
+            DownloadsUiState(
+                listOf(
+                    row(
+                        id = "yt",
+                        status = DownloadTaskStatus.NEEDS_REFRESH,
+                        downloaded = 1_048_576,
+                        total = 27_000_000,
+                        progressPercent = 3,
+                        requiresLinkRefresh = true,
+                        failureReason = DownloadFailureReason.YOUTUBE_REFUSED,
+                    ),
+                ),
+            ),
+            onAction = { action, id -> actions += action to id },
+            onResetYouTubeSession = { resets += 1 },
+        )
+
+        composeRule.onNodeWithTag("download-reset-youtube-yt").assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag("download-reset-youtube-dialog").assertIsDisplayed()
+        composeRule.onNodeWithText("$RESET_YOUTUBE_LABEL?").assertIsDisplayed()
+        composeRule.onNodeWithText(YOUTUBE_RESET_QUESTION).assertIsDisplayed()
+        composeRule.onNodeWithTag("download-reset-youtube-cancel").performClick()
+        composeRule.onAllNodesWithTag("download-reset-youtube-dialog").assertCountEquals(0)
+        assertEquals(0, resets)
+
+        val labels = composeRule.onNodeWithTag("download-yt").fetchSemanticsNode()
+            .config[SemanticsActions.CustomActions]
+            .map { it.label }
+        assertTrue(labels.toString(), RESET_YOUTUBE_LABEL in labels)
+        composeRule.onNodeWithTag("download-yt").performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.onNodeWithTag("download-menu-reset-youtube-yt").performClick()
+        composeRule.onNodeWithTag("download-reset-youtube-confirm").performClick()
+
+        composeRule.onAllNodesWithTag("download-reset-youtube-dialog").assertCountEquals(0)
+        assertEquals(1, resets)
+        assertEquals(emptyList<Pair<DownloadAction, String>>(), actions)
     }
 
     @Test
@@ -682,6 +821,7 @@ class DownloadsScreenTest {
         todayStartEpochMs: Long = 0,
         mediaDetails: MediaDetailsSource = MediaDetailsSource.None,
         thumbnails: DownloadThumbnails = DownloadThumbnails.None,
+        onResetYouTubeSession: () -> Unit = {},
     ) {
         composeRule.setContent {
             YftTheme(themeMode = ThemeMode.LIGHT) {
@@ -697,6 +837,7 @@ class DownloadsScreenTest {
                         onPlay = onPlay,
                         onOpenSettings = onOpenSettings,
                         todayStartEpochMs = todayStartEpochMs,
+                        onResetYouTubeSession = onResetYouTubeSession,
                     )
                 }
             }

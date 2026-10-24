@@ -15,6 +15,9 @@ enum class StartLengthSource(val label: String) {
 
     /** A segment list without a total length. */
     NONE("none"),
+
+    /** A live-origin file read until the server has no more ([GrowingRead]). */
+    UNTIL_END("until the end"),
 }
 
 /**

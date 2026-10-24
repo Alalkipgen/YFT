@@ -191,6 +191,68 @@ class DownloadLabelsTest {
         }
     }
 
+    /** F6: a download whose link was never tried says so instead of an unknown reason. */
+    @Test
+    fun failureDetailsOfALinkNeverTriedSayWhy() {
+        val restored = row(DownloadTaskStatus.NEEDS_REFRESH).copy(requiresLinkRefresh = true)
+
+        val lines = failureDetailsText(restored, "1.0", "15", 35).lines()
+
+        assertEquals("Reason: $NOT_TRIED_REASON", lines[1])
+        assertEquals("Stage: \u2014", lines[2])
+        assertTrue(restored.showsFailureDetails)
+        assertFalse(row(DownloadTaskStatus.QUEUED).showsFailureDetails)
+        assertEquals(
+            "Reason: \u2014",
+            failureDetailsText(row(DownloadTaskStatus.FAILED), "1.0", "15", 35).lines()[1],
+        )
+    }
+
+    /**
+     * Item 7 Track B1: YouTube refused the download while its link had time left: not "Link
+     * expired"; the chip says YouTube refused it and Details say what to try.
+     */
+    @Test
+    fun aYouTubeRefusalIsNotAnExpiredLinkAndSaysWhatToTry() {
+        val refused = row(
+            DownloadTaskStatus.NEEDS_REFRESH,
+            plan = DownloadPlanType.AUDIO_VIDEO_MUX,
+            failure = DownloadFailureReason.YOUTUBE_REFUSED,
+        ).copy(
+            requiresLinkRefresh = true,
+            failure = DownloadFailure(
+                reason = DownloadFailureReason.YOUTUBE_REFUSED,
+                httpStatusCode = 403,
+                stage = DownloadFailureStage.CONNECT,
+                detail = "VISIONOS itag 134+140 \u00b7 ends 359 min (app 358); 403\u00d74 at 1 MiB",
+            ),
+        )
+
+        assertEquals(
+            DownloadStatusChip("YouTube refused", YftStatusTone.Failed),
+            statusChip(refused, TransferNetworkState.ALLOWED),
+        )
+        assertTrue(refused.isYouTubeRefusal())
+        assertTrue(refused.showsFailureDetails)
+        val lines = failureDetailsText(refused, "1.0", "15", 35).lines()
+        assertEquals("Reason: YouTube refused the download (YOUTUBE_REFUSED)", lines[1])
+        assertEquals("What to do: $YOUTUBE_REFUSED_HINT", lines[2])
+        assertEquals("Stage: Connecting to the server (CONNECT)", lines[3])
+        assertEquals("HTTP status: 403", lines[4])
+        assertFalse(YOUTUBE_REFUSED_HINT.contains("expired"))
+        // B3: the hint names Reset YouTube session before Clear browsing data, which signs out
+        // of every site.
+        val reset = YOUTUBE_REFUSED_HINT.indexOf("tap $RESET_YOUTUBE_LABEL")
+        assertTrue(YOUTUBE_REFUSED_HINT, reset >= 0)
+        val clear = YOUTUBE_REFUSED_HINT.indexOf("Clear browsing data")
+        assertTrue(YOUTUBE_REFUSED_HINT, reset < clear)
+        // Any other link that needs refreshing still says it expired, without the hint.
+        val expired = row(DownloadTaskStatus.NEEDS_REFRESH, failure = DownloadFailureReason.ACCESS_DENIED)
+        assertEquals("Link expired", statusChip(expired, TransferNetworkState.ALLOWED)?.text)
+        assertFalse(expired.isYouTubeRefusal())
+        assertFalse(failureDetailsText(expired, "1.0", "15", 35).contains("What to do"))
+    }
+
     @Test
     fun failureDetailsOfATaskSavedBeforeP21SayWhatIsNotKnown() {
         val old = row(

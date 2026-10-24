@@ -1,0 +1,218 @@
+package com.alal.yft.detection.master
+
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+/**
+ * Social plan task 14 (observation e): which words a social lookup's "needs playback" answer shows
+ * ([SocialLadder.playbackWords]): the playback words only when the tab shows a video or the site's
+ * answer names the post's video; a sign-in or age wall the sign-in words; else main's words.
+ * Task 15 (F2): a shape change's counts and marks never pick the playback words. Synthetic lines
+ * in each ladder's shape (words only; made-up keys), no lookup.
+ */
+class SocialPlaybackWordsTest {
+
+    @Test
+    fun anInstagramWallWithNoVideoAnywhereGetsTheSignInWords() {
+        // Slot 9's shape: main's GraphQL 401, the pages without post data, the rung's answer
+        // without the video.
+        val details = listOf(
+            "master: instagram ladder after LOGIN_REQUIRED; main's answers read, no new ask",
+            "master: instagram I2 main's GraphQL: LOGIN_WALL (status 401)",
+            "master: instagram I2 main's page: NEEDS_PLAYBACK (no post data in the page)",
+            "master: instagram I2: LOGIN_WALL (GraphQL: status 401); next: BROWSER",
+            "master: instagram probe: HTTP 200, 157 bytes; the post's video in the answer: no; " +
+                "a wall on the page: no; rows 0 (NEEDS_PLAYBACK: no post data in the page)",
+        )
+
+        val pick = SocialLadder.playbackWords(INSTAGRAM, details, tabVideo = false)
+
+        assertEquals(SocialLadder.WordsPick(SocialLadder.Words.SIGN_IN, "LOGIN_WALL; no video in the tab"), pick)
+        assertEquals(
+            "master: instagram words: sign-in (LOGIN_WALL; no video in the tab)",
+            SocialLadder.wordsLine(INSTAGRAM, pick),
+        )
+    }
+
+    @Test
+    fun anInstagramVideoNamedByTheEmbedPageOrTheRungGetsThePlaybackWords() {
+        // Slot 5's shape: the embed page names the video and lists no file (task 13, observation d).
+        val embed = listOf(
+            "master: instagram I2 main's GraphQL: LOGIN_WALL (status 401)",
+            "master: instagram I2 main's embed page: VIDEO_WITHOUT_FILES (a video, no files read)",
+            "master: instagram I2: LOGIN_WALL (GraphQL: status 401); next: BROWSER",
+        )
+        assertEquals(
+            SocialLadder.WordsPick(SocialLadder.Words.PLAYBACK, "the site's answer names the video: VIDEO_WITHOUT_FILES"),
+            SocialLadder.playbackWords(INSTAGRAM, embed, tabVideo = false),
+        )
+        // The rung read the post's video, and V kept none of its rows.
+        val rung = listOf(
+            "master: instagram I2: LOGIN_WALL (GraphQL: status 401); next: BROWSER",
+            "master: instagram probe: HTTP 200, 9000 bytes; the post's video in the answer: yes; " +
+                "a wall on the page: no; rows 0 (NEEDS_PLAYBACK: no post data in the page)",
+        )
+        assertEquals(
+            SocialLadder.WordsPick(SocialLadder.Words.PLAYBACK, "the site's answer names the video: the post's video in the answer: yes"),
+            SocialLadder.playbackWords(INSTAGRAM, rung, tabVideo = false),
+        )
+    }
+
+    @Test
+    fun anInstagramShapeChangeSaysWhatItReadAndKeepsTheWordsAsBefore() {
+        // Task 15 (F2): a shape change's counts and marks (the page's size, its documents, main's
+        // post, a video mark, the files) never pick the playback words: a wall still gets the
+        // sign-in words, as before.
+        val details = listOf(
+            "master: instagram I2 main's GraphQL: LOGIN_WALL (status 401)",
+            "master: instagram I2 main's page: SHAPE_CHANGED (a video, no files read; the page: 9000 characters; " +
+                "documents: 1; main's post: yes; a video mark: yes; files: 0)",
+            "master: instagram I2 main's embed page: SHAPE_CHANGED (no video read; the page: 228000 characters; " +
+                "documents: 1; main's post: yes; a video mark: no; files: 0)",
+            "master: instagram I2: LOGIN_WALL (GraphQL: status 401); next: BROWSER",
+        )
+        assertEquals(
+            SocialLadder.WordsPick(SocialLadder.Words.SIGN_IN, "LOGIN_WALL; no video in the tab"),
+            SocialLadder.playbackWords(INSTAGRAM, details, tabVideo = false),
+        )
+        // L3 (the retest of 2026-10-23): a page main's rule finds no post in is "needs playback"
+        // with what was read; it names no video, so the words stay as before (main's, no wall).
+        val noPost = listOf(
+            "master: instagram I2 main's page: NEEDS_PLAYBACK (no post data in the page, as main's rule reads it; " +
+                "the page: 9000 characters; documents: 1; main's post: no; a video mark: no; files: 0)",
+        )
+        assertEquals(
+            SocialLadder.WordsPick(SocialLadder.Words.MAINS, "no video in the tab"),
+            SocialLadder.playbackWords(INSTAGRAM, noPost, tabVideo = false),
+        )
+        // A JSON answer's shape change so too.
+        val json = listOf(
+            "master: instagram I2 main's GraphQL: SHAPE_CHANGED (a video, no files read; the answer: 1200 characters; " +
+                "the post: yes; a video mark: yes; files: 0)",
+        )
+        assertEquals(SocialLadder.Words.MAINS, SocialLadder.playbackWords(INSTAGRAM, json, tabVideo = false).words)
+    }
+
+    @Test
+    fun theRungsWallAndInstagramsNoPostGetTheirOwnWords() {
+        val wall = listOf(
+            "master: instagram I2: NEEDS_PLAYBACK (page: no post data in the page); next: PLAYBACK",
+            "master: instagram probe: HTTP 200, 4000 bytes; the post's video in the answer: no; " +
+                "a wall on the page: yes; rows 0 (LOGIN_WALL: a wall on the page: never read)",
+        )
+        assertEquals(
+            SocialLadder.Words.SIGN_IN,
+            SocialLadder.playbackWords(INSTAGRAM, wall, tabVideo = false).words,
+        )
+        // No post in the answer (removed, private or gated alike; decision 20 (ii)): main's words.
+        val noPost = listOf(
+            "master: instagram I2 main's GraphQL: NEEDS_PLAYBACK (no post in the answer: removed, private or gated alike)",
+            "master: instagram I2: NEEDS_PLAYBACK (GraphQL: no post in the answer: removed, private or gated alike); next: PLAYBACK",
+        )
+        assertEquals(
+            SocialLadder.WordsPick(SocialLadder.Words.MAINS, "no video in the tab"),
+            SocialLadder.playbackWords(INSTAGRAM, noPost, tabVideo = false),
+        )
+    }
+
+    @Test
+    fun xsTombstonesAndItsPlaylistGetTheirOwnWords() {
+        val notice = listOf(
+            "master: x X1 main's answer: NEEDS_PLAYBACK (a tombstone with X's notice: removed, protected or suspended alike); next: PLAYBACK",
+        )
+        assertEquals(SocialLadder.Words.MAINS, SocialLadder.playbackWords(X, notice, tabVideo = false).words)
+        val age = listOf("master: x X1 main's answer: AGE_LIMITED (an empty tombstone); next: BROWSER")
+        assertEquals(
+            SocialLadder.WordsPick(SocialLadder.Words.SIGN_IN, "AGE_LIMITED; no video in the tab"),
+            SocialLadder.playbackWords(X, age, tabVideo = false),
+        )
+        val playlist = listOf("master: x X1 main's answer: NEEDS_PLAYBACK (the item's playlist only, no length); next: PLAYBACK")
+        assertEquals(
+            SocialLadder.WordsPick(SocialLadder.Words.PLAYBACK, "the site's answer names the video: the item's playlist only"),
+            SocialLadder.playbackWords(X, playlist, tabVideo = false),
+        )
+    }
+
+    @Test
+    fun facebookAndTikTokAnswersThatNameTheVideoGetThePlaybackWords() {
+        val plugin = listOf("master: facebook F1 plugin player: NEEDS_PLAYBACK (the plugin player: needs playback); next: PLAYBACK")
+        assertEquals(SocialLadder.Words.PLAYBACK, SocialLadder.playbackWords(FACEBOOK, plugin, tabVideo = false).words)
+        val named = listOf("master: tiktok T1 embed player: NEEDS_PLAYBACK (names the video, no file); next: PLAYBACK")
+        assertEquals(SocialLadder.Words.PLAYBACK, SocialLadder.playbackWords(TIKTOK, named, tabVideo = false).words)
+        val status = listOf(
+            "master: tiktok T1 embed player: NEEDS_PLAYBACK (TikTok status: private or unavailable; one anonymous answer); next: PLAYBACK",
+        )
+        assertEquals(
+            SocialLadder.WordsPick(SocialLadder.Words.MAINS, "no video in the tab"),
+            SocialLadder.playbackWords(TIKTOK, status, tabVideo = false),
+        )
+    }
+
+    @Test
+    fun aVideoInTheTabWinsAndAnotherSitesLinesAreNotRead() {
+        val wall = listOf("master: x X1 main's answer: AGE_LIMITED (an empty tombstone); next: BROWSER")
+        assertEquals(
+            SocialLadder.WordsPick(SocialLadder.Words.PLAYBACK, "the tab shows a video"),
+            SocialLadder.playbackWords(X, wall, tabVideo = true),
+        )
+        assertEquals(
+            "master: x words: playback (the tab shows a video)",
+            SocialLadder.wordsLine(X, SocialLadder.playbackWords(X, wall, tabVideo = true)),
+        )
+        // Another site's lines (a wall, a named video) do not pick this site's words.
+        val other = listOf(
+            "master: facebook F1 plugin player: NEEDS_PLAYBACK (the plugin player: needs playback); next: PLAYBACK",
+            "master: instagram I2: LOGIN_WALL (GraphQL: status 401); next: BROWSER",
+        )
+        assertEquals(SocialLadder.Words.MAINS, SocialLadder.playbackWords(X, other, tabVideo = false).words)
+        assertEquals(SocialLadder.Words.MAINS, SocialLadder.playbackWords(X, emptyList(), tabVideo = false).words)
+    }
+
+    @Test
+    fun aCaptureRungOffInTheSignedConfigGetsMainsWordsEvenWithAVideoInTheTab() {
+        // Social plan S4: the tab's own playback off in the signed config: no capture was asked,
+        // so playing the video again gives nothing; main's words, whatever else the lines name.
+        val named = mapOf(
+            FACEBOOK to "master: facebook F1 plugin player: NEEDS_PLAYBACK (the plugin player: needs playback); next: PLAYBACK",
+            TIKTOK to "master: tiktok T1 embed player: NEEDS_PLAYBACK (names the video, no file); next: PLAYBACK",
+            X to "master: x X1 main's answer: AGE_LIMITED (an empty tombstone); next: BROWSER",
+            INSTAGRAM to "master: instagram I2: LOGIN_WALL (GraphQL: status 401); next: BROWSER",
+        )
+        val off = mapOf(
+            FACEBOOK to "master: facebook F3: off (config); not run",
+            TIKTOK to "master: tiktok T3: off (config); not run",
+            X to "master: x X3: off (config); not run",
+            INSTAGRAM to "master: instagram I3: off (config); not run",
+        )
+        for ((key, line) in named) {
+            val details = listOf(line, off.getValue(key))
+            val pick = SocialLadder.WordsPick(SocialLadder.Words.MAINS, "the tab's playback off (config)")
+            assertEquals(key, pick, SocialLadder.playbackWords(key, details, tabVideo = true))
+            assertEquals(key, pick, SocialLadder.playbackWords(key, details, tabVideo = false))
+        }
+        assertEquals(
+            "master: x words: main's (the tab's playback off (config))",
+            SocialLadder.wordsLine(X, SocialLadder.playbackWords(X, listOf(off.getValue(X)), tabVideo = true)),
+        )
+        // A rung off before the tab's playback (F1, the tab-fetch rung) leaves the words as before.
+        val earlier = listOf("master: facebook F1 plugin player: off (config); not run")
+        assertEquals(SocialLadder.Words.PLAYBACK, SocialLadder.playbackWords(FACEBOOK, earlier, tabVideo = true).words)
+        val probe = listOf(named.getValue(INSTAGRAM), "master: instagram probe: off (config); not run")
+        assertEquals(SocialLadder.Words.SIGN_IN, SocialLadder.playbackWords(INSTAGRAM, probe, tabVideo = false).words)
+    }
+
+    @Test
+    fun theSignInWordsAreTheAppsOwnForEachSite() {
+        assertEquals("Sign in to X on this page first, then try again.", SocialLadder.signInMessage(X))
+        assertEquals("Sign in to Instagram on this page first, then try again.", SocialLadder.signInMessage(INSTAGRAM))
+        assertEquals("Sign in to TikTok on this page first, then try again.", SocialLadder.signInMessage(TIKTOK))
+        assertEquals("Sign in to Facebook on this page first, then try again.", SocialLadder.signInMessage(FACEBOOK))
+    }
+
+    private companion object {
+        const val INSTAGRAM = "instagram:C9fixtREEL1"
+        const val X = "x:1000000000000000001"
+        const val FACEBOOK = "facebook:1000000000000001"
+        const val TIKTOK = "tiktok:7000000000000000001"
+    }
+}

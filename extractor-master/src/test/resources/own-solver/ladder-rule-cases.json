@@ -1,0 +1,652 @@
+{
+ "about": "Phase 1.2 N5a: the ladder rule (OwnSolverLadderRule.kt, scripts/own-solver/ladder.mjs). worker = worker steps in order P, B; page = the page step (strategy E) or null; init = init errors (null = unknown); live = the live check (V) of the candidate step's signature (N5b: worker signatures need it too). Kinds, counts and classes only.",
+ "cases": [
+  {
+   "name": "worker P clean answers both",
+   "worker": [
+    {
+     "answered": [
+      "n",
+      "sig"
+     ],
+     "init": 0,
+     "failed": []
+    }
+   ],
+   "page": null,
+   "live": "pass",
+   "expect": {
+    "n": "P",
+    "sig": "P"
+   }
+  },
+  {
+   "name": "worker P refuses sig, worker B answers it",
+   "worker": [
+    {
+     "answered": [
+      "n"
+     ],
+     "init": 0,
+     "failed": [
+      "sig:disagree"
+     ]
+    },
+    {
+     "answered": [
+      "n",
+      "sig"
+     ],
+     "init": 0,
+     "failed": []
+    }
+   ],
+   "page": null,
+   "live": "pass",
+   "expect": {
+    "n": "P",
+    "sig": "B"
+   }
+  },
+  {
+   "name": "init error in P, B clean",
+   "worker": [
+    {
+     "answered": [
+      "n",
+      "sig"
+     ],
+     "init": 2,
+     "failed": []
+    },
+    {
+     "answered": [
+      "n",
+      "sig"
+     ],
+     "init": 0,
+     "failed": []
+    }
+   ],
+   "page": null,
+   "live": "pass",
+   "expect": {
+    "n": "B",
+    "sig": "B"
+   }
+  },
+  {
+   "name": "N4b case: B answers after init errors, page clean, no live check",
+   "worker": [
+    {
+     "answered": [],
+     "init": 3,
+     "failed": [
+      "n:disagree",
+      "sig:disagree"
+     ]
+    },
+    {
+     "answered": [
+      "n",
+      "sig"
+     ],
+     "init": 3,
+     "failed": []
+    }
+   ],
+   "page": {
+    "answered": [
+     "n",
+     "sig"
+    ],
+    "init": 0,
+    "failed": []
+   },
+   "live": "unknown",
+   "expect": {
+    "n": "E",
+    "sig": "none"
+   }
+  },
+  {
+   "name": "N4b case with the live check passing",
+   "worker": [
+    {
+     "answered": [],
+     "init": 3,
+     "failed": [
+      "n:disagree",
+      "sig:disagree"
+     ]
+    },
+    {
+     "answered": [
+      "n",
+      "sig"
+     ],
+     "init": 3,
+     "failed": []
+    }
+   ],
+   "page": {
+    "answered": [
+     "n",
+     "sig"
+    ],
+    "init": 0,
+    "failed": []
+   },
+   "live": "pass",
+   "expect": {
+    "n": "E",
+    "sig": "E"
+   }
+  },
+  {
+   "name": "N4b case with the live check failing",
+   "worker": [
+    {
+     "answered": [],
+     "init": 3,
+     "failed": [
+      "n:disagree",
+      "sig:disagree"
+     ]
+    },
+    {
+     "answered": [
+      "n",
+      "sig"
+     ],
+     "init": 3,
+     "failed": []
+    }
+   ],
+   "page": {
+    "answered": [
+     "n",
+     "sig"
+    ],
+    "init": 0,
+    "failed": []
+   },
+   "live": "fail",
+   "expect": {
+    "n": "E",
+    "sig": "none"
+   }
+  },
+  {
+   "name": "page with init errors of its own",
+   "worker": [
+    {
+     "answered": [
+      "n",
+      "sig"
+     ],
+     "init": 1,
+     "failed": []
+    },
+    {
+     "answered": [
+      "n",
+      "sig"
+     ],
+     "init": 1,
+     "failed": []
+    }
+   ],
+   "page": {
+    "answered": [
+     "n",
+     "sig"
+    ],
+    "init": 1,
+    "failed": []
+   },
+   "live": "pass",
+   "expect": {
+    "n": "none",
+    "sig": "none"
+   }
+  },
+  {
+   "name": "environment failures in the worker send to the page",
+   "worker": [
+    {
+     "answered": [],
+     "init": 0,
+     "failed": [
+      "program:ReferenceError"
+     ]
+    },
+    {
+     "answered": [],
+     "init": null,
+     "failed": [
+      "TypeError"
+     ]
+    }
+   ],
+   "page": {
+    "answered": [
+     "n",
+     "sig"
+    ],
+    "init": 0,
+    "failed": []
+   },
+   "live": "pass",
+   "expect": {
+    "n": "E",
+    "sig": "E"
+   }
+  },
+  {
+   "name": "plain refusals do not need the page",
+   "worker": [
+    {
+     "answered": [],
+     "init": 0,
+     "failed": [
+      "n:disagree",
+      "sig:disagree"
+     ]
+    },
+    {
+     "answered": [],
+     "init": 0,
+     "failed": [
+      "n:disagree",
+      "sig:disagree"
+     ]
+    }
+   ],
+   "page": {
+    "answered": [
+     "n",
+     "sig"
+    ],
+    "init": 0,
+    "failed": []
+   },
+   "live": "pass",
+   "expect": {
+    "n": "none",
+    "sig": "none"
+   }
+  },
+  {
+   "name": "answers without an init count are not trusted and need the page",
+   "worker": [
+    {
+     "answered": [
+      "n",
+      "sig"
+     ],
+     "init": null,
+     "failed": []
+    },
+    {
+     "answered": [
+      "n",
+      "sig"
+     ],
+     "init": null,
+     "failed": []
+    }
+   ],
+   "page": {
+    "answered": [
+     "n"
+    ],
+    "init": 0,
+    "failed": [
+     "sig:disagree"
+    ]
+   },
+   "live": "unknown",
+   "expect": {
+    "n": "E",
+    "sig": "none"
+   }
+  },
+  {
+   "name": "no init count, no answers and a plain failure do not need the page",
+   "worker": [
+    {
+     "answered": [],
+     "init": null,
+     "failed": [
+      "not prepared"
+     ]
+    },
+    {
+     "answered": [],
+     "init": null,
+     "failed": [
+      "no candidates"
+     ]
+    }
+   ],
+   "page": {
+    "answered": [
+     "n",
+     "sig"
+    ],
+    "init": 0,
+    "failed": []
+   },
+   "live": "pass",
+   "expect": {
+    "n": "none",
+    "sig": "none"
+   }
+  },
+  {
+   "name": "a page without an init count is not trusted",
+   "worker": [
+    {
+     "answered": [],
+     "init": 1,
+     "failed": []
+    },
+    {
+     "answered": [],
+     "init": 1,
+     "failed": []
+    }
+   ],
+   "page": {
+    "answered": [
+     "n",
+     "sig"
+    ],
+    "init": null,
+    "failed": []
+   },
+   "live": "pass",
+   "expect": {
+    "n": "none",
+    "sig": "none"
+   }
+  },
+  {
+   "name": "only P ran (it answered both after an init error), page clean",
+   "worker": [
+    {
+     "answered": [
+      "n",
+      "sig"
+     ],
+     "init": 1,
+     "failed": []
+    }
+   ],
+   "page": {
+    "answered": [
+     "n",
+     "sig"
+    ],
+    "init": 0,
+    "failed": []
+   },
+   "live": "fail",
+   "expect": {
+    "n": "E",
+    "sig": "none"
+   }
+  },
+  {
+   "name": "the page did not answer n",
+   "worker": [
+    {
+     "answered": [],
+     "init": 2,
+     "failed": []
+    },
+    {
+     "answered": [],
+     "init": 2,
+     "failed": []
+    }
+   ],
+   "page": {
+    "answered": [
+     "sig"
+    ],
+    "init": 0,
+    "failed": [
+     "n:disagree"
+    ]
+   },
+   "live": "pass",
+   "expect": {
+    "n": "none",
+    "sig": "E"
+   }
+  },
+  {
+   "name": "the page did not run",
+   "worker": [
+    {
+     "answered": [
+      "sig"
+     ],
+     "init": 1,
+     "failed": []
+    },
+    {
+     "answered": [
+      "sig"
+     ],
+     "init": 1,
+     "failed": []
+    }
+   ],
+   "page": null,
+   "live": "unknown",
+   "expect": {
+    "n": "none",
+    "sig": "none"
+   }
+  },
+  {
+   "name": "a clean worker B comes before the page",
+   "worker": [
+    {
+     "answered": [],
+     "init": 0,
+     "failed": [
+      "program:TypeError"
+     ]
+    },
+    {
+     "answered": [
+      "n",
+      "sig"
+     ],
+     "init": 0,
+     "failed": []
+    }
+   ],
+   "page": {
+    "answered": [
+     "n",
+     "sig"
+    ],
+    "init": 0,
+    "failed": []
+   },
+   "live": "pass",
+   "expect": {
+    "n": "B",
+    "sig": "B"
+   }
+  },
+  {
+   "name": "a candidate's environment error needs the page",
+   "worker": [
+    {
+     "answered": [],
+     "init": 0,
+     "failed": [
+      "0:ReferenceError"
+     ]
+    },
+    {
+     "answered": [],
+     "init": 0,
+     "failed": [
+      "n:disagree",
+      "sig:disagree"
+     ]
+    }
+   ],
+   "page": {
+    "answered": [
+     "n",
+     "sig"
+    ],
+    "init": 0,
+    "failed": []
+   },
+   "live": "unknown",
+   "expect": {
+    "n": "E",
+    "sig": "none"
+   }
+  },
+  {
+   "name": "an init error in worker B alone sends to the page",
+   "worker": [
+    {
+     "answered": [],
+     "init": 0,
+     "failed": [
+      "n:disagree"
+     ]
+    },
+    {
+     "answered": [],
+     "init": 1,
+     "failed": []
+    }
+   ],
+   "page": {
+    "answered": [
+     "n",
+     "sig"
+    ],
+    "init": 0,
+    "failed": []
+   },
+   "live": "pass",
+   "expect": {
+    "n": "E",
+    "sig": "E"
+   }
+  },
+  {
+   "name": "N5b: a worker signature without the live check is not used",
+   "worker": [
+    {
+     "answered": [
+      "n",
+      "sig"
+     ],
+     "init": 0,
+     "failed": []
+    }
+   ],
+   "page": null,
+   "live": "unknown",
+   "expect": {
+    "n": "P",
+    "sig": "none"
+   }
+  },
+  {
+   "name": "N5b: a worker signature failing the live check is not used",
+   "worker": [
+    {
+     "answered": [
+      "n",
+      "sig"
+     ],
+     "init": 0,
+     "failed": []
+    }
+   ],
+   "page": null,
+   "live": "fail",
+   "expect": {
+    "n": "P",
+    "sig": "none"
+   }
+  },
+  {
+   "name": "N5b M9c-nav case: worker B's clean signature fails the live check",
+   "worker": [
+    {
+     "answered": [],
+     "init": 0,
+     "failed": [
+      "n:probe",
+      "sig:probe"
+     ]
+    },
+    {
+     "answered": [
+      "sig"
+     ],
+     "init": 0,
+     "failed": [
+      "n:no candidates"
+     ]
+    }
+   ],
+   "page": null,
+   "live": "fail",
+   "expect": {
+    "n": "none",
+    "sig": "none"
+   }
+  },
+  {
+   "name": "N5b tripwire: a trip in worker B is an init error, the page answers",
+   "worker": [
+    {
+     "answered": [],
+     "init": 0,
+     "failed": [
+      "n:probe",
+      "sig:probe"
+     ]
+    },
+    {
+     "answered": [],
+     "init": 1,
+     "failed": [
+      "n:no candidates",
+      "sig:environment"
+     ]
+    }
+   ],
+   "page": {
+    "answered": [
+     "n",
+     "sig"
+    ],
+    "init": 0,
+    "failed": []
+   },
+   "live": "pass",
+   "expect": {
+    "n": "E",
+    "sig": "E"
+   }
+  }
+ ]
+}

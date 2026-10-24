@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "version": 1,
+  "expires": "2027-12-31",
+  "sites": {
+    "instagram": {
+      "headers": { "Accept-Language": "en-US,en;q=0.9" },
+      "nodeIdFields": ["shortcode", "code"],
+      "media": [
+        { "path": ["video_versions", "*"], "mime": "video/mp4" },
+        { "path": ["video_url"], "mime": "video/mp4", "metaPath": ["dimensions"] },
+        { "path": ["video_dash_manifest"], "inlineDash": true },
+        { "path": ["dash_info", "video_dash_manifest"], "inlineDash": true }
+      ]
+    }
+  }
+}

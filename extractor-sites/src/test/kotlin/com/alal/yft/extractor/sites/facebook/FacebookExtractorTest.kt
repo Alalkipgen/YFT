@@ -197,6 +197,30 @@ class FacebookExtractorTest {
     }
 
     @Test
+    fun `a story page that names its Page is asked on the Page's posts path`() = runTest {
+        // Decision 18: the Page's posts path answers, without a redirect, with the post's page
+        // and its one video.
+        val story =
+            "https://m.facebook.com/story.php?story_fbid=pfbid0AbCdEfGhIjKlMn&id=FixturePage"
+        val identity = FacebookUrls.identify(story)!!
+        val posts = "https://www.facebook.com/FixturePage/posts/pfbid0AbCdEfGhIjKlMn"
+        val http = FakeExtractorHttpClient.serving(
+            url = posts,
+            body = Fixtures.read("facebook/reel_legacy_fields.html"),
+        )
+
+        val result = FacebookExtractor(http).extract(request(identity))
+            as SiteExtractionResult.Success
+
+        assertEquals(posts, http.requestedUrls.first())
+        assertEquals(
+            "https://www.facebook.com/watch/?v=7180001112223334",
+            result.candidates.first().pageUrl,
+        )
+        assertEquals("Fixture reel caption — HD", result.candidates.first().title)
+    }
+
+    @Test
     fun `a post without a video says so instead of a changed page format`() = runTest {
         val identity = FacebookUrls.identify(
             "https://www.facebook.com/FixturePage/posts/9876543210987654",

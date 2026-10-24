@@ -245,6 +245,7 @@ object DownloadPlanFactory {
                     WholeFileTrack(totalBytes = statedLengthOf(variant.playbackUrl))
                 },
                 hlsPlaylist = playlists,
+                expectedDurationMillis = variant.durationMillis?.takeIf { it > 0 },
             ),
             audio = DashDownloadPlan(
                 taskId = "$taskId-audio",
@@ -263,6 +264,7 @@ object DownloadPlanFactory {
                     WholeFileTrack(totalBytes = statedLengthOf(companion.mediaUrl, stated))
                 },
                 hlsPlaylist = playlists,
+                expectedDurationMillis = variant.durationMillis?.takeIf { it > 0 },
             ),
             suggestedFileName = fileName,
             outputMimeType = outputMimeType,

@@ -182,6 +182,7 @@ fun DownloadsRoute(
             )
         },
         snackbarHostState = snackbarHostState,
+        onResetYouTubeSession = viewModel::resetYouTubeSession,
     )
 }
 
@@ -219,9 +220,12 @@ fun DownloadsScreen(
     deleteFileQuestion: DeleteFileQuestion? = null,
     deleteFileActions: DeleteFileActions = DeleteFileActions.None,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
+    onResetYouTubeSession: () -> Unit = {},
 ) {
     val colors = YftTheme.colors
     var filter by rememberSaveable { mutableStateOf(DownloadsFilter.ALL) }
+    // Item 7 Track B3: "Reset YouTube session?" is open.
+    var youTubeResetAsked by rememberSaveable { mutableStateOf(false) }
     val storage = uiState.storage
     Box(
         modifier = modifier
@@ -282,6 +286,7 @@ fun DownloadsScreen(
                     onOpen = onOpen,
                     onPlay = onPlay,
                     onDeleteFile = deleteFileActions.onDeleteFile,
+                    onResetYouTube = { youTubeResetAsked = true },
                 )
             }
         }
@@ -306,6 +311,40 @@ fun DownloadsScreen(
             onCancel = deleteFileActions.onCancel,
         )
     }
+    if (youTubeResetAsked) {
+        YouTubeResetDialog(
+            onConfirm = {
+                youTubeResetAsked = false
+                onResetYouTubeSession()
+            },
+            onCancel = { youTubeResetAsked = false },
+        )
+    }
+}
+
+/**
+ * Item 7 Track B3: "Reset YouTube session?" before YFT's browser forgets YouTube's cookies, site
+ * storage and remembered lookups; other sites keep their sign-ins.
+ */
+@Composable
+internal fun YouTubeResetDialog(
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val colors = YftTheme.colors
+    AlertDialog(
+        onDismissRequest = onCancel,
+        modifier = Modifier.testTag("download-reset-youtube-dialog"),
+        title = { Text("$RESET_YOUTUBE_LABEL?", color = colors.textPrimary) },
+        text = { Text(YOUTUBE_RESET_QUESTION, color = colors.textPrimary) },
+        confirmButton = {
+            YftTextButton("Reset", onConfirm, Modifier.testTag("download-reset-youtube-confirm"))
+        },
+        dismissButton = {
+            YftTextButton("Cancel", onCancel, Modifier.testTag("download-reset-youtube-cancel"))
+        },
+        containerColor = colors.card,
+    )
 }
 
 /** "Delete this file?" before "Delete file" deletes (P42, `DELETE_CONFIRM`). */
@@ -365,6 +404,7 @@ private fun LazyListScope.downloadItems(
     onOpen: (DownloadRowUiState) -> Unit,
     onPlay: (DownloadRowUiState) -> Unit,
     onDeleteFile: (String) -> Unit,
+    onResetYouTube: () -> Unit,
 ) {
     val visible = uiState.rowsFor(filter)
     if (visible.isEmpty()) {
@@ -382,6 +422,7 @@ private fun LazyListScope.downloadItems(
                 onOpen = onOpen,
                 onPlay = onPlay,
                 onDeleteFile = onDeleteFile,
+                onResetYouTube = onResetYouTube,
                 modifier = Modifier.padding(start = 16.dp, top = 8.dp, end = 16.dp),
             )
         }
@@ -588,6 +629,7 @@ private fun cardActions(
     onPlay: (DownloadRowUiState) -> Unit,
     onDeleteFile: (String) -> Unit,
     onDetails: () -> Unit,
+    onResetYouTube: () -> Unit,
 ): List<CardAction> = buildList {
     if (row.status == DownloadTaskStatus.COMPLETED) {
         add(CardAction("Play", "download-menu-play-${row.id}", YftIcons.Play) { onPlay(row) })
@@ -614,13 +656,23 @@ private fun cardActions(
                 )
             }
         }
-    if (row.status == DownloadTaskStatus.FAILED) {
+    if (row.showsFailureDetails) {
         add(
             CardAction(
                 label = "Failure details",
                 tag = "download-menu-details-${row.id}",
                 icon = YftIcons.Info,
                 run = onDetails,
+            ),
+        )
+    }
+    if (row.isYouTubeRefusal()) {
+        add(
+            CardAction(
+                label = RESET_YOUTUBE_LABEL,
+                tag = "download-menu-reset-youtube-${row.id}",
+                icon = YftIcons.Replay,
+                run = onResetYouTube,
             ),
         )
     }
@@ -643,12 +695,21 @@ private fun DownloadCard(
     onOpen: (DownloadRowUiState) -> Unit,
     onPlay: (DownloadRowUiState) -> Unit,
     onDeleteFile: (String) -> Unit,
+    onResetYouTube: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = YftTheme.colors
     var menuOpen by remember { mutableStateOf(false) }
     var detailsOpen by remember { mutableStateOf(false) }
-    val actions = cardActions(row, onAction, onOpen, onPlay, onDeleteFile) { detailsOpen = true }
+    val actions = cardActions(
+        row = row,
+        onAction = onAction,
+        onOpen = onOpen,
+        onPlay = onPlay,
+        onDeleteFile = onDeleteFile,
+        onDetails = { detailsOpen = true },
+        onResetYouTube = onResetYouTube,
+    )
     Box(modifier = modifier.fillMaxWidth()) {
         YftCard(
             modifier = Modifier
@@ -673,6 +734,7 @@ private fun DownloadCard(
                     network = network,
                     onAction = onAction,
                     onDetails = { detailsOpen = true },
+                    onResetYouTube = onResetYouTube,
                 )
             }
         }
@@ -703,7 +765,7 @@ private fun DownloadCard(
             }
         }
     }
-    if (detailsOpen && row.status == DownloadTaskStatus.FAILED) {
+    if (detailsOpen && row.showsFailureDetails) {
         FailureDetailsDialog(row = row, onDismiss = { detailsOpen = false })
     }
 }
@@ -859,6 +921,7 @@ private fun StatusRow(
     network: TransferNetworkState,
     onAction: (DownloadAction, String) -> Unit,
     onDetails: () -> Unit,
+    onResetYouTube: () -> Unit,
 ) {
     val colors = YftTheme.colors
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -888,7 +951,11 @@ private fun StatusRow(
             }
             if (row.requiresLinkRefresh || row.status == DownloadTaskStatus.NEEDS_REFRESH) {
                 Text(
-                    text = "Reopen the page in the browser to get a fresh link.",
+                    text = if (row.isYouTubeRefusal()) {
+                        YOUTUBE_REFUSED_HINT
+                    } else {
+                        "Reopen the page in the browser to get a fresh link."
+                    },
                     modifier = Modifier
                         .padding(top = 6.dp)
                         .testTag("download-refresh-note-${row.id}"),
@@ -896,11 +963,18 @@ private fun StatusRow(
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
-            if (row.status == DownloadTaskStatus.FAILED) {
+            if (row.showsFailureDetails) {
                 YftTextButton(
                     text = "Details",
                     onClick = onDetails,
                     modifier = Modifier.testTag("download-failure-details"),
+                )
+            }
+            if (row.isYouTubeRefusal()) {
+                YftTextButton(
+                    text = RESET_YOUTUBE_LABEL,
+                    onClick = onResetYouTube,
+                    modifier = Modifier.testTag("download-reset-youtube-${row.id}"),
                 )
             }
         }

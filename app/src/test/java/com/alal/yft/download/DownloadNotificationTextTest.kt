@@ -143,6 +143,24 @@ class DownloadNotificationTextTest {
         assertNull(finishedNoticeText(backgroundTask("r")))
     }
 
+    /** Item 7 Track B1: a link YouTube refused while it had time left did not expire. */
+    @Test
+    fun aYouTubeRefusalNoticeSaysYouTubeRefusedNotLinkExpired() {
+        val refused = backgroundTask(
+            "Holiday clip",
+            status = DownloadTaskStatus.NEEDS_REFRESH,
+            failureReason = DownloadFailureReason.YOUTUBE_REFUSED,
+        )
+        val denied = backgroundTask(
+            "Holiday clip",
+            status = DownloadTaskStatus.NEEDS_REFRESH,
+            failureReason = DownloadFailureReason.ACCESS_DENIED,
+        )
+
+        assertEquals("Download failed · Holiday clip — YouTube refused", finishedNoticeText(refused))
+        assertEquals("Download failed · Holiday clip — link expired", finishedNoticeText(denied))
+    }
+
     @Test
     fun longTitlesAreCutToOneLine() {
         val title = shortTitle(backgroundTask("x", displayName = "${"a".repeat(60)}.mp4"))

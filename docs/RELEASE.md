@@ -125,6 +125,11 @@ The agent's deploy key can push the version tag, which starts this workflow (it 
 `v1.0.0-beta.2`), but it cannot create, edit or publish releases, approve the `release`
 environment or change secrets; those stay with the owner.
 
+The repository also holds the secret `YFT_RECIPE_KEY` (the social plan's S4, 2026-10-23): the
+private key that signs Master's recipe config, read only by
+`.github/workflows/master-recipes-publish.yml`. It is not a release secret: `release-draft.yml`
+never reads it, and a release build carries no recipe key (the bundled recipes, no ask).
+
 ## 4. Device checks before publishing
 
 Automated install, launch and upgrade check on one connected device or emulator:
