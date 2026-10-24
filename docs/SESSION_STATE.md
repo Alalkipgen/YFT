@@ -792,8 +792,9 @@ Keep at least the heading and one blank line between sections, so Git merges the
   counted, then only with his OK.
 - State: D1 committed; D1 follow-up (`f5effc1`) red on Emulator smoke (its type rule wrong); D1
   follow-up 2 (`d1bd432`, either MPEG-TS type) green on CI, the bytes check included; D2
-  (`835af64`) green on CI; D3 committed (this checkpoint). Next: D4; then CI green and the
-  Burmese report with the phone checklist.
+  (`835af64`) and D3 (`cfa39c7`) green on CI; D4 committed (this checkpoint), the last item.
+  Next: D4's CI green, then the Burmese report with the phone checklist; no PR until the owner
+  says.
 
 ### D1 — HLS saved as `.m3u8` (Pornhub, JAV)
 
@@ -943,8 +944,49 @@ Keep at least the heading and one blank line between sections, so Git merges the
   `testDebugUnitTest -x :app:testDebugUnitTest` (core-model 138 = 127 + 11, core-download 268 =
   265 + 3, the other modules as in D2) and `:app:testDebugUnitTest` (1126 = 1120 + 6, 66
   skipped) → 0 failures; `:app:assembleDebug :app:assembleRelease` → BUILD SUCCESSFUL; no new
-  line over 100 characters. CI: after the push.
+  line over 100 characters. CI (`cfa39c7`): checkpoint validation run 40098830060, Preview APK
+  run 40098830721 and Emulator smoke run 40098830051 green.
 - Backlog: a ZWJ or ZWNJ inside a word (some Indic and Persian spellings) still becomes a space,
   as the rule says (everything else a space); Thai ำ and Lao ຳ (letters, not marks) can be cut
   from their consonant at the very end of a long title; Zawgyi text is kept as typed, not
   converted; `DirectRangeProbe` keeps its own unsafe-character rule (only its cut changed).
+
+### D4 — Instagram and X icons beside the other sites'
+
+- Cause: the logos were there (`ic_site_instagram.xml`, `ic_site_x.xml`, `SiteBrand.INSTAGRAM`
+  and `X`, Browser's View sites), but Home's "Your sites" defaults (`HomeSites.DEFAULTS`,
+  version 2) were YouTube, Facebook and TikTok only, and a stored list never got a new default.
+- Fix: `DEFAULTS` + Instagram (`https://www.instagram.com`) and X (`https://x.com`),
+  `DEFAULTS_VERSION = 3`, `ADDED_IN_VERSION_3` (the two). `migrateDefaults(stored,
+  storedVersion)`: a version 1 list is moved as before (its old defaults replaced by the five,
+  in order, a site of the same brand taking its default's place; a list without an old default
+  stays as it is); a version 2 list gets Instagram and X at its end, each only when no site of
+  its brand is there (twitter.com counts as X) and while there is room under `MAX_SITES` (12);
+  an empty list stays empty; with no stored list the five defaults are shown.
+  `DataStoreHomeSitesRepository.migrateDefaultsOnce` passes the stored version (none = 1) and
+  stores 3, so it runs once: a site the user removes later stays removed. Home's tile already
+  says the site's name ("Instagram", "X") as its description; the logo is decorative
+  (`site-logo-instagram`, `site-logo-x`). No VK code: the owner's VK is his own site, with its
+  letter.
+- Logos checked: both paths are identical to Simple Icons 16.34.0's `instagram.svg` and `x.svg`
+  (and to 16.35.0, the latest), which take Instagram's from Meta's brand resources and X's from
+  x.com (the current X mark); the colours (FF0069, 000000) are Simple Icons'.
+  `docs/THIRD_PARTY_NOTICES.md` already lists both (Simple Icons 16.34.0, CC0-1.0); no logo or
+  notice change.
+- Tests: `HomeSitesMigrationTest` (the five defaults and version 3; version 1 cases now with the
+  five; version 2: the owner's list with VK → + Instagram, X; a site of the same brand already
+  there (twitter.com, m.instagram.com); a full list (12: none; 11: Instagram only; 10: both); an
+  empty list; a current list unchanged; a second run changes nothing), `HomeSitesTest`
+  (initials Y F T I X), `DataStoreHomeSitesRepositoryTest` (a version 2 list gets both once and
+  X removed afterwards stays removed; an empty version 2 list stays empty, version 3 stored; the
+  version 1 move with the five), `HomeScreenTest` (the five logos by tag and each tile's
+  description, "Instagram" and "X", scrolled into view; a site without a brand shows its letter).
+- Validation (local, 2026-10-24): `lintDebug` → 0 errors, no issue in a D4 file;
+  `testDebugUnitTest -x :app:testDebugUnitTest` (core-model 142 = 138 + 4, core-data 35 =
+  33 + 2, the other modules as in D3) and `:app:testDebugUnitTest` (1126, the HomeScreen logo
+  test widened, 66 skipped) → 0 failures; `:app:assembleDebug :app:assembleRelease` → BUILD
+  SUCCESSFUL; no new line over 100 characters. CI: after the push.
+- Backlog: Home shows four tiles and scrolls sideways for the rest, so on the owner's phone
+  (YouTube, Facebook, TikTok, VK) Instagram and X come fifth and sixth, after a sideways swipe;
+  a version 1 list the user made without an old default is moved as before (not at all), so it
+  gets neither.

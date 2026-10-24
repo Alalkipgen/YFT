@@ -278,11 +278,18 @@ class HomeScreenTest {
         val docs = HomeSite("Docs", "https://docs.test")
         setContent(HomeUiState(sites = HomeSites.DEFAULTS + docs))
 
-        listOf("youtube", "facebook", "tiktok").forEach { slug ->
+        // D4: Instagram and X are defaults too; four tiles fill the row, the rest scroll sideways.
+        val slugs = listOf("youtube", "facebook", "tiktok", "instagram", "x")
+        HomeSites.DEFAULTS.zip(slugs).forEach { (site, slug) ->
+            composeRule.onNodeWithTag("home-sites")
+                .performScrollToNode(hasTestTag("home-site-${site.url}"))
             composeRule.onNodeWithTag("site-logo-$slug", useUnmergedTree = true).assertExists()
+            composeRule.onNodeWithTag("home-site-${site.url}")
+                .assert(hasContentDescription(site.name))
         }
-        composeRule.onNodeWithTag("home-site-https://m.youtube.com")
-            .assert(hasContentDescription("YouTube"))
+        assertEquals(listOf("Instagram", "X"), HomeSites.DEFAULTS.takeLast(2).map { it.name })
+        composeRule.onNodeWithTag("home-sites")
+            .performScrollToNode(hasTestTag("home-site-${docs.url}"))
         composeRule.onNodeWithText("D", useUnmergedTree = true).assertExists()
     }
 
