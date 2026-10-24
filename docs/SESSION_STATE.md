@@ -790,8 +790,9 @@ Keep at least the heading and one blank line between sections, so Git merges the
   work branch); `recipes` untouched, master-recipes-publish never run; PROGRESS.md, CHANGELOG.md
   and docs/*MATRIX*.md not edited; no APK on the owner's phone before he says S5's run 3 is
   counted, then only with his OK.
-- State: D1 committed (this checkpoint). Next: D2, then D3, D4; then CI green and the Burmese
-  report with the phone checklist.
+- State: D1 committed; D1 follow-up (the emulator test's `.ts` type) committed (this
+  checkpoint). Next: D2, pushed only after this follow-up's Emulator smoke is fully green (the
+  owner, 2026-10-24), then D3, D4; then CI green and the Burmese report with the phone checklist.
 
 ### D1 — HLS saved as `.m3u8` (Pornhub, JAV)
 
@@ -819,7 +820,7 @@ Keep at least the heading and one blank line between sections, so Git merges the
   halfway leaves exactly the TS bytes, storage error fails, fMP4/plain joins unchanged, MP3 kept
   `.mp3`), `PublicDownloadDestinationTest` (3), `StreamDownloadQueueTest` (1); instrumented
   `HlsRemuxInstrumentedTest` (emulator smoke: MediaStore row is an MP4 that MediaExtractor
-  reads; MPEG-2 pieces → a `.ts` row of type `video/mp2t`).
+  reads; MPEG-2 pieces → a `.ts` row, its type the one MediaStore stores: see D1 follow-up).
 - Offline proof (scratch, not committed): the remuxed MP4 decodes frame for frame like the
   source (ffmpeg framemd5), AAC sample bytes equal ffmpeg's own remux, `elst` equal ffmpeg's.
 - Backlog (not in D1's scope): a site's container `matroska`/`quicktime` still taken as an
@@ -831,5 +832,27 @@ Keep at least the heading and one blank line between sections, so Git merges the
   core-download 265 tests, 0 failures after one D1 test's expectation was corrected (packed MP3
   pieces are joined whole); `:app:testDebugUnitTest :app:compileDebugAndroidTestKotlin` → 1118
   tests (1115 before + 3), 0 failures, 66 skipped; `lintDebug` → 0 errors (no warning in a D1
-  file); no new line over 100 characters; the checkpoint runs `testDebugUnitTest`. CI: after
-  the push.
+  file); no new line over 100 characters; the checkpoint runs `testDebugUnitTest`. CI
+  (`b7edd6b`): checkpoint validation run 40083006744 and Preview APK run 40083006431 green;
+  Emulator smoke run 40083006457 red, 1 of 56 tests (3 skipped, no crash): see D1 follow-up.
+
+### D1 follow-up — the emulator test expects the type MediaStore stores for `.ts`
+
+- Cause (the test's expectation, not the app): `HlsRemuxInstrumentedTest`'s
+  `piecesThatCannotBeRemuxedAreKeptAsATsRowOfTypeMp2t` expected the row's MIME_TYPE
+  `video/mp2t`; the API 34 emulator stored `video/mp2ts`. On a rename MediaProvider
+  (`ensureFileColumns`) keeps a given type only when `MimeTypeMap` knows it, else takes the
+  display name's (same media kind): Android names `.ts` `video/mp2ts`, `video/mp2t` unknown.
+  The name (`.ts`), the published (not pending) row and the app's own record (`publishedAs`,
+  `.ts` `video/mp2t`) were right; the bytes check after the type check never ran.
+- Fix (the owner's choice A, 2026-10-24: a separate commit, the test and this section only, no
+  app code): the test expects what MediaStore stores on that device — the given type when
+  `MimeTypeMap.hasMimeType`, else the extension's (`video/mp2ts` on API 34) — rule-based, not
+  fixed to API 34; the `publishedAs` check (`video/mp2t`) and the bytes check unchanged.
+- Tests: the instrumented test only (Emulator smoke); no JVM test changes.
+- Validation (local, 2026-10-24): `:app:compileDebugAndroidTestKotlin` → BUILD SUCCESSFUL (JDK
+  17); the checkpoint runs it; no new line over 100 characters. JVM tests, lint and the APKs
+  are D1's (no main code changed). CI: after the push; D2 waits for this commit's Emulator
+  smoke to be fully green, the bytes check included.
+- Backlog: the app records a kept `.ts` as `video/mp2t` (queue, library) while MediaStore says
+  `video/mp2ts`; players match `video/*`, so no change.

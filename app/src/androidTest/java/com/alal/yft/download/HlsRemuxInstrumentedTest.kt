@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.webkit.MimeTypeMap
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
@@ -39,7 +40,9 @@ import org.junit.runner.RunWith
  * D1 on the CI emulator (API 34) with the real MediaStore: the real [HlsTransferEngine] saves an
  * HLS download of MPEG-TS pieces (H.264 and AAC, made with FFmpeg; `assets/hls`) into a pending
  * row as an MP4 that Android's own MediaExtractor reads, and keeps pieces it cannot remux
- * (MPEG-2 video) as a `.ts` row of type `video/mp2t`, its name and type changed in one update.
+ * (MPEG-2 video) as a `.ts` row, its name and type changed in one update. MediaStore keeps
+ * only a type Android knows and otherwise takes the name's: `video/mp2t` is stored as
+ * Android's own `video/mp2ts` (D1, CI on API 34).
  * There is no network: an application interceptor answers every request from memory. Each test
  * deletes the row it created, also when it fails.
  */
@@ -101,7 +104,7 @@ class HlsRemuxInstrumentedTest {
             val completed = result as HlsTransferResult.Completed
             assertEquals(PublishedFile("$name.ts", "video/mp2t"), completed.publishedAs)
             val row = requireNotNull(row(uri)) { "The published row is missing" }
-            assertEquals(Row("$name.ts", "video/mp2t", pending = false), row)
+            assertEquals(Row("$name.ts", storedType(TRANSPORT_STREAM, "ts"), pending = false), row)
             assertArrayEquals(fixture("mpeg2.ts"), readAll(uri))
         } finally {
             delete(uri)
@@ -210,6 +213,12 @@ class HlsRemuxInstrumentedTest {
 
     private fun delete(uri: Uri) {
         runCatching { resolver.delete(uri, null, null) }
+    }
+
+    /** D1: MediaProvider's rule — a type Android knows is kept, else the extension's is used. */
+    private fun storedType(given: String, extension: String): String? {
+        val types = MimeTypeMap.getSingleton()
+        return if (types.hasMimeType(given)) given else types.getMimeTypeFromExtension(extension)
     }
 
     private fun newName(): String = "yft-d1-${UUID.randomUUID().toString().take(8)}"
