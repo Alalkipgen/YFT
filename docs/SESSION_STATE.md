@@ -784,21 +784,34 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - Plan: `docs/VK_PLAN.md` (the owner's request, 2026-10-24). Branch made from PR #2's head
   `8dc46ff` (`spike/master-extractor-backup`); it never merges into PR #2; after PR #2's merge,
   `main` is merged into it (VK4).
-- State (2026-10-24): **VK0 done** — results in `docs/VK_PLAN.md` §11, sanitized fixtures in
-  `extractor-sites/src/test/resources/fixtures/vk/` (README there); no app code. Found: the page
-  (A) carries no player data (VK's login redirect + SPA shell); the embed `video_ext.php` (B) works
-  without a hash for every public video tried (up to 2160p), data in `window.cur` →
-  `apiPrefetchCache` (not `playerParams`); B2 = `vk.ru` (not `vkvideo.ru`); embeds are
-  windows-1251 (the app's client reads UTF-8 → Russian titles break).
+- State (2026-10-24): **VK1 + VK2 done** — next: CI green, then STOP for the owner. VK3 (CI,
+  preview APK, the phone) only with his OK; no VK APK on his phone before S5's run 3 is counted.
+- VK0 (done): results in `docs/VK_PLAN.md` §11, sanitized fixtures in
+  `extractor-sites/src/test/resources/fixtures/vk/` (README there). Found: the page (A) carries no
+  player data (VK's login redirect + SPA shell); the embed `video_ext.php` (B) works without a
+  hash for every public video tried (up to 2160p), data in `window.cur` → `apiPrefetchCache` (not
+  `playerParams`); B2 = `vk.ru` (not `vkvideo.ru`); embeds are windows-1251.
 - **The owner's VK0 answers** (2026-10-24): (a) drop A, v1 = the embed on vk.ru/vk.com; (b) one
   shared charset fix; (c) no `PlayerFileFallback` in v1; (d) no `al_video`; (e) Master's debug
-  unchanged. Written into `docs/VK_PLAN.md` at VK1's checkpoint.
-- VK1, commit 1 (the owner's OK, its own commit): the shared client's charset fix in
+  unchanged. Recorded in `docs/VK_PLAN.md` §12; the design as built is §4.
+- VK1, commit 1 `a176667a` (the owner's OK, its own commit): the shared client's charset fix in
   `OkHttpExtractorClient` + `OkHttpExtractorClientTest` — text read with `readUtf8()` as before;
   only when that yields U+FFFD, the bytes are not UTF-8 and the response names another known
   charset (VK: windows-1251) are the same bytes read in that charset. Size, timeout and Cancel
-  unchanged. Next: the VK adapter, its tests and the registration line (commit 2).
+  unchanged.
+- VK1 + VK2, commit 2: the adapter in `extractor-sites/.../sites/vk/` — `VkUrls` (links, video
+  ids, the embed URLs), `VkEmbedParser` (`apiPrefetchCache` → the item with the link's id → key
+  table, else shape scan), `VkJudge` (a manifest: video, audio-only or not judged; read only
+  when there is no MP4), `VkExtractor` (B on `vk.ru` for a `*.vk.ru` page with its cookie, else
+  `vk.com` with a `*.vk.com` page's cookie only; the same host once more on an SPA shell; then
+  B2 on the other host, never with a cookie; at most 3 embed requests, one 15 s deadline, Cancel
+  stops the request); 52 VK tests on the fixtures (no network) incl. a fixture-hygiene test; the
+  fixtures' URL keys; the registration line in `SiteAdapterModule.kt`. Plan: §4 as built, §5.3
+  the tests, §12 the owner's answers.
 - The owner's sign-in links (VK messenger channel posts, the plan's §5.1): only on his phone at VK3.
 - Rules: the plan's §2 (no push to `main` or PR #2, no label, no `recipes` branch, no VK APK on
   the owner's phone before S5's run 3 is counted).
-- Validation: `./gradlew --no-daemon :extractor-sites:test`.
+- Validation: `./gradlew --no-daemon :extractor-sites:test` (VK only:
+  `--tests 'com.alal.yft.extractor.sites.vk.*'`); before a push the CI set: `lintDebug
+  testDebugUnitTest :core-model:test :extractor-api:test :extractor-generic:test
+  :extractor-sites:test :app:assembleDebug :app:assembleRelease`.

@@ -1,7 +1,7 @@
 # VK adapter — plan (VK0–VK4)
 
-Status: **VK0 done** (recon and fixtures, §11) — waiting for the owner's answers (§11.7); no app
-code yet. The owner's request: 2026-10-24, in chat. Branch
+Status: **VK1 + VK2 done** (the embed adapter, §4; the owner's VK0 answers, §12) — STOP after
+CI; VK3 (the phone) only with the owner's OK. The owner's request: 2026-10-24, in chat. Branch
 `work/phase-vk-extractor`, made from PR #2's head `8dc46ff` (`spike/master-extractor-backup`).
 VK goes to **beta.5** by default; beta.4 only by the owner's word (§7).
 
@@ -12,16 +12,19 @@ VK goes to **beta.5** by default; beta.4 only by the owner's word (§7).
   ရဲ့ register line တစ်ကြောင်းပဲ ပြင်မယ်။ Backup finder ပိတ်ထားလည်း VK အလုပ်လုပ်ရမယ်။
 - ဒီနေ့ VK video ဖွင့်ရင် generic detection က Audio row ပဲ ပြတယ်။ ပန်းတိုင်က source မှာ တကယ်ရှိတဲ့
   video quality တွေ။ Audio-only ကို အောင်မြင်တယ်လို့ မယူ၊ row ၃ ခု အမြဲရမယ်လို့ ကတိမပေး။
-- လမ်း (GET သာ): A = video page ကိုယ်တိုင် (player data ဒါမှမဟုတ် embed hash)၊ B = embed
-  `video_ext.php` ရဲ့ `playerParams`၊ B2 = B ကို တခြား VK host မှာ (cookie မပါ)။ Parser/judge
-  တစ်ခုတည်း: key table အရင်၊ မရမှ shape scan၊ video ID ကိုက်မှ လက်ခံ။
+- လမ်း (GET သာ၊ §4.1၊ ပိုင်ရှင့်အဖြေ §12): embed `video_ext.php` ကို VK host နှစ်ခုမှာ မေးမယ် —
+  `*.vk.ru` page ဆို `vk.ru` (အဲဒီ page ရဲ့ cookie နဲ့)၊ မဟုတ်ရင် `vk.com` (`*.vk.com` page ရဲ့
+  cookie သာ)၊ ပြီးရင် တခြား host (cookie မပါ)။ SPA shell ဆို host တူကို တစ်ခါ ထပ်မေး၊ embed
+  request အများဆုံး ၃ ခု။ Page (A) နဲ့ `al_video` မသုံး။ Parser တစ်ခုတည်း: `apiPrefetchCache`
+  ထဲက video ID ကိုက်တဲ့ item → key table၊ မရမှ shape scan။
 - Floor: Browser မှာ adapter ရှိတဲ့ site ဆို adapter ရဲ့ video ပဲ ပြတယ် (P12) — lookup fail ရင်
-  player ရဲ့ file (ဒီနေ့ရဲ့ Audio row) ကို မပြတော့ဘူး။ ဒါကြောင့် video မတွေ့ဘဲ audio ပဲ တွေ့ရင် VK
-  ကိုယ်တိုင် Audio row ပြန်ပေးမယ်၊ ဘာမှ မတွေ့ရင် message + Try again။ Player file ကို row အဖြစ်
-  ပြတဲ့ `PlayerFileFallback` က TikTok အတွက်ပဲ — VK ထည့်ဖို့ shared change → VK0 မှာ ပိုင်ရှင်
-  ဆုံးဖြတ်။ Home မှာတော့ generic fallback ဆက်ရှိတယ်။
-- `al_video` (yt-dlp ရဲ့ အဓိကလမ်း) က form POST လိုတယ်။ App ရဲ့ HTTP client မှာ `postJson` ပဲ
-  ရှိလို့ shared file ပြင်ရမယ် → recon ပြီးမှ ပိုင်ရှင် ဆုံးဖြတ် (VK0 STOP)။
+  player ရဲ့ file (ဒီနေ့ရဲ့ Audio row) ကို မပြတော့ဘူး။ ဒါကြောင့် video မတွေ့ဘဲ VK ရဲ့ audio-only
+  rendition ပဲ တွေ့ရင် partial Success (Audio row)၊ ဘာမှ မတွေ့ရင် message + Try again။
+  `PlayerFileFallback` ကို v1 မှာ မထည့် (ပိုင်ရှင်၊ VK3 ရဲ့ evidence နဲ့ ပြန်စဉ်းစား)။ Home မှာတော့
+  generic fallback ဆက်ရှိတယ်။
+- `al_video` (form POST) က backlog (§8)။ ရုရှား title အတွက် shared client (`OkHttpExtractorClient`)
+  ကို ပြင်ပြီး (ပိုင်ရှင် OK၊ commit သီးသန့်): UTF-8 နဲ့ မဖတ်နိုင်မှ response ရဲ့ charset
+  (windows-1251) နဲ့ ဖတ်။
 - In-tab page data (P40) ကို `BrowserViewModel` က TikTok အတွက်ပဲ ချိတ်ထားလို့ VK-T (tab) က backlog။
 - အချိန်: lookup တစ်ခုလုံးအတွက် deadline တစ်ခု၊ Cancel က လက်ရှိ request ကိုပါ ရပ်။ Login/private/region
   ကို ဖြေတဲ့ path အားလုံး တူညီမှ ရပ်။
@@ -33,6 +36,9 @@ VK goes to **beta.5** by default; beta.4 only by the owner's word (§7).
   public video ၈ ခုလုံး အလုပ်လုပ် (2160p ထိ)၊ data က `playerParams` မဟုတ်တော့ဘဲ
   `window.cur` → `apiPrefetchCache`။ v1 လမ်း: B vk.com → B2 vk.ru။ `al_video` မလို။ Embed က
   windows-1251 — app ရဲ့ client က UTF-8 နဲ့ ဖတ်လို့ ရုရှား title ပျက် (ပိုင်ရှင် ဆုံးဖြတ်)။
+- **VK1 + VK2 (2026-10-24):** adapter (`VkUrls`, `VkEmbedParser`, `VkJudge`, `VkExtractor`)၊
+  register line၊ VK test ၅၂ ခု + client test ၂ ခု။ CI အစိမ်းရင် STOP၊ VK3 (ဖုန်း) က ပိုင်ရှင် OK
+  ပြီးမှ။
 
 ## 1. Goal and scope
 
@@ -117,91 +123,136 @@ wrong "followers only" error (#17608). Two ways in, one strict reader, and an au
 
 ## 4. Design
 
+As built at VK1: §11.6's changes and the owner's VK0 answers (§12) applied.
+
 ### 4.1 Paths (GET only in v1)
 
-| Path | Request | What it reads | When it helps |
+| Path | Request | Cookie | When |
 |---|---|---|---|
-| **A** — the page | GET the video or clip page on the host the user opened (that host's cookie only) | the player data the page carries (`playerParams` / `params[0]` / its JSON state) or, failing that, the embed `hash` for B | the usual way (VK0 confirms) |
-| **B** — the embed | GET `https://{host}/video_ext.php?oid=…&id=…&hash=…` (the link's hash or A's) | `var playerParams = {…};` → `params[0]` (yt-dlp's embed path) | A changed or carries no player data |
-| **B2** — the other host | B on the other VK host (vk.com ↔ vkvideo.ru), with no cookie | as B | the user's host refuses; cookies are per domain |
-| **C** — `al_video` (not v1) | form POST `al_video.php` (`act=show`, `al=1`, `video`, `list`) | the payload's `player.params[0]`, `mvData` | only if VK0 shows A and B cannot carry v1: needs a `postForm` in `extractor-api`, `OkHttpExtractorClient` and the clients that wrap it → the owner's decision, likely beta.5 |
+| **B** — the embed, primary host | GET `https://{host}/video_ext.php?oid=…&id=…[&hash=…][&list=…]` | the page's own, if the page is on that site | first |
+| **B again** — the same host | the same request | the same | only after VK's SPA shell (`spa_root` / `isRedirectChallenge`, no item) |
+| **B2** — the other host | the same request on the other host | never | after any B answer that is not a video or a live video |
 
-Order A → B → B2; the first video answer wins (§4.3). If VK0 finds that `al_video` answers a GET,
-it joins v1 as a GET path after A.
+- Primary: `vk.ru` on a `vk.ru` / `*.vk.ru` page, with that page's cookie; otherwise `vk.com`,
+  with the cookie only from a `vk.com` / `*.vk.com` page (none on Home, `vkvideo.ru` or another
+  site). The other host never gets a cookie. `vkvideo.ru` and `m.vk.com` embeds are never asked
+  (VK0: the shell or the redirect loop every time).
+- At most 3 embed requests. The shell retry is the only retry: it keeps the cookie, so a
+  signed-in video is not lost to the other host's "Video not found.". HTTP 429, 5xx, a network
+  error or a timeout: no second ask on that host; the other host still gets its one try.
+- Path A (the page: VK's login redirect, then an SPA shell) and C (`al_video`, a form POST) are
+  out of v1 (§12 (a), (d)); `al_video` stays in §8.
 
-### 4.2 One parser and one judge (every path)
+### 4.2 One parser and one judge
 
-1. **Key table first** (`VkPlayerParams`): `url{height}` / `cache{height}` → MP4 at that height;
-   `hls*` (not `hls_live_playback`) → HLS; `dash_sep`, `dash_webm`, other `dash*` (not `dash_uni`,
-   `dash_live_playback`) → DASH; `md_title`, `md_author`, `jpg`, `duration`, `live`, and the
-   video's `oid`/`vid`. VK0's fixtures fix the exact keys.
-2. **Shape scan second**, only when the table finds nothing: walk the JSON for objects holding
-   media URLs on VK's media hosts (VK0's list, in `VkUrls`) under height-like keys, and accept one
-   only if it names the requested video (`oid`/`vid` or `{oid}_{id}`). A URL alone is never
-   enough: another video's, a preview's, an ad's or a thumbnail's data is refused.
-3. **Judge** (`VkJudge`): an MP4 with a height → video. A manifest → read it (at most 256 KB and
-   3 s, inside the deadline): video only if it lists a video variant (HLS `EXT-X-STREAM-INF` with
-   `RESOLUTION`; DASH a video `AdaptationSet` or `Representation`); audio-only → partial. A host
-   outside the list → refused. `live == 2` → not v1.
+1. **The item** (`VkEmbedParser`): every `"apiPrefetchCache": [ … ]` array of the embed (at most
+   3, each read by the bounded JSON parser) → the `response.items[]` entry whose own `owner_id`
+   and `id` are the link's (the identity check; another video's data is never the video's).
+2. **Key table**: that item's `files` — `mp4_{height}` → MP4 (`video/mp4`, that height); `hls`,
+   `hls_fmp4`, `hls_ondemand` → HLS (`application/x-mpegURL`); `dash_sep`, `dash_ondemand`,
+   `dash_webm`, `dash_webm_av1` → DASH (`application/dash+xml`); `failover_host` and other keys
+   are not media. An address counts only if it is HTTPS on a host ending with `.okcdn.ru` (not
+   `iv.okcdn.ru`), so a new `vkvd` prefix or failover host still works; other hosts are refused
+   and counted. From the item too: `title` (HTML entities decoded; "VK video {oid}_{id}" only
+   when it is empty or still holds U+FFFD), the largest HTTPS `image[]`, `duration` (seconds,
+   bounded), `live_status`.
+3. **Shape scan**, only when the table finds nothing (renamed keys, data moved out of the item):
+   a walk of the caches (depth ≤ 48) for objects naming the requested video (`owner_id`/`id` or
+   `oid`/`vid`); an object naming another video is skipped whole, and `trailer`, `image`,
+   `first_frame`, `timeline_thumbs`, `ads`, `subtitles`, `stats_pixels` are never read. It takes
+   `vkvd{N}.okcdn.ru` addresses only, under rendition-like keys (`mp4_720`, `url720`, `cache720`
+   → MP4; `hls*` → HLS; `dash*` but `dash_uni` → DASH; a `*live*` key never).
+4. **Judge** (`VkJudge`): an MP4 → video. Only when there is no MP4, at most two manifests are
+   read (one HLS and one DASH first; ≤ 256 KB and min(3 s, time left) each). HLS: a master with
+   a variant that has `RESOLUTION` or a video codec → video; a master whose variants are all
+   audio → audio-only; a media playlist or no `#EXTM3U` → not judged. DASH: an `AdaptationSet` or
+   `Representation` with a video MIME type, content type, size or codec → video; audio ones only
+   → audio-only; else not judged. The first video verdict decides; manifests that cannot be
+   judged stay what VK names them (video; `details`: `manifests not judged`).
+5. Live (`live_status` `started` / `waiting` / `upcoming`, or only `*live*` files) → not v1
+   (§4.3). `postlive` (a finished live with its files) is a video like any other.
 
 ### 4.3 When to go on and when to stop
 
-- A video answer (at least one video candidate) → `Success`; stop.
-- Audio-only or nothing → the next path.
-- An access answer (VK's login wall, private, deleted, copyright, region, followers-only; VK0's
-  markers) on one path → noted; the remaining paths still run (one endpoint's text is not a
-  verdict, see #17608).
-- At the end:
-  - every path that answered gave the same access answer → that reason (`LOGIN_REQUIRED`,
-    `PRIVATE_OR_UNAVAILABLE`, `GEO_RESTRICTED`); for sign-in, the app's own text unless VK0 shows
-    it misleads (then a `message`, like X's and Instagram's own lines);
-  - VK's captcha or security check → `BOT_CHECK` (the existing retry after playback);
-  - no video on any path, but audio-only renditions on one → `Success` with them (the floor:
-    the browser keeps today's Audio row, §3 P12); `details` say `audio-only`; reports count it
-    as partial, never as a pass;
-  - anything else (live, changed markup, network) → `RESPONSE_CHANGED`, `NO_MEDIA_FOUND` or the
-    network reason (Home then reads the page; the browser shows the message with Try again).
-- An audio-only `Success` only at the end, never while a path is left.
+- A video answer (an MP4, or a manifest judged video or not judged) → `Success`; stop.
+- A live video → `NO_MEDIA_FOUND` with "VK live streams can't be saved yet."; stop.
+- Anything else → the next request of §4.1. At the end, the first that holds:
+  1. audio-only manifests from a host → `Success` with them (VK's own, identity-checked
+     renditions — not `PlayerFileFallback`); `details`: `audio-only (partial)`; reports count it
+     as partial, never as a pass; the browser keeps an Audio row (§3 P12);
+  2. VK's `<div id="video_ext_msg">Video not found.</div>` on a host → `NO_MEDIA_FOUND` with
+     "VK says this video isn't available. It may be deleted, private or need sign-in." — never
+     `PRIVATE_OR_UNAVAILABLE` or `LOGIN_REQUIRED` (it cannot tell deleted, private, sign-in or
+     a list apart);
+  3. the item without files → `NO_MEDIA_FOUND`;
+  4. the shell on every try, or a changed embed (no player data, no item for the video, files
+     only on unknown hosts) → `RESPONSE_CHANGED`: a failure that lets Home's generic detector
+     read the page, never `BOT_CHECK` (VK0's shells were transient);
+  5. the last refusal's reason (`RATE_LIMITED`, `NETWORK`, `HTTP_STATUS`, …): one endpoint's
+     401, 403, 404, 410 or 451 is not VK's verdict on the video → `HTTP_STATUS`, never
+     sign-in, private or region;
+  6. nothing answered in time → `NETWORK` (`details`: `out of time`).
+- Free words (`captcha`, `private`, `unavailable`) sit in working embeds' scripts: never
+  markers. Only `video_ext_msg`, the shell markers and the item count.
 
 ### 4.4 Time and Cancel
 
-- One deadline for the whole lookup (15 s), shared by every path, host change and manifest read;
-  each request gets the time left, at most 8 s; no retries beyond the paths.
-- Cancel cancels the lookup's coroutine and the request in flight. Check that
-  `OkHttpExtractorClient` cancels its call; if it does not, report it (not a v1 change).
-- `details`: one line per path (e.g. `vk: A page 200, params by table, 3 mp4`), never a URL,
-  cookie or body.
+- One deadline for the whole lookup (15 s): every embed request and manifest read. An embed
+  request gets min(8 s, time left), a manifest min(3 s, time left); with under 250 ms left a
+  request is not sent (`details`: `not asked · out of time`).
+- The shell retry (§4.1) is VK's only retry; the shared client's own retry of 502/503/504 runs
+  inside the same request's time.
+- Cancel cancels the lookup's coroutine and the call in flight (`OkHttpExtractorClient` cancels
+  it, §11.6); no next request starts.
+- `details`: one line per request — path, host, `(page session)` when the cookie went, status,
+  ms, then the counts (`video: 8 mp4 up to 2160p, 2 hls, 3 dash (table)`) or the stop reason
+  (`shell`, `not found`, `live`, `no files`, `files on unknown hosts: N`, `RATE_LIMITED`, …);
+  one closing line only for an outcome no request's line names (`audio-only (partial)`,
+  `manifests not judged`, `out of time`). Never a URL, cookie or body.
 
 ### 4.5 Candidates and rows
 
-All real renditions as candidates (MP4 per height, manifests); the app's existing row logic picks
-what to show (no promise of three rows). Title: `md_title`, else the author "on VK"; the
-thumbnail; the duration; a signed URL's `expires` as `expiresAtEpochMs` when present.
+Every real rendition of the requested video is a candidate with its true kind (MP4 `DIRECT`,
+`HLS`, `DASH`), MIME type, height (MP4) and the signed address's `expires` as `expiresAtEpochMs`
+(query or path; 13 digits as ms, 10 as s); source `MANIFEST`, confidence `HIGH`, `drmHint` false;
+the title, thumbnail and duration on each; MP4 from the largest height down, then HLS, then DASH.
+The rows stay the app's: row logic, `MergeSupport` (AVC; VP9+Opus WebM from Android 10; AV1 off)
+and the planned 2-audio-row rule (a later shared change, not VK's). No change to row logic, the
+engine or the browser; no promise of three rows.
 
-### 4.6 Requests and the session
+### 4.6 Requests, hosts and links
 
-- Headers as Vimeo's: the browser's user agent, `Accept-Language`, `Referer` (the page), the
-  cookie only to the host it came from — never across vk.com, vk.ru and vkvideo.ru.
-- The media context: the page as referer, the user agent and the cookie (the resolver strips it
-  for other origins, as for Vimeo).
-- `isPlayerMediaRequest`: VK's media hosts (VK0's list), so the `BOT_CHECK` retry works.
+- Embed requests: `PageNavigationHeaders`' defaults, the browser's user agent, and the cookie by
+  §4.1's rule only — never across vk.com, vk.ru and vkvideo.ru.
+- Manifests and media: the canonical page (`https://vk.com/video{oid}_{id}` or `clip…`, the
+  link's `list` and `hash` kept) as `Referer`, the user agent, no cookie (VK0: an MP4 range
+  answered 206 without one).
+- `isPlayerMediaRequest`: HTTPS `vkvd{N}.okcdn.ru` only. Images (`iv.okcdn.ru`,
+  `sun*.userapi.com`), stats (`*.ms.vk.ru`) and trackers never, so an image load never fires the
+  `BOT_CHECK` retry. No other families (`mycdn.me`, `vkuser.net`, `userapi.com`) without evidence.
+- `identify()` is offline and never throws (the browser calls every adapter's `identify()` on
+  each navigation, and two claims fail the registry's `require()`): `/video{oid}_{id}`,
+  `/clip{oid}_{id}`, a `z=video…` / `z=clip…` layer on any page and `video_ext.php?oid&id`, on
+  `vk.com` (www., m.), `vk.ru` (m.) and `vkvideo.ru` (www., m.). Ids are bounded digit strings
+  read with `toLongOrNull`. Look-alike hosts, `http://`, ports, user info, broken `%` escapes,
+  addresses over 4 KB, `away.php`, messenger posts (`/im/channels/…`, `/mail/channels/…`) and
+  other pages → null: the generic detector keeps them (and `sitePage` stays false).
 
 ### 4.7 Files
 
 ```
 extractor-sites/src/main/kotlin/com/alal/yft/extractor/sites/vk/
-  VkUrls.kt          identify(): hosts, paths, z=, embed, list/hash; media hosts; canonical URL
-  VkPlayerParams.kt  key table + shape scan + identity check → VkClip (renditions, title, live)
-  VkJudge.kt         video or audio-only (manifest read), hosts, live
-  VkPaths.kt         A, B, B2 (GET); access and bot markers per path
-  VkExtractor.kt     order, deadline, stop rules, reasons, details, isPlayerMediaRequest
-app/src/main/java/com/alal/yft/detection/SiteAdapterModule.kt   + VkExtractor(http),  (the only old file)
-extractor-sites/src/test/kotlin/com/alal/yft/extractor/sites/vk/   VkUrlsTest, VkPlayerParamsTest,
-                                                                   VkJudgeTest, VkExtractorTest
-extractor-sites/src/test/resources/fixtures/vk/                    sanitized pages, embeds, manifests
+  VkUrls.kt          identify(), canonical and embed URLs, the cookie's site, media hosts, expiry
+  VkEmbedParser.kt   apiPrefetchCache → the item (identity) → key table, shape scan → VkVideo
+  VkJudge.kt         an HLS / DASH manifest → video, audio-only or not judged
+  VkExtractor.kt     B, B again, B2; deadline, stop rules, reasons, details, candidates
+app/src/main/java/com/alal/yft/detection/SiteAdapterModule.kt      + VkExtractor(http), (one line)
+app/src/main/java/com/alal/yft/detection/OkHttpExtractorClient.kt  + test: the charset fix
+                                                                   (§12 (b), its own commit)
+extractor-sites/src/test/kotlin/com/alal/yft/extractor/sites/vk/   VkUrlsTest, VkEmbedParserTest,
+  VkJudgeTest, VkExtractorTest, VkAdapterSetTest, VkTestSupport
+extractor-sites/src/test/resources/fixtures/vk/                    sanitized embeds, manifests, pages
 ```
-
-Names may change if VK0 shows a better split; "new files plus one line" may not.
 
 ## 5. Steps
 
@@ -232,32 +283,51 @@ Names may change if VK0 shows a better split; "new files plus one line" may not.
 
 ### 5.2 VK1 — code (after the owner's OK on VK0)
 
-The files of §4.7; the registration line last. `identify()` never touches the network.
+The files of §4.7; the registration line last. `identify()` never touches the network. Done
+2026-10-24 (§10): commit 1 the shared client's charset fix (§12 (b)); commit 2 the adapter, its
+tests and the registration line.
 
 ### 5.3 VK2 — tests (JVM; no live network in CI)
 
-- `VkUrlsTest`: every link form → its identity or null; `list`/`hash` kept; look-alike hosts
-  refused (`vk.com.example.org`, `evilvk.com`).
-- `VkPlayerParamsTest`: the key table on each fixture; renamed keys → the shape scan finds the
-  same video; another video's params, a preview, an ad and a thumbnail refused; live marked.
-- `VkJudgeTest`: video and audio-only manifests; unknown hosts refused.
-- `VkExtractorTest` (a fake `ExtractorHttpClient`; each path skipped or mutated): A fails → B;
-  A and B fail → B2; one path's access text and another's video → video; all paths access →
-  `LOGIN_REQUIRED`; captcha → `BOT_CHECK`; audio-only everywhere → `Success` with the audio renditions
-  (`details`: `audio-only`); nothing anywhere → a generic-allowed failure;
-  a slow client → the deadline holds (virtual time); cancel → no further request; the cookie
-  never reaches another host; `details` hold no URL or cookie.
+As built (52 VK tests, all on VK0's fixtures or synthetic pages in VK's shape):
+
+- `VkUrlsTest` (9): every link form on every host → its identity (canonical
+  `https://vk.com/video…`), `z=` layers, embeds with `list` / `hash`; look-alike hosts, `http://`,
+  ports, user info, 25-digit ids, broken `%` escapes, a 10 KB URL, `away.php` and messenger posts
+  → null; the key table's and the browser's host rules; the expiry from query or path; the
+  cookie's site.
+- `VkEmbedParserTest` (12): every rendition of each fixture (video, clip, finished live) with its
+  kind, MIME, height and expiry; previews, images and first frames never; renamed keys and moved
+  data found by the shape scan (still never the preview); another video's data refused; live;
+  unknown hosts refused and counted; "Video not found.", the shell and changed pages; titles
+  (entities; empty or U+FFFD → the fallback), the thumbnail and the duration.
+- `VkJudgeTest` (4): VK's masters and MPD → video; all-audio ones → audio-only (synthetic: VK0
+  found none); a video codec without a resolution → video; what it cannot tell → not judged.
+- `VkExtractorTest` (21; a scripted `ExtractorHttpClient`, virtual time): the cookie rule per page
+  (`vk.com`, `vk.ru`, `vkvideo.ru`, Home); 429 and 5xx → the other host at once; the shell → once
+  more, then the other host (3 asks at most); shells everywhere → `RESPONSE_CHANGED`; "Video not
+  found." → `NO_MEDIA_FOUND` with the message, never private or sign-in; HTTP statuses are not
+  verdicts; live → its message; a finished live; manifests (video, audio-only partial, not
+  judged); unknown hosts; another video's embed; no files; the 15 s deadline (8 s + 7 s); Cancel →
+  no further request; `details` without a URL, cookie or body; a non-VK identity refused.
+- `VkAdapterSetTest` (3): VK's pages go to VK only; the six shipped adapters keep theirs; VK pages
+  without a video id stay with the generic detector.
+- `VkFixtureHygieneTest` (3): every fixture listed; none holds an IP-like value, a signed value,
+  a session name or a key-like run (§5.5); the rules catch a planted leak.
+- `OkHttpExtractorClientTest` (+2, commit 1): windows-1251 reads right; UTF-8, no charset, an
+  unknown charset and UTF-8 bytes labelled ISO-8859-1 read exactly as before.
 
 ### 5.4 VK3 — CI, preview, the phone
 
 - Checkpoints: `bash scripts/checkpoint.sh "…"` on `work/phase-vk-extractor` (your SESSION_STATE
   section each time). CI: `checkpoint-validation` green; `preview-apk` builds a release-flag
-  preview (`com.alal.yft.preview`).
+  preview (`com.alal.yft.preview`). Only the preview counts for VK, never a debug build (§12 (e)).
 - **The phone** (only after S5's run 3 is counted, with the owner's OK): the public links signed
   out, the owner's sign-in links (§5.1) signed in to VK in YFT's browser by him (open
   the post, tap its video: an address with a video id — `video…`, `z=video…` — is read by v1;
   none → §8), and one lookup each on
-  TikTok, Facebook, Instagram and X (no change expected). He sends Copy details; the agent judges.
+  TikTok, Facebook, Instagram and X (no change expected). Per VK link: the top row, one lower row
+  and an Audio row download, play and have sound (§12). He sends Copy details; the agent judges.
 - **STOP — report:** per link the rows (video heights, Audio), the path that answered and the
   time; the four sites unchanged.
 
@@ -297,11 +367,12 @@ stay. A test fails if a fixture holds a real-looking signature or cookie.
 - **VK-T — VK's in-tab page data** (a VK reader beside TikTok's in `BrowserViewModel` and
   `BrowserScreen`): the strongest way for signed-in videos (no hash, no endpoint); a shared
   change → beta.5 or later.
-- `al_video` by form POST (`postForm`), if VK0 shows the need.
+- `al_video` by form POST (`postForm`): backlog (the owner, §12 (d)).
 - VK messenger channel posts (`vk.ru/im/channels/{id}?cmid=…`, `m.vk.ru/mail/channels/…`): no
   video id in the address; the messenger's data needs the session (the owner's links, §5.1).
-- VK in `PlayerFileFallback` (the player's file as the row when every path fails), if the owner
-  says so at VK0.
+- VK in `PlayerFileFallback` (the player's file as the row when every path fails): not in v1
+  (§12 (c)); revisit after VK3 with evidence.
+- Re-extract once on a media 403 (VK's `srcIp`-bound URLs after a Wi-Fi ↔ mobile switch).
 - Live streams, playlists, subtitles, `vk.cc` short links.
 - Remote recipes or a kill switch for VK (GitHub raw requests: the privacy line and the Backup
   finder switch are affected — an owner decision).
@@ -320,6 +391,10 @@ stay. A test fails if a fixture holds a real-looking signature or cookie.
 - 2026-10-24: the owner's sign-in links (VK messenger channel posts) recorded in §5.1.
 - 2026-10-24: VK0 done — results and fixtures (§11; `fixtures/vk/`); STOP: the owner's answers
   (§11.7) before VK1.
+- 2026-10-24: the owner's VK0 answers (§12); §4 rewritten as built.
+- 2026-10-24: VK1 + VK2 done in two commits: `a176667a` the shared client's charset fix
+  (§12 (b)), then the adapter (§4), its 52 tests, the fixtures' keys and the registration line.
+  STOP after CI: VK3 only with the owner's OK.
 
 ## 11. VK0 results (2026-10-24)
 
@@ -439,6 +514,7 @@ Not `var playerParams` any more (cf. yt-dlp #16070) but
   with the identity check. `identify()`: the hosts and link forms of §1 (VK0 found no other).
 - Changes to §4 that follow (applied at VK1 after the owner's OK): §4.1's table → B/B2 only;
   §4.2's keys → 11.3; §4.3's access markers → `video_ext_msg` only; `VkPaths.kt` → embed paths.
+  Applied (§4).
 
 ### 11.7 Questions for the owner (STOP)
 
@@ -452,6 +528,76 @@ Not `var playerParams` any more (cf. yt-dlp #16070) but
   video on a `vkvideo.ru` tab) keeps today's Audio row; without it, the message with Try again.
 - (d) `al_video` by POST is not needed for v1 (stays backlog §8).
 - (e) Master's capture in debug builds takes failed VK lookups (no adapter filter): fine as it is?
+
+The owner's answers (2026-10-24): §12.
+
+## 12. The owner's VK0 answers (2026-10-24)
+
+His review of VK0, in chat (it replaces any earlier reply): start VK1 and VK2. CI for `f577e074`
+(Preview APK, checkpoint validation, emulator smoke): green.
+
+- **(a) Path A dropped; `al_video` out of v1** (its POST stays in §8). v1 = the embed on two
+  hosts. Primary: `vk.ru` on a `*.vk.ru` page (with that page's cookie); otherwise `vk.com` (the
+  cookie only from a `*.vk.com` page; none on Home or `vkvideo.ru`). The other host never gets a
+  cookie. The SPA shell (`spa_root` / `isRedirectChallenge`, no item) is not an answer: the same
+  host once more (it keeps the cookie, so a signed-in video is not lost to the other host's
+  "Video not found."), then the other host; at most 3 embed requests, the only retry (§4.4
+  amended). HTTP 429 or 5xx: no second ask on that host; the other host still gets its one try.
+  Shells on every try → a generic-allowed failure (they were transient in VK0), not `BOT_CHECK`.
+  All inside the 15 s deadline; each request min(8 s, time left); Cancel → no next request.
+  → §4.1, §4.3, §4.4.
+- **(b) Titles: the shared client is fixed.** His OK covers `OkHttpExtractorClient.kt` and
+  `OkHttpExtractorClientTest.kt` only, in their own commit; any other shared file is still §2.2.
+  `readBounded` keeps `readUtf8()`; only when that yields U+FFFD and the response names another
+  valid charset are the same bytes decoded with that charset, so no body that reads cleanly today
+  can change. Size limit, timeout and Cancel unchanged. Tests: windows-1251 reads right; UTF-8,
+  no charset, an unknown charset and UTF-8 bytes labelled ISO-8859-1 read exactly as before.
+  "VK video {oid}_{id}" only when the title is empty or still holds U+FFFD. → `a176667a` (one
+  more guard: the bytes must also be invalid UTF-8, so a UTF-8 body that really holds U+FFFD
+  keeps its reading).
+- **(c) `PlayerFileFallback`: not in v1** (it turns the player's newest file into one MP4 —
+  TikTok's case; VK's player fetches HLS/DASH pieces). VK's own identity-checked audio-only
+  renditions stay a partial `Success` (§4.3); that is not this fallback. Revisit after VK3 with
+  evidence (§8).
+- **(d) `al_video` POST: backlog** (§8).
+- **(e) Master in debug builds: no change.** A debug build's result never counts for VK; VK3
+  counts the preview (release flags) only.
+
+Also:
+
+1. "Video not found." (`video_ext_msg`) cannot tell deleted, private, sign-in or a list apart:
+   never `PRIVATE_OR_UNAVAILABLE` or `LOGIN_REQUIRED` from it; `NO_MEDIA_FOUND` with "VK says
+   this video isn't available. It may be deleted, private or need sign-in." (§4.3).
+2. Hosts (VK0: media `vkvd{N}.okcdn.ru`, `failover_host` too; images `iv.okcdn.ru` and
+   `sun*.userapi.com`; stats `*.ms.vk.ru`). The key table: HTTPS addresses under the matched
+   item's `files` on a host ending with `.okcdn.ru` (a new `vkvd` prefix or failover host still
+   works). The shape scan and `isPlayerMediaRequest`: `vkvd{N}.okcdn.ru` only. Image, stats and
+   tracker hosts and the `image` / `first_frame` / `timeline_thumbs` / `trailer` data are never
+   media (an image load must not fire the `BOT_CHECK` retry). No other families (`mycdn.me`,
+   `vkuser.net`, `userapi.com`) without evidence; this replaces his earlier list. Tests: a new
+   `*.okcdn.ru` host under `files` accepted; a thumbnail on `iv.okcdn.ru` refused by the shape
+   scan; `notokcdn.ru`, `okcdn.ru.example.org` and `http://` refused; `isPlayerMediaRequest`
+   false for images and stats (§4.2, §4.6).
+3. `identify()` never throws and claims only VK pages: the browser calls every adapter's
+   `identify()` (`SiteExtractorRegistry.select`) on each navigation without a try/catch, and two
+   claims fail its `require()`. Ids as bounded digit strings; `toLongOrNull`, never `toLong()`.
+   Junk tests: 25-digit ids, broken `%` escapes, a 10 KB URL, `vk.com/away.php?to=` a YouTube
+   link → null. Messenger links (`/im/channels/…?cmid=…`) → null, so `sitePage` stays false and
+   the page keeps today's rows (§4.6).
+4. Candidates: every real rendition with its true kind, MIME, height and expiry. The rows stay
+   the app's: row logic, `MergeSupport` (AVC; VP9+Opus WebM from Android 10; AV1 off) and the
+   planned 2-audio-row rule (a later shared change, not VK's). No change to row logic, the
+   engine or the browser (§4.5).
+5. `details`: one line per request — path, host, status, ms, video/audio counts or the stop
+   reason; never a URL, cookie or body (§4.4).
+6. §8, one line: re-extract once on a media 403 (`srcIp`-bound URLs after a Wi-Fi ↔ mobile
+   switch).
+7. At VK1, §11.6's changes go to §4 and these answers into the plan: done (§4, this section).
+
+Stop: VK1 + VK2 → `bash scripts/checkpoint.sh "…"` → CI green → STOP with a short Burmese report
+(commits, tests, CI). No VK APK on the owner's phone before S5's run 3 is counted; VK3 only with
+his OK. There, per link: the top row, one lower row and an Audio row download, play and have
+sound.
 
 ## Appendix — the agent's prompt
 
