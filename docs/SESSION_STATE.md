@@ -791,9 +791,9 @@ Keep at least the heading and one blank line between sections, so Git merges the
   and docs/*MATRIX*.md not edited; no APK on the owner's phone before he says S5's run 3 is
   counted, then only with his OK.
 - State: D1 committed; D1 follow-up (`f5effc1`) red on Emulator smoke (its type rule wrong); D1
-  follow-up 2 (either MPEG-TS type) committed (this checkpoint). Next: D2, pushed only after
-  this follow-up's Emulator smoke is fully green, the bytes check included (the owner,
-  2026-10-24), then D3, D4; then CI green and the Burmese report with the phone checklist.
+  follow-up 2 (`d1bd432`, either MPEG-TS type) green on CI, the bytes check included; D2
+  committed (this checkpoint). Next: D3, D4; then CI green and the Burmese report with the
+  phone checklist.
 
 ### D1 — HLS saved as `.m3u8` (Pornhub, JAV)
 
@@ -859,8 +859,36 @@ Keep at least the heading and one blank line between sections, so Git merges the
   bytes check, the app's own record (`.ts` `video/mp2t`), the row's name (`.ts`), published.
 - Tests: the instrumented test only (Emulator smoke); no JVM test changes.
 - Validation (local, 2026-10-24): `:app:compileDebugAndroidTestKotlin` → BUILD SUCCESSFUL (JDK
-  17); the checkpoint runs it; no new line over 100 characters. CI: after the push. If the
-  bytes check fails: stop and report, no app code change without the owner's OK. D2 is pushed
-  only after this commit's Emulator smoke is fully green.
+  17); the checkpoint runs it; no new line over 100 characters. CI (`d1bd432`): checkpoint
+  validation run 40090783594, Preview APK run 40090783622 and Emulator smoke run 40090783588
+  green (56 tests, 0 failures, the same 3 skipped: this test ran whole, its bytes check
+  passed); D2 pushed after it.
 - Backlog: the app records a kept `.ts` as `video/mp2t` (queue, library) while MediaStore says
   `video/mp2ts`; players match `video/*`, so no change.
+
+### D2 — audio rows (YouTube 4, every other site 2)
+
+- Cause: `QuickDownloadChoices.audioRows` offered the M4A and an MP3 at every
+  `Mp3Variants.BITRATES_KBPS` (320, 192, 128) on every site, `Mp3Variants.addTo` (Preview) added
+  the three too, and `compact` (P9's short view) picked the MP3 at exactly 128 kbps.
+- Fix: `Mp3Variants.bitratesFor(pageUrl)`: all three when `SiteBrand.of(pageUrl)` is YouTube
+  (youtube.com and its subdomains, youtu.be, youtube-nocookie.com), else only 192
+  (`OTHER_SITE_KBPS`). The rule is "not YouTube", so Facebook, Instagram, X, TikTok, VK and the
+  web get it with no VK code. `QuickDownloadChoices.of` passes the group's `pageUrl`, `addTo`
+  the asset's `sourcePageUrl`; `compact` keeps the M4A and the lowest MP3 offered (128 on
+  YouTube, 192 elsewhere). A chosen row is still rebuilt from its own bitrate
+  (`QuickDownloadViewModel` unchanged).
+- Tests: `QuickDownloadChoicesTest` (YouTube www, m, music, youtu.be → M4A + MP3 320/192/128,
+  short view M4A + 128; Facebook (facebook.com, fb.watch), Instagram, X (x.com, twitter.com),
+  TikTok, VK (vk.com, vkvideo.ru) and a generic site → M4A + MP3 192, the short view the same),
+  `Mp3VariantsTest` (`bitratesFor` per site, youtube-nocookie.com too; `addTo` adds only 192 on
+  the other sites), `PreviewViewModelTest` (a Facebook page's M4A offered as MP3 192 only); the
+  expectations of tests on `OTHER_PAGE` or a Facebook page updated (`QuickDownloadChoicesTest`,
+  `QuickDownloadViewModelTest`, `PreviewViewModelTest`; fixture `youtubeOn(page)`).
+- Validation (local, 2026-10-24): `lintDebug` → 0 errors, no issue in a D2 file;
+  `testDebugUnitTest -x :app:testDebugUnitTest` (core-model 127, core-download 265, core-data 33,
+  core-media 39, extractor-api 36, extractor-generic 21, extractor-sites 293 tests) and
+  `:app:testDebugUnitTest` (1120 tests: 1118 + 2, 66 skipped) → 0 failures; `:app:assembleDebug
+  :app:assembleRelease` → BUILD SUCCESSFUL; no new line over 100 characters. CI: after the push.
+- Backlog: none in D2's scope. The rule reads the page address the sheet shows as its source
+  (Preview: the asset's `sourcePageUrl`), not the media file's own host.

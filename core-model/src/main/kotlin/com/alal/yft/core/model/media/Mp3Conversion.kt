@@ -1,5 +1,6 @@
 package com.alal.yft.core.model.media
 
+import com.alal.yft.core.model.settings.SiteBrand
 import java.util.Locale
 
 /**
@@ -24,7 +25,7 @@ data class Mp3Conversion(
  * Only a whole AAC audio file (M4A) can be converted: the phone decodes it with MediaCodec and
  * LAME encodes the MP3. The best such file is the source of every MP3 bitrate. An M4A kept from
  * a video's sound ([AudioFromVideo]) is such a file too: the MP3 is made from the video's AAC
- * track.
+ * track. D2: YouTube offers every bitrate, any other site only 192 ([bitratesFor]).
  */
 object Mp3Variants {
     const val MIME_TYPE = "audio/mpeg"
@@ -33,6 +34,21 @@ object Mp3Variants {
 
     /** Offered bitrates, best first: 320 high, 192 classic, 128 small. */
     val BITRATES_KBPS = listOf(320, 192, 128)
+
+    /** D2: the one bitrate a site other than YouTube offers, the classic. */
+    const val OTHER_SITE_KBPS = 192
+
+    /**
+     * D2: the bitrates offered for a video on [pageUrl]: all of [BITRATES_KBPS] on YouTube, only
+     * [OTHER_SITE_KBPS] on any site that is not YouTube (Facebook, Instagram, X, TikTok, VK, the
+     * web). A chosen row is still rebuilt from its own bitrate ([of] takes any of them).
+     */
+    fun bitratesFor(pageUrl: String): List<Int> =
+        if (SiteBrand.of(pageUrl) == SiteBrand.YOUTUBE) {
+            BITRATES_KBPS
+        } else {
+            listOf(OTHER_SITE_KBPS)
+        }
 
     /** True for a supported, whole-file AAC audio variant the phone can convert. */
     fun isAacSource(variant: MediaVariant): Boolean {
@@ -78,11 +94,15 @@ object Mp3Variants {
         )
     }
 
-    /** [asset] with an MP3 variant per bitrate after its best AAC file; unchanged without one. */
+    /**
+     * [asset] with an MP3 variant per bitrate its page offers (D2: [bitratesFor] its
+     * [MediaAsset.sourcePageUrl]) after its best AAC file; unchanged without one.
+     */
     fun addTo(asset: MediaAsset): MediaAsset {
         if (asset.variants.any { it.mp3 != null }) return asset
         val source = sourceOf(asset.variants) ?: return asset
-        val mp3 = BITRATES_KBPS.mapNotNull { of(source, it, asset.durationMillis) }
+        val mp3 = bitratesFor(asset.sourcePageUrl)
+            .mapNotNull { of(source, it, asset.durationMillis) }
             .filter { candidate -> asset.variants.none { it.id == candidate.id } }
         if (mp3.isEmpty()) return asset
         val index = asset.variants.indexOf(source) + 1

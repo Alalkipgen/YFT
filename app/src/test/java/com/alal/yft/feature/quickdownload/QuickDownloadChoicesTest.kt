@@ -25,6 +25,9 @@ import org.junit.Test
 class QuickDownloadChoicesTest {
     private val mp3Titles = listOf("MP3 · 320 kbps", "MP3 · 192 kbps", "MP3 · 128 kbps")
 
+    /** D2: the audio rows of a site that is not YouTube, and its short view's. */
+    private val otherSiteAudio = listOf("M4A", "MP3 · 192 kbps")
+
     @Test
     fun exactlyTwoSectionsAudioThenVideoWithOneRowPerResolution() {
         // P3-FIX (owner's phone): "Music" quick rows, "Fast"/"High" and More formats listed the
@@ -70,6 +73,47 @@ class QuickDownloadChoicesTest {
         assertEquals(4, short.options.size)
         short.options.forEach { assertSame(it, full.option(it.id)) }
         assertEquals(full.options.size, full.options.map { it.id }.distinct().size)
+    }
+
+    @Test
+    fun youTubeKeepsFourAudioRowsAndEverySiteThatIsNotYouTubeShowsM4aAndMp3At192() {
+        // D2 (the owner): YouTube keeps M4A + MP3 320/192/128; Facebook, Instagram, X, TikTok,
+        // VK and the generic web show M4A + MP3 192. The rule is "not YouTube": no VK code.
+        val youtube = listOf(
+            "https://www.youtube.com/watch?v=fixture0001",
+            "https://m.youtube.com/watch?v=fixture0001",
+            "https://music.youtube.com/watch?v=fixture0001",
+            "https://youtu.be/fixture0001",
+        )
+        val others = listOf(
+            "https://www.facebook.com/watch/?v=25",
+            "https://fb.watch/fixture25/",
+            "https://www.instagram.com/reel/fixture25/",
+            "https://x.com/someone/status/25",
+            "https://twitter.com/someone/status/25",
+            "https://www.tiktok.com/@someone/video/25",
+            "https://vk.com/video-25_25",
+            "https://vkvideo.ru/video-25_25",
+            QuickDownloadFixtures.OTHER_PAGE,
+        )
+        val videos = listOf("1080p · Full HD", "720p · HD", "480p", "360p")
+
+        youtube.forEach { page ->
+            val full = choices(QuickDownloadFixtures.youtubeOn(page))!!
+            val short = QuickDownloadChoices.compact(full, QualityPreference.UP_TO_720P)
+            assertEquals(page, listOf("M4A") + mp3Titles, full.audio.map(SheetOption::title))
+            assertEquals(page, listOf("M4A", "MP3 · 128 kbps"), short.audio.map { it.title })
+            assertEquals(page, videos, full.video.map(SheetOption::title))
+        }
+        others.forEach { page ->
+            val full = choices(QuickDownloadFixtures.youtubeOn(page))!!
+            val short = QuickDownloadChoices.compact(full, QualityPreference.UP_TO_720P)
+            assertEquals(page, otherSiteAudio, full.audio.map(SheetOption::title))
+            assertEquals(page, otherSiteAudio, short.audio.map { it.title })
+            assertEquals(page, videos, full.video.map(SheetOption::title))
+            assertEquals(page, 192, full.audio.last().variant.mp3?.bitrateKbps)
+            short.options.forEach { assertSame(page, it, full.option(it.id)) }
+        }
     }
 
     @Test
@@ -412,7 +456,8 @@ class QuickDownloadChoicesTest {
     @Test
     fun everySiteGivesTheSameSectionsNamesAndOrder() {
         // P25: YouTube, Facebook (DASH + HD/SD, or HD/SD alone) and another site's HLS + MP4
-        // give one sheet: Audio "M4A" then MP3, Video by height, the same short view.
+        // give one sheet: Audio "M4A" then MP3, Video by height, the same short view. D2: MP3
+        // 320/192/128 on YouTube only, 192 alone on every other site.
         val youtube = QuickDownloadFixtures.youtubeLadder()
         val facebookDash = QuickDownloadFixtures.facebookDash()
         val facebookFiles = QuickDownloadFixtures.facebookFiles()
@@ -446,10 +491,13 @@ class QuickDownloadChoicesTest {
 
         sites.forEach { (site, full) ->
             val short = QuickDownloadChoices.compact(full, QualityPreference.UP_TO_720P)
-            assertEquals(site, listOf("M4A") + mp3Titles, full.audio.map(SheetOption::title))
+            val youTube = site == "YouTube"
+            val audio = if (youTube) listOf("M4A") + mp3Titles else otherSiteAudio
+            val shortAudio = if (youTube) listOf("M4A", "MP3 · 128 kbps") else otherSiteAudio
+            assertEquals(site, audio, full.audio.map(SheetOption::title))
             assertEquals(site, videos.getValue(site), full.video.map(SheetOption::title))
             assertEquals(site, full.audio + full.video, full.options)
-            assertEquals(site, listOf("M4A", "MP3 · 128 kbps"), short.audio.map { it.title })
+            assertEquals(site, shortAudio, short.audio.map { it.title })
             assertEquals(site, shortVideos.getValue(site), short.video.map { it.title })
             assertEquals(
                 site,
@@ -548,7 +596,8 @@ class QuickDownloadChoicesTest {
             short.options.map(SheetOption::id),
             QuickDownloadChoices.compact(both, QualityPreference.UP_TO_720P).options.map { it.id },
         )
-        assertEquals(listOf("M4A") + mp3Titles, both.audio.map(SheetOption::title))
+        // D2: Facebook is not YouTube, so M4A and MP3 192 only.
+        assertEquals(otherSiteAudio, both.audio.map(SheetOption::title))
         // The measured sound's bitrate sizes the M4A: 252 s at 96 kbps.
         assertEquals("~${YftFormat.bytes(3_024_000)}", both.audio.first().size)
         assertEquals("Normal quality for quick play", both.video.last().description)
