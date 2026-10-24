@@ -790,9 +790,10 @@ Keep at least the heading and one blank line between sections, so Git merges the
   work branch); `recipes` untouched, master-recipes-publish never run; PROGRESS.md, CHANGELOG.md
   and docs/*MATRIX*.md not edited; no APK on the owner's phone before he says S5's run 3 is
   counted, then only with his OK.
-- State: D1 committed; D1 follow-up (the emulator test's `.ts` type) committed (this
-  checkpoint). Next: D2, pushed only after this follow-up's Emulator smoke is fully green (the
-  owner, 2026-10-24), then D3, D4; then CI green and the Burmese report with the phone checklist.
+- State: D1 committed; D1 follow-up (`f5effc1`) red on Emulator smoke (its type rule wrong); D1
+  follow-up 2 (either MPEG-TS type) committed (this checkpoint). Next: D2, pushed only after
+  this follow-up's Emulator smoke is fully green, the bytes check included (the owner,
+  2026-10-24), then D3, D4; then CI green and the Burmese report with the phone checklist.
 
 ### D1 — HLS saved as `.m3u8` (Pornhub, JAV)
 
@@ -820,7 +821,7 @@ Keep at least the heading and one blank line between sections, so Git merges the
   halfway leaves exactly the TS bytes, storage error fails, fMP4/plain joins unchanged, MP3 kept
   `.mp3`), `PublicDownloadDestinationTest` (3), `StreamDownloadQueueTest` (1); instrumented
   `HlsRemuxInstrumentedTest` (emulator smoke: MediaStore row is an MP4 that MediaExtractor
-  reads; MPEG-2 pieces → a `.ts` row, its type the one MediaStore stores: see D1 follow-up).
+  reads; MPEG-2 pieces → a `.ts` row, its type MediaStore's: see D1 follow-up 2).
 - Offline proof (scratch, not committed): the remuxed MP4 decodes frame for frame like the
   source (ffmpeg framemd5), AAC sample bytes equal ffmpeg's own remux, `elst` equal ffmpeg's.
 - Backlog (not in D1's scope): a site's container `matroska`/`quicktime` still taken as an
@@ -836,23 +837,30 @@ Keep at least the heading and one blank line between sections, so Git merges the
   (`b7edd6b`): checkpoint validation run 40083006744 and Preview APK run 40083006431 green;
   Emulator smoke run 40083006457 red, 1 of 56 tests (3 skipped, no crash): see D1 follow-up.
 
-### D1 follow-up — the emulator test expects the type MediaStore stores for `.ts`
+### D1 follow-up — the emulator test's `.ts` type (`f5effc1`, wrong rule)
 
 - Cause (the test's expectation, not the app): `HlsRemuxInstrumentedTest`'s
   `piecesThatCannotBeRemuxedAreKeptAsATsRowOfTypeMp2t` expected the row's MIME_TYPE
-  `video/mp2t`; the API 34 emulator stored `video/mp2ts`. On a rename MediaProvider
-  (`ensureFileColumns`) keeps a given type only when `MimeTypeMap` knows it, else takes the
-  display name's (same media kind): Android names `.ts` `video/mp2ts`, `video/mp2t` unknown.
-  The name (`.ts`), the published (not pending) row and the app's own record (`publishedAs`,
-  `.ts` `video/mp2t`) were right; the bytes check after the type check never ran.
-- Fix (the owner's choice A, 2026-10-24: a separate commit, the test and this section only, no
-  app code): the test expects what MediaStore stores on that device — the given type when
-  `MimeTypeMap.hasMimeType`, else the extension's (`video/mp2ts` on API 34) — rule-based, not
-  fixed to API 34; the `publishedAs` check (`video/mp2t`) and the bytes check unchanged.
+  `video/mp2t`; the API 34 emulator stored `video/mp2ts`. The name (`.ts`), the published (not
+  pending) row and the app's own record (`publishedAs`, `.ts` `video/mp2t`) were right; the
+  bytes check after the type check never ran.
+- Fix tried (the owner's choice A, 2026-10-24: a separate commit, the test and this section
+  only): expect the given type when `MimeTypeMap.hasMimeType`, else the extension's. Wrong:
+  publishing (IS_PENDING 0) makes MediaProvider scan the file and set the type itself (API 34:
+  `.ts` → `video/mp2ts`), whatever the app gave.
+- CI: checkpoint validation run 40087033078 and Preview APK run 40087033092 green; Emulator
+  smoke run 40087033113 red, the same 1 of 56 (3 skipped, no crash), the bytes check not run.
+
+### D1 follow-up 2 — the emulator test accepts either MPEG-TS type
+
+- Fix (the owner, 2026-10-24: MediaStore's type is not the app's to control and differs across
+  Android versions; the test and this section only, no app code): the row's type must be
+  `video/mp2t` or `video/mp2ts`, MediaProvider's rule not re-implemented. Order: Completed, the
+  bytes check, the app's own record (`.ts` `video/mp2t`), the row's name (`.ts`), published.
 - Tests: the instrumented test only (Emulator smoke); no JVM test changes.
 - Validation (local, 2026-10-24): `:app:compileDebugAndroidTestKotlin` → BUILD SUCCESSFUL (JDK
-  17); the checkpoint runs it; no new line over 100 characters. JVM tests, lint and the APKs
-  are D1's (no main code changed). CI: after the push; D2 waits for this commit's Emulator
-  smoke to be fully green, the bytes check included.
+  17); the checkpoint runs it; no new line over 100 characters. CI: after the push. If the
+  bytes check fails: stop and report, no app code change without the owner's OK. D2 is pushed
+  only after this commit's Emulator smoke is fully green.
 - Backlog: the app records a kept `.ts` as `video/mp2t` (queue, library) while MediaStore says
   `video/mp2ts`; players match `video/*`, so no change.

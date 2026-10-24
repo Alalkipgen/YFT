@@ -8,7 +8,6 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
-import android.webkit.MimeTypeMap
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
@@ -40,9 +39,9 @@ import org.junit.runner.RunWith
  * D1 on the CI emulator (API 34) with the real MediaStore: the real [HlsTransferEngine] saves an
  * HLS download of MPEG-TS pieces (H.264 and AAC, made with FFmpeg; `assets/hls`) into a pending
  * row as an MP4 that Android's own MediaExtractor reads, and keeps pieces it cannot remux
- * (MPEG-2 video) as a `.ts` row, its name and type changed in one update. MediaStore keeps
- * only a type Android knows and otherwise takes the name's: `video/mp2t` is stored as
- * Android's own `video/mp2ts` (D1, CI on API 34).
+ * (MPEG-2 video) as a `.ts` row, its name and type changed in one update. The row's stored type
+ * is MediaStore's, not the app's, and differs across Android versions: either MPEG-TS type is
+ * accepted (D1; API 34 stores `video/mp2ts` for the app's `video/mp2t`).
  * There is no network: an application interceptor answers every request from memory. Each test
  * deletes the row it created, also when it fails.
  */
@@ -101,11 +100,13 @@ class HlsRemuxInstrumentedTest {
             val result = engine("mpeg2.ts").transfer(plan(name), destination)
 
             assertTrue(result.toString(), result is HlsTransferResult.Completed)
+            assertArrayEquals(fixture("mpeg2.ts"), readAll(uri))
             val completed = result as HlsTransferResult.Completed
             assertEquals(PublishedFile("$name.ts", "video/mp2t"), completed.publishedAs)
             val row = requireNotNull(row(uri)) { "The published row is missing" }
-            assertEquals(Row("$name.ts", storedType(TRANSPORT_STREAM, "ts"), pending = false), row)
-            assertArrayEquals(fixture("mpeg2.ts"), readAll(uri))
+            assertEquals(row.toString(), "$name.ts", row.name)
+            assertFalse(row.toString(), row.pending)
+            assertTrue(row.toString(), row.mimeType in MPEG_TS_TYPES)
         } finally {
             delete(uri)
         }
@@ -215,12 +216,6 @@ class HlsRemuxInstrumentedTest {
         runCatching { resolver.delete(uri, null, null) }
     }
 
-    /** D1: MediaProvider's rule — a type Android knows is kept, else the extension's is used. */
-    private fun storedType(given: String, extension: String): String? {
-        val types = MimeTypeMap.getSingleton()
-        return if (types.hasMimeType(given)) given else types.getMimeTypeFromExtension(extension)
-    }
-
     private fun newName(): String = "yft-d1-${UUID.randomUUID().toString().take(8)}"
 
     private data class Row(val name: String?, val mimeType: String?, val pending: Boolean)
@@ -230,5 +225,8 @@ class HlsRemuxInstrumentedTest {
         const val PLAYLIST = "application/vnd.apple.mpegurl"
         const val TRANSPORT_STREAM = "video/mp2t"
         const val BASE_URL = "https://media.example.test/d1"
+
+        /** D1: the MPEG-TS types MediaStore may store for a `.ts` row (it differs by version). */
+        val MPEG_TS_TYPES = setOf(TRANSPORT_STREAM, "video/mp2ts")
     }
 }
