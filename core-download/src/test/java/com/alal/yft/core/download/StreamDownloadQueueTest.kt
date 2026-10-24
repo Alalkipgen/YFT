@@ -27,7 +27,6 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -159,32 +158,55 @@ class StreamDownloadQueueTest {
         }
 
     @Test
-    fun `D1 follow-up 3 DASH and merged downloads keep the sizes they showed before`() =
+    fun `D1 follow-up 4 a merged download shows the merged file's size not its tracks'`() =
         runTest {
+            // The tracks are 5 + 5 bytes, the video merged from them 8.
             val dispatcher = ControlledDispatcher(bytesWritten = 8)
+            val store = InMemoryStore()
             val queue = DownloadQueue(
-                store = InMemoryStore(),
+                store = store,
                 transferDispatcher = dispatcher,
                 scope = backgroundScope,
-                maxConcurrentDownloads = 2,
+                maxConcurrentDownloads = 1,
             )
 
-            queue.enqueue(dashPlan("dash", MediaTrackType.VIDEO), RecordingDestination())
             queue.enqueue(muxPlan("mux"), RecordingDestination())
             runCurrent()
-            dispatcher.complete("dash")
             dispatcher.complete("mux")
             runCurrent()
 
-            val dash = queue.tasks.value.single { it.id == "dash" }
-            assertEquals(DownloadTaskStatus.COMPLETED, dash.status)
-            assertEquals(10L, dash.totalBytes)
-            assertEquals(10L, dash.downloadedBytes)
-            val mux = queue.tasks.value.single { it.id == "mux" }
-            assertEquals(DownloadTaskStatus.COMPLETED, mux.status)
-            assertNull(mux.totalBytes)
-            assertEquals(10L, mux.downloadedBytes)
+            val completed = queue.tasks.value.single()
+            assertEquals(DownloadTaskStatus.COMPLETED, completed.status)
+            assertEquals(8L, completed.totalBytes)
+            assertEquals(8L, completed.downloadedBytes)
+            assertEquals(10L, completed.checkpoint.downloadedBytes)
+            assertEquals(completed, store.loadAll().single())
         }
+
+    @Test
+    fun `D1 follow-up 4 a DASH download shows the size of the file it published`() = runTest {
+        // A live DASH file is assembled from its 10 downloaded bytes into 12.
+        val dispatcher = ControlledDispatcher(bytesWritten = 12)
+        val store = InMemoryStore()
+        val queue = DownloadQueue(
+            store = store,
+            transferDispatcher = dispatcher,
+            scope = backgroundScope,
+            maxConcurrentDownloads = 1,
+        )
+
+        queue.enqueue(dashPlan("dash", MediaTrackType.VIDEO), RecordingDestination())
+        runCurrent()
+        dispatcher.complete("dash")
+        runCurrent()
+
+        val completed = queue.tasks.value.single()
+        assertEquals(DownloadTaskStatus.COMPLETED, completed.status)
+        assertEquals(12L, completed.totalBytes)
+        assertEquals(12L, completed.downloadedBytes)
+        assertEquals(10L, completed.checkpoint.downloadedBytes)
+        assertEquals(completed, store.loadAll().single())
+    }
 
     @Test
     fun `mixed stream and mux plans share the queue concurrency bound`() = runTest {
@@ -377,7 +399,7 @@ class StreamDownloadQueueTest {
         private val progressBytes: Long? = null,
         /** D1: the name and type a completed transfer reports it was published as. */
         private val publishedAs: PublishedFile? = null,
-        /** D1 follow-up 3: the bytes of the file a completed transfer published. */
+        /** D1 follow-ups 3 and 4: the bytes of the file a completed transfer published. */
         private val bytesWritten: Long = 10,
     ) : DownloadTransferDispatcher {
         val active = AtomicInteger()

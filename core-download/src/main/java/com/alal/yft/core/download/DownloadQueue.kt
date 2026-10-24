@@ -749,26 +749,19 @@ class DownloadQueue(
     ) = gate.withLock {
         val current = taskLocked(id) ?: return@withLock
         val publishedUri = runtimeTasks[id]?.destination?.publishedUri
-        val checkpointBytes = result.checkpoint.downloadedBytes
-        // D1 follow-up 3: an HLS download shows the size of the file it published (the MP4 or
-        // M4A made from its pieces, or a kept .ts, .aac or .mp3), not the pieces': one size on
-        // every screen.
+        // D1 follow-ups 3 and 4: a download shows the size of the file it published, one size
+        // on every screen, for every plan type: an HLS download's MP4, an MP3 or M4A made from
+        // a direct download, a merged video, a DASH file; not its pieces', source's or tracks'.
+        // The checkpoint keeps what was downloaded.
         val publishedBytes = result.bytesWritten
-            .takeIf { current.planType.showsPublishedBytes(DownloadTaskStatus.COMPLETED) }
-        val totalBytes = when {
-            publishedBytes != null -> publishedBytes
-            current.planType == DownloadPlanType.AUDIO_VIDEO_MUX -> null
-            else -> (current.totalBytes ?: result.bytesWritten)
-                .coerceAtLeast(checkpointBytes)
-        }
         // D1: a file kept in another format than planned shows the name it was published as.
         val published = result.publishedAs
         val completed = current.copy(
             displayName = published?.displayName ?: current.displayName,
             mimeType = published?.mimeType ?: current.mimeType,
             status = DownloadTaskStatus.COMPLETED,
-            totalBytes = totalBytes,
-            downloadedBytes = publishedBytes ?: checkpointBytes,
+            totalBytes = publishedBytes,
+            downloadedBytes = publishedBytes,
             requiresLinkRefresh = false,
             failureReason = null,
             failure = null,
@@ -854,9 +847,12 @@ class DownloadQueue(
         }
     }
 
-    /** A stopped stream task shows what its checkpoint keeps (P41), not the bytes in flight. */
+    /**
+     * A stopped stream task shows what its checkpoint keeps (P41), not the bytes in flight; a
+     * completed one the file it published (D1 follow-up 4).
+     */
     private fun StoredDownloadTask.withCheckpointBytes(): StoredDownloadTask =
-        if (planType.showsBytesInFlight) {
+        if (planType.showsBytesInFlight && !status.showsPublishedBytes) {
             copy(downloadedBytes = checkpoint.downloadedBytes)
         } else {
             this

@@ -794,8 +794,10 @@ Keep at least the heading and one blank line between sections, so Git merges the
   follow-up 2 (`d1bd432`, either MPEG-TS type) green on CI, the bytes check included; D2
   (`835af64`), D3 (`cfa39c7`) and D4 (`abac20e`) green on CI. The owner's phone test of
   `abac20e`'s preview (2026-10-25): D1–D4 pass, one D1 bug (two sizes for a remuxed HLS
-  download); D1 follow-up 3 committed (this checkpoint). Next: its CI green, then a short Burmese
-  report; no merge, no PR, no phone APK (the owner checks it at #12).
+  download); D1 follow-up 3 (`0e4a59b`) green on CI and accepted; D1 follow-up 4 (every
+  completed download shows its saved file's size) committed (this checkpoint). Next: its CI green
+  by 2026-10-26 24:00 MMT (else it is dropped to v1.0.1), then a short Burmese report; no merge,
+  no PR, no phone APK (the owner checks it at #12).
 
 ### D1 — HLS saved as `.m3u8` (Pornhub, JAV)
 
@@ -1020,8 +1022,47 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - Validation (local, 2026-10-25): `lintDebug` → 0 errors, no issue in a changed file;
   `testDebugUnitTest -x :app:testDebugUnitTest` (core-download 274 = 268 + 6, the other modules
   as in D4) and `:app:testDebugUnitTest` (1126, 66 skipped) → 0 failures; `:app:assembleDebug
+  :app:assembleRelease` → BUILD SUCCESSFUL; no new line over 100 characters. CI (`0e4a59b`):
+  checkpoint validation run 40124048608, Preview APK run 40124048654 and Emulator smoke run
+  40124048689 green (56 tests, 0 failures, 3 skipped).
+- Backlog: a converted MP3 or a sound-only M4A (DIRECT, T18 and P3) showed its downloaded
+  source's size and a merged download its tracks' bytes, not the saved file's (fixed by D1
+  follow-up 4); a completed HLS task saved before this fix keeps the pieces' size it showed (no
+  migration).
+
+### D1 follow-up 4 — every completed download shows its saved file's size
+
+- Found (the owner, 2026-10-25, from follow-up 3's backlog): a converted MP3 or a sound-only M4A
+  made from a DIRECT download showed its source's size (for an M4A the whole MP4's), a merged
+  download its tracks' bytes and no total, a live DASH file its pieces' bytes; Home's Recent card
+  and Library read the saved file itself, so the sizes differed.
+- Cause: `DownloadQueue.completeTask` took the published size (`bytesWritten`) for HLS only;
+  every other plan type kept `(current.totalBytes ?: bytesWritten).coerceAtLeast(checkpoint
+  bytes)` as its total (null for a merged one) and the checkpoint's bytes as its downloaded.
+- Fix: a completed task's total and downloaded bytes are the file it published (`bytesWritten`)
+  for every plan type: the MP3 or M4A made from a direct download, the merged video, the DASH
+  file, the HLS MP4 (downloaded ≤ total kept); its checkpoint keeps what was downloaded. A plain
+  direct download publishes exactly its checkpoint's bytes, so it shows the same as before.
+  `showsPublishedBytes` is now the completed status, whatever the plan type; a completed DASH or
+  merged task keeps those bytes when it is saved and shown (`withCheckpointBytes` only resets a
+  stopped one). `RoomDownloadTaskStore` keeps them across a restart (a completed row whose stored
+  downloaded bytes equal its total); a completed DIRECT row's checkpoint total, which shares the
+  row's total column, comes back as its segments' bytes (what the finished download verified),
+  so the checkpoint is the same too. Rows saved before keep what they showed (they saved their
+  checkpoint's bytes; no migration).
+- Tests: `Mp3ConvertingTransferDispatcherTest` (+3, through a download queue: an MP3 of 14 bytes
+  from a 4,096-byte AAC → total and downloaded 14, the checkpoint 4,096, the store the same; the
+  M4A of a video → 14 and 14; a plain direct download → 4,096 as before),
+  `StreamDownloadQueueTest` (+1 net: a merged video of 8 from tracks of 10 → 8 and 8, the
+  checkpoint 10; a DASH file of 12 from pieces of 10 → 12 and 12; follow-up 3's "DASH and merged
+  downloads unchanged" test replaced), `RoomDownloadTaskStoreTest` (+3: an MP3 of 7 or 25 from a
+  source of 10 keeps its size and its checkpoint after a restart; a merged video of 8 and a DASH
+  file of 12 the same; completed direct and merged rows saved before keep their sizes). Without
+  the fix six of them fail (all but the plain direct download and the rows saved before).
+- Validation (local, 2026-10-25): `lintDebug` → 0 errors, no issue in a changed file;
+  `testDebugUnitTest -x :app:testDebugUnitTest` (core-download 281 = 274 + 7, the other modules
+  as in D4) and `:app:testDebugUnitTest` (1126, 66 skipped) → 0 failures; `:app:assembleDebug
   :app:assembleRelease` → BUILD SUCCESSFUL; no new line over 100 characters. CI: after the push.
-- Backlog: a converted MP3 or a sound-only M4A (DIRECT, T18 and P3) shows its downloaded
-  source's size and a merged download its tracks' bytes, not the saved file's (other plan types
-  unchanged, as the owner said); a completed HLS task saved before this fix keeps the pieces'
-  size it showed (no migration).
+- Backlog: a direct source of unknown size whose MP3 or M4A conversion was cut by the app's end
+  and finished after a refresh keeps a checkpoint without a total until the next restart, which
+  gives it the source's bytes (a completed task's checkpoint is not read again).

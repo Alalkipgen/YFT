@@ -63,12 +63,12 @@ data class StoredDownloadTask(
         require(preferredSegmentCount in 1..32)
         require(planType.accepts(checkpoint))
         // A running DASH or merged task may show the bytes written since its last checkpoint
-        // (P41); a completed HLS task the bytes of the file it published (D1 follow-up 3); every
-        // other task shows exactly what its checkpoint keeps.
+        // (P41); a completed task the bytes of the file it published (D1 follow-ups 3 and 4);
+        // every other task shows exactly what its checkpoint keeps.
         require(
             checkpoint.downloadedBytes == downloadedBytes ||
                 (planType.showsBytesInFlight && downloadedBytes > checkpoint.downloadedBytes) ||
-                (planType.showsPublishedBytes(status) && downloadedBytes == totalBytes),
+                (status.showsPublishedBytes && downloadedBytes == totalBytes),
         )
     }
 
@@ -133,8 +133,14 @@ class RoomDownloadTaskStore(
 
     private fun DownloadRecordWithSegments.toStoredTask(): StoredDownloadTask {
         val planType = enumValueOrDefault(record.planType, DownloadPlanType.DIRECT)
+        val status = enumValueOrDefault(record.status, DownloadTaskStatus.FAILED)
+        // D1 follow-ups 3 and 4: a completed task keeps the size of the file it published, saved
+        // as both its total and its downloaded bytes. A row saved before saved its checkpoint's
+        // bytes, so it shows what it showed.
+        val publishedBytes = record.totalBytes
+            ?.takeIf { status.showsPublishedBytes && it == record.downloadedBytes }
         val checkpoint = when (planType) {
-            DownloadPlanType.DIRECT -> directCheckpoint()
+            DownloadPlanType.DIRECT -> directCheckpoint(published = publishedBytes != null)
             DownloadPlanType.HLS -> CheckpointPayloadCodec.decode(
                 planType,
                 record.checkpointPayload,
@@ -148,11 +154,7 @@ class RoomDownloadTaskStore(
                 record.checkpointPayload,
             ) ?: AudioVideoMuxCheckpoint()
         }
-        val status = enumValueOrDefault(record.status, DownloadTaskStatus.FAILED)
-        // D1 follow-up 3: a completed HLS task keeps the size of the file it published.
-        val downloadedBytes = record.totalBytes
-            ?.takeIf { planType.showsPublishedBytes(status) && it == record.downloadedBytes }
-            ?: checkpoint.downloadedBytes
+        val downloadedBytes = publishedBytes ?: checkpoint.downloadedBytes
         val totalBytes = record.totalBytes?.takeIf { it >= downloadedBytes }
         val failureReason = record.lastErrorCode?.let {
             enumValueOrDefault(it, DownloadFailureReason.HTTP_STATUS)
@@ -180,7 +182,14 @@ class RoomDownloadTaskStore(
         )
     }
 
-    private fun DownloadRecordWithSegments.directCheckpoint(): DirectTransferCheckpoint {
+    /**
+     * D1 follow-up 4: a [published] record's total is the size of the file it published (an MP3
+     * or M4A made from the download may be smaller or larger than it), so its checkpoint's total
+     * is the bytes it downloaded: what the finished download verified.
+     */
+    private fun DownloadRecordWithSegments.directCheckpoint(
+        published: Boolean,
+    ): DirectTransferCheckpoint {
         val orderedSegments = segments
             .sortedBy(DownloadSegmentEntity::segmentIndex)
             .map { segment ->
@@ -192,7 +201,11 @@ class RoomDownloadTaskStore(
                 )
             }
         return DirectTransferCheckpoint(
-            totalBytes = record.totalBytes,
+            totalBytes = if (published) {
+                orderedSegments.sumOf(DownloadSegment::downloadedBytes)
+            } else {
+                record.totalBytes
+            },
             entityTag = record.entityTag,
             lastModified = record.lastModified,
             segments = orderedSegments,
@@ -250,13 +263,14 @@ internal val DownloadPlanType.showsBytesInFlight: Boolean
     get() = this == DownloadPlanType.DASH || this == DownloadPlanType.AUDIO_VIDEO_MUX
 
 /**
- * D1 follow-up 3: a completed HLS task shows the size of the file it published, as both its
- * downloaded and its total bytes: the MP4 or M4A made from its pieces (usually smaller than they
- * are), or the kept .ts, .aac or .mp3; its checkpoint keeps the pieces' bytes. Other plan types
- * are unchanged.
+ * D1 follow-ups 3 and 4: a completed task shows the size of the file it published, as both its
+ * downloaded and its total bytes, for every plan type: the MP4 or M4A made from HLS pieces (or a
+ * kept .ts, .aac or .mp3), the MP3 or M4A made from a direct download, a merged video, a DASH
+ * file. Its checkpoint keeps what was downloaded; a plain direct download published exactly
+ * that, so it shows the same bytes as before.
  */
-internal fun DownloadPlanType.showsPublishedBytes(status: DownloadTaskStatus): Boolean =
-    this == DownloadPlanType.HLS && status == DownloadTaskStatus.COMPLETED
+internal val DownloadTaskStatus.showsPublishedBytes: Boolean
+    get() = this == DownloadTaskStatus.COMPLETED
 
 internal fun DownloadPlanType.accepts(checkpoint: TransferCheckpoint): Boolean = when (this) {
     DownloadPlanType.DIRECT -> checkpoint is DirectTransferCheckpoint
