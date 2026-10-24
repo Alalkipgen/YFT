@@ -14,6 +14,7 @@ import android.provider.OpenableColumns
 import android.system.ErrnoException
 import android.system.Os
 import android.system.OsConstants
+import com.alal.yft.core.model.download.FileNames
 import java.io.FileDescriptor
 import java.io.FileNotFoundException
 import java.io.IOException
@@ -735,8 +736,9 @@ private fun sanitizePublicFileName(value: String): String {
             )
         }
     }.trim(' ', '.')
-        .take(MAX_PUBLIC_FILE_NAME_CHARS)
-    return sanitized.ifBlank { "download" }
+    // D3: cut at a grapheme boundary within the characters and UTF-8 bytes, the extension kept.
+    val fitted = FileNames.fit(sanitized, MAX_PUBLIC_FILE_NAME_CHARS).trim(' ', '.')
+    return fitted.ifBlank { "download" }
 }
 
 private fun sanitizeTemporaryId(value: String): String {

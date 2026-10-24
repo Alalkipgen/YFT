@@ -792,8 +792,8 @@ Keep at least the heading and one blank line between sections, so Git merges the
   counted, then only with his OK.
 - State: D1 committed; D1 follow-up (`f5effc1`) red on Emulator smoke (its type rule wrong); D1
   follow-up 2 (`d1bd432`, either MPEG-TS type) green on CI, the bytes check included; D2
-  committed (this checkpoint). Next: D3, D4; then CI green and the Burmese report with the
-  phone checklist.
+  (`835af64`) green on CI; D3 committed (this checkpoint). Next: D4; then CI green and the
+  Burmese report with the phone checklist.
 
 ### D1 — HLS saved as `.m3u8` (Pornhub, JAV)
 
@@ -889,6 +889,62 @@ Keep at least the heading and one blank line between sections, so Git merges the
   `testDebugUnitTest -x :app:testDebugUnitTest` (core-model 127, core-download 265, core-data 33,
   core-media 39, extractor-api 36, extractor-generic 21, extractor-sites 293 tests) and
   `:app:testDebugUnitTest` (1120 tests: 1118 + 2, 66 skipped) → 0 failures; `:app:assembleDebug
-  :app:assembleRelease` → BUILD SUCCESSFUL; no new line over 100 characters. CI: after the push.
+  :app:assembleRelease` → BUILD SUCCESSFUL; no new line over 100 characters. CI (`835af64`):
+  checkpoint validation run 40093269320, Preview APK run 40093269382 and Emulator smoke run
+  40093269421 green.
 - Backlog: none in D2's scope. The rule reads the page address the sheet shows as its source
   (Preview: the asset's `sourcePageUrl`), not the media file's own host.
+
+### D3 — Myanmar titles keep their marks
+
+- Cause: `DownloadPlanFactory.sanitizeForFileSystem` kept only `Char.isLetterOrDigit()` and
+  "-_()[] ", so every mark (`\p{M}`: Myanmar ါ ာ ိ ု ေ ် ျ း, Thai and Hindi vowel signs) became
+  a space; `fileName` cut with `take()` at 96 UTF-16 units: about 288 bytes in Myanmar, over the
+  255-byte limit, and it could split a stacked consonant after ္. core-download's
+  `sanitizePublicFileName` and `DirectRangeProbe.sanitizeFileName` (Content-Disposition names)
+  cut with `take(180)`: graphemes split, no byte limit, the extension could be cut off.
+- Fix: one shared object, core-model `download/FileNames.kt`. `keepWords(title, allowed)`: NFC;
+  letters, digits, the allowed punctuation and the marks after a kept letter or digit; a mark
+  with no kept base is dropped (at the start, U+FE0F left by a removed emoji), so a Latin title
+  with emoji gains no invisible character; everything else a space, runs of spaces collapsed,
+  ends trimmed. `cut(text, maxChars, maxBytes)`: only at a grapheme boundary (never before a
+  mark, ZWJ/ZWNJ, an emoji modifier or a tag character; never after ZWJ, or after a stacking
+  virama when a letter follows: Myanmar U+1039, Khmer U+17D2, Tai Tham U+1A60, Indic U+094D,
+  09CD, 0ACD, 0B4D, 0C4D, 0D4D; regional-indicator pairs and Hangul jamo together); a cut
+  between code points only when not even the first grapheme fits (Zalgo). `fit(name, maxChars,
+  maxBytes)` keeps a short extension (≤ 10 ASCII letters and digits). Byte budget: the whole
+  name, extension included, at most 255 − 32 = 223 UTF-8 bytes (`FileNames.MAX_NAME_BYTES`);
+  the 32 leave room for app storage's `<name>.<id ≤16>.part` and " (n)", and for MediaStore's
+  pending `.pending-<10 digits>-<name>` (Android 11+), which MediaProvider would otherwise
+  shorten in the middle with "...". `DownloadPlanFactory`: `keepWords`, then `cut` at 96
+  characters (Latin titles as before) and 223 bytes; `sanitizePublicFileName` and
+  `DirectRangeProbe`: `fit` at 180 characters and 223 bytes; `Id3v2Tag.clean`: `cut` (its
+  surrogate check folded in). Saved files are not renamed; no migration.
+- For the owner: two choices of mine. (1) Myanmar's word signs ၌ ၍ ၎ ၏ (U+104C–104F, Po) are
+  kept like letters (၊ and ။ still become spaces). (2) A spacing mark (Mc) with no base is kept,
+  not dropped: Zawgyi text types ေ and ျ before their consonant, so dropping them would change
+  the word; Mc marks are visible, so no invisible character comes from it (U+FE0F is Mn and is
+  dropped). Also: a title the cut leaves empty (e.g. "___") is now `yft-download.<ext>`, no
+  longer the hidden file `.mp4`.
+- Tests: `FileNamesTest` (11: the four titles အချစ်ရူး, ထွဏ်းထွဏ်း, ဒါဟာအချစ်လား,
+  ဇော်ပိုင် ချောစုခင် and Thai สวัสดีครับ, Hindi नमस्ते दुनिया come back exactly; word signs;
+  marks with no base, VS16 and a skin tone leave nothing; Zawgyi; the reserved \ / : * ? " < > |
+  and invisible or direction-changing characters; သတ္တဝါ cut at every length, never after ္ or
+  before ါ, and स्ते kept whole; a long Myanmar title cut at a grapheme within 219 bytes; flags,
+  skin tones, a ZWJ family, a tag flag and Hangul jamo whole; the Zalgo fallback; `fit`; the
+  byte counts), `DownloadPlanFactoryTest` (6: the six titles → `<title>.mp4`; a long Myanmar
+  title → 12 × သတ္တဝါ + သ + `.mp4`, exactly 223 bytes; a long Latin title → 96 characters as
+  before; ❤️ leaves no U+FE0F; reserved characters → spaces; "___" → `yft-download.mp4`),
+  `PublicDownloadDestinationTest` (1: a long Myanmar display name keeps `.mp4` within 223
+  bytes), `DirectRangeProbeTest` (1: the same through `filename*=UTF-8''`), `Id3v2TagTest` (1:
+  ကျ kept whole or not at all). The existing "invisible and direction-changing characters cannot
+  disguise the extension" still gives "clip gnp exe.mp4".
+- Validation (local, 2026-10-24): `lintDebug` → 0 errors, no issue in a D3 file;
+  `testDebugUnitTest -x :app:testDebugUnitTest` (core-model 138 = 127 + 11, core-download 268 =
+  265 + 3, the other modules as in D2) and `:app:testDebugUnitTest` (1126 = 1120 + 6, 66
+  skipped) → 0 failures; `:app:assembleDebug :app:assembleRelease` → BUILD SUCCESSFUL; no new
+  line over 100 characters. CI: after the push.
+- Backlog: a ZWJ or ZWNJ inside a word (some Indic and Persian spellings) still becomes a space,
+  as the rule says (everything else a space); Thai ำ and Lao ຳ (letters, not marks) can be cut
+  from their consonant at the very end of a long title; Zawgyi text is kept as typed, not
+  converted; `DirectRangeProbe` keeps its own unsafe-character rule (only its cut changed).

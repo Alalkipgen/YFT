@@ -71,6 +71,22 @@ class PublicDownloadDestinationTest {
     }
 
     @Test
+    fun `D3 a long Myanmar name keeps its extension within the byte limit`() {
+        // သတ္တဝါ ×40: cut at a grapheme, 219 bytes and ".mp4", never after ္.
+        val word = "\u101E\u1010\u1039\u1010\u101D\u102B"
+        val store = FakePublicContentStore()
+
+        MediaStoreDownloadDestination.create(
+            store = store,
+            displayName = word.repeat(40) + ".mp4",
+            mimeType = "video/mp4",
+            relativePath = "Download/YFT",
+        )
+
+        assertEquals(word.repeat(12) + "\u101E.mp4", store.pendingMedia.single().displayName)
+    }
+
+    @Test
     fun `discard removes an unpublished MediaStore item`() {
         val store = FakePublicContentStore()
         val destination = MediaStoreDownloadDestination.create(

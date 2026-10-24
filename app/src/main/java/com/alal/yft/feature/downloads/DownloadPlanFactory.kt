@@ -7,6 +7,7 @@ import com.alal.yft.core.model.download.AudioVideoMuxDownloadPlan
 import com.alal.yft.core.model.download.DashDownloadPlan
 import com.alal.yft.core.model.download.DirectDownloadPlan
 import com.alal.yft.core.model.download.DownloadFailureReason
+import com.alal.yft.core.model.download.FileNames
 import com.alal.yft.core.model.download.HlsDownloadPlan
 import com.alal.yft.core.model.download.Mp3Encoding
 import com.alal.yft.core.model.download.WholeFileTrack
@@ -326,7 +327,8 @@ object DownloadPlanFactory {
 
     /**
      * Builds a safe output name from non-sensitive metadata only. The playback URL is never used
-     * because signed URLs can carry credentials.
+     * because signed URLs can carry credentials. D3: at most [MAX_FILE_NAME_LENGTH] characters
+     * and [FileNames.MAX_NAME_BYTES] UTF-8 bytes with the extension, cut at a grapheme boundary.
      */
     internal fun fileName(asset: MediaAsset, variant: MediaVariant): String {
         val base = listOfNotNull(
@@ -340,8 +342,12 @@ object DownloadPlanFactory {
 
         val extension = extensionFor(variant)
         val maxBase = (MAX_FILE_NAME_LENGTH - extension.length - 1).coerceAtLeast(1)
-        return "${base.take(maxBase).trimEnd('.', ' ', '-', '_')}.$extension"
-            .ifBlank { "yft-download.$extension" }
+        val maxBaseBytes =
+            (FileNames.MAX_NAME_BYTES - FileNames.utf8Bytes(extension) - 1).coerceAtLeast(1)
+        val shortened = FileNames.cut(base, maxBase, maxBaseBytes)
+            .trimEnd('.', ' ', '-', '_')
+            .ifEmpty { "yft-download" }
+        return "$shortened.$extension"
     }
 
     internal fun extensionFor(variant: MediaVariant): String {
@@ -400,20 +406,11 @@ object DownloadPlanFactory {
      * Keeps only characters that are safe in a user-visible file name.
      *
      * Dots are intentionally dropped so a hostile title can never produce a traversal segment
-     * such as `..`; the extension is appended separately.
+     * such as `..`; the extension is appended separately. D3: a letter's marks stay with it
+     * (Myanmar, Thai, Hindi), no longer turned into spaces ([FileNames.keepWords]).
      */
-    private fun String.sanitizeForFileSystem(): String = trim()
-        .map { character ->
-            when {
-                character.isLetterOrDigit() -> character
-                character in ALLOWED_PUNCTUATION -> character
-                else -> ' '
-            }
-        }
-        .joinToString("")
-        .replace(WHITESPACE_RUN, " ")
-        .trim()
+    private fun String.sanitizeForFileSystem(): String =
+        FileNames.keepWords(this, ALLOWED_PUNCTUATION)
 
-    private val WHITESPACE_RUN = Regex("\\s+")
     private const val ALLOWED_PUNCTUATION = "-_()[] "
 }

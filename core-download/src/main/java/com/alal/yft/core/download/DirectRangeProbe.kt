@@ -4,6 +4,7 @@ import com.alal.yft.core.model.download.DirectDownloadPlan
 import com.alal.yft.core.model.download.DirectProbeResult
 import com.alal.yft.core.model.download.DownloadFailure
 import com.alal.yft.core.model.download.DownloadFailureReason
+import com.alal.yft.core.model.download.FileNames
 import com.alal.yft.core.model.download.RemoteFileMetadata
 import com.alal.yft.core.model.media.BrowserRequestContext
 import java.io.IOException
@@ -295,7 +296,8 @@ class DirectRangeProbe(
         val sanitized = replace(UNSAFE_FILE_NAME_CHARS, "_")
             .trim()
             .trim('.')
-            .take(MAX_FILE_NAME_LENGTH)
+            // D3: cut at a grapheme boundary within the characters and bytes, extension kept.
+            .let { FileNames.fit(it, MAX_FILE_NAME_LENGTH) }
             .trim()
             .trim('.')
         return sanitized.takeIf { it.isNotBlank() && it != "." && it != ".." }

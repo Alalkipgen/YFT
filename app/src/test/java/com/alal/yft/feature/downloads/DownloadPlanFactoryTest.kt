@@ -1,6 +1,7 @@
 package com.alal.yft.feature.downloads
 
 import com.alal.yft.core.model.download.DownloadFailureReason
+import com.alal.yft.core.model.download.FileNames
 import com.alal.yft.core.model.download.Mp3Encoding
 import com.alal.yft.core.model.download.WholeFileTrack
 import com.alal.yft.core.model.media.AudioFromVideo
@@ -480,6 +481,70 @@ class DownloadPlanFactoryTest {
 
         assertEquals("clip gnp exe.mp4", name)
         assertTrue(name.all { it.code in 0x20..0x7E })
+    }
+
+    @Test
+    fun `D3 Myanmar Thai and Hindi titles keep their marks`() {
+        listOf(
+            "အချစ်ရူး",
+            "ထွဏ်းထွဏ်း",
+            "ဒါဟာအချစ်လား",
+            "ဇော်ပိုင် ချောစုခင်",
+            "สวัสดีครับ",
+            "नमस्ते दुनिया",
+        ).forEach { title ->
+            val name = DownloadPlanFactory.fileName(asset(title), variant(label = null))
+            assertEquals(title, "$title.mp4", name)
+        }
+    }
+
+    @Test
+    fun `D3 a long Myanmar title is cut at a grapheme within the byte limit`() {
+        // သတ္တဝါ: never cut after ္ or before ါ; 219 bytes before ".mp4" are 73 code points.
+        val word = "\u101E\u1010\u1039\u1010\u101D\u102B"
+
+        val name = DownloadPlanFactory.fileName(asset(word.repeat(30)), variant(label = null))
+
+        assertEquals(word.repeat(12) + "\u101E.mp4", name)
+        assertEquals(FileNames.MAX_NAME_BYTES, FileNames.utf8Bytes(name))
+        assertTrue(name.length <= DownloadPlanFactory.MAX_FILE_NAME_LENGTH)
+    }
+
+    @Test
+    fun `D3 a long Latin title is cut at 96 characters as before`() {
+        val name = DownloadPlanFactory.fileName(asset("Holiday ".repeat(30)), variant(label = null))
+
+        assertEquals("Holiday ".repeat(11) + "Holi.mp4", name)
+        assertEquals(DownloadPlanFactory.MAX_FILE_NAME_LENGTH, name.length)
+    }
+
+    @Test
+    fun `D3 an emoji with VS16 leaves no U+FE0F behind`() {
+        val name = DownloadPlanFactory.fileName(
+            asset("I \u2764\uFE0F Yangon"),
+            variant(label = null),
+        )
+
+        assertEquals("I Yangon.mp4", name)
+        assertFalse(name.contains('\uFE0F'))
+    }
+
+    @Test
+    fun `D3 the reserved characters still become spaces`() {
+        val name = DownloadPlanFactory.fileName(
+            asset("a\\b/c:d*e?f\"g<h>i|j"),
+            variant(label = null),
+        )
+
+        assertEquals("a b c d e f g h i j.mp4", name)
+    }
+
+    @Test
+    fun `D3 a name the cut leaves empty falls back instead of a hidden file`() {
+        assertEquals(
+            "yft-download.mp4",
+            DownloadPlanFactory.fileName(asset("___"), variant(label = null)),
+        )
     }
 
     @Test
