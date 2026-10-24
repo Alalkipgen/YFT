@@ -784,10 +784,18 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - Plan: `docs/VK_PLAN.md` (the owner's request, 2026-10-24). Branch made from PR #2's head
   `8dc46ff` (`spike/master-extractor-backup`); it never merges into PR #2; after PR #2's merge,
   `main` is merged into it (VK4).
-- State (2026-10-24): plan only (docs); no code.
-- Next: VK0 — public VK links found by the agent (a video, a clip, an embed link; the owner's
-  sign-in links, VK messenger posts, are in the plan's §5.1), live checks (`scripts/live-check.sh`, public pages only), sanitized
-  fixtures; STOP and report in Burmese.
+- State (2026-10-24): **VK0 done** — results in `docs/VK_PLAN.md` §11, sanitized fixtures in
+  `extractor-sites/src/test/resources/fixtures/vk/` (README there); no app code. Found: the page
+  (A) carries no player data (VK's login redirect + SPA shell); the embed `video_ext.php` (B) works
+  without a hash for every public video tried (up to 2160p), data in `window.cur` →
+  `apiPrefetchCache` (not `playerParams`); B2 = `vk.ru` (not `vkvideo.ru`); embeds are
+  windows-1251 (the app's client reads UTF-8 → Russian titles break).
+- **STOP — waiting for the owner** (§11.7): (a) drop A; (b) windows-1251 titles — shared charset
+  fix or fallback title; (c) `PlayerFileFallback` for VK; (d) no `al_video`; (e) Master's debug
+  capture has no adapter filter.
+- The owner's sign-in links (VK messenger channel posts, the plan's §5.1): only on his phone at VK3.
+- Next (after the owner's OK): VK1 — `VkUrls`, the `apiPrefetchCache` parser, `VkJudge`, the B/B2
+  paths, `VkExtractor`, then the registration line; VK2 tests on the fixtures.
 - Rules: the plan's §2 (no push to `main` or PR #2, no label, no `recipes` branch, no VK APK on
   the owner's phone before S5's run 3 is counted).
 - Validation: `./gradlew --no-daemon :extractor-sites:test`.

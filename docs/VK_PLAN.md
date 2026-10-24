@@ -1,6 +1,7 @@
 # VK adapter — plan (VK0–VK4)
 
-Status: **plan** — the owner's request (2026-10-24, in chat). Docs only; nothing built. Branch
+Status: **VK0 done** (recon and fixtures, §11) — waiting for the owner's answers (§11.7); no app
+code yet. The owner's request: 2026-10-24, in chat. Branch
 `work/phase-vk-extractor`, made from PR #2's head `8dc46ff` (`spike/master-extractor-backup`).
 VK goes to **beta.5** by default; beta.4 only by the owner's word (§7).
 
@@ -28,6 +29,10 @@ VK goes to **beta.5** by default; beta.4 only by the owner's word (§7).
   PR #2 merge ပြီးမှ ပြင်။
 - အဆင့်: VK0 recon (STOP) → VK1 code → VK2 tests → VK3 CI + preview + ဖုန်း (S5 ပြီးမှ၊ STOP) →
   VK4 PR #2 merge ပြီး main ယူ၊ Preview #13၊ docs၊ PR။ Default က beta.5။
+- **VK0 ရလဒ် (§11):** page (A) မှာ player data မပါ (redirect + SPA)။ Embed (B) က hash မလိုဘဲ
+  public video ၈ ခုလုံး အလုပ်လုပ် (2160p ထိ)၊ data က `playerParams` မဟုတ်တော့ဘဲ
+  `window.cur` → `apiPrefetchCache`။ v1 လမ်း: B vk.com → B2 vk.ru။ `al_video` မလို။ Embed က
+  windows-1251 — app ရဲ့ client က UTF-8 နဲ့ ဖတ်လို့ ရုရှား title ပျက် (ပိုင်ရှင် ဆုံးဖြတ်)။
 
 ## 1. Goal and scope
 
@@ -313,6 +318,140 @@ stay. A test fails if a fixture holds a real-looking signature or cookie.
 - 2026-10-24: plan recorded (docs only), branch made from `8dc46ff`. Next: VK0.
 - 2026-10-24: the owner — the agent finds public VK links itself; his sign-in link at VK3.
 - 2026-10-24: the owner's sign-in links (VK messenger channel posts) recorded in §5.1.
+- 2026-10-24: VK0 done — results and fixtures (§11; `fixtures/vk/`); STOP: the owner's answers
+  (§11.7) before VK1.
+
+## 11. VK0 results (2026-10-24)
+
+Anonymous GETs to public pages only (`scripts/live-check.sh` and local trace scripts that print
+status, host, path, query names and markers; no body, cookie or signed URL was printed or
+committed). User agents: desktop Chrome, Android Chrome, and Home's (`… YFT/…`); all answered alike
+unless noted.
+
+### 11.1 Links × paths
+
+| Link (public) | A — page (`vk.com`/`vk.ru`/`vkvideo.ru`/`m.*`) | B — `vk.com/video_ext.php?oid&id` (no hash) | B2 — `vk.ru/video_ext.php` | `vkvideo.ru` / `m.vk.com` embed |
+|---|---|---|---|---|
+| `video-77521_162222515` (old) | no player data | works, 240p (with or without yt-dlp's public hash) | works (with or without the hash) | redirect loop / SPA shell |
+| `video205387401_165548505` | no player data | works | — | — |
+| `video-50883936_456244102` | no player data | works, 144p–2160p, HLS, DASH (avc1, vp9, av1) | — | — |
+| `video-18403220_456239696` | no player data | works, 1080p (desktop and Android) | works | SPA shell |
+| `video-127553155_456242961`, `video-220754053_456242564` | no player data | works | — | — |
+| `clip30014565_456240946` | see 11.2 | works (`type=short_video`) | — | — |
+| `video-140332_456239111` (finished live) | no player data | works (`live_status=postlive`, files present) | — | — |
+| deleted / removed / list-only / an old clip | — | `Video not found.` | — | — |
+
+- **A carries no player data.** `vk.com`/`vk.ru` `/video…` → 301 `vkvideo.ru` → 302 `login.vk.ru`
+  (VK's anonymous silent-auth check: `act, app_id, redirect_uri, state, uuid`) → back with
+  `errorCode` → the page. Without a cookie jar this loops (the app's `OkHttpExtractorClient` sends
+  no response cookies and stops after 5 redirects → "too many redirects"). With a jar the page
+  (`vkvideo.ru` ~330 KB windows-1251, `m.vkvideo.ru`) is an SPA shell: its prefetch cache holds
+  only ads and config; the video comes later from `api.vkvideo.ru` with an anonymous token (VK's
+  API — out of scope, §1). `m.vk.com` (Android, no redirect, ~108 KB): a shell too. No embed hash on
+  A.
+- **`al_video.php` by GET** → a tiny payload with VK's "Unknown error" (code 8): it does not answer
+  a GET. POST not tried (not needed, 11.6).
+- **B needs no hash** for any public video tried, on all three user agents; the link's own `hash`
+  is accepted when present. `list=` does not open a "Video not found." video.
+- **B on `vk.com` sometimes answers an SPA shell** (~22 KB, UTF-8, `spa_root`,
+  `isRedirectChallenge=true`) — about 2 in 20 asks; the next ask or B2 on `vk.ru` answered.
+  `vkvideo.ru/video_ext.php` and `m.vk.com/video_ext.php` always give the shell (or the redirect
+  loop) → B2 is `vk.ru`, never `vkvideo.ru`.
+- **Access text:** deleted, removed, list-only and an old clip all give
+  `<div id="video_ext_msg">Video not found.</div>` — one text for all, so not a verdict (§4.3: a
+  failure that still lets Home read the page). No sign-in text was seen anonymously. Working
+  embeds also contain the words `captcha`, `private` and `unavailable` in their scripts → free
+  words are never markers; only `video_ext_msg` and the absence of the item count.
+
+### 11.2 The clip page on `m.vk.ru` (not used in v1)
+
+An Android `vk.com/clip…` link → 302 `m.vk.ru/clip…` (~274 KB, UTF-8) carries a clips *feed* in its
+prefetch data: 11 `files` objects, only one of them the requested clip (the others are the next
+clips). It proves the identity check (§4.2) is required; v1 does not use this page (B works for
+clips).
+
+### 11.3 Where the data is (B)
+
+Not `var playerParams` any more (cf. yt-dlp #16070) but
+`window.cur = Object.assign(…, {"apiPrefetchCache": [ … ]})`:
+
+- an entry `{request: {videos: "{oid}_{id}", is_embed, …}, response: {items: [item]}}` — the video;
+- an entry `{request: {module…}, response: {config…}}` — player config (no media).
+
+| Item key | Meaning | v1 use |
+|---|---|---|
+| `owner_id`, `id` | the video's `oid`, `id` | identity: must equal the link's |
+| `title`, `duration`, `image[]{url,width,height}` | title, seconds, thumbnails | title, duration, the largest thumbnail |
+| `type` | `video` or `short_video` (clip) | — |
+| `live_status` | e.g. `postlive` (a finished live, has files) | a live one (no VOD files, `hls_live_playback`) → not v1 |
+| `files` | the media (below) | candidates |
+| `trailer{mp4_240}`, `first_frame[]`, `timeline_thumbs` | preview, frames, sprites | refused |
+| `player`, `share_url`, `direct_url`, `width`, `height`, `download`, `can_download` | embed URL with hash, links, size | not needed |
+
+`files`: `mp4_144`, `mp4_240`, `mp4_360`, `mp4_480`, `mp4_720`, `mp4_1080`, `mp4_1440`, `mp4_2160`
+(progressive), `hls`, `hls_fmp4`, `hls_ondemand` (HLS masters), `dash_sep`, `dash_ondemand`,
+`dash_webm`, `dash_webm_av1` (DASH), `failover_host` (a host name, not a URL).
+
+### 11.4 Hosts, signatures, manifests
+
+- Media: `vkvd{N}.okcdn.ru` only (`isPlayerMediaRequest`); images `sun{N}-{N}.userapi.com`,
+  `iv.okcdn.ru`. Signed query names: `expires` (epoch **ms**, ~5 days ahead → `expiresAtEpochMs`),
+  `srcIp` (bound to the fetcher's IP: a Home lookup's URLs are fetched from the same phone, so this
+  holds), `srcAg`, `sig`, `id`, …
+- An MP4 `Range: bytes=0-0` → 206 with the desktop and Android agents, no cookie.
+- `hls` and `hls_fmp4` masters list `EXT-X-STREAM-INF` with `RESOLUTION` 144p–2160p; `hls_fmp4` has
+  5 `TYPE=AUDIO` renditions (each an audio-only media playlist). DASH: `dash_sep` avc1/mp4a,
+  `dash_webm` vp9/opus, `dash_webm_av1` av1/opus; no `ContentProtection`. No real audio-only master
+  was found (the VK2 test builds one, marked synthetic).
+
+### 11.5 Encoding and sizes
+
+- Embeds (67–92 KB) and the desktop page are **windows-1251** (`Content-Type: …charset=windows-1251`;
+  `Accept-Charset` and `remixlang` do not change it). Cyrillic in the JSON is raw bytes, not `\u`
+  escapes. `OkHttpExtractorClient.readBounded` reads every body as UTF-8 (`readUtf8()`), so the
+  adapter receives U+FFFD for Russian titles; JSON structure, numbers and URLs survive (ASCII).
+  The adapter cannot repair it (it never sees the bytes). → owner question (b).
+- Read limits: embed ≤ 1 MB, manifests ≤ 256 KB (largest seen: 18 KB) are ample.
+
+### 11.6 Code checks and the proposed v1
+
+- `OkHttpExtractorClient` cancels the call in flight when the coroutine is cancelled
+  (`cancellable`) → §4.4 holds without a change; the per-request time is a `withTimeout` in VK.
+- `BrowserMasterFallback` exists only when `BuildConfig.MASTER_CAPTURE_ENABLED` (debug builds); it
+  has **no** adapter-id filter (`allowsMasterFallback` = not disabled), so in those builds a VK
+  failure that allows fallback reaches Master's capture like any site's. Release and preview: off.
+  No change proposed (a shared file); noted for the owner (e).
+- The tab reader (`BrowserViewModel`'s `TabDataSource`) and `PlayerFileFallback` are TikTok's only.
+  Registering VK hides today's Audio row on VK pages (P12); a failed lookup shows its message with
+  Try again.
+- Signed-in videos: the page cookie may go only to its own site. A tab on `vkvideo.ru` (where VK
+  sends most video links) has no working embed host → signed-in-only videos are expected to fail
+  in v1 unless the tab is on `vk.com`/`vk.ru` (a `*.vk.com` page's cookie → `vk.com` embed; a
+  `*.vk.ru` page's → `vk.ru`). Checked on the phone at VK3 with the owner's link.
+- **Proposed v1 paths:** **B** `https://vk.com/video_ext.php?oid&id[&hash][&list]` → **B2** the same
+  on `vk.ru` → one more **B** only if both answered the SPA shell. A tab on `*.vk.ru` with a
+  cookie starts with the `vk.ru` embed (its own cookie), then `vk.com` without one. A and C
+  (`al_video`) dropped.
+- The owner's messenger links (`vk.ru/im/channels/…?cmid=…`, §5.1): `identify()` does not claim
+  them (no video id), so the messenger page keeps today's generic rows; once his tap opens the
+  video as `video{oid}_{id}` or `z=video…` on `vk.ru`, v1 reads it with that page's cookie.
+  The parser reads `apiPrefetchCache` by the key table above, then the shape scan (§4.2), always
+  with the identity check. `identify()`: the hosts and link forms of §1 (VK0 found no other).
+- Changes to §4 that follow (applied at VK1 after the owner's OK): §4.1's table → B/B2 only;
+  §4.2's keys → 11.3; §4.3's access markers → `video_ext_msg` only; `VkPaths.kt` → embed paths.
+
+### 11.7 Questions for the owner (STOP)
+
+- (a) Drop path A (it needs a cookie jar through VK's login redirect and gives an SPA shell)? The
+  agent proposes yes.
+- (b) Windows-1251 titles: a small shared change in `OkHttpExtractorClient` (decode by the
+  response's `Content-Type` charset; affects every site only when a server names a non-UTF-8
+  charset), or v1 keeps the adapter-only fallback title ("VK video {oid}_{id}") when the title holds
+  U+FFFD? The agent proposes the fallback in v1 and the shared change later (beta.5+).
+- (c) `PlayerFileFallback` for VK (a shared file): with it, a failed VK lookup (e.g. a signed-in
+  video on a `vkvideo.ru` tab) keeps today's Audio row; without it, the message with Try again.
+- (d) `al_video` by POST is not needed for v1 (stays backlog §8).
+- (e) Master's capture in debug builds takes failed VK lookups (no adapter filter): fine as it is?
 
 ## Appendix — the agent's prompt
 
