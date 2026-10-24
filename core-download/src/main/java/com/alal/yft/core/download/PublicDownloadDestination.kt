@@ -85,6 +85,20 @@ class MediaStoreDownloadDestination private constructor(
     }
 
     /**
+     * D1: renames the pending row, its name and its type in one update, so MediaStore never
+     * gives the file an extension its type does not match; returns the name MediaStore chose
+     * (it adds " (n)" to a name in use). [renew] still makes a row with the planned name.
+     */
+    @Synchronized
+    override fun renameExtension(extension: String, mimeType: String): String {
+        require(extension.isNotBlank() && extension.none { it == '/' || it == '\\' })
+        check(lifecycle == DestinationLifecycle.ACTIVE) {
+            "Download destination is not writable"
+        }
+        return store.renamePendingMedia(pendingItemUri, extension, normalizeMimeType(mimeType))
+    }
+
+    /**
      * Deletes this pending row first, so the new row gets the same name, then makes the new
      * one; a row that cannot be deleted is left for the storage janitor.
      */
@@ -167,10 +181,14 @@ class MediaStoreDownloadDestination private constructor(
 class SafDownloadDestination private constructor(
     private val store: PublicContentStore,
     private val temporaryDocumentUri: String,
-    private val finalDisplayName: String,
+    finalDisplayName: String,
     /** How the document was made, to make another one ([renew]); null for a reopened one. */
     private val request: TemporaryDocumentRequest? = null,
 ) : DownloadDestination {
+    /** The name [commit] gives the document; [renameExtension] may change it (D1). */
+    @Volatile
+    private var finalDisplayName: String = finalDisplayName
+
     @Volatile
     private var committedUri: String? = null
 
@@ -229,6 +247,20 @@ class SafDownloadDestination private constructor(
         if (lifecycle != DestinationLifecycle.ACTIVE) return
         store.deleteTemporaryDocument(temporaryDocumentUri)
         lifecycle = DestinationLifecycle.DISCARDED
+    }
+
+    /**
+     * D1: the name [commit] gives the document, with [extension]. A document's type follows its
+     * name when it is renamed, so [mimeType] is not stored. [renew] keeps the planned name.
+     */
+    @Synchronized
+    override fun renameExtension(extension: String, mimeType: String): String {
+        require(extension.isNotBlank() && extension.none { it == '/' || it == '\\' })
+        check(lifecycle == DestinationLifecycle.ACTIVE) {
+            "Download destination is not writable"
+        }
+        return sanitizePublicFileName(withExtension(finalDisplayName, extension))
+            .also { finalDisplayName = it }
     }
 
     /** Deletes this temporary document first, so the new one gets the same name. */
@@ -330,6 +362,12 @@ internal interface PublicContentStore {
     fun publishPendingMedia(uri: String)
     fun deletePendingMedia(uri: String)
 
+    /**
+     * D1: gives the pending item at [uri] the extension [extension] and the type [mimeType];
+     * returns its new name.
+     */
+    fun renamePendingMedia(uri: String, extension: String, mimeType: String): String
+
     fun createTemporaryDocument(
         treeUri: String,
         temporaryDisplayName: String,
@@ -401,6 +439,41 @@ internal class AndroidPublicContentStore(
             }
         }
     }
+
+    override fun renamePendingMedia(uri: String, extension: String, mimeType: String): String {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            throw IOException("Pending MediaStore downloads require Android 10 or newer")
+        }
+        return renamePendingMediaOnAndroid10(parseContentUri(uri), extension, mimeType)
+    }
+
+    /**
+     * Name and type change in one update: MediaStore adds the type's own extension to a name
+     * whose extension does not match the type, so changing one alone could leave "name.ts.mp4".
+     */
+    @TargetApi(Build.VERSION_CODES.Q)
+    private fun renamePendingMediaOnAndroid10(
+        uri: Uri,
+        extension: String,
+        mimeType: String,
+    ): String = storageCall("Cannot rename pending MediaStore item") {
+        val current = displayName(uri)
+            ?: throw IOException("Cannot rename pending MediaStore item")
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, withExtension(current, extension))
+            put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
+        }
+        if (resolver.update(uri, values, null, null) != 1) {
+            throw IOException("Cannot rename pending MediaStore item")
+        }
+        displayName(uri) ?: throw IOException("Cannot rename pending MediaStore item")
+    }
+
+    private fun displayName(contentUri: Uri): String? =
+        query(contentUri, arrayOf(MediaStore.MediaColumns.DISPLAY_NAME), includePending = true)
+            ?.use { cursor ->
+                if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getString(0) else null
+            }
 
     override fun deletePendingMedia(uri: String) {
         storageCall("Cannot discard pending MediaStore item") {
@@ -483,8 +556,14 @@ internal class AndroidPublicContentStore(
         return null
     }
 
-    private fun querySize(contentUri: Uri, includePending: Boolean = false): Cursor? {
-        val projection = arrayOf(OpenableColumns.SIZE)
+    private fun querySize(contentUri: Uri, includePending: Boolean = false): Cursor? =
+        query(contentUri, arrayOf(OpenableColumns.SIZE), includePending)
+
+    private fun query(
+        contentUri: Uri,
+        projection: Array<String>,
+        includePending: Boolean,
+    ): Cursor? {
         val mediaItem = includePending && contentUri.authority == MediaStore.AUTHORITY
         return when {
             mediaItem && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R ->

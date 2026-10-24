@@ -778,3 +778,58 @@ Keep at least the heading and one blank line between sections, so Git merges the
   `BrowserViewModel` calls `vastAds.onAnswer(observation, contentType, bodyStart)` where the
   page's answers are read (e.g. `MediaMetadataProbe`'s non-media XML answers), so a VAST/VMAP
   body starts an ad break when the request's address says nothing.
+
+## Download fixes agent — `work/phase-download-fixes` (D1–D4)
+
+- Task (the owner, 2026-10-24): four fixes, one commit per item with its JVM tests, in order —
+  D1 HLS never saved as `.m3u8`; D2 audio rows (YouTube 4, every other site 2); D3 Myanmar titles
+  keep their marks; D4 Instagram and X icons beside the other sites'. No PR until the owner says
+  (after PR #2's merge: main merged in with a merge commit, no rebase).
+- Base: `8dc46ff404436703f9b588eeee193b2a084f15c1` (`spike/master-extractor-backup`'s head).
+- Rules: commits on this branch only (never main, `spike/master-extractor-backup` or another
+  work branch); `recipes` untouched, master-recipes-publish never run; PROGRESS.md, CHANGELOG.md
+  and docs/*MATRIX*.md not edited; no APK on the owner's phone before he says S5's run 3 is
+  counted, then only with his OK.
+- State: D1 committed (this checkpoint). Next: D2, then D3, D4; then CI green and the Burmese
+  report with the phone checklist.
+
+### D1 — HLS saved as `.m3u8` (Pornhub, JAV)
+
+- Cause: `DownloadPlanFactory.extensionFor` took the variant's container (`m3u8`, `hls`) as the
+  file's extension and its type (`application/vnd.apple.mpegurl`) as the file's; the engine then
+  joined the MPEG-TS pieces into that file, so a TS file was saved as `.m3u8`.
+- Fix: a playlist container (m3u8, m3u, mpd, hls, dash) is never an extension (the media type
+  says it; `video/mp2t` → `ts`, no longer `mp4`). An HLS download is planned as `.mp4`
+  (`video/mp4`), `.m4a` (`audio/mp4`) for sound alone, with `HlsDownloadPlan.remuxToMp4`. The
+  engine sniffs the pieces (`HlsMediaSniffer`): MPEG-TS (H.264 + AAC) and packed AAC are remuxed
+  on the phone by `TsMp4Remuxer` (plain Kotlin, no re-encode; samples straight into the file,
+  `moov` from P35's `StreamCopyMoov`, edit list like ffmpeg's for the first frame's delay);
+  fragmented MP4 is joined as before. When the remux is not possible (another codec, broken
+  data) the pieces are joined and published in their own format through the new
+  `DownloadDestination.renameExtension` (`.ts` `video/mp2t`, `.aac`, `.mp3`: app storage a free
+  "name (n).ext", MediaStore's pending row DISPLAY_NAME + MIME_TYPE in one update, SAF at
+  commit); the queue shows that name (`HlsTransferResult.Completed.publishedAs`). A TS file is
+  never named `.mp4`. MP4, WebM and merged downloads unchanged.
+- Tests: `DownloadPlanFactoryTest` (an HLS `.m3u8` variant → `.mp4` `video/mp4`; HLS sound alone
+  → `.m4a`; playlist containers never an extension, MP4/WebM unchanged), `TsMp4RemuxerTest`
+  (real ffmpeg-made TS pieces in `core-download/src/test/resources/hls/*.b64`: an MP4 whose H.264
+  and AAC samples equal the source's, golden MD5s; sound alone → M4A; packed AAC; times that
+  start again; image prefix; MPEG-2 not remuxed), `HlsMediaSnifferTest`, `HlsTransferEngineTest`
+  (7 D1 tests: TS → real MP4, sound → M4A, kept `.ts` never under the MP4's name, a remux failing
+  halfway leaves exactly the TS bytes, storage error fails, fMP4/plain joins unchanged, MP3 kept
+  `.mp3`), `PublicDownloadDestinationTest` (3), `StreamDownloadQueueTest` (1); instrumented
+  `HlsRemuxInstrumentedTest` (emulator smoke: MediaStore row is an MP4 that MediaExtractor
+  reads; MPEG-2 pieces → a `.ts` row of type `video/mp2t`).
+- Offline proof (scratch, not committed): the remuxed MP4 decodes frame for frame like the
+  source (ffmpeg framemd5), AAC sample bytes equal ffmpeg's own remux, `elst` equal ffmpeg's.
+- Backlog (not in D1's scope): a site's container `matroska`/`quicktime` still taken as an
+  extension; a direct (non-HLS) `.ts` link stays `.ts` (no remux); a task's total bytes after a
+  remux stay the pieces' bytes; HEVC or MP3 inside TS → kept `.ts`; packed MP3 pieces keep their
+  inner ID3 tags (as before); a crash between rename and commit may resume a renamed `.ts` row
+  under the planned name.
+- D1 validation (local, 2026-10-24): `:core-model:test :core-download:testDebugUnitTest` →
+  core-download 265 tests, 0 failures after one D1 test's expectation was corrected (packed MP3
+  pieces are joined whole); `:app:testDebugUnitTest :app:compileDebugAndroidTestKotlin` → 1118
+  tests (1115 before + 3), 0 failures, 66 skipped; `lintDebug` → 0 errors (no warning in a D1
+  file); no new line over 100 characters; the checkpoint runs `testDebugUnitTest`. CI: after
+  the push.

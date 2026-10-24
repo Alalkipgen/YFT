@@ -75,6 +75,11 @@ object DownloadPlanFactory {
         "audio/x-mpegurl",
     )
 
+    /** D1: containers that name a playlist, not a file's type. */
+    private val PLAYLIST_CONTAINERS = setOf("m3u8", "m3u", "mpd", "hls", "dash")
+    private const val HLS_VIDEO_MIME_TYPE = "video/mp4"
+    private const val HLS_AUDIO_MIME_TYPE = "audio/mp4"
+
     fun create(
         asset: MediaAsset,
         variant: MediaVariant,
@@ -136,20 +141,30 @@ object DownloadPlanFactory {
                 ),
             )
 
-            MediaKind.HLS -> DownloadPlanResult.Ready(
-                DownloadRequest.Hls(
-                    plan = HlsDownloadPlan(
-                        taskId = taskId,
-                        playlistUrl = variant.playbackUrl,
-                        suggestedFileName = fileName,
-                        requestContext = context,
-                        mimeType = variant.mimeType,
-                        expiresAtEpochMs = expiry,
+            MediaKind.HLS -> {
+                // D1: the playlist is never the file's type: its pieces become an MP4 (an M4A for
+                // sound alone), or keep their own format when they cannot be remuxed.
+                val mimeType = if (variant.trackType == MediaTrackType.AUDIO) {
+                    HLS_AUDIO_MIME_TYPE
+                } else {
+                    HLS_VIDEO_MIME_TYPE
+                }
+                DownloadPlanResult.Ready(
+                    DownloadRequest.Hls(
+                        plan = HlsDownloadPlan(
+                            taskId = taskId,
+                            playlistUrl = variant.playbackUrl,
+                            suggestedFileName = fileName,
+                            requestContext = context,
+                            mimeType = mimeType,
+                            expiresAtEpochMs = expiry,
+                            remuxToMp4 = true,
+                        ),
+                        fileName = fileName,
+                        mimeType = mimeType,
                     ),
-                    fileName = fileName,
-                    mimeType = variant.mimeType,
-                ),
-            )
+                )
+            }
 
             MediaKind.DASH -> {
                 val representationId = variant.manifestVariantId
@@ -335,17 +350,23 @@ object DownloadPlanFactory {
             val output = AudioVideoMuxCompatibility.outputMimeTypeFor(variant.mimeType)
             return if (output == AudioVideoMuxCompatibility.WEBM_OUTPUT_MIME) "webm" else "mp4"
         }
+        // D1: an HLS download is remuxed into an MP4, an M4A for sound alone.
+        if (variant.kind == MediaKind.HLS) return defaultExtension(variant)
         // Sound alone in an MP4 container is an M4A file (Facebook's and YouTube's audio tracks).
         if (variant.trackType == MediaTrackType.AUDIO && variant.isMp4Container()) return "m4a"
         variant.container?.takeIf { it.isNotBlank() }?.let { container ->
-            return container.lowercase(Locale.US).trimStart('.').sanitizeForFileSystem()
-                .ifBlank { defaultExtension(variant) }
+            val extension = container.lowercase(Locale.US).trimStart('.').sanitizeForFileSystem()
+            // D1: a playlist (m3u8, mpd) is never a file's type; its media type says it.
+            if (extension !in PLAYLIST_CONTAINERS) {
+                return extension.ifBlank { defaultExtension(variant) }
+            }
         }
-        return when (variant.mimeType?.lowercase(Locale.US)) {
+        return when (variant.mimeType?.substringBefore(';')?.trim()?.lowercase(Locale.US)) {
             "video/mp4", "application/mp4" -> "mp4"
             "video/webm" -> "webm"
             "video/x-matroska" -> "mkv"
-            "video/mp2t" -> "mp4"
+            // D1: MPEG-TS bytes downloaded whole stay MPEG-TS, never under an MP4's name.
+            "video/mp2t" -> "ts"
             "audio/mp4", "audio/mp4a-latm" -> "m4a"
             "audio/mpeg" -> "mp3"
             "audio/webm" -> "weba"

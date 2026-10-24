@@ -10,6 +10,7 @@ import com.alal.yft.core.model.download.DownloadProgress
 import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.download.HlsDownloadPlan
 import com.alal.yft.core.model.download.HlsTransferCheckpoint
+import com.alal.yft.core.model.download.PublishedFile
 import com.alal.yft.core.model.download.RemoteFileMetadata
 import com.alal.yft.core.model.download.StreamChunkCheckpoint
 import com.alal.yft.core.model.download.TransferCheckpoint
@@ -76,6 +77,34 @@ class StreamDownloadQueueTest {
         assertEquals(10L, completed.downloadedBytes)
         assertEquals(10L, completed.totalBytes)
     }
+
+    @Test
+    fun `D1 an HLS download kept in its own format shows the name it was published as`() =
+        runTest {
+            val dispatcher = ControlledDispatcher(
+                publishedAs = PublishedFile("hls.ts", "video/mp2t"),
+            )
+            val store = InMemoryStore()
+            val queue = DownloadQueue(
+                store = store,
+                transferDispatcher = dispatcher,
+                scope = backgroundScope,
+                maxConcurrentDownloads = 1,
+            )
+
+            queue.enqueue(hlsPlan("hls"), RecordingDestination())
+            runCurrent()
+            assertEquals("video/mp4", queue.tasks.value.single().mimeType)
+            dispatcher.complete("hls")
+            runCurrent()
+
+            val completed = queue.tasks.value.single()
+            assertEquals(DownloadTaskStatus.COMPLETED, completed.status)
+            assertEquals("hls.ts", completed.displayName)
+            assertEquals("video/mp2t", completed.mimeType)
+            assertEquals(completed.displayName, store.loadAll().single().displayName)
+            assertEquals("video/mp2t", store.loadAll().single().mimeType)
+        }
 
     @Test
     fun `mixed stream and mux plans share the queue concurrency bound`() = runTest {
@@ -266,6 +295,8 @@ class StreamDownloadQueueTest {
         private val progressTotal: Long? = null,
         /** Bytes the transfer reports as written after its first checkpoint (P41). */
         private val progressBytes: Long? = null,
+        /** D1: the name and type a completed transfer reports it was published as. */
+        private val publishedAs: PublishedFile? = null,
     ) : DownloadTransferDispatcher {
         val active = AtomicInteger()
         val resumeCheckpoints = ConcurrentHashMap<String, TransferCheckpoint>()
@@ -290,7 +321,11 @@ class StreamDownloadQueueTest {
                 completions.computeIfAbsent(plan.taskId) { CompletableDeferred() }.await()
                 val completed = checkpoint(plan, bytes = 10, complete = true)
                 onCheckpoint(completed)
-                QueueTransferResult.Completed(bytesWritten = 10, checkpoint = completed)
+                QueueTransferResult.Completed(
+                    bytesWritten = 10,
+                    checkpoint = completed,
+                    publishedAs = publishedAs,
+                )
             } finally {
                 active.decrementAndGet()
             }

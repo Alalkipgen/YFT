@@ -755,7 +755,11 @@ class DownloadQueue(
             else -> (current.totalBytes ?: result.bytesWritten)
                 .coerceAtLeast(checkpointBytes)
         }
+        // D1: a file kept in another format than planned shows the name it was published as.
+        val published = result.publishedAs
         val completed = current.copy(
+            displayName = published?.displayName ?: current.displayName,
+            mimeType = published?.mimeType ?: current.mimeType,
             status = DownloadTaskStatus.COMPLETED,
             totalBytes = totalBytes,
             downloadedBytes = checkpointBytes,

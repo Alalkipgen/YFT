@@ -119,6 +119,91 @@ class DownloadPlanFactoryTest {
     }
 
     @Test
+    fun `D1 an HLS video is planned as an MP4 never as its playlist`() {
+        // Pornhub names its playlist's type, a JAV site its container.
+        val named = variant(
+            url = "https://media.example.test/hls/720p/index.m3u8",
+            kind = MediaKind.HLS,
+            label = "720p",
+            container = "m3u8",
+            mimeType = "application/x-mpegURL",
+        )
+        val contained = variant(
+            kind = MediaKind.HLS,
+            container = "HLS",
+            mimeType = "application/vnd.apple.mpegurl",
+        )
+        val bare = variant(kind = MediaKind.HLS, container = null, mimeType = "video/mp2t")
+
+        listOf(named, contained, bare).forEach { hls ->
+            val request = (factory(hls) as DownloadPlanResult.Ready).request
+                as DownloadRequest.Hls
+            assertTrue(request.fileName, request.fileName.endsWith(".mp4"))
+            assertEquals("video/mp4", request.mimeType)
+            assertEquals("video/mp4", request.plan.mimeType)
+            assertEquals(request.fileName, request.plan.suggestedFileName)
+            assertTrue(request.plan.remuxToMp4)
+        }
+        val request = (factory(named) as DownloadPlanResult.Ready).request
+        assertEquals("Fixture 720p.mp4", request.fileName)
+    }
+
+    @Test
+    fun `D1 an HLS sound alone is planned as an M4A`() {
+        val sound = variant(
+            kind = MediaKind.HLS,
+            trackType = MediaTrackType.AUDIO,
+            container = "m3u8",
+            mimeType = "audio/mpegurl",
+        )
+
+        val request = (factory(sound) as DownloadPlanResult.Ready).request as DownloadRequest.Hls
+
+        assertEquals("Fixture.m4a", request.fileName)
+        assertEquals("audio/mp4", request.mimeType)
+        assertEquals("audio/mp4", request.plan.mimeType)
+        assertTrue(request.plan.remuxToMp4)
+    }
+
+    @Test
+    fun `D1 a playlist container is never an extension and MP4 and WebM are unchanged`() {
+        fun extension(variant: MediaVariant) = DownloadPlanFactory.extensionFor(variant)
+
+        assertEquals(
+            "mp4",
+            extension(variant(kind = MediaKind.DASH, container = "mpd", mimeType = "video/mp4")),
+        )
+        assertEquals(
+            "m4a",
+            extension(
+                variant(
+                    kind = MediaKind.DASH,
+                    trackType = MediaTrackType.AUDIO,
+                    container = "DASH",
+                    mimeType = "audio/mp4",
+                ),
+            ),
+        )
+        assertEquals("mp4", extension(variant(container = ".m3u", mimeType = null)))
+        assertEquals(
+            "mp4",
+            extension(variant(container = "m3u8", mimeType = "application/dash+xml")),
+        )
+        // MPEG-TS downloaded whole stays MPEG-TS, never an MP4 by name only.
+        assertEquals("ts", extension(variant(container = null, mimeType = "video/mp2t")))
+        assertEquals("mp4", extension(variant(container = "mp4", mimeType = "video/mp4")))
+        assertEquals("webm", extension(variant(container = "webm", mimeType = "video/webm")))
+        assertEquals(
+            "webm",
+            extension(variant(container = null, mimeType = "video/webm; codecs=\"vp9\"")),
+        )
+        assertEquals(
+            "mp3",
+            extension(variant(container = null, mimeType = "audio/mpeg; charset=binary")),
+        )
+    }
+
+    @Test
     fun `video with companion audio becomes a merge of two whole-file tracks`() {
         val merged = variant(
             url = "https://rr3---sn-a.googlevideo.com/videoplayback?itag=136&sig=private",

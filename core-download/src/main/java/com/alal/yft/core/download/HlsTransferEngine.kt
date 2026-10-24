@@ -14,6 +14,7 @@ import com.alal.yft.core.model.download.DownloadProgress
 import com.alal.yft.core.model.download.HlsDownloadPlan
 import com.alal.yft.core.model.download.HlsTransferCheckpoint
 import com.alal.yft.core.model.download.HlsTransferResult
+import com.alal.yft.core.model.download.PublishedFile
 import com.alal.yft.core.model.download.StreamChunkCheckpoint
 import com.alal.yft.core.model.media.BrowserReadRequest
 import com.alal.yft.core.model.media.BrowserReads
@@ -58,14 +59,28 @@ interface HlsTransferRunner {
  * Chunks are downloaded into deterministic app-private files, checkpointed only after a complete
  * fsync, then assembled in manifest order. The public destination remains unpublished until its
  * final length is verified.
+ *
+ * D1: a download of its own ([HlsDownloadPlan.remuxToMp4]) whose pieces are MPEG-TS, or packed
+ * AAC sound, is remuxed into an MP4 (an M4A for sound alone) by [remuxer], without re-encoding.
+ * When that cannot be done the pieces are joined as before and published in their own format
+ * (`.ts` as `video/mp2t`, `.aac`, `.mp3`), never under an MP4's name.
  */
-class HlsTransferEngine(
+class HlsTransferEngine internal constructor(
     client: OkHttpClient,
     private val workspaceRoot: File,
-    private val policy: Policy = Policy(),
-    private val clock: () -> Long = System::currentTimeMillis,
-    private val browserReads: BrowserReads = BrowserReads.None,
+    private val policy: Policy,
+    private val clock: () -> Long,
+    private val browserReads: BrowserReads,
+    private val remuxer: HlsRemuxer,
 ) : HlsTransferRunner {
+    constructor(
+        client: OkHttpClient,
+        workspaceRoot: File,
+        policy: Policy = Policy(),
+        clock: () -> Long = System::currentTimeMillis,
+        browserReads: BrowserReads = BrowserReads.None,
+    ) : this(client, workspaceRoot, policy, clock, browserReads, TsMp4Remuxer)
+
     data class Policy(
         val maxRedirects: Int = 5,
         val callTimeoutSeconds: Long = 60,
@@ -178,14 +193,19 @@ class HlsTransferEngine(
             if (completedCheckpoint.completedChunkCount != parsed.chunks.size) {
                 throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
             }
-            val bytesWritten = assemble(
+            val assembled = assemble(
+                plan = plan,
                 workspace = workspace,
                 chunks = parsed.chunks,
                 downloadedBytes = completedCheckpoint.downloadedBytes,
                 destination = destination,
             )
             cleanupWorkspace(workspace, strict = false)
-            HlsTransferResult.Completed(bytesWritten, completedCheckpoint)
+            HlsTransferResult.Completed(
+                bytesWritten = assembled.bytesWritten,
+                checkpoint = completedCheckpoint,
+                publishedAs = assembled.publishedAs,
+            )
         } catch (cancellation: CancellationException) {
             withContext(NonCancellable) {
                 runCatching { tracker?.emit() }
@@ -556,15 +576,17 @@ class HlsTransferEngine(
     }
 
     /**
-     * Joins the pieces into [destination] and returns the bytes written: the [downloadedBytes]
-     * of the pieces, less the ID3 tags of packed audio pieces.
+     * Publishes the pieces in [destination]: remuxed into an MP4 when [plan] asks for one and the
+     * pieces can be (D1), else joined. Returns the bytes written and, when the file keeps its own
+     * format, the name and type it is published under.
      */
     private suspend fun assemble(
+        plan: HlsDownloadPlan,
         workspace: File,
         chunks: List<HlsDownloadChunk>,
         downloadedBytes: Long,
         destination: DownloadDestination,
-    ): Long {
+    ): Assembled {
         val files = chunks.map { chunk ->
             readyFile(workspace, chunk.index)
                 .takeIf(File::isFile)
@@ -575,6 +597,108 @@ class HlsTransferEngine(
         }
         // Packed audio pieces lose their leading ID3 tags; every other piece is written whole.
         val starts = files.map(HlsPackedAudio::payloadStart)
+        if (plan.remuxToMp4) {
+            when (val kind = HlsMediaSniffer.of(files.first(), starts.first())) {
+                HlsMediaKind.TRANSPORT_STREAM, HlsMediaKind.ADTS_AUDIO -> {
+                    remux(plan, files, starts, kind, destination)?.let { bytes ->
+                        return Assembled(bytes)
+                    }
+                    return keep(kind, files, starts, destination)
+                }
+                HlsMediaKind.MPEG_AUDIO -> return keep(kind, files, starts, destination)
+                HlsMediaKind.ISO_MP4, HlsMediaKind.UNKNOWN -> Unit
+            }
+        }
+        return Assembled(join(files, starts, destination))
+    }
+
+    /**
+     * D1: the pieces remuxed into an MP4 and published under the planned name; null when the
+     * media cannot be remuxed, with nothing published. Storage errors fail the download.
+     */
+    private suspend fun remux(
+        plan: HlsDownloadPlan,
+        files: List<File>,
+        starts: List<Long>,
+        kind: HlsMediaKind,
+        destination: DownloadDestination,
+    ): Long? {
+        val pieces = files.mapIndexed { index, file -> HlsPiece(file, starts[index]) }
+        val audioOnly = plan.mimeType?.trim()?.startsWith("audio/", ignoreCase = true) == true
+        var stage = OPEN_FILE
+        try {
+            destination.prepare(null)
+            val output = destination.open()
+            stage = WRITE_FILE
+            val bytes = output.use {
+                val written = remuxer.remux(pieces, kind, audioOnly, output)
+                output.sync()
+                written
+            }
+            stage = VERIFY
+            if (bytes <= 0 || destination.temporaryLength() != bytes) {
+                throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
+            }
+            stage = PUBLISH
+            destination.commit()
+            return bytes
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (abort: HlsAbort) {
+            throw abort
+        } catch (notRemuxed: StreamCopyUnsupported) {
+            return null
+        } catch (error: Exception) {
+            if (!error.isStorageError()) return null
+            throw HlsAbort(error.toStorageFailure(stage))
+        }
+    }
+
+    /**
+     * D1: the joined pieces published in their own format, [kind]'s extension and type, because
+     * they are not an MP4: MPEG-TS pieces keep only their packets (a piece disguised as an image
+     * loses its prefix).
+     */
+    private suspend fun keep(
+        kind: HlsMediaKind,
+        files: List<File>,
+        starts: List<Long>,
+        destination: DownloadDestination,
+    ): Assembled {
+        val extension = checkNotNull(kind.keptExtension)
+        val mimeType = checkNotNull(kind.keptMimeType)
+        val from = if (kind == HlsMediaKind.TRANSPORT_STREAM) {
+            files.mapIndexed { index, file ->
+                HlsMediaSniffer.transportStreamStart(file, starts[index]) ?: starts[index]
+            }
+        } else {
+            starts
+        }
+        var name: String? = null
+        val bytes = join(files, from, destination) {
+            name = destination.renameExtension(extension, mimeType)
+                ?: throw HlsAbort(
+                    DownloadFailure(
+                        reason = DownloadFailureReason.UNSUPPORTED_SOURCE,
+                        stage = PUBLISH,
+                        detail = "Cannot publish as .$extension",
+                    ),
+                )
+        }
+        return Assembled(bytes, PublishedFile(checkNotNull(name), mimeType))
+    }
+
+    /**
+     * Joins the pieces into [destination], each from its start in [starts], and returns the bytes
+     * written: the pieces' bytes less what comes before their starts (the ID3 tags of packed
+     * audio). [beforeCommit] runs once every byte is verified, just before the file is published.
+     */
+    private suspend fun join(
+        files: List<File>,
+        starts: List<Long>,
+        destination: DownloadDestination,
+        beforeCommit: () -> Unit = {},
+    ): Long {
         val totalBytes = files.indices.fold(0L) { total, index ->
             val length = files[index].length() - starts[index]
             if (length <= 0 || total > Long.MAX_VALUE - length) {
@@ -613,6 +737,7 @@ class HlsTransferEngine(
                 throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
             }
             stage = PUBLISH
+            beforeCommit()
             destination.commit()
             return totalBytes
         } catch (cancellation: CancellationException) {
@@ -624,6 +749,12 @@ class HlsTransferEngine(
             throw HlsAbort(error.toStorageFailure(stage))
         }
     }
+
+    /** What [assemble] published: its bytes and, for a file kept in its own format, its name. */
+    private class Assembled(
+        val bytesWritten: Long,
+        val publishedAs: PublishedFile? = null,
+    )
 
     private fun skipFully(input: InputStream, count: Long) {
         var left = count
