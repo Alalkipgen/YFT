@@ -142,13 +142,80 @@ class OkHttpExtractorClientTest {
         }
     }
 
-    private class Reply(val code: Int, val location: String? = null, val body: String = "")
+    @Test
+    fun `a windows-1251 page reads in the charset its response names`() = runTest {
+        val page = "<title>Видео ВКонтакте — «тест»</title>"
+        val server = FakeServer(
+            "https://vk.com/video_ext.php" to bytes(
+                page.toByteArray(WINDOWS_1251),
+                "text/html; charset=windows-1251",
+            ),
+        )
+        val client = server.client()
+
+        val result = client.get("https://vk.com/video_ext.php", session, 1_024)
+
+        assertEquals(page, (result as ExtractorHttpResult.Success).body)
+        assertEquals("text/html; charset=windows-1251", result.contentType)
+        // The size limit is the same for every charset.
+        assertEquals(
+            SiteExtractionFailure.RESPONSE_TOO_LARGE,
+            (client.get("https://vk.com/video_ext.php", session, 8) as Failure).reason,
+        )
+    }
+
+    @Test
+    fun `utf-8, unnamed, unknown and mislabelled utf-8 bodies read exactly as before`() = runTest {
+        val page = "<title>Видео</title>"
+        val utf8 = page.toByteArray(Charsets.UTF_8)
+        val windows1251 = page.toByteArray(WINDOWS_1251)
+        val cases = listOf(
+            "utf-8" to bytes(utf8, "text/html; charset=utf-8"),
+            "no-charset" to bytes(windows1251, "text/html"),
+            "no-content-type" to bytes(windows1251, null),
+            "unknown-charset" to bytes(windows1251, "text/html; charset=x-fixture-unknown"),
+            "utf-8-labelled-latin-1" to bytes(utf8, "text/html; charset=ISO-8859-1"),
+            "utf-8-replacement-labelled-1251" to bytes(
+                "a\uFFFDb".toByteArray(Charsets.UTF_8),
+                "text/html; charset=windows-1251",
+            ),
+        )
+        val server = FakeServer(
+            *cases.map { (name, reply) -> "https://vk.com/$name" to reply }.toTypedArray(),
+        )
+        val client = server.client()
+
+        val bodies = cases.associate { (name, _) ->
+            name to (client.get("https://vk.com/$name", session, 1_024) as Success).body
+        }
+
+        cases.forEach { (name, reply) ->
+            // Before the charset rule every body was read with Okio's readUtf8().
+            val before = Buffer().write(checkNotNull(reply.bytes)).readUtf8()
+            assertEquals(name, before, bodies[name])
+        }
+        assertEquals(page, bodies["utf-8"])
+        assertEquals(page, bodies["utf-8-labelled-latin-1"])
+        assertTrue('\uFFFD' in checkNotNull(bodies["no-charset"]))
+    }
+
+    private class Reply(
+        val code: Int,
+        val location: String? = null,
+        val body: String = "",
+        val bytes: ByteArray? = null,
+        val contentType: String? = null,
+    )
 
     private fun redirect(code: Int, location: String) = Reply(code, location)
 
     private fun ok(body: String) = Reply(200, body = body)
 
     private fun status(code: Int) = Reply(code)
+
+    /** A body as raw bytes with the response's own Content-Type (or none). */
+    private fun bytes(bytes: ByteArray, contentType: String?) =
+        Reply(200, bytes = bytes, contentType = contentType)
 
     /** Answers from a fixed table before anything reaches the network. */
     private class FakeServer(vararg routes: Pair<String, Reply>) : Interceptor {
@@ -169,7 +236,11 @@ class OkHttpExtractorClientTest {
                 .code(reply.code)
                 .message("fixture")
                 .apply { reply.location?.let { header("Location", it) } }
-                .body(reply.body.toResponseBody("text/plain".toMediaType()))
+                .apply { reply.contentType?.let { header("Content-Type", it) } }
+                .body(
+                    reply.bytes?.toResponseBody(reply.contentType?.toMediaType())
+                        ?: reply.body.toResponseBody("text/plain".toMediaType()),
+                )
                 .build()
         }
     }
@@ -386,3 +457,7 @@ class OkHttpExtractorClientTest {
 }
 
 private typealias Failure = ExtractorHttpResult.Failure
+
+private typealias Success = ExtractorHttpResult.Success
+
+private val WINDOWS_1251 = charset("windows-1251")

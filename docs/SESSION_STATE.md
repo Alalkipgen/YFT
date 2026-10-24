@@ -790,12 +790,15 @@ Keep at least the heading and one blank line between sections, so Git merges the
   without a hash for every public video tried (up to 2160p), data in `window.cur` →
   `apiPrefetchCache` (not `playerParams`); B2 = `vk.ru` (not `vkvideo.ru`); embeds are
   windows-1251 (the app's client reads UTF-8 → Russian titles break).
-- **STOP — waiting for the owner** (§11.7): (a) drop A; (b) windows-1251 titles — shared charset
-  fix or fallback title; (c) `PlayerFileFallback` for VK; (d) no `al_video`; (e) Master's debug
-  capture has no adapter filter.
+- **The owner's VK0 answers** (2026-10-24): (a) drop A, v1 = the embed on vk.ru/vk.com; (b) one
+  shared charset fix; (c) no `PlayerFileFallback` in v1; (d) no `al_video`; (e) Master's debug
+  unchanged. Written into `docs/VK_PLAN.md` at VK1's checkpoint.
+- VK1, commit 1 (the owner's OK, its own commit): the shared client's charset fix in
+  `OkHttpExtractorClient` + `OkHttpExtractorClientTest` — text read with `readUtf8()` as before;
+  only when that yields U+FFFD, the bytes are not UTF-8 and the response names another known
+  charset (VK: windows-1251) are the same bytes read in that charset. Size, timeout and Cancel
+  unchanged. Next: the VK adapter, its tests and the registration line (commit 2).
 - The owner's sign-in links (VK messenger channel posts, the plan's §5.1): only on his phone at VK3.
-- Next (after the owner's OK): VK1 — `VkUrls`, the `apiPrefetchCache` parser, `VkJudge`, the B/B2
-  paths, `VkExtractor`, then the registration line; VK2 tests on the fixtures.
 - Rules: the plan's §2 (no push to `main` or PR #2, no label, no `recipes` branch, no VK APK on
   the owner's phone before S5's run 3 is counted).
 - Validation: `./gradlew --no-daemon :extractor-sites:test`.
