@@ -778,3 +778,22 @@ Keep at least the heading and one blank line between sections, so Git merges the
   `BrowserViewModel` calls `vastAds.onAnswer(observation, contentType, bodyStart)` where the
   page's answers are read (e.g. `MediaMetadataProbe`'s non-media XML answers), so a VAST/VMAP
   body starts an ad break when the request's address says nothing.
+
+## In-app update agent — `work/phase-in-app-update` (U0–U4)
+
+- Plan: `docs/IN_APP_UPDATE_PLAN.md` (the owner's request, 2026-10-24: the in-app update ships in
+  v1.0.0, the first stable release, with A and VK). Branch made from PR #2's head `8dc46ff`
+  (`spike/master-extractor-backup`); it never merges into PR #2; after PR #2's merge, `main` is
+  merged into it (U4).
+- State (2026-10-24): **U0 done** — the plan only (docs); no app code. Next: STOP — the owner's go
+  after his S5 run 3; then U1 (the check and the browser link, v1.0.0's floor) and U2 (download,
+  SHA-256, signer, PackageInstaller with Android's confirmation; v1.0.1 if late).
+- Found at U0: every release made by `release-draft.yml` carries `SHA256SUMS` (`release-prep.sh` →
+  `verify-release-apk.sh`; uploaded on create and refresh), so no workflow change. Published today:
+  only `v1.0.0-beta.1` (prerelease, versionCode 1); beta.2 and beta.3 are drafts.
+- Proposed (plan §4.2): the versionCode from the tag, `vX.Y.Z` → X·1000000 + Y·10000 + Z·100 (v1.0.0
+  = 1000000); the release commit sets it, a JVM test guards it.
+- Rules: the plan's §2 (no push to `main` or PR #2, no pull request or label until the owner says,
+  no `recipes` branch, no release or tag, no APK on the owner's phone before S5's run 3 is counted).
+- Validation: `./gradlew --no-daemon :app:testDebugUnitTest --tests 'com.alal.yft.update.*'`; before
+  a push, CI's set (plan §7); U2 also the Emulator smoke.
