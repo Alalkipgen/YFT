@@ -21,7 +21,7 @@ VK goes to **beta.5** by default; beta.4 only by the owner's word (§7).
   ဆုံးဖြတ်။ Home မှာတော့ generic fallback ဆက်ရှိတယ်။
 - `al_video` (yt-dlp ရဲ့ အဓိကလမ်း) က form POST လိုတယ်။ App ရဲ့ HTTP client မှာ `postJson` ပဲ
   ရှိလို့ shared file ပြင်ရမယ် → recon ပြီးမှ ပိုင်ရှင် ဆုံးဖြတ် (VK0 STOP)။
-- In-tab page data (P40) ကို `BrowserViewModel` က TikTok အတွက်ပဲ ချိတ်ထားလို့ VK3 (tab) က backlog။
+- In-tab page data (P40) ကို `BrowserViewModel` က TikTok အတွက်ပဲ ချိတ်ထားလို့ VK-T (tab) က backlog။
 - အချိန်: lookup တစ်ခုလုံးအတွက် deadline တစ်ခု၊ Cancel က လက်ရှိ request ကိုပါ ရပ်။ Login/private/region
   ကို ဖြေတဲ့ path အားလုံး တူညီမှ ရပ်။
 - S5 run 3 count မဝင်မချင်း VK APK ကို ဖုန်းမှာ မတင်။ PR #2၊ main၊ label၊ R9 ကို မထိ။ Shared docs ကို
@@ -46,7 +46,7 @@ player gets; it never signs in and never bypasses an access rule.
   MP4 before WebM).
 
 **Not in v1** (§8): live streams, whole playlists or albums, subtitles, VK's API (`api.vk.com`,
-tokens), short links (`vk.cc`), VK's in-tab page data (VK3), remote recipes or a kill switch,
+tokens), short links (`vk.cc`), messenger channel posts (`/im/channels/`), VK's in-tab page data (VK-T), remote recipes or a kill switch,
 Master's ladders.
 
 **Why two paths and one judge:** VK changes often — in 2026 alone yt-dlp's VK extractor broke when
@@ -204,8 +204,10 @@ Names may change if VK0 shows a better split; "new files plus one line" may not.
 
 1. **Links:** find public ones yourself (the owner's word, 2026-10-24): a video, a clip and an
    embed link (`video_ext.php`), on vk.com and vkvideo.ru (e.g. yt-dlp's VK test URLs, VK's own
-   public pages). A link that needs sign-in is the owner's: ask for it at VK3; it is tried only on
-   his phone (no cookies come to the agent).
+   public pages). The sign-in links are the owner's (2026-10-24): `https://vk.ru/im/channels/-239710230?cmid=2`
+   and `…?cmid=3`, posts of a VK messenger channel (VHS Video); signed out they open VK's sign-in
+   page (his check). Tried only on his phone (no cookies come to the agent). Their addresses carry
+   no video id: v1 does not read them as they are (§5.4, §8).
 2. **Live checks** (`scripts/live-check.sh`, public pages only), for each link and host
    (vk.com, vkvideo.ru, m.*): status, final host, path and markers — player data (which keys)?
    embed hash? access text? captcha? Can A work without `al_video`? Does B need `hash`, and does A
@@ -215,7 +217,7 @@ Names may change if VK0 shows a better split; "new files plus one line" may not.
 4. **Fixtures** (§5.5): a public video's page and embed, a clip, an access wall (whichever is
    reachable: login, private, deleted or region), a manifest with video, an audio-only manifest.
 5. **Code checks:** `BrowserMasterFallback` does nothing for an adapter id other than YouTube's and
-   the four sites' (VK must not enter Master); the tab reader is TikTok's only (VK3 stays backlog);
+   the four sites' (VK must not enter Master); the tab reader is TikTok's only (VK-T stays backlog);
    what a VK page shows once VK is registered (§3 P12) and how often the links reach no
    path at all.
 6. **STOP — report** (Burmese): a table link × path (works / needs hash / access / changed), the
@@ -247,7 +249,9 @@ The files of §4.7; the registration line last. `identify()` never touches the n
   section each time). CI: `checkpoint-validation` green; `preview-apk` builds a release-flag
   preview (`com.alal.yft.preview`).
 - **The phone** (only after S5's run 3 is counted, with the owner's OK): the public links signed
-  out, the owner's sign-in link signed in to VK in YFT's browser by him, and one lookup each on
+  out, the owner's sign-in links (§5.1) signed in to VK in YFT's browser by him (open
+  the post, tap its video: an address with a video id — `video…`, `z=video…` — is read by v1;
+  none → §8), and one lookup each on
   TikTok, Facebook, Instagram and X (no change expected). He sends Copy details; the agent judges.
 - **STOP — report:** per link the rows (video heights, Audio), the path that answered and the
   time; the four sites unchanged.
@@ -285,10 +289,12 @@ stay. A test fails if a fixture holds a real-looking signature or cookie.
 
 ## 8. Backlog (after v1)
 
-- **VK3 — VK's in-tab page data** (a VK reader beside TikTok's in `BrowserViewModel` and
+- **VK-T — VK's in-tab page data** (a VK reader beside TikTok's in `BrowserViewModel` and
   `BrowserScreen`): the strongest way for signed-in videos (no hash, no endpoint); a shared
   change → beta.5 or later.
 - `al_video` by form POST (`postForm`), if VK0 shows the need.
+- VK messenger channel posts (`vk.ru/im/channels/{id}?cmid=…`, `m.vk.ru/mail/channels/…`): no
+  video id in the address; the messenger's data needs the session (the owner's links, §5.1).
 - VK in `PlayerFileFallback` (the player's file as the row when every path fails), if the owner
   says so at VK0.
 - Live streams, playlists, subtitles, `vk.cc` short links.
