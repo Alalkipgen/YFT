@@ -1,5 +1,21 @@
 # YFT Master Extractor backup
 
+## P8 — 1.0.0 published; the release-key update test PASS (2026-10-26)
+
+- **Published:** v1.0.0 on 2026-10-25 20:01 UTC (02:31 MMT on 2026-10-26): release 423607593, tag
+  `v1.0.0` on `main`'s `d732edcc` (PR #2's merge), not a prerelease;
+  `video-downloader-1.0.0.apk` (SHA-256 `42819051…8defe`) and `SHA256SUMS`.
+- **P8 (the owner's phone, HyperOS):** rc.1 (`release/1.0.0-rc.1` `d75e7fa`, a draft prerelease,
+  never published) installed; its Check now offered v1.0.0 and installed it after "Verified:
+  checksum and signature match" and Android's confirmation — the Dark theme and the downloaded
+  video kept, About `Version 1.0.0 (1000000)`: **PASS**. A fresh install from the release page:
+  **PASS**. The rc.1 draft and branch deleted.
+- **Recorded** (docs only, `work/phase-release-p8-records`): `docs/TEST_MATRIX.md`,
+  `docs/PHONE_TEST_NOTES.md`, `docs/SESSION_STATE.md`'s release section, `CHANGELOG.md`
+  (`## [1.0.0] - 2026-10-26`; `## [1.0.1]` started; the version stays `1.0.0` / `1000000` until
+  1.0.1's release commit).
+- **Next:** 1.0.0 to the friends; 1.0.1 (VK Master wave 2, `work/phase-vk-master-wire`).
+
 ## Release commit — v1.0.0 (decision 30 (iv)), #12 normal and #12 trial (2026-10-25)
 
 - **Branch:** `work/phase-release-v1` from `spike/master-extractor-backup` `038c1cd4` (after the
