@@ -1,5 +1,6 @@
 package com.alal.yft.extractor.master.social
 
+import com.alal.yft.core.model.logging.DiagnosticTextSanitizer
 import com.alal.yft.extractor.api.ExtractorHttpResult
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.master.fixture
@@ -163,20 +164,53 @@ class VkAnswerJudgeTest {
     }
 
     @Test
-    fun `evidence names a status, a code or a marker's kind, never a link, an ID or VK's words`() {
+    fun `evidence names a status, a code or a marker's kind, never a link, an ID or VK's words, and the sanitizer keeps it whole`() {
+        val mp4 = fixture("vk-pack/video_get_mp4.json")
         val answers = listOf(
             VkAnswerJudge.embed(embed(fixture("vk-pack/embed_adult.html"))),
             VkAnswerJudge.embed(embed(fixture("vk-pack/embed_not_found.html"))),
             VkAnswerJudge.embed(embed(fixture("vk-pack/embed_shell.html"))),
+            VkAnswerJudge.embed(embed(page(""))),
+            VkAnswerJudge.embed(embed(page(""), "https://example.test/")),
+            VkAnswerJudge.embed(embed(page("")), VkReading(otherVideo = true)),
+            VkAnswerJudge.embed(embed(page("")), VkReading(item = true, live = true)),
+            VkAnswerJudge.embed(embed(page("")), VkReading(item = true, refused = 2)),
+            VkAnswerJudge.embed(embed(page("")), VkReading(item = true)),
+            VkAnswerJudge.embed(embed(page("")), VkReading(rows = 2, byShape = true, item = true)),
+            VkAnswerJudge.embed(embed(page("")), VkReading(rows = 2, refused = 1, item = true)),
             VkAnswerJudge.api(api(fixture("vk-pack/video_get_error_5.json"))),
+            VkAnswerJudge.api(api(fixture("vk-pack/video_get_captcha.json"))),
             VkAnswerJudge.api(api(fixture("vk-pack/video_get_deleted.json")), VkReading(item = true, restricted = true, deleted = true)),
-            VkAnswerJudge.api(api(fixture("vk-pack/video_get_mp4.json")), VkReading(rows = 4, item = true)),
-            checkNotNull(VkAnswerJudge.token(token(fixture("vk-pack/token_captcha.json")), usable = false)),
-        )
+            VkAnswerJudge.api(api(fixture("vk-pack/video_get_deleted.json")), VkReading(item = true, restricted = true)),
+            VkAnswerJudge.api(api(mp4), VkReading(rows = 4, item = true)),
+            VkAnswerJudge.api(api(mp4), VkReading(item = true, live = true)),
+            VkAnswerJudge.api(api(mp4), VkReading(otherVideo = true)),
+            VkAnswerJudge.api(api(mp4), VkReading()),
+            VkAnswerJudge.api(api(mp4), VkReading(item = true, refused = 4)),
+            VkAnswerJudge.api(api(mp4), VkReading(item = true)),
+            VkAnswerJudge.api(api("<html>")),
+            VkAnswerJudge.api(FakeExtractorHttpClient.json(mp4, "https://example.test/x")),
+            VkAnswerJudge.api(ExtractorHttpResult.Failure(SiteExtractionFailure.NETWORK)),
+            VkAnswerJudge.api(ExtractorHttpResult.Failure(SiteExtractionFailure.BOT_CHECK, 403)),
+            VkAnswerJudge.api(ExtractorHttpResult.Failure(SiteExtractionFailure.RATE_LIMITED, 429)),
+            VkAnswerJudge.apiError(null),
+            VkAnswerJudge.apiError(6),
+            VkAnswerJudge.apiError(3610),
+        ) + listOf(
+            VkAnswerJudge.token(token(fixture("vk-pack/token_captcha.json")), usable = false),
+            VkAnswerJudge.token(ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 401), usable = false),
+            VkAnswerJudge.token(ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 500), usable = false),
+            VkAnswerJudge.token(token("{\"type\":\"error\",\"error_code\":1}"), usable = false),
+            VkAnswerJudge.token(token("{\"type\":\"okay\",\"data\":{}}"), usable = false),
+            VkAnswerJudge.token(token("<html></html>"), usable = false),
+            VkAnswerJudge.token(FakeExtractorHttpClient.json("{}", "https://example.test/"), usable = false),
+        ).map { checkNotNull(it) }
         answers.forEach { judged ->
-            listOf("http", "vk.com", "100000001", "400000001", "Fixture", "adult content", "not found", "captcha_sid").forEach {
+            listOf("://", "vk.com", "100000001", "400000001", "Fixture", "adult content", "not found", "captcha_sid").forEach {
                 assertFalse("${judged.evidence} names $it", judged.evidence.contains(it, ignoreCase = true))
             }
+            // No word a diagnostic line is dropped for (a credential's name), no query, no address.
+            assertEquals(listOf(judged.evidence), DiagnosticTextSanitizer.details(listOf(judged.evidence)))
         }
     }
 

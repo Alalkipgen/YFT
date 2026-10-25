@@ -62,7 +62,8 @@ internal data class VkReading(
  *   [AnswerClass.SHAPE_CHANGED].
  *
  * Provisional until A's error-taxonomy recon (§10): [VALUE_ERRORS], [RATE_ERRORS] and the deleted
- * icon. Evidence: a status, a code, a marker's kind; never the page's words, a link or an ID.
+ * icon. Evidence: a status, a code, a marker's kind; never the page's words, a link or an ID, and
+ * none of the words a diagnostic line is dropped for (DiagnosticTextSanitizer: a credential's name).
  * Reads only; no request, no log.
  */
 internal object VkAnswerJudge {
@@ -123,23 +124,23 @@ internal object VkAnswerJudge {
                 400, 401 -> Judged(
                     AnswerClass.VALUE_REJECTED,
                     AnswerClass.VALUE_REJECTED.reason,
-                    "the token: status ${answer.statusCode}, the web client's values refused",
+                    "status ${answer.statusCode}, the web client's values refused",
                 )
                 else -> failure(answer)
             }
             is ExtractorHttpResult.Success -> answer
         }
-        if (VkClient.httpsHostOf(page.finalUrl) != VkClient.TOKEN_HOST) return shapeChanged("the token: final address off its host")
+        if (VkClient.httpsHostOf(page.finalUrl) != VkClient.TOKEN_HOST) return shapeChanged("final address: off login.vk.ru")
         if (usable) return null
         val root = BoundedJsonParser.parse(page.body.trim()) as? JsonValue.Object
-            ?: return shapeChanged("the token: not a JSON object")
+            ?: return shapeChanged("not a JSON object")
         return when {
-            captcha(root) -> Judged(AnswerClass.BOT_CHECK, AnswerClass.BOT_CHECK.reason, "the token: a captcha")
-            root["type"].asStringOrNull == OKAY -> shapeChanged("the token: okay, no token of VK's shape")
+            captcha(root) -> Judged(AnswerClass.BOT_CHECK, AnswerClass.BOT_CHECK.reason, "a captcha")
+            root["type"].asStringOrNull == OKAY -> shapeChanged("okay, its value not of VK's shape")
             else -> Judged(
                 AnswerClass.VALUE_REJECTED,
                 AnswerClass.VALUE_REJECTED.reason,
-                "the token: none in the answer, the web client's values refused",
+                "no value for the web client, its values refused",
             )
         }
     }

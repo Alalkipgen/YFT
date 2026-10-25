@@ -1,0 +1,1 @@
+{"response":{"count":1,"items":[{"id":400000001,"owner_id":-100000001,"title":"Fixture elsewhere","files":{"mp4_720":"https://cdn.example.test/fixture/720.mp4?expires=1900000000","hls":"https://iv.okcdn.ru/fixture/video.m3u8"},"restriction":{"can_play":1}}]}}

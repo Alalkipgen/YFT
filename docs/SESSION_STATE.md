@@ -1171,6 +1171,24 @@ Keep at least the heading and one blank line between sections, so Git merges the
     error or restriction → TRANSIENT. Codes and icon provisional (A's taxonomy). `VkAnswerJudgeTest`
     (10). 13 more pending rows (48). Local: 1005 tests, 0 failed (2 skipped); drift 177/0;
     pending 48/0.
+  - Step 3 — `VkLadder` (a `SocialStage`, not wired) with `VkReader` and `VkSite.BUDGET`
+    (placeholder 20 requests / 2 MiB / 30 s from VK_PLAN §13; A finalizes). `VkReader`: Master's
+    own read of the embed's `apiPrefetchCache` and of `video.get` — VK's key table, then the shape
+    scan, bound to `owner_id` + `id` (a renamed key by its shape or its address's type; never the
+    trailer, the poster, a picture or another video's entry; VK's video servers only), written as
+    one video's JSON answer for VK's recipe. V1 (no request): main's kept embed pages and
+    `video.get` answers (`MainPages`) and main's token asks by status (`LookupRecord`), judged;
+    rows → V (PAGE_DATA); VK's deleted icon → final; a 429 or a bot check → stop, the host cools.
+    V2 only after the adult answer and a VALUE_REJECTED class: the first value not main's
+    (`VkClientValues`: bundled + debug hook), one token held in memory and one `video.get`, the
+    lookup's user agent, no cookie, VK's budget and the lookup's time; route B's rules (main's
+    identical token answer replayed; main's `video.get` never asked again — then no token is asked
+    for it). V3 = the shared capture (`captureOff` when the config turns it off); rungs off read
+    through a `rungsOff` function (C's schema 2 names V1–V3). The judge's token evidence reworded
+    so no line has a word the sanitizer drops. Tests: `VkReaderTest` (7), `VkLadderTest` (11:
+    main's real VK adapter, then the engine; VK's recipe is the test's own until step 4), the
+    judge's evidence check extended (sanitizer). 28 more pending rows (76, `VkEmbedParser.kt`).
+    Local: 1023 tests, 0 failed (2 skipped), 1 min 8 s; drift 177/0; pending 76/0.
 - Provenance (proposal for the owner, Appendix B step 1): no base bump, no script change. Main's
   VK files came after the base `34a41890`, so their rows wait in `toolkit-provenance.tsv`'s header
   as `# pending<TAB>master<TAB>main<TAB>symbol<TAB>sha256` lines, hashed at `50fb8d0f` with the
@@ -1178,8 +1196,14 @@ Keep at least the heading and one blank line between sections, so Git merges the
   them, the self-check stays 177/0). Meanwhile `VkClientDriftTest` checks the copies at run time.
   To activate (owner/D): when the base moves past main's VK files, review each copy, drop the
   prefix, `--write`. Option for later: a per-row ref column in the script (a shared-file change).
-- Next: step 3, `VkLadder` (V1 re-read, V2 heal, V3 capture) with `VkReader`.
+- Next: step 4, `VkRecipe` (not in `ContractRecipes.ALL`), `VkLabels`, `VkSite.SITE`.
 - Backlog (out of scope here): wiring (D: `VkRecipe` in `ContractRecipes.ALL`, `VkLadder` in the
   social ladders, `VkSite.SITE` in `SiteWays`, `VkSite.BUDGET` in `SocialStops`, V3 in
   `RungsOff`); the live values source (C: `ValueSource`/`SiteHealth`/`VkClientSource`); R9 schema
   2's V1–V3 rungs (C); the final budget numbers, error taxonomy and census slots (A).
+- For review (D, owner): V2's `video.get` is listed in the lookup's record without its bearer
+  (Master's own anonymous token, never the user's credential), so route B's rule 1 does not refuse
+  it; route B's rule 4 means values that differ from main's only on the token's side ask nothing
+  once main asked `video.get` in the lookup. Keeping a healed value after V passes needs a hook
+  from the engine's checks (the ladder does not see V's result: C/D). VK's key table is code in
+  `VkReader`, so an R9 overlay of VK's recipe does not reach it.
