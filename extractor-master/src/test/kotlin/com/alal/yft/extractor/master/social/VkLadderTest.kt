@@ -47,8 +47,9 @@ import org.junit.Test
  * main's `video.get` never asked again). Rungs off by the config; claims and guards; every line
  * short labels that the sanitizer keeps whole. Step 4: in a record labelled with VK's labels
  * ([VkLabels]) main's token ask is read by its mark — VK's captcha stops VK and cools login.vk.ru,
- * an answer without a value is a refused value (V2) — also when main asks with other values. JVM
- * only, no network; VK's recipe is step 4's ([VkRecipe]).
+ * an answer without a value is a refused value (V2) — also when main asks with other values. Step 5:
+ * a build without VK's recipe checks none of main's rows (V1 says so). JVM only, no network; VK's
+ * recipe is step 4's ([VkRecipe], [VkRecipeTest]).
  */
 class VkLadderTest {
     @Test
@@ -316,6 +317,36 @@ class VkLadderTest {
     }
 
     @Test
+    fun `a build without VK's recipe checks none of main's rows - V1 says so, then the shared capture`() = runTest {
+        val master = vk()
+        val lookup = lookup(
+            vk(api = answers("video_get_renamed.json")),
+            ladder(master, contractsOf = ::withoutVk),
+            engineContracts = withoutVk(FakeExtractorHttpClient()),
+        )
+
+        assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, lookup.mainFailure)
+        assertTrue(lookup.result.toString(), lookup.result is MasterResult.NeedsPlayback)
+        assertEquals(
+            listOf(
+                LADDER_LINE,
+                ADULT,
+                "$V1 video.get: PARTIAL (rows 3 by the shape scan, bound to the video); next: CHECK_ROWS",
+                "$ITEM: MP4 files 2, HLS 1, DASH 0 (the shape scan); title known; length known",
+                "$V1: VK's recipe not in this build's recipes; not checked",
+            ),
+            lookup.lines,
+        )
+        assertEquals(lookup.lines + "master: one browser-assisted capture requested", lookup.details.dropLast(1))
+        assertTrue(lookup.validator.seen.isEmpty())
+        assertEquals(1, lookup.capture.calls)
+        assertNothingAsked(master)
+        assertEquals(3, lookup.record.mainAsks)
+        assertEquals(0, lookup.record.masterAsks)
+        assertBare(lookup)
+    }
+
+    @Test
     fun `route B's rules hold for V2 - main's token answer replayed, main's video get never asked again`() = runTest {
         // Main's token was fine and video.get refused the values (error 5): a new client secret
         // changes only the token, and main's video.get is not asked again, so nothing is asked.
@@ -575,6 +606,8 @@ class VkLadderTest {
         cookie: String? = null,
         /** Main's client as main's adapter sees it, above the record (main's other values). */
         wrap: (ExtractorHttpClient) -> ExtractorHttpClient = { it },
+        /** The engine's recipe source (the ladder's: [ladder]'s `contractsOf`). */
+        engineContracts: SiteContracts = contracts(FakeExtractorHttpClient()),
     ): Lookup {
         val identity = identify(PAGE)
         val validator = RecordingValidator()
@@ -588,7 +621,7 @@ class VkLadderTest {
                 validator,
                 capture,
                 MasterPolicy(enabled = true),
-                contracts = contracts(FakeExtractorHttpClient()),
+                contracts = engineContracts,
                 social = stage,
             )
             val result = engine.extract(contractRequest(PAGE, identity, failure, cookie))
@@ -716,13 +749,18 @@ class VkLadderTest {
         /** The engine's recipes with VK's (step 4's [VkRecipe]; agent D adds it to `ContractRecipes.ALL`). */
         fun contracts(http: ExtractorHttpClient) = SiteContracts(http, ContractRecipes.ALL + VkRecipe.RECIPE)
 
+        /** The recipes of a build without VK's (`ContractRecipes.ALL` before agent D adds it). */
+        fun withoutVk(http: ExtractorHttpClient) =
+            SiteContracts(http, ContractRecipes.ALL.filterNot { it.site == VkClient.SITE_ID })
+
         fun ladder(
             master: ExtractorHttpClient,
             values: VkClientValues = HEAL,
             cooldown: SocialCooldown = SocialCooldown(),
             budget: SocialBudget = VkSite.BUDGET,
             off: Set<String> = emptySet(),
-        ) = VkLadder(master, ::contracts, values, cooldown, budget, rungsOff = { off })
+            contractsOf: (ExtractorHttpClient) -> SiteContracts = ::contracts,
+        ) = VkLadder(master, contractsOf, values, cooldown, budget, rungsOff = { off })
 
         fun identify(url: String): SitePageIdentity = checkNotNull(VkExtractor(FakeExtractorHttpClient()).identify(url))
 

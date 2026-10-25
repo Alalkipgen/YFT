@@ -1210,6 +1210,17 @@ Keep at least the heading and one blank line between sections, so Git merges the
     only — so `MANIFEST` goes only to a GET of a VK video-server file whose path ends `.m3u8` or
     `.mpd` (V never reads a manifest row); a manifest address that hides its kind stays
     unlabelled, never mislabelled (A/D: confirm VK's real manifest addresses in the recon).
+    Pushed `a8a78b25`; CI: checkpoint validation, emulator smoke, preview APK — all success.
+  - Step 5 — the engine tests not yet covered (the ladder in the engine already was:
+    `VkLadderTest`, main's real adapter, then the engine with VK's recipe and `VkLadder` as the
+    social stage). `VkRecipeTest` (2): with VK's recipe, R8 asks VK nothing on its own — without
+    VK's ladder, or with it outside a lookup's record: "no endpoint for this video", then the
+    shared capture, no ask; the contract layer reads `VkReader`'s answer with VK's recipe — the
+    files in VK's order with their kinds and sizes, the title, length, picture and expiry; an
+    answer naming another video gives no row. `VkLadderTest` (14, +1): a build without VK's
+    recipe (today's `ContractRecipes.ALL`) checks none of main's rows — V1 says so, then the
+    shared capture. A mutation check (VK's endpoint without `{version}`) fails the first test.
+    Local: 1037 tests, 0 failed (2 skipped), 1 min 38 s; drift 177/0; pending 76/0.
 - Provenance (proposal for the owner, Appendix B step 1): no base bump, no script change. Main's
   VK files came after the base `34a41890`, so their rows wait in `toolkit-provenance.tsv`'s header
   as `# pending<TAB>master<TAB>main<TAB>symbol<TAB>sha256` lines, hashed at `50fb8d0f` with the
@@ -1217,8 +1228,9 @@ Keep at least the heading and one blank line between sections, so Git merges the
   them, the self-check stays 177/0). Meanwhile `VkClientDriftTest` checks the copies at run time.
   To activate (owner/D): when the base moves past main's VK files, review each copy, drop the
   prefix, `--write`. Option for later: a per-row ref column in the script (a shared-file change).
-- Next: step 5, an engine test with VK's recipe and `VkLadder` as the social stage (if not
-  covered), the last checkpoint, CI, then stop and report.
+- Status: Appendix B done (steps 1–5); stopped and reported to the owner. Next: the owner's
+  provenance decision (above), then D's wiring, C's values source and A's numbers (Backlog,
+  For review).
 - Backlog (out of scope here): wiring (D: `VkRecipe` in `ContractRecipes.ALL`, `VkLadder` in the
   social ladders, `VkSite.SITE` in `SiteWays`, `VkSite.BUDGET` in `SocialStops`, V3 in
   `RungsOff`); the live values source (C: `ValueSource`/`SiteHealth`/`VkClientSource`); R9 schema
