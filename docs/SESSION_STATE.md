@@ -1144,3 +1144,31 @@ Keep at least the heading and one blank line between sections, so Git merges the
   `--tests 'com.alal.yft.extractor.sites.vk.*'`); before a push the CI set: `lintDebug
   testDebugUnitTest :core-model:test :extractor-api:test :extractor-generic:test
   :extractor-sites:test :app:assembleDebug :app:assembleRelease`.
+
+## VK-Master agent A — `work/phase-vk-master-census` (recon / census, wave 1)
+
+- Plan: `docs/VK_MASTER_PLAN.md` §11 and Appendix A (the owner's go, 2026-10-25). Branch made from
+  `origin/work/phase-vk-master` (`50f2e9fb`). Docs and sanitized fixtures only — no Kotlin, Gradle or
+  workflow file.
+- State (2026-10-25): **census doc done** (`docs/VK_MASTER_CENSUS.md`, checkpoint 1); next: the
+  sanitized fixtures in `extractor-master/src/test/resources/fixtures/vk-master/`, then STOP.
+- Findings (short):
+  - Q1 Vx: **no independent route** — `api.vk.com`/`api.vk.ru` and `login.vk.com` are aliases of the
+    same token endpoint and API; mobile pages carry no signed-out files; yt-dlp uses a login-gated
+    `al_video.php`. Recommendation: do not build Vx.
+  - Q2 source: the web client's values sit in vkvideo.ru's public script (`core_spa`, `common`, and the
+    cheap ~40 KB `error_monitoring` chunk), stable across loads (same content hashes; the static host
+    shards and file names are content-hashed, so discover URLs from the page). yt-dlp is **not** a
+    second source.
+  - Q3: token mint checks `client_id` (wrong → `401 invalid_client`) but **not** the secret (a wrong
+    secret still mints a working token); `video.get` errors 5 (auth), 8 (bad version), restriction
+    `can_play=0` (deleted). VK's `API_ERROR_*` map recorded (6/9/29 rate, 14 captcha, 13300 geo).
+  - Q4: 18+ files on `vk{N}-{N}.vkuser.net`, normal on `vkvd{N}.okcdn.ru` (failover `vkvd{N}.okcdn.ru`
+    also 206); expiry ~72 h; a file binds **both** `srcAg` (other agent → 400) and `srcIp` (signed;
+    tampered → 400); `Referer` optional → track E evidence labels.
+  - Q5 budget proposal: VK `4 req / 1 MiB / 15 s`. Q6: 10 census slots, W `[1, 4, 8]`.
+- Hand-offs to agent D (shared files, not edited here): `SocialStops.kt` (VK budget), `SiteWays.kt`
+  (VK `Site` + slots), `SiteWeekly.kt` (W slots), census screen, `ContractRecipes.ALL` (`VkRecipe`).
+- Backlog: a daily CI canary for VK — off for now (a cloud IP answered today, but is not a phone);
+  the host aliases as a `VkClient` resilience note, not a rung.
+- Validation: docs only so far; no code changed. Docs-only pushes start no CI (`AGENTS.md`).
