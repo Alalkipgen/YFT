@@ -26,16 +26,23 @@ import com.alal.yft.extractor.master.social.SocialStage
 import com.alal.yft.extractor.master.social.SocialStages
 import com.alal.yft.extractor.master.social.TikTokLadder
 import com.alal.yft.extractor.master.social.TrialCompare
+import com.alal.yft.extractor.master.social.VkClient
+import com.alal.yft.extractor.master.social.VkClientValues
+import com.alal.yft.extractor.master.social.VkLadder
 import com.alal.yft.extractor.master.social.XLadder
+import com.alal.yft.extractor.master.solver.AtomicTextFile
 import com.alal.yft.extractor.sites.instagram.InstagramExtractor
+import com.alal.yft.extractor.sites.vk.VkExtractor
 import com.alal.yft.extractor.sites.x.XExtractor
+import java.io.File
 import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.currentCoroutineContext
 import okhttp3.OkHttpClient
 
 /**
  * Social plan S1a (`MASTER_KEY_SOCIAL_PLAN.md` §7.3): the build's social-ladder switch and its app
- * wiring, Facebook first (the pilot); S2b: TikTok's too; S2c: X's; S2d: Instagram's ([SITES]). On only in a debug build made
+ * wiring, Facebook first (the pilot); S2b: TikTok's too; S2c: X's; S2d: Instagram's; VK-Master wave 2 (agent D): VK's
+ * ([SITES]). On only in a debug build made
  * with `-Pyft.socialLadder=true` and `-Pyft.masterCapture=true`; release, preview and every other
  * build: off, and each piece here is exactly today's.
  */
@@ -62,11 +69,14 @@ internal object SocialLadder {
     /** S2d: Instagram's site ID (main's Instagram adapter; its video key's prefix). */
     const val INSTAGRAM_SITE_ID = "instagram"
 
+    /** VK-Master wave 2 (agent D): VK's site ID (main's VK adapter; its video key's prefix). */
+    const val VK_SITE_ID = "vk"
+
     /**
      * S2b: the sites with a ladder (each lookup's own record and pages, its trial): Facebook,
-     * TikTok; S2c: X; S2d: Instagram.
+     * TikTok; S2c: X; S2d: Instagram; VK-Master wave 2: VK.
      */
-    val SITES: Set<String> = setOf(FACEBOOK_SITE_ID, TIKTOK_SITE_ID, X_SITE_ID, INSTAGRAM_SITE_ID)
+    val SITES: Set<String> = setOf(FACEBOOK_SITE_ID, TIKTOK_SITE_ID, X_SITE_ID, INSTAGRAM_SITE_ID, VK_SITE_ID)
 
     /**
      * S1a (5), S7: the hosts cooling after a 429 or a bot check (30 minutes), the app process's:
@@ -104,7 +114,8 @@ internal object SocialLadder {
 
     /**
      * S1a (2): whether [videoKey] ("site:contentId") is a ladder's: every Facebook link form; S2b:
-     * every TikTok link form too; S2c: every X link form; S2d: every Instagram link form ([SITES]).
+     * every TikTok link form too; S2c: every X link form; S2d: every Instagram link form; VK-Master
+     * wave 2: every VK link form ([SITES]).
      */
     fun claims(videoKey: String?): Boolean = siteOf(videoKey) != null
 
@@ -128,18 +139,22 @@ internal object SocialLadder {
      * F1, the plugin player, judged), S2b TikTok's ([TikTokLadder]: T1, the embed player,
      * judged; T2, main's pages), S2c X's ([XLadder]: X1, main's answer replayed, judged, no new
      * ask) and S2d Instagram's ([InstagramLadder]: I2, main's answers judged, no new ask; the
-     * tab-fetch probe, off by default, when the lookup's context has one), each claiming only its
-     * own site's lookup with its own record
+     * tab-fetch probe, off by default, when the lookup's context has one) and VK-Master wave 2's
+     * VK's ([VkLadder]: V1, main's answers judged, no new ask; V2, the web client's own token and
+     * `video.get` with [vkValues]' values, the one VK refused healed; V3, the tab's playback), each
+     * claiming only its own site's lookup with its own record
      * ([lookupContext]; [SocialStages]: the first that claims it), over Master's own client
      * [http]; [identify]: main's adapters. Their recipes come from the same source as the
      * engine's ([MasterRecipeConfig]); S1a (5): their stops cool in [cooldown] (the app's, by
-     * default). Every other build: null, the engine as before.
+     * default). [vkValues] is asked only here, in a social-ladder build (main's values only by
+     * default; the app's: [vkValues]). Every other build: null, the engine as before.
      */
     fun stage(
         http: ExtractorHttpClient,
         identify: (String) -> SitePageIdentity?,
         social: Boolean = enabled,
         cooldown: SocialCooldown = SocialLadder.cooldown,
+        vkValues: () -> VkClientValues = { VkClientValues.bundled() },
     ): SocialStage? = if (social) {
         SocialStages(
             listOf(
@@ -147,10 +162,41 @@ internal object SocialLadder {
                 TikTokLadder(http, identify, MasterRecipeConfig::contracts, cooldown),
                 XLadder(http, identify, MasterRecipeConfig::contracts, cooldown),
                 InstagramLadder(http, MasterRecipeConfig::contracts, cooldown),
+                VkLadder(http, MasterRecipeConfig::contracts, vkValues(), cooldown),
             ),
         )
     } else {
         null
+    }
+
+    /** VK-Master wave 2: the file V2's healed values are kept in, under the app's files directory. */
+    const val VK_HEALTH_FILE = "master/site-health.json"
+
+    @Volatile
+    private var vkShared: VkClientValues? = null
+
+    /**
+     * VK-Master wave 2 (agent D, plan §8 items 3 and 5): the process's VK values for V2 — main's
+     * (as the trial's VK value break sends them: [mutate], [VkTrialBreak]) and the one VK refused
+     * healed from vkvideo.ru's public page and script ([VkClientValues.healing]), read over
+     * [client] (Master's own: the Backup finder's gate) with the cookies vkvideo.ru's own
+     * redirects set sent back, and kept, after an OK answer whose rows passed V, in the app's
+     * [VK_HEALTH_FILE] ([filesDir]; memory only without one). One per process, made on first use:
+     * every tab shares its day's memory and its file.
+     */
+    fun vkValues(
+        client: OkHttpClient,
+        filesDir: (() -> File)?,
+        mutate: ((VkClient.Values) -> VkClient.Values)? = null,
+    ): VkClientValues = vkShared ?: synchronized(this) {
+        vkShared ?: VkClientValues.healing(
+            http = OkHttpExtractorClient(
+                client = client,
+                policy = OkHttpExtractorClient.Policy(sendResponseCookies = true),
+            ),
+            file = filesDir?.let { dir -> AtomicTextFile { File(dir(), VK_HEALTH_FILE) } },
+            mutate = mutate,
+        ).also { vkShared = it }
     }
 
     /**
@@ -211,7 +257,9 @@ internal object SocialLadder {
      * reason and words stay). S2d: an Instagram lookup's photo post
      * (Instagram's PHOTO_ONLY line, its final step) in main's words
      * ([InstagramExtractor.PHOTOS_MESSAGE]); Instagram's ladder has no REMOVED answer (decision 19
-     * (vi)). Null for every other reason and site (as before).
+     * (vi)). VK-Master wave 2: a VK lookup's final answer — the video removed (VK's deleted icon)
+     * in main's words ([VkExtractor.NOT_FOUND_MESSAGE]), VK's region limit in the app's. Null for
+     * every other reason and site (as before).
      */
     fun finalMessage(
         reason: SiteExtractionFailure,
@@ -231,8 +279,16 @@ internal object SocialLadder {
         INSTAGRAM_SITE_ID -> InstagramExtractor.PHOTOS_MESSAGE.takeIf {
             reason == SiteExtractionFailure.NO_MEDIA_FOUND && finalLine(videoKey, details, "PHOTO_ONLY")
         }
+        VK_SITE_ID -> when (reason) {
+            SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE -> VkExtractor.NOT_FOUND_MESSAGE
+            SiteExtractionFailure.GEO_RESTRICTED -> VK_REGION_MESSAGE
+            else -> null
+        }
         else -> null
     }
+
+    /** VK-Master wave 2: VK's region limit (API error 13300), in the app's words for the reason. */
+    const val VK_REGION_MESSAGE = "VK does not allow this video in your region."
 
     /**
      * Social plan task 14 (observation e): the words of a social lookup Master answered "needs
@@ -335,7 +391,7 @@ internal object SocialLadder {
     /** S2b: the "not used" line's start for [videoKey]'s site (Facebook's: [NOT_USED]). */
     fun notUsed(videoKey: String?): String = "${line(videoKey)}: Master's answer not used:"
 
-    /** S2b: [videoKey]'s site's name as main says it (Facebook, TikTok; S2c: X; S2d: Instagram). */
+    /** S2b: [videoKey]'s site's name as main says it (Facebook, TikTok; S2c: X; S2d: Instagram; VK). */
     private fun nameOf(videoKey: String?): String =
         SiteWays.site(siteOf(videoKey) ?: FACEBOOK_SITE_ID)?.name ?: "Facebook"
 

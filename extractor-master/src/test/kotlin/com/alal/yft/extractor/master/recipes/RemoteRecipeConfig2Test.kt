@@ -12,11 +12,15 @@ import org.junit.Test
 
 /**
  * VK Master plan §9: R9 schema 2 — schema 1 plus site `vk` and rungs V1–V3, read by the unchanged
- * schema-1 reader through two projections; the v1.0.0 file is the schema-1 projection. VK's recipe
- * here is a made-up stand-in (agent B's `VkRecipe` is not on this branch).
+ * schema-1 reader through two projections; the v1.0.0 file is the schema-1 projection. Most cases
+ * lay over a made-up VK stand-in ([VK_RECIPE]) so they never depend on VK's real addresses; the
+ * bundled recipes ([ContractRecipes.ALL], VK's own [com.alal.yft.extractor.master.social.VkRecipe]
+ * included since wave 2) are checked on their own.
  */
 class RemoteRecipeConfig2Test {
-    private val bundled = ContractRecipes.ALL + VK_RECIPE
+    /** The bundled recipes a build without VK's recipe has (schema 1's sites). */
+    private val schema1Recipes = ContractRecipes.ALL.filter { it.site != RemoteRecipeConfig2.VK }
+    private val bundled = schema1Recipes + VK_RECIPE
 
     @Test
     fun `a schema-2 config lays the four sites over schema 1's reader and VK over its own recipe`() {
@@ -35,10 +39,10 @@ class RemoteRecipeConfig2Test {
         assertEquals(VK_RECIPE.endpoint, vk.endpoint)
         assertEquals(VK_RECIPE.answerHosts, vk.answerHosts)
         assertEquals("Config agent", parsed.recipes.single { it.site == "instagram" }.agent)
-        assertEquals(ContractRecipes.ALL.filter { it.site != "instagram" }, parsed.recipes.filter { it.site != "instagram" && it.site != "vk" })
+        assertEquals(schema1Recipes.filter { it.site != "instagram" }, parsed.recipes.filter { it.site != "instagram" && it.site != "vk" })
 
         // The four sites as the schema-1 reader lays the projection over them.
-        val schema1 = RemoteRecipeConfig.parse(checkNotNull(RemoteRecipeConfig2.schema1(text)), ContractRecipes.ALL)
+        val schema1 = RemoteRecipeConfig.parse(checkNotNull(RemoteRecipeConfig2.schema1(text)), schema1Recipes)
             as RemoteRecipeConfig.Parsed.Valid
         assertEquals(schema1.recipes, parsed.recipes.dropLast(1))
         assertEquals(setOf("probe"), schema1.rungsOff)
@@ -48,7 +52,7 @@ class RemoteRecipeConfig2Test {
         val fourSites = config(sites = """{"instagram":{"agent":"Config agent"}}""", rungsOff = """["V1","I3"]""")
         val withVk = RemoteRecipeConfig2.parse(fourSites, bundled) as RemoteRecipeConfig.Parsed.Valid
         assertEquals(VK_RECIPE, withVk.recipes.last())
-        val withoutVk = RemoteRecipeConfig2.parse(fourSites, ContractRecipes.ALL) as RemoteRecipeConfig.Parsed.Valid
+        val withoutVk = RemoteRecipeConfig2.parse(fourSites, schema1Recipes) as RemoteRecipeConfig.Parsed.Valid
         assertEquals(withVk.recipes.dropLast(1), withoutVk.recipes)
         assertEquals(setOf("I3", "V1"), withoutVk.rungsOff)
         assertEquals(RemoteRecipeConfig.Parsed.Valid(4L, withVk.expiresEpochDay, bundled), RemoteRecipeConfig2.parse(config(), bundled))
@@ -84,7 +88,7 @@ class RemoteRecipeConfig2Test {
         assertEquals(
             "a build without VK's recipe: vk is an unknown site, as in schema 1",
             RemoteRecipeConfig.Parsed.Invalid("unknown site vk"),
-            RemoteRecipeConfig2.parse(config(sites = """{"vk":{}}"""), ContractRecipes.ALL),
+            RemoteRecipeConfig2.parse(config(sites = """{"vk":{}}"""), schema1Recipes),
         )
         assertNull(RemoteRecipeConfig2.schema1(config(schema = "1")))
         assertNull(RemoteRecipeConfig2.schema1("[]"))
@@ -113,9 +117,9 @@ class RemoteRecipeConfig2Test {
         for (site in sites) for (off in offs) {
             val one = config(schema = "1", sites = site, rungsOff = off)
             val two = config(schema = "2", sites = site, rungsOff = off)
-            val first = RemoteRecipeConfig.parse(one, ContractRecipes.ALL)
-            val second = RemoteRecipeConfig2.parse(two, ContractRecipes.ALL)
-            val projected = RemoteRecipeConfig2.schema1(two)?.let { RemoteRecipeConfig.parse(it, ContractRecipes.ALL) }
+            val first = RemoteRecipeConfig.parse(one, schema1Recipes)
+            val second = RemoteRecipeConfig2.parse(two, schema1Recipes)
+            val projected = RemoteRecipeConfig2.schema1(two)?.let { RemoteRecipeConfig.parse(it, schema1Recipes) }
             if (first is RemoteRecipeConfig.Parsed.Valid) {
                 assertEquals("$site $off", first, second)
                 assertEquals("$site $off", first, projected)
@@ -165,7 +169,8 @@ class RemoteRecipeConfig2Test {
         val sites = obj(two, "properties", "sites", "properties")
         assertEquals(RemoteRecipeConfig2.SITES, sites.entries.keys.toList())
         assertEquals(RemoteRecipeConfig2.SCHEMA_1_SITES, obj(one, "properties", "sites", "properties").entries.keys.toList())
-        assertEquals(ContractRecipes.ALL.map { it.site }, RemoteRecipeConfig2.SCHEMA_1_SITES)
+        assertEquals(schema1Recipes.map { it.site }, RemoteRecipeConfig2.SCHEMA_1_SITES)
+        assertEquals("the bundled recipes: schema 1's sites, then VK", RemoteRecipeConfig2.SITES, ContractRecipes.ALL.map { it.site })
         sites.entries.values.forEach { assertEquals(JsonValue.Object(mapOf("\$ref" to JsonValue.Text("#/\$defs/site"))), it) }
         val rungs = obj(two, "properties", "rungsOff")
         assertEquals(RemoteRecipeConfig2.RUNGS, texts(obj(rungs, "items").entries["enum"]))
@@ -178,7 +183,7 @@ class RemoteRecipeConfig2Test {
         assertTrue(RemoteRecipeConfig2.parse(example2, bundled) is RemoteRecipeConfig.Parsed.Valid)
         val projection = checkNotNull(RemoteRecipeConfig2.schema1(example2))
         assertEquals(BoundedJsonParser.parse(example1), BoundedJsonParser.parse(projection))
-        assertEquals(RemoteRecipeConfig.parse(example1, ContractRecipes.ALL), RemoteRecipeConfig.parse(projection, ContractRecipes.ALL))
+        assertEquals(RemoteRecipeConfig.parse(example1, schema1Recipes), RemoteRecipeConfig.parse(projection, schema1Recipes))
     }
 
     @Test
@@ -193,13 +198,39 @@ class RemoteRecipeConfig2Test {
             val composed = text.trim().removeSuffix("}").trimEnd() + ""","version":1,"expires":"2027-12-31"}"""
             val two = RemoteRecipeConfig2.parse(composed, bundled)
             assertTrue("${file.name}: $two", two is RemoteRecipeConfig.Parsed.Valid)
-            val one = RemoteRecipeConfig.parse(checkNotNull(RemoteRecipeConfig2.schema1(composed)), ContractRecipes.ALL)
+            val one = RemoteRecipeConfig.parse(checkNotNull(RemoteRecipeConfig2.schema1(composed)), schema1Recipes)
             assertTrue("${file.name}: $one", one is RemoteRecipeConfig.Parsed.Valid)
             two as RemoteRecipeConfig.Parsed.Valid
             one as RemoteRecipeConfig.Parsed.Valid
             assertEquals(file.name, one.recipes, two.recipes.filter { it.site != RemoteRecipeConfig2.VK })
             assertEquals(file.name, one.rungsOff, two.rungsOff - RemoteRecipeConfig2.VK_RUNGS.toSet())
             assertNotNull(two.recipes.singleOrNull { it.site == RemoteRecipeConfig2.VK })
+        }
+    }
+
+    @Test
+    fun `the bundled recipes carry VK's own - schema 2 lays over it, schema 1 leaves it as bundled`() {
+        val vk = ContractRecipes.ALL.single { it.site == RemoteRecipeConfig2.VK }
+        assertEquals(ContractRecipes.ALL.last(), vk)
+        val plain = RemoteRecipeConfig2.parse(config(), ContractRecipes.ALL) as RemoteRecipeConfig.Parsed.Valid
+        assertEquals(ContractRecipes.ALL, plain.recipes)
+        assertEquals(emptySet<String>(), plain.rungsOff)
+        val agent = RemoteRecipeConfig2.parse(config(sites = """{"vk":{"agent":"Config agent"}}"""), ContractRecipes.ALL)
+            as RemoteRecipeConfig.Parsed.Valid
+        assertEquals("Config agent", agent.recipes.last().agent)
+        assertEquals(vk.endpoint, agent.recipes.last().endpoint)
+        assertEquals(schema1Recipes, agent.recipes.dropLast(1))
+        assertEquals(
+            "a schema-1 config never names VK",
+            RemoteRecipeConfig.Parsed.Invalid("unknown site vk"),
+            RemoteRecipeConfig.parse(config(schema = "1", sites = """{"vk":{}}"""), schema1Recipes),
+        )
+        val docs = File(checkNotNull(System.getProperty("yft.recipeDocs")) { "recipe docs unset" })
+        checkNotNull(File(docs, "configs").listFiles { file -> file.name.endsWith(".json") }).forEach { file ->
+            val composed = file.readText().trim().removeSuffix("}").trimEnd() + ""","version":1,"expires":"2027-12-31"}"""
+            val two = RemoteRecipeConfig2.parse(composed, ContractRecipes.ALL)
+            assertTrue("${file.name}: $two", two is RemoteRecipeConfig.Parsed.Valid)
+            assertEquals(file.name, ContractRecipes.ALL.map { it.site }, (two as RemoteRecipeConfig.Parsed.Valid).recipes.map { it.site })
         }
     }
 

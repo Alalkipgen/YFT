@@ -416,7 +416,7 @@ class SiteCensusActivity : ComponentActivity() {
             "stopped or cooling site is not run (never waited out).\n\n"
 
         /** Task 6b: the intro's added lines in a social-ladder build only (before [LINKS_LINE]). */
-        const val LADDER_NOTE = "This build runs the social ladder: for Facebook, TikTok, X and Instagram the backup's " +
+        const val LADDER_NOTE = "This build runs the social ladder: for Facebook, TikTok, X, Instagram and VK the backup's " +
             "part is that site's ladder as the browser runs it (no tab here, so no capture), with each rung's state " +
             "and each row checked against YFT's own (wrong rows and unknown rows apart). A ladder with no wrong row " +
             "is not parity and not release readiness.\n\n"

@@ -990,6 +990,7 @@ class SiteCensus(
             SiteWays.TIKTOK.id to "sessionid",
             SiteWays.INSTAGRAM.id to "sessionid",
             SiteWays.X.id to "auth_token",
+            VkSite.SITE.id to "remixsid",
         )
 
         /** Whether [cookie] holds [siteId]'s sign-in cookie with a value. */

@@ -36,13 +36,18 @@ interface SocialStage {
      * for the lookup: after [snapshot] no other stage runs (no page data, no capture of the tab),
      * and a lookup it leaves without rows needs the user's playback with the ladder's lines only
      * (Instagram's rung proof, when it set I2's rows aside and the rung gave none). Every other
-     * answer: false, as before.
+     * answer: false, as before. Agent D's wiring (VK-Master plan §8): [checked] — told once, after
+     * the engine's media checks (V) of [snapshot]'s rows, whether any passed (false when the
+     * engine stopped before or V refused them all), so a rung keeps a healed value only after V
+     * passed its rows (VK's V2). It never changes the answer; one that throws is ignored. Null for
+     * every other rung, as before.
      */
     class Staged(
         val stage: MasterStage,
         val snapshot: PageSnapshot,
         val request: MasterRequest,
         val last: Boolean = false,
+        val checked: ((Boolean) -> Unit)? = null,
     )
 }
 

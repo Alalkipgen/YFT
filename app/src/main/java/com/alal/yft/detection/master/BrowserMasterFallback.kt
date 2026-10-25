@@ -27,6 +27,7 @@ import com.alal.yft.extractor.master.verify.CapturedMediaMetadata
 import com.alal.yft.extractor.master.present.MasterMainPresentation
 import com.alal.yft.extractor.master.policy.TerminalRules
 import com.alal.yft.extractor.master.social.SocialCooldown
+import com.alal.yft.extractor.master.social.VkClient
 import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.CoroutineContext
@@ -636,6 +637,9 @@ class AndroidBrowserMasterFallback(
             // Decision 30 (i): Settings' Backup finder; off, no lookup asks Master and every one of
             // Master's requests (GitHub raw's config and version tables included) fails unsent.
             on: () -> Boolean = { true },
+            // VK-Master wave 2 (agent D, item 7): the trial's VK value break of main's values
+            // ([VkTrialBreak.mutate], #12 trial only), so V2 knows the set main asked with.
+            vkMutate: ((VkClient.Values) -> VkClient.Values)? = null,
         ): BrowserMasterFallback {
             if (!enabled) return BrowserMasterFallback.None
             val gated = BackupFinder.gate(client, on)
@@ -666,7 +670,14 @@ class AndroidBrowserMasterFallback(
                     // R9: their recipes from a signed config when the build carries its key.
                     contracts = MasterRecipeConfig.contracts(http),
                     // Social plan S1a (3): Facebook's ladder only with -Pyft.socialLadder (debug).
-                    social = SocialLadder.stage(http, sites::identity, socialLadder),
+                    // VK-Master wave 2 (agent D): VK's V2 with the process's healing values, read
+                    // over the gated client (Backup finder off: nothing sent), kept in filesDir.
+                    social = SocialLadder.stage(
+                        http,
+                        sites::identity,
+                        socialLadder,
+                        vkValues = { SocialLadder.vkValues(gated, filesDir, vkMutate) },
+                    ),
                 ),
                 // Phase 1.4 item 2: in the h-only APK a found YouTube page goes through H too.
                 masterFirstSite = if (MasterLadderSwitch.hOnly) YOUTUBE_SITE_ID else null,

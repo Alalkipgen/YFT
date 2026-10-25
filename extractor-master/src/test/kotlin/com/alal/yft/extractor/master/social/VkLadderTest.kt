@@ -13,16 +13,19 @@ import com.alal.yft.extractor.master.MasterResult
 import com.alal.yft.extractor.master.MasterStage
 import com.alal.yft.extractor.master.NOW
 import com.alal.yft.extractor.master.RecordingValidator
+import com.alal.yft.extractor.master.ValidationResult
 import com.alal.yft.extractor.master.contract.AGENT
 import com.alal.yft.extractor.master.contract.CountingCapture
 import com.alal.yft.extractor.master.contract.SiteContracts
 import com.alal.yft.extractor.master.contract.contractRequest
 import com.alal.yft.extractor.master.contract.mainRequest
+import com.alal.yft.extractor.master.fixture
 import com.alal.yft.extractor.master.lookup.AnswerMark
 import com.alal.yft.extractor.master.lookup.LookupRecord
 import com.alal.yft.extractor.master.lookup.LookupRecorder
 import com.alal.yft.extractor.master.modules.youtube.testing.FakeExtractorHttpClient
 import com.alal.yft.extractor.master.recipes.ContractRecipes
+import com.alal.yft.extractor.master.solver.OwnSolverTextFile
 import com.alal.yft.extractor.sites.vk.VkExtractor
 import java.net.URI
 import kotlinx.coroutines.awaitCancellation
@@ -307,7 +310,7 @@ class VkLadderTest {
     }
 
     @Test
-    fun `VK's budget fits main's most, a heal and V - main's 6 asks, V2's 4, V's 8 reads, V2's two answers at their bounds, main's 15 s`() = runTest {
+    fun `VK's budget fits main's most, a heal and V - main's 6 asks, a read and V2's 3, V's 8 reads, each ask at its bound, main's 15 s`() = runTest {
         // Main's most in a lookup it fails: a token in memory from an earlier lookup, then VK's
         // shell twice on vk.com, the adult answer on vk.ru, video.get refusing the kept token and
         // one new token (error 5).
@@ -329,18 +332,29 @@ class VkLadderTest {
         assertEquals(6, lookup.record.mainAsks)
         assertEquals(MasterStage.CONTRACT, (lookup.result as MasterResult.Success).stage)
         assertEquals(2, lookup.record.masterAsks)
-        // VkSite.BUDGET: main's 6, V2's token and video.get, the live source's page and script
-        // (agent C's, not asked with the bundled values), V's reads.
+        // VkSite.BUDGET (D's live check): main's 6, a heal read (the page and its common script),
+        // V2's token and two video.gets (the second when v is refused too, healed from the same
+        // script), V's reads — 19 requests; the bytes at each ask's bound, 7,356,416.
+        assertEquals(VkSite.MAIN_ASKS, lookup.record.mainAsks)
         assertEquals(
             VkSite.BUDGET.requests,
-            lookup.record.mainAsks + lookup.record.masterAsks + LIVE_SOURCE_READS + SocialRowCheck.MAX_READS,
+            lookup.record.mainAsks + VkClientSource.REQUESTS_PER_READ + VkSite.TOKEN_ASKS + VkSite.VIDEO_GET_ASKS +
+                SocialRowCheck.MAX_READS,
         )
-        assertEquals(VkClient.MAX_TOKEN_BYTES + VkClient.MAX_API_BYTES, VkSite.BUDGET.bytes)
+        assertEquals(19, VkSite.BUDGET.requests)
+        assertEquals(
+            VkClientSource.PAGE_MAX_BYTES + VkClientSource.COMMON_MAX_BYTES + VkClient.MAX_TOKEN_BYTES +
+                VkSite.VIDEO_GET_ASKS * VkClient.MAX_API_BYTES,
+            VkSite.BUDGET.bytes,
+        )
+        assertEquals(7_356_416L, VkSite.BUDGET.bytes)
         assertEquals(VkExtractor.DEADLINE_MS, VkSite.BUDGET.millis)
 
-        // The smallest byte budget: one byte less and V2 asks nothing.
+        // The smallest byte budget of a pass without a read: one byte less and V2 asks nothing.
         val healer = vk(token = rotated)
-        val tight = lookup(vk(token = rotated), ladder(healer, budget = VkSite.BUDGET.copy(bytes = VkSite.BUDGET.bytes - 1)))
+        val least = VkClient.MAX_TOKEN_BYTES + VkClient.MAX_API_BYTES
+        assertEquals(2, lookup(vk(token = rotated), ladder(vk(token = rotated), budget = VkSite.BUDGET.copy(bytes = least))).record.masterAsks)
+        val tight = lookup(vk(token = rotated), ladder(healer, budget = VkSite.BUDGET.copy(bytes = least - 1)))
         assertEquals("$V2: over the lookup's byte budget; not asked", tight.lines.last())
         assertNothingAsked(healer)
         assertBare(lookup)
@@ -693,6 +707,174 @@ class VkLadderTest {
         assertNothingAsked(master)
     }
 
+    @Test
+    fun `D's heal - a refused client id is read from vkvideo's common script, sent in V2's token, kept after V passed`() = runTest {
+        val file = MemoryFile()
+        val site = vkvideo()
+        val healing = healing(site, file)
+        val master = vk(token = rotated)
+        val lookup = lookup(vk(token = rotated), ladder(master, healing))
+
+        assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, lookup.mainFailure)
+        assertEquals(MasterStage.CONTRACT, (lookup.result as MasterResult.Success).stage)
+        assertEquals(listOf(VkClientSource.PAGE, KIT_COMMON), site.requestedUrls)
+        site.requestedHeaders.forEach { assertEquals(mapOf("User-Agent" to VkClientSource.desktop(AGENT)), it) }
+        assertEquals(listOf(VkClient.TOKEN_URL), master.postedUrls)
+        assertTrue("the healed client id sent", "\"client_id\":\"$NEW_CLIENT_ID\"" in master.postedBodies.single())
+        assertEquals("the page, the script, a token, video.get", 4, lookup.record.masterAsks)
+        assertEquals(
+            listOf(
+                LADDER_LINE,
+                ADULT,
+                TOKEN_REFUSED,
+                "$V2 client_id: healed from vkvideo-script (the page and its common script: 2 asks, $KIT_READ bytes)",
+                "$V2 login.vk.ru: answered, held in memory for this ask only",
+                "$V2 video.get: DIRECT (rows 4, bound to the video); next: CHECK_ROWS",
+                "$V2 item: MP4 files 2, HLS 1, DASH 1 (VK's key table); title known; length known",
+            ),
+            lookup.lines,
+        )
+        assertEquals("kept after V passed", NEW_CLIENT_ID, SiteHealth(file) { NOW }.learned(SiteHealth.VK, "clientId")?.value)
+        assertBare(lookup)
+
+        // The same day, the same process: healed today, no new read.
+        val again = vk(token = rotated)
+        val second = lookup(vk(token = rotated), ladder(again, healing))
+        assertTrue(second.result is MasterResult.Success)
+        assertEquals("$V2 client_id: healed today from vkvideo-script; no new ask", second.lines[3])
+        assertEquals(2, site.requestedUrls.size)
+        assertEquals(2, second.record.masterAsks)
+
+        // After a restart: learned (kept in the file), no new read.
+        val restartedSite = vkvideo()
+        val third = lookup(vk(token = rotated), ladder(vk(token = rotated), healing(restartedSite, file)))
+        assertTrue(third.result is MasterResult.Success)
+        assertEquals("$V2 client_id: learned from vkvideo-script; no new ask", third.lines[3])
+        assertTrue(restartedSite.requestedUrls.isEmpty())
+        assertBare(second)
+        assertBare(third)
+    }
+
+    @Test
+    fun `D's heal - video get's error 8 heals the API version from the same source, main's token replayed`() = runTest {
+        val file = MemoryFile()
+        val site = vkvideo()
+        val healing = healing(site, file)
+        val master = vk(api = retired())
+        val lookup = lookup(vk(api = retired()), ladder(master, healing))
+
+        assertEquals(MasterStage.CONTRACT, (lookup.result as MasterResult.Success).stage)
+        assertEquals(listOf(VkClientSource.PAGE, KIT_COMMON), site.requestedUrls)
+        assertTrue("main's identical token answer replayed", master.postedUrls.isEmpty())
+        assertEquals(listOf(KIT_VERSION), master.requestedUrls.map { VkLadder.queryOf(it, VkClient.VIDEO_GET_PATH)?.get("v") })
+        assertEquals(
+            listOf(
+                LADDER_LINE,
+                ADULT,
+                "$V1 video.get: VALUE_REJECTED (API error 8 (the web client's values)); next: NEXT_RUNG",
+                "$V2 v: healed from vkvideo-script (the page and its common script: 2 asks, $KIT_READ bytes)",
+                "$V2 login.vk.ru: answered, held in memory for this ask only; main's identical answer replayed",
+                "$V2 video.get: DIRECT (rows 4, bound to the video); next: CHECK_ROWS",
+                "$V2 item: MP4 files 2, HLS 1, DASH 1 (VK's key table); title known; length known",
+            ),
+            lookup.lines,
+        )
+        assertEquals(KIT_VERSION, SiteHealth(file) { NOW }.learned(SiteHealth.VK, "apiVersion")?.value)
+
+        val second = lookup(vk(api = retired()), ladder(vk(api = retired()), healing))
+        assertEquals("$V2 v: healed today from vkvideo-script; no new ask", second.lines[3])
+        val third = lookup(vk(api = retired()), ladder(vk(api = retired()), healing(vkvideo(), file)))
+        assertEquals("$V2 v: learned from vkvideo-script; no new ask", third.lines[3])
+        assertEquals(2, site.requestedUrls.size)
+        listOf(lookup, second, third).forEach(::assertBare)
+    }
+
+    @Test
+    fun `D's heal - both values refused - the client id healed, then error 8's version from the same script with no new ask`() = runTest {
+        val file = MemoryFile()
+        val site = vkvideo()
+        val master = vk(token = rotated, api = retired())
+        val lookup = lookup(vk(token = rotated, api = retired()), ladder(master, healing(site, file)))
+
+        assertEquals(MasterStage.CONTRACT, (lookup.result as MasterResult.Success).stage)
+        assertEquals("one read for both values", listOf(VkClientSource.PAGE, KIT_COMMON), site.requestedUrls)
+        assertEquals(listOf(VkClient.API_VERSION, KIT_VERSION), master.requestedUrls.map { VkLadder.queryOf(it, VkClient.VIDEO_GET_PATH)?.get("v") })
+        assertEquals("the page, the script, a token, two video.gets", 5, lookup.record.masterAsks)
+        assertEquals(
+            listOf(
+                "$V2 client_id: healed from vkvideo-script (the page and its common script: 2 asks, $KIT_READ bytes)",
+                "$V2 login.vk.ru: answered, held in memory for this ask only",
+                "$V2 video.get: VALUE_REJECTED (API error 8 (the web client's values)); next: NEXT_RUNG",
+                "$V2 v: healed from vkvideo-script (the same script; no new ask)",
+                "$V2 video.get: DIRECT (rows 4, bound to the video); next: CHECK_ROWS",
+            ),
+            lookup.lines.drop(3).take(5),
+        )
+        val health = SiteHealth(file) { NOW }
+        assertEquals(NEW_CLIENT_ID, health.learned(SiteHealth.VK, "clientId")?.value)
+        assertEquals(KIT_VERSION, health.learned(SiteHealth.VK, "apiVersion")?.value)
+        assertBare(lookup)
+    }
+
+    @Test
+    fun `D's heal - nothing kept when V rejects the rows, a value VK refuses again is dropped for the day, no read without a refusal`() = runTest {
+        val file = MemoryFile()
+        val site = vkvideo()
+        val healing = healing(site, file)
+        val rejecting = RecordingValidator { ValidationResult.Rejected(SiteExtractionFailure.NO_MEDIA_FOUND) }
+        val failed = lookup(vk(token = rotated), ladder(vk(token = rotated), healing), validator = rejecting)
+        assertFalse(failed.result is MasterResult.Success)
+        assertNull("not kept: V did not pass the rows", SiteHealth(file) { NOW }.learned(SiteHealth.VK, "clientId"))
+
+        // VK refuses the healed id too: dropped for the day, and the day's read is spent.
+        val refusing = healing(vkvideo(), MemoryFile())
+        val always: (String) -> ExtractorHttpResult = { ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 401) }
+        val first = lookup(vk(token = always), ladder(vk(token = always), refusing))
+        assertEquals(
+            "$V2 login.vk.ru: VALUE_REJECTED (status 401, the web client's values refused); next: NEXT_RUNG",
+            first.lines.last(),
+        )
+        val next = lookup(vk(token = always), ladder(vk(token = always), refusing))
+        assertEquals("$V2 client_id: no value (not read (read in the last day))", next.lines.last())
+        assertTrue(next.result is MasterResult.NeedsPlayback)
+
+        // Main's answers usable (only the secret changed, say): V1 answers, nothing is read.
+        val quiet = vkvideo()
+        val v1 = lookup(vk(api = answers("video_get_renamed.json")), ladder(vk(), healing(quiet, MemoryFile())))
+        assertEquals(MasterStage.PAGE_DATA, (v1.result as MasterResult.Success).stage)
+        assertTrue(quiet.requestedUrls.isEmpty())
+        listOf(failed, first, next, v1).forEach(::assertBare)
+    }
+
+    @Test
+    fun `D's heal - a read only within VK's budget - requests and bytes for the read and V2's asks with V's reads kept, else V2 stops`() = runTest {
+        val full = lookup(vk(token = rotated), ladder(vk(token = rotated), healing(vkvideo(), MemoryFile())))
+        assertTrue(full.result is MasterResult.Success)
+        val main = full.record.mainAsks
+        val read = VkClientSource.PAGE_MAX_BYTES + VkClientSource.COMMON_MAX_BYTES
+        val asks = VkClient.MAX_TOKEN_BYTES + VkClient.MAX_API_BYTES
+        // The least that fits: main's asks, the read's two, V2's token and video.get, V's reads.
+        val least = VkSite.BUDGET.copy(requests = main + VkClientSource.REQUESTS_PER_READ + 2 + SocialRowCheck.MAX_READS, bytes = read + asks)
+        val cases = listOf(
+            least.copy(requests = least.requests - 1) to "$V2 client_id: over the lookup's request budget; not read",
+            least.copy(bytes = least.bytes - 1) to "$V2 client_id: over the lookup's byte budget; not read",
+        )
+        for ((budget, line) in cases) {
+            val site = vkvideo()
+            val lookup = lookup(vk(token = rotated), ladder(vk(token = rotated), healing(site, MemoryFile()), budget = budget))
+            assertEquals(line, line, lookup.lines.last())
+            assertTrue(lookup.result is MasterResult.NeedsPlayback)
+            assertTrue(site.requestedUrls.isEmpty())
+            assertBare(lookup)
+        }
+        val fits = vkvideo()
+        val enough = lookup(vk(token = rotated), ladder(vk(token = rotated), healing(fits, MemoryFile()), budget = least))
+        assertTrue(enough.lines.toString(), enough.result is MasterResult.Success)
+        assertEquals(2, fits.requestedUrls.size)
+        assertBare(full)
+        assertBare(enough)
+    }
+
     /** One lookup: main's real VK adapter over [main] (its pages and asks kept in the lookup), then Master's engine with [ladder]. */
     private suspend fun lookup(
         main: FakeExtractorHttpClient,
@@ -705,9 +887,9 @@ class VkLadderTest {
         engineContracts: SiteContracts = contracts(FakeExtractorHttpClient()),
         /** Main's adapter, when one is kept across lookups (its token in memory); else a new one over [main]. */
         adapter: VkExtractor? = null,
+        validator: RecordingValidator = RecordingValidator(),
     ): Lookup {
         val identity = identify(PAGE)
-        val validator = RecordingValidator()
         val capture = CountingCapture()
         val stage = Recording(ladder)
         return withContext(record + MainPages(site = SITE)) {
@@ -817,6 +999,15 @@ class VkLadderTest {
         }
     }
 
+    private class MemoryFile(var text: String? = null) : OwnSolverTextFile {
+        override fun read(): String? = text
+
+        override fun write(text: String): Boolean {
+            this.text = text
+            return true
+        }
+    }
+
     private companion object {
         const val SITE = "vk"
         const val PAGE = "https://vk.com/video-100000001_400000001"
@@ -836,8 +1027,6 @@ class VkLadderTest {
         const val TOKEN_REFUSED = "$V1 login.vk.ru: VALUE_REJECTED (status 401, the web client's values refused); next: NEXT_RUNG"
         const val REGION_LIMITED = "REGION_LIMITED (API error 13300 (region)); next: FINAL"
 
-        /** Agent C's live source's reads for V2 (the page naming today's script, the script; VkSite.BUDGET). */
-        const val LIVE_SOURCE_READS = 2
         val LINK = VkClient.Link(-100000001, 400000001)
 
         /** VK's new web client id after a rotation (made up, of VK's shape). */
@@ -862,13 +1051,45 @@ class VkLadderTest {
             }
         }
 
+        /** D: the kit's common script on the kit's page (`fixtures/vk-master-kit`, made up). */
+        const val KIT_COMMON = "https://st1-23.vkvideo.ru/dist/web/chunks/common.FIXTUREc0mm0n.js"
+        const val KIT_PAGE = "vk-master-kit/page/vkvideo-page.html"
+        const val KIT_SCRIPT = "vk-master-kit/script/common.js"
+
+        /** D: the kit's API version (made up, of VK's shape). */
+        const val KIT_VERSION = "5.000"
+
+        /** D: one heal read's bytes, the kit's page and its common script. */
+        val KIT_READ: Int by lazy { fixture(KIT_PAGE).toByteArray(Charsets.UTF_8).size + fixture(KIT_SCRIPT).toByteArray(Charsets.UTF_8).size }
+
+        /** D: vkvideo.ru as V2's heal reads it: the kit's page, then the common script it lists. */
+        fun vkvideo() = FakeExtractorHttpClient(
+            getResponder = { url, _ ->
+                when (url) {
+                    VkClientSource.PAGE -> page(fixture(KIT_PAGE), url)
+                    KIT_COMMON -> ExtractorHttpResult.Success(200, fixture(KIT_SCRIPT), url, "application/javascript; charset=utf-8")
+                    else -> null
+                }
+            },
+        )
+
+        /** D: the app's healing values over [site] (main's values: the bundled ones), kept in [file]. */
+        fun healing(site: ExtractorHttpClient, file: OwnSolverTextFile? = null): VkClientValues =
+            HealingVkValues(ValueSource(SiteHealth(file) { NOW }, VkClientSource(site)), VkClient.BUNDLED)
+
+        /** D: `video.get` after VK retired the bundled API version: error 8 for it, the files for any other. */
+        fun retired(): (String) -> ExtractorHttpResult = { url ->
+            val version = VkLadder.queryOf(url, VkClient.VIDEO_GET_PATH)?.get("v")
+            json(vkPack(if (version == VkClient.API_VERSION) "video_get_error_8.json" else "video_get_mp4.json"), url)
+        }
+
         /** Main's other values (a token version of VK's shape that is not the bundled one). */
         val OTHER: VkClient.Values = VkClient.BUNDLED.copy(tokenVersion = "2")
 
-        /** The engine's recipes with VK's (step 4's [VkRecipe]; agent D adds it to `ContractRecipes.ALL`). */
-        fun contracts(http: ExtractorHttpClient) = SiteContracts(http, ContractRecipes.ALL + VkRecipe.RECIPE)
+        /** The engine's recipes, VK's included (step 4's [VkRecipe], in `ContractRecipes.ALL` since wave 2). */
+        fun contracts(http: ExtractorHttpClient) = SiteContracts(http, ContractRecipes.ALL)
 
-        /** The recipes of a build without VK's (`ContractRecipes.ALL` before agent D adds it). */
+        /** The recipes of a build without VK's (`ContractRecipes.ALL` before wave 2). */
         fun withoutVk(http: ExtractorHttpClient) =
             SiteContracts(http, ContractRecipes.ALL.filterNot { it.site == VkClient.SITE_ID })
 

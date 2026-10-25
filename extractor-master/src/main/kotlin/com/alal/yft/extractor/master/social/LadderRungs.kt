@@ -68,6 +68,7 @@ internal object LadderRungs {
         TikTokLadder.SITE_ID to Ladder(TikTokLadder.LINE, listOf("T1" to TikTokLadder.T1, "T2" to TikTokLadder.T2, "T3" to null)),
         XLadder.SITE_ID to Ladder(XLadder.LINE, listOf("X1" to XLadder.X1, "X3" to null)),
         InstagramLadder.SITE_ID to Ladder(InstagramLadder.LINE, listOf("I2" to InstagramLadder.I2, "I3" to null)),
+        VkLadder.SITE_ID to Ladder(VkLadder.LINE, listOf("V1" to VkLadder.V1, "V2" to VkLadder.V2, "V3" to null)),
     )
 
     /** The sites with a ladder. */

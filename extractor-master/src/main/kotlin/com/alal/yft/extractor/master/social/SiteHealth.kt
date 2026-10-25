@@ -16,16 +16,19 @@ import com.alal.yft.extractor.master.solver.OwnSolverTextFile
  * value read included — [mayAsk]), the value-read clock ([claimRead]: at most one read a day per
  * value, claimed before the read, so a failed read spends the day too) and the last learned value
  * per name ([learn]: its source and date; the value itself only when it is a public version —
- * digits and dots, [VERSION] — the way `ClientHealth` keeps a version).
+ * digits and dots, [VERSION] — the way `ClientHealth` keeps a version, or one of [VALUES]: agent
+ * D's wiring keeps VK's two healed values, the web client's public client id and the API version,
+ * each by its own strict pattern, so a value healed and passed survives a restart).
  *
  * Cooldowns: `VALUE_REJECTED` 1 h, `SHAPE_CHANGED` 24 h ([cooldownOf]); a pass ends a rung's
  * cooldown, and so does [clearCooldowns] (a new R9 config, agent D's wiring).
  *
  * Kept in memory and, when [file] is given, as one JSON text (agent D's wiring:
  * `files/master/site-health.json` through an `AtomicTextFile`, read on first use off the lookup
- * thread). It records never a token, a cookie, an address, a post or user ID or a secret value:
- * every stored string is checked against a strict pattern on write and on read, anything else is
- * dropped, and a file that cannot be read starts empty. Nothing here logs.
+ * thread). It records never a token, a cookie, an address, a post or user ID or a secret value
+ * (VK's client secret is never read, healed or kept): every stored string is checked against a
+ * strict pattern on write and on read ([keeps] for a value), anything else is dropped, and a file
+ * that cannot be read starts empty. Nothing here logs.
  */
 internal class SiteHealth(
     private val file: OwnSolverTextFile? = null,
@@ -168,14 +171,15 @@ internal class SiteHealth(
 
     /**
      * Keeps a value that answered OK with rows that passed V ([ValueSource.kept]): its [name], its
-     * [source] and the time; [value] is kept only when it is a public version ([VERSION]).
+     * [source] and the time; [value] is kept only when [keeps] takes it (its name's own pattern in
+     * [VALUES], else a public version, [VERSION]).
      */
     @Synchronized
     fun learn(site: String, name: String, source: String, value: String? = null) {
         if (site !in RUNGS || !NAME.matches(name) || !WORD.matches(source)) return
         val learned = load().siteOf(site).learned
         learned.remove(name)
-        learned[name] = Learned(name, source, clock(), value?.takeIf(VERSION::matches))
+        learned[name] = Learned(name, source, clock(), value?.takeIf { keeps(site, name, it) })
         while (learned.size > MAX_NAMES) learned.remove(learned.keys.first())
         save()
     }
@@ -291,7 +295,7 @@ internal class SiteHealth(
                 val source = text(fields["source"])?.takeIf(WORD::matches) ?: return@forEach
                 val at = number(fields["at"]) ?: return@forEach
                 if (!NAME.matches(name) || site.learned.size >= MAX_NAMES) return@forEach
-                site.learned[name] = Learned(name, source, at, text(fields["value"])?.takeIf(VERSION::matches))
+                site.learned[name] = Learned(name, source, at, text(fields["value"])?.takeIf { keeps(id, name, it) })
             }
             sites[id] = site
         }
@@ -325,8 +329,28 @@ internal class SiteHealth(
             VK to listOf("V1", "V2", "V3"),
         )
 
-        /** The only values the health keeps: a public version, digits and dots (as `ClientHealth`'s). */
+        /** The values the health keeps by default: a public version, digits and dots (as `ClientHealth`'s). */
         val VERSION = Regex("^[0-9]{1,4}(\\.[0-9]{1,8}){1,3}$")
+
+        /**
+         * Agent D's wiring (VK-Master plan §8, item 5): the only other values kept, per site and
+         * name, each by its own strict pattern, checked on [learn] and again on load: VK's two
+         * healed values — the web client's client id (VK's public app ID, digits) and the API
+         * version. Never the client secret, a token or a cookie.
+         */
+        val VALUES: Map<String, Map<String, Regex>> = mapOf(
+            VK to mapOf(
+                "clientId" to Regex("^[0-9]{6,10}$"),
+                "apiVersion" to Regex("^5\\.[0-9]{1,4}$"),
+            ),
+        )
+
+        /** Whether [value] of [site]'s [name] may be kept: its own pattern in [VALUES], else [VERSION]. */
+        fun keeps(site: String, name: String, value: String): Boolean =
+            VALUES[site]?.get(name)?.matches(value) ?: VERSION.matches(value)
+
+        /** Whether [site]'s [name] has its own pattern in [VALUES] (its value is kept, not only its source). */
+        fun keepsValue(site: String, name: String): Boolean = VALUES[site]?.containsKey(name) == true
 
         /** A value's name ([ValueKind.name]). */
         val NAME = Regex("^[a-z][A-Za-z0-9_]{0,31}$")

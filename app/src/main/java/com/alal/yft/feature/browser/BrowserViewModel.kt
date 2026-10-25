@@ -31,6 +31,7 @@ import com.alal.yft.detection.master.BrowserMasterFallback
 import com.alal.yft.detection.master.BackupFinder
 import com.alal.yft.detection.master.InstagramProbeSwitch
 import com.alal.yft.detection.master.SocialLadder
+import com.alal.yft.detection.master.VkTrialBreak
 import com.alal.yft.detection.master.YouTubeRouteB
 import com.alal.yft.BuildConfig
 import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
@@ -119,6 +120,8 @@ class BrowserViewModel(
             BuildConfig.MASTER_CAPTURE_ENABLED, okHttpClient, siteAdapters, playerScriptRunner,
             { appContext.filesDir },
             on = backupFinder::isOn,
+            // VK-Master wave 2 (agent D, item 7): the trial's VK value break (null elsewhere).
+            vkMutate = VkTrialBreak.mutate(appContext),
         ),
         InstagramProbeSwitch.reader(appContext),
         InstagramProbeSwitch.proofReader(appContext),

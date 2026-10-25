@@ -49,6 +49,7 @@ package com.alal.yft.extractor.master.recipes
 
 import com.alal.yft.core.model.media.PageNavigationHeaders
 import com.alal.yft.extractor.api.SiteExtractionFailure
+import com.alal.yft.extractor.master.social.VkRecipe
 
 /**
  * R8: one entry of a contract key table: where one site's own answer lists files. Data only;
@@ -454,7 +455,11 @@ internal object ContractRecipes {
         thumbnailPaths = listOf(listOf("image_versions2", "candidates", "0", "url"), listOf("display_url")),
     )
 
-    val ALL: List<ContractRecipe> = listOf(VIMEO, X, FACEBOOK, TIKTOK, INSTAGRAM)
+    /**
+     * The engine's recipes. VK Master wave 2 (agent D): VK's ([VkRecipe], agent B's pack) joins
+     * last, so a schema-1 config's five sites keep their order (`RemoteRecipeConfig2.SCHEMA_1_SITES`).
+     */
+    val ALL: List<ContractRecipe> = listOf(VIMEO, X, FACEBOOK, TIKTOK, INSTAGRAM, VkRecipe.RECIPE)
 
     fun of(site: String): ContractRecipe? = ALL.firstOrNull { it.site == site }
 }

@@ -5,7 +5,7 @@ package com.alal.yft.extractor.master.social
  * ladder rung the config in use turns off (`rungsOff`: the names of
  * [com.alal.yft.extractor.master.recipes.RemoteRecipeConfig.RUNGS]) is not run. Its line says so
  * ([line]: `<the rung's label>: off (config); not run`) and the ladder goes on as when the rung
- * gives nothing. The capture rungs — F3, T3, X3 and I3, the visible tab's own playback — have
+ * gives nothing. The capture rungs — F3, T3, X3, I3 and VK's V3, the visible tab's own playback — have
  * their own labels ([CAPTURES]); with one off the engine asks no capture, and the lookup's
  * answer is the ladder's lines only ([captureOff]). A build without the config's key: nothing is
  * ever off, as before.
@@ -20,6 +20,7 @@ object RungsOff {
         TikTokLadder.SITE_ID to TikTokLadder.T3,
         XLadder.SITE_ID to XLadder.X3,
         InstagramLadder.SITE_ID to InstagramLadder.I3,
+        VkLadder.SITE_ID to VkLadder.V3,
     )
 
     /** The line of the rung [label] names when the config turns it off. */

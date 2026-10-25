@@ -19,6 +19,7 @@ import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
@@ -46,7 +47,10 @@ import kotlinx.coroutines.withTimeoutOrNull
  *   over VK's budget ([budget]); an endpoint asked in the lookup (main's included) is not asked again
  *   (route B's rule: main's identical answer is replayed, else the ask is refused), so values that
  *   differ from main's only on the token's side ask nothing once main asked `video.get`. Its rows
- *   go to V; its own 429 or bot check cools the host.
+ *   go to V; its own 429 or bot check cools the host. With [VkClientValues.healing] (agent D's
+ *   wiring, the app's): the value VK refused main is healed instead ([Heal]: healed today, learned,
+ *   else one read of vkvideo.ru's page and its common script; on error 8 the API version too, for
+ *   a second `video.get`), kept only after V passed the rows.
  * - **V3, the capture:** the visible tab's own playback, as the four sites' (the engine's next
  *   stage); [captureOff] when the config turns it off ([RungsOff]).
  *
@@ -132,11 +136,19 @@ class VkLadder(
             details += RungsOff.line(V1)
         }
         if (main.stopped.isNotEmpty() || !main.adult || !main.rejected) return null
-        return heal(record, request, read, link, policy, off, details)
+        // D: the value VK refused main — the API version on video.get's error 8, else the client id.
+        val first = if (main.versionRefused) VkClientSource.API_VERSION else VkClientSource.CLIENT_ID
+        return heal(record, request, read, link, policy, off, first, details)
     }
 
-    /** One of main's answers, judged, with what [VkReader] read in it. */
-    private class Judgement(val judged: Judged, val read: VkReader.Read, val answer: ContractAnswer?, val host: String?)
+    /** One of main's answers, judged, with what [VkReader] read in it ([code]: `video.get`'s API error code). */
+    private class Judgement(
+        val judged: Judged,
+        val read: VkReader.Read,
+        val answer: ContractAnswer?,
+        val host: String?,
+        val code: Long? = null,
+    )
 
     /** Main's answers for the link in this lookup: their lines, rows, a final answer, the stops, V2's trigger. */
     private class Main(
@@ -147,6 +159,8 @@ class VkLadder(
         val stopped: List<String>,
         val adult: Boolean,
         val rejected: Boolean,
+        /** D: main's refused value was the API version (`video.get`'s error 8 after a usable token). */
+        val versionRefused: Boolean = false,
     )
 
     /**
@@ -185,7 +199,13 @@ class VkLadder(
             } else {
                 val read = VkReader.api(body, link)
                 val answer = ExtractorHttpResult.Success(page.statusCode, body, page.finalUrl, page.contentType)
-                Judgement(VkAnswerJudge.api(answer, read.reading), read, read.answer(link, page.finalUrl), VkClient.API_HOST)
+                Judgement(
+                    VkAnswerJudge.api(answer, read.reading),
+                    read,
+                    read.answer(link, page.finalUrl),
+                    VkClient.API_HOST,
+                    VkAnswerJudge.apiErrorCode(answer),
+                )
             }
         } + refused.filter { apiAsk(it.url, link) }.map { refusal ->
             Judgement(
@@ -234,6 +254,8 @@ class VkLadder(
             // Main's path D opens only after the embed's adult answer: its token or video.get is proof.
             adult = embeds.any { it.first } || tokens.isNotEmpty() || apis.isNotEmpty(),
             rejected = judged.any { it.answerClass == AnswerClass.VALUE_REJECTED },
+            versionRefused = token?.answerClass != AnswerClass.VALUE_REJECTED &&
+                api?.judged?.answerClass == AnswerClass.VALUE_REJECTED && api?.code == VkAnswerJudge.VERSION_ERROR,
         )
     }
 
@@ -269,12 +291,15 @@ class VkLadder(
         link: VkClient.Link,
         policy: MasterPolicy,
         off: Set<String>,
+        first: ValueKind,
         details: MutableList<String>,
     ): SocialStage.Staged? {
         if (RUNG_V2 in off) {
             details += RungsOff.line(V2)
             return null
         }
+        // D's wiring: the value VK refused, healed ([VkClientValues.healing]).
+        (values as? HealingVkValues)?.let { healing -> return Heal(healing, record, request, read, link, policy, details).run(first) }
         val value = valuesOrNone().firstOrNull { !it.sameAs(VkClient.BUNDLED) } ?: run {
             details += "$V2: no value other than main's; not asked"
             return null
@@ -330,6 +355,239 @@ class VkLadder(
             }
             Next.FINAL -> judged.reason?.let { final(request, read, it, MasterStage.CONTRACT) }
             Next.NEXT_RUNG, Next.PLAYBACK, Next.BROWSER, Next.STOP_SITE -> null
+        }
+    }
+
+    /**
+     * D's wiring (VK-Master plan §8, items 3 and 4): one V2 pass with the heal, for one lookup. The
+     * value VK refused main ([run]'s first: the client id, else the API version — never the client
+     * secret) is marked rejected for the day, and the next comes from [healing]'s source: healed
+     * today, learned, else one read of vkvideo.ru's page and its common script in this [pass] (by
+     * the lookup's rules, counted for the line), at most once a day per value. Then one token and
+     * one `video.get`; on error 8 the API version comes from the same script (no new read) for a
+     * second `video.get`. Each ask only while VK's budget holds — the requests with V's reads kept
+     * for the rows, the bytes at each ask's bound, the lookup's time — else V2 stops and V3
+     * answers. Rows go to V; a healed or learned value is kept only after V passed them
+     * ([SocialStage.Staged.checked]); one VK refuses again is dropped for the day. Lines name the
+     * value (client_id, v) and where it came from, never the value.
+     */
+    private inner class Heal(
+        private val healing: HealingVkValues,
+        private val record: LookupRecord,
+        private val request: MasterRequest,
+        private val read: MasterRequest,
+        private val link: VkClient.Link,
+        private val policy: MasterPolicy,
+        private val details: MutableList<String>,
+    ) {
+        private val pass = VkClientSource.Pass(RouteBLookup(record))
+        private val route = pass.route
+        private val agent = request.requestContext.userAgent
+        private val source = healing.source
+
+        /** The values this pass sent that are not main's (kept after V's pass). */
+        private val used = LinkedHashMap<String, ValueSource.Candidate>()
+
+        /** The bytes this pass reserved, each ask at its bound. */
+        private var bytes = 0L
+
+        /** One answer of V2's `video.get`. */
+        private inner class Asked(val answer: ExtractorHttpResult, val reading: VkReader.Read, val judged: Judged) {
+            val versionRefused: Boolean
+                get() = judged.answerClass == AnswerClass.VALUE_REJECTED &&
+                    VkAnswerJudge.apiErrorCode(answer) == VkAnswerJudge.VERSION_ERROR
+        }
+
+        suspend fun run(first: ValueKind): SocialStage.Staged? {
+            stop()?.let { why ->
+                details += "$V2: $why; not asked"
+                return null
+            }
+            var values = next(first, healing.main, HEAL_ASKS, VkClient.MAX_TOKEN_BYTES + VkClient.MAX_API_BYTES) ?: return null
+            val token = token(values) ?: return null
+            var asked = videoGet(values, token) ?: return null
+            if (asked.versionRefused) {
+                val version = VkClientSource.API_VERSION
+                if (version.name in used) {
+                    // The API version this pass sent is refused too: not sent again today.
+                    used[version.name]?.let(source::rejected)
+                    return null
+                }
+                values = next(version, values, 1, VkClient.MAX_API_BYTES) ?: return null
+                asked = videoGet(values, token) ?: return null
+                if (asked.versionRefused) {
+                    used[version.name]?.let(source::rejected)
+                    return null
+                }
+            }
+            return answer(asked)
+        }
+
+        /**
+         * [kind]'s value in [values] was refused: not sent again today; [values] with the next one
+         * (its line written), or null (its line says why). [then]/[thenBytes]: the asks (and their
+         * bounds) that must still follow a heal read for it to be of use.
+         */
+        private suspend fun next(kind: ValueKind, values: VkClient.Values, then: Int, thenBytes: Long): VkClient.Values? {
+            val name = nameOf(kind)
+            val refused = valueOf(values, kind)
+            source.rejected(used[kind.name] ?: ValueSource.Candidate(kind, refused, ValueSource.Origin.BUNDLED, ValueSource.BUNDLED))
+            val candidate = source.value(kind, refused)?.also { got ->
+                details += "$V2 $name: ${known(got)}; no new ask"
+            } ?: healRead(kind, then, thenBytes) ?: source.alternates(kind, refused).firstOrNull()?.also { got ->
+                details += "$V2 $name: ${got.label}; no new ask"
+            } ?: return null
+            val next = withValue(values, kind, candidate.value) ?: run {
+                details += "$V2 $name: not VK's shape; not asked"
+                return null
+            }
+            used[kind.name] = candidate
+            return next
+        }
+
+        /** One heal read of [kind] in this pass (the script read once for both values), its line written. */
+        private suspend fun healRead(kind: ValueKind, then: Int, thenBytes: Long): ValueSource.Candidate? {
+            val name = nameOf(kind)
+            val cached = pass.read
+            if (!cached) {
+                over(VkClientSource.REQUESTS_PER_READ + then, READ_BYTES + thenBytes)?.let { why ->
+                    details += "$V2 $name: $why; not read"
+                    return null
+                }
+            }
+            val wait = minOf(HEAL_READ_MS, policy.timeoutMillis, record.timeLeftMillis(budget.millis))
+            if (!cached && wait < VkClientSource.REQUESTS_PER_READ * VkClient.MIN_REQUEST_MS) {
+                details += "$V2 $name: out of the lookup's time; not read"
+                return null
+            }
+            if (!cached) bytes += READ_BYTES
+            val asks = pass.asks
+            val got = pass.bytes
+            val healed = withTimeoutOrNull(wait.coerceAtLeast(VkClient.MIN_REQUEST_MS)) {
+                withContext(pass) { source.heal(kind, agent) }
+            } ?: run {
+                details += "$V2 $name: no answer in time"
+                return null
+            }
+            val candidate = healed.candidate ?: run {
+                details += "$V2 $name: no value (${healed.why})"
+                return null
+            }
+            details += "$V2 $name: healed from ${candidate.label} " + when {
+                pass.asks > asks -> "(the page and its common script: ${pass.asks - asks} asks, ${pass.bytes - got} bytes)"
+                cached -> "(the same script; no new ask)"
+                else -> "(${healed.why}; no new ask)"
+            }
+            return candidate
+        }
+
+        /** One token for [values] (held in memory for this pass only), or null (its line written). */
+        private suspend fun token(values: VkClient.Values): VkClient.Token? {
+            over(HEAL_ASKS, VkClient.MAX_TOKEN_BYTES + VkClient.MAX_API_BYTES)?.let { why ->
+                details += "$V2 login.vk.ru: $why; not asked"
+                return null
+            }
+            bytes += VkClient.MAX_TOKEN_BYTES
+            val headers = VkClient.headers(agent, null)
+            val ask = LookupAsk(LookupAsk.POST, VkClient.TOKEN_URL, values.tokenBody, headers)
+            val sent = route.newRequests
+            val replayed = route.replayed
+            val answer = timed(record, policy, "$V2 login.vk.ru", details) {
+                route.exchange(ask, VkClient.MAX_TOKEN_BYTES) {
+                    http.postJson(VkClient.TOKEN_URL, values.tokenBody, headers, VkClient.MAX_TOKEN_BYTES)
+                }
+            } ?: return null
+            val token = (answer as? ExtractorHttpResult.Success)?.let { VkClient.token(it.body, request.nowEpochMs) }
+            VkAnswerJudge.token(answer, usable = token != null)?.let { judged ->
+                details += "$V2 login.vk.ru: ${line(judged)}" + refusedBy(route)
+                if (route.newRequests > sent && judged.next == Next.STOP_SITE) cooldown.note(listOf(VkClient.TOKEN_HOST))
+                // The client id this pass sent is refused too: not sent again today.
+                if (judged.answerClass == AnswerClass.VALUE_REJECTED) used[VkClientSource.CLIENT_ID.name]?.let(source::rejected)
+                return null
+            }
+            details += "$V2 login.vk.ru: answered, held in memory for this ask only" +
+                if (route.replayed > replayed) "; main's identical answer replayed" else ""
+            return token
+        }
+
+        /** One `video.get` with [values] and [token], or null (its line written). */
+        private suspend fun videoGet(values: VkClient.Values, token: VkClient.Token): Asked? {
+            over(1, VkClient.MAX_API_BYTES)?.let { why ->
+                details += "$V2 video.get: $why; not asked"
+                return null
+            }
+            val url = values.videoGetUrl(link)
+            val ask = LookupAsk(LookupAsk.GET, url, null, VkClient.headers(agent, null))
+            if (record.asked(ask)) {
+                details += "$V2: video.get with these values asked in this lookup already; not asked"
+                return null
+            }
+            bytes += VkClient.MAX_API_BYTES
+            val sent = route.newRequests
+            val answer = timed(record, policy, "$V2 video.get", details) {
+                route.exchange(ask, VkClient.MAX_API_BYTES) {
+                    http.get(url, VkClient.headers(agent, token), VkClient.MAX_API_BYTES)
+                }
+            } ?: return null
+            val reading = (answer as? ExtractorHttpResult.Success)?.let { VkReader.api(it.body, link) } ?: VkReader.Read()
+            val judged = VkAnswerJudge.api(answer, reading.reading)
+            details += "$V2 video.get: ${line(judged)}" + refusedBy(route)
+            if (route.newRequests > sent && judged.next == Next.STOP_SITE) cooldown.note(listOf(VkClient.API_HOST))
+            return Asked(answer, reading, judged)
+        }
+
+        /** [asked]'s rows for V (the values kept only after V passed them), VK's final answer, else null. */
+        private fun answer(asked: Asked): SocialStage.Staged? = when (asked.judged.next) {
+            Next.CHECK_ROWS -> (asked.answer as? ExtractorHttpResult.Success)?.let { asked.reading.answer(link, it.finalUrl) }
+                ?.let { answer ->
+                    details += "$V2 item: ${asked.reading.line()}"
+                    val judgement = Judgement(asked.judged, asked.reading, answer, VkClient.API_HOST)
+                    staged(record, request, read, judgement, MasterStage.CONTRACT, V2, details)?.let { staged ->
+                        val kept = used.values.toList()
+                        val answerClass = asked.judged.answerClass
+                        if (kept.isEmpty()) {
+                            staged
+                        } else {
+                            SocialStage.Staged(staged.stage, staged.snapshot, staged.request, staged.last) { passed ->
+                                kept.forEach { source.kept(it, answerClass, passed) }
+                            }
+                        }
+                    }
+                }
+            Next.FINAL -> asked.judged.reason?.let { final(request, read, it, MasterStage.CONTRACT) }
+            Next.NEXT_RUNG, Next.PLAYBACK, Next.BROWSER, Next.STOP_SITE -> null
+        }
+
+        /** Why this pass may not ask at all: a 429 in the lookup, a VK host stopped or cooling, VK's budget. */
+        private fun stop(): String? {
+            val hosts = listOf(VkClient.TOKEN_HOST, VkClient.API_HOST)
+            val stops = record.stopHosts()
+            return when {
+                record.rateLimited -> "a 429 in this lookup"
+                hosts.any(stops::contains) -> "a VK host stopped in this lookup (a 429 or a bot check)"
+                hosts.any(cooldown::cooling) -> "cooling down after a 429 or a bot check"
+                else -> over(HEAL_ASKS, VkClient.MAX_TOKEN_BYTES + VkClient.MAX_API_BYTES)
+            }
+        }
+
+        /**
+         * Why [asks] more (their bounds [need]) do not fit VK's budget now, or null: main's and
+         * Master's asks so far with V's reads kept for the rows, the lookup's time, the bytes this
+         * pass reserved.
+         */
+        private fun over(asks: Int, need: Long): String? = when {
+            record.mainAsks + record.masterAsks + asks + SocialRowCheck.MAX_READS > budget.requests ->
+                "over the lookup's request budget"
+            record.timeLeftMillis(budget.millis) < asks * VkClient.MIN_REQUEST_MS -> "over the lookup's time budget"
+            bytes + need > budget.bytes -> "over the lookup's byte budget"
+            else -> null
+        }
+
+        /** A value [got] the source had without a read: healed today, learned, signed. */
+        private fun known(got: ValueSource.Candidate): String = when (got.origin) {
+            ValueSource.Origin.HEALED -> "healed today from ${got.label}"
+            ValueSource.Origin.LEARNED -> "learned from ${got.source}"
+            else -> got.label
         }
     }
 
@@ -447,6 +705,26 @@ class VkLadder(
 
         /** V2's asks: one token, one `video.get`. */
         private const val HEAL_ASKS = 2
+
+        /** D: a heal read's bounds, the page and its common script. */
+        private const val READ_BYTES = VkClientSource.PAGE_MAX_BYTES + VkClientSource.COMMON_MAX_BYTES
+
+        /** D: a heal read's most time, its two GETs at main's per-ask bound. */
+        private const val HEAL_READ_MS = VkClientSource.REQUESTS_PER_READ * VkClient.REQUEST_MS
+
+        /** D: a value's name in V2's lines, VK's own parameter names (never the value). */
+        private fun nameOf(kind: ValueKind): String = if (kind === VkClientSource.API_VERSION) "v" else "client_id"
+
+        /** D: [kind]'s value in [values]. */
+        private fun valueOf(values: VkClient.Values, kind: ValueKind): String =
+            if (kind === VkClientSource.API_VERSION) values.apiVersion else values.clientId
+
+        /** D: [values] with [kind]'s [value] (main's source and day kept), or null when it is not VK's shape. */
+        private fun withValue(values: VkClient.Values, kind: ValueKind, value: String): VkClient.Values? = try {
+            if (kind === VkClientSource.API_VERSION) values.copy(apiVersion = value) else values.copy(clientId = value)
+        } catch (_: IllegalArgumentException) {
+            null
+        }
 
         private fun line(judged: Judged): String =
             "${judged.answerClass.name} (${judged.evidence}); next: ${judged.next.name}"

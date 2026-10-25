@@ -108,27 +108,68 @@ class SiteHealthTest {
     }
 
     @Test
-    fun `a learned value keeps its source and date, the value itself only when it is a public version`() {
+    fun `a learned value keeps its source and date, the value itself only when it is a public version or VK's client id`() {
         val file = MemoryFile()
         val health = SiteHealth(file, clock)
         health.learn(VK, "apiVersion", "vk-script", "5.999")
         health.learn(VK, "clientId", "vk-script", "12345678")
         health.learn(VK, "clientSecret", "vk-script", "AbCdEfGh12IjKlMn34Op")
         health.learn(VK, "appId", "https://vk.example/x", "1234567")
+        health.learn(VK, "appVersion", "vk-script", "12345678")
         assertEquals("5.999", health.learned(VK, "apiVersion")?.value)
         assertEquals("vk-script", health.learned(VK, "clientId")?.source)
-        assertNull(health.learned(VK, "clientId")?.value)
+        assertEquals("D's wiring: VK's client id by its own pattern", "12345678", health.learned(VK, "clientId")?.value)
         assertNull(health.learned(VK, "clientSecret")?.value)
+        assertNull("digits alone are not a version", health.learned(VK, "appVersion")?.value)
         assertNull("an address is never a source", health.learned(VK, "appId"))
         val text = checkNotNull(file.text)
-        listOf("12345678", "AbCdEfGh12IjKlMn34Op", "https", "vk.example").forEach { assertFalse(it, text.contains(it)) }
+        listOf("AbCdEfGh12IjKlMn34Op", "https", "vk.example").forEach { assertFalse(it, text.contains(it)) }
         assertTrue(text.contains("5.999"))
+        assertTrue(text.contains("12345678"))
 
         val reloaded = SiteHealth(file, clock)
         assertEquals("5.999", reloaded.learned(VK, "apiVersion")?.value)
+        assertEquals("12345678", reloaded.learned(VK, "clientId")?.value)
         assertEquals(START, reloaded.learned(VK, "clientId")?.at)
         reloaded.forget(VK, "apiVersion")
         assertNull(SiteHealth(file, clock).learned(VK, "apiVersion"))
+    }
+
+    @Test
+    fun `D's wiring - VK's two values each by its own strict pattern, on learn and on load, nothing else of theirs`() {
+        val kept = mapOf(
+            "clientId" to listOf("123456", "1234567890"),
+            "apiVersion" to listOf("5.0", "5.1234"),
+        )
+        val dropped = mapOf(
+            "clientId" to listOf("12345", "12345678901", "5.999", "0x1e240", "-123456", "123456 ", "１２３４５６"),
+            "apiVersion" to listOf("6.0", "5.12345", "5", "5.", "51.0", "5.0.1", " 5.0", "12345678"),
+        )
+        kept.forEach { (name, values) ->
+            values.forEach { value ->
+                assertTrue("$name $value", SiteHealth.keeps(VK, name, value))
+                val file = MemoryFile()
+                SiteHealth(file, clock).learn(VK, name, "vk-script", value)
+                assertEquals("$name $value", value, SiteHealth(file, clock).learned(VK, name)?.value)
+            }
+        }
+        dropped.forEach { (name, values) ->
+            values.forEach { value ->
+                assertFalse("$name $value", SiteHealth.keeps(VK, name, value))
+                val health = SiteHealth(MemoryFile(), clock)
+                health.learn(VK, name, "vk-script", value)
+                assertNull("$name $value", health.learned(VK, name)?.value)
+                val tampered = """{"v":1,"sites":{"vk":{"learned":{"$name":{"source":"vk-script","at":1,"value":"$value"}}}}}"""
+                assertNull("$name $value on load", SiteHealth(MemoryFile(tampered), clock).learned(VK, name)?.value)
+            }
+        }
+        assertTrue(SiteHealth.keepsValue(VK, "clientId"))
+        assertTrue(SiteHealth.keepsValue(VK, "apiVersion"))
+        assertFalse("never the secret", SiteHealth.keepsValue(VK, "clientSecret"))
+        assertFalse(SiteHealth.keepsValue("instagram", "clientId"))
+        assertFalse("another site's clientId: a version only", SiteHealth.keeps("instagram", "clientId", "12345678"))
+        assertEquals(setOf(VK), SiteHealth.VALUES.keys)
+        assertEquals(setOf("clientId", "apiVersion"), SiteHealth.VALUES.getValue(VK).keys)
     }
 
     @Test
@@ -158,7 +199,7 @@ class SiteHealthTest {
         assertNull(read.rung(VK, "V2"))
         assertNull("a good rung of another site is dropped", read.goodRung(VK))
         assertFalse(read.stopped(VK))
-        assertNull(read.learned(VK, "clientId"))
+        assertNull("an address is never a source", read.learned(VK, "clientId"))
         assertNull("only digits and dots are a version", read.learned(VK, "token")?.value)
         assertEquals("5.999", read.learned(VK, "apiVersion")?.value)
         assertFalse(read.toJson().contains("youtube"))

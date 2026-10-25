@@ -45,6 +45,14 @@ data class SocialBudget(val requests: Int, val bytes: Long, val millis: Long) {
          * Main's four pages take long, so the lookup's time is 30 s, as TikTok's.
          */
         val INSTAGRAM = SocialBudget(requests = 13, bytes = 7L * 1024 * 1024, millis = 30_000)
+
+        /**
+         * VK-Master plan §6, VK's (agent D registers it here; sized in [VkSite.BUDGET], not copied
+         * from Instagram's): main's at most 6 asks, V2's heal read (the page and its common script),
+         * one token and two `video.get`s, and V's 8 reads — 19 requests, 7,356,416 bytes at each
+         * ask's bound — within main's one 15 s deadline.
+         */
+        val VK = VkSite.BUDGET
     }
 }
 

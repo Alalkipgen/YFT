@@ -8,6 +8,7 @@ import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.core.model.settings.SearchEngine
 import com.alal.yft.detection.master.BackupFinder
+import com.alal.yft.detection.master.VkTrialBreak
 import com.alal.yft.feature.browser.FakeBrowserHistoryRepository
 import com.alal.yft.feature.browser.FakeBrowserPreferencesRepository
 import com.alal.yft.testing.MainDispatcherRule
@@ -218,6 +219,36 @@ class SettingsViewModelTest {
         runCurrent()
         assertNull(without.uiState.value.backupFinder)
         assertNull(subscribed().uiState.value.backupFinder)
+    }
+
+    @Test
+    fun theVkValueBreakRowIsShownAndChangedOnlyInTheTrial() = runTest {
+        // VK-Master wave 2 (item 7): the trial's VK value break; a tap keeps the next choice,
+        // which this run does not use (main keeps its token for a day): a restart applies it.
+        val vkBreak = VkTrialBreak.inMemory(VkTrialBreak.Break.OFF, available = true)
+        val viewModel = SettingsViewModel(
+            preferences, cleaner, history, settings, browser, browserHistory, null, vkBreak,
+        )
+        backgroundScope.launch { viewModel.uiState.collect {} }
+        runCurrent()
+        assertEquals(VkTrialBreak.Row(VkTrialBreak.Break.OFF, VkTrialBreak.Break.OFF), viewModel.uiState.value.vkBreak)
+
+        viewModel.onAction(SettingsAction.NextVkBreak)
+        runCurrent()
+        assertEquals(
+            VkTrialBreak.Row(VkTrialBreak.Break.CLIENT_ID, VkTrialBreak.Break.OFF),
+            viewModel.uiState.value.vkBreak,
+        )
+        assertNull("this run's choice stays off", vkBreak.mutate())
+
+        val without = SettingsViewModel(
+            preferences, cleaner, history, settings, browser, browserHistory, null,
+            VkTrialBreak.inMemory(VkTrialBreak.Break.CLIENT_ID, available = false),
+        )
+        backgroundScope.launch { without.uiState.collect {} }
+        runCurrent()
+        assertNull(without.uiState.value.vkBreak)
+        assertNull(subscribed().uiState.value.vkBreak)
     }
 
     private fun TestScope.subscribed(): SettingsViewModel {

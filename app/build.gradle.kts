@@ -184,7 +184,9 @@ val committedRecipeKey =
         .asText.map(String::trim)
 val socialRecipeKey = providers.gradleProperty("yft.masterRecipeKey").orElse(committedRecipeKey)
 // The recipes branch's config (the master-recipes-publish workflow writes it); the release's only.
-val releaseRecipeUrl = "https://raw.githubusercontent.com/Alalkipgen/YFT/recipes/master-recipes.json"
+// VK Master plan §9: from v1.0.1 the schema-2 file (all five sites, VK too); v1.0.0 reads
+// master-recipes.json (schema 1), which the same workflow keeps signing.
+val releaseRecipeUrl = "https://raw.githubusercontent.com/Alalkipgen/YFT/recipes/master-recipes-2.json"
 val masterRecipeUrl = providers.gradleProperty("yft.masterRecipeUrl").orElse(releaseRecipeUrl).get()
 require(Regex("""https://[A-Za-z0-9./_-]+""").matches(masterRecipeUrl)) {
     "yft.masterRecipeUrl must be an https address"

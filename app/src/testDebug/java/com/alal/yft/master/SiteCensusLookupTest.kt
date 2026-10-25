@@ -142,7 +142,7 @@ class SiteCensusLookupTest {
         assertEquals(3, answer.rows.size)
         assertEquals(
             "the adapters as the app builds them",
-            listOf("tiktok", "facebook", "x", "instagram"),
+            listOf("tiktok", "facebook", "x", "instagram", "vk"),
             SiteCensusLookup.registry(http, http) { AGENT }.adapterIds,
         )
         val detected = SiteAdapterOutcome.Detected("instagram", answer.rows)

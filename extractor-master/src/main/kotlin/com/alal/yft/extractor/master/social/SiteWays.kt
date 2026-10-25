@@ -210,8 +210,8 @@ object SiteWays {
         newLabels = ::XLabels,
     )
 
-    /** The census's sites, in the screen's order. */
-    val ALL: List<Site> = listOf(FACEBOOK, TIKTOK, INSTAGRAM, X)
+    /** The census's sites, in the screen's order (VK Master wave 2: VK's, agent B's [VkSite], last). */
+    val ALL: List<Site> = listOf(FACEBOOK, TIKTOK, INSTAGRAM, X, VkSite.SITE)
 
     /** The site with [id] (main's site ID), or null. */
     fun site(id: String): Site? = ALL.firstOrNull { it.id == id }

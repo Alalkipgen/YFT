@@ -28,7 +28,14 @@ class ValueSourceTest {
         health.learn(VK, CLIENT.name, "vk-script", "87654321")
         val source = ValueSource(health)
         assertEquals(listOf(ValueSource.Origin.LEARNED, "5.996", "learned"), describe(source.value(API, "5.900")))
-        assertEquals("an ID is never learned as a value", ValueSource.Origin.BUNDLED, source.value(CLIENT, "12345678")?.origin)
+        assertEquals(
+            "D's wiring: VK's client id is learned with its value",
+            listOf(ValueSource.Origin.LEARNED, "87654321", "learned"),
+            describe(source.value(CLIENT, "12345678")),
+        )
+        health.learn(VK, "appId", "vk-script", "2345678")
+        val appId = ValueKind(VK, "appId", Regex("[0-9]{6,10}"), Regex("app_id:\"([0-9]+)\""))
+        assertEquals("another ID is never learned as a value", ValueSource.Origin.BUNDLED, source.value(appId, "1234567")?.origin)
         assertEquals("the signed value comes first", "5.997", signed.value(API, "5.900")?.value)
         assertNull("a bundled value off its pattern is not sent", ValueSource(SiteHealth { now }).value(API, "5.x"))
 
@@ -120,8 +127,8 @@ class ValueSourceTest {
     }
 
     @Test
-    fun `kept only after an OK answer whose rows passed V - a public version with its value, an ID by name and source only`() = runTest {
-        val reader = FakeReader(script("v=5.950 client_id:\"87654321\""))
+    fun `kept only after an OK answer whose rows passed V - a public version or VK's client id with its value, another ID by name and source only`() = runTest {
+        val reader = FakeReader(script("v=5.950 client_id:\"87654321\" app_id:\"2345678\""))
         val source = ValueSource(health, reader)
         source.rejected(checkNotNull(source.value(API, "5.900")))
         val api = checkNotNull(source.heal(API, USER_AGENT).candidate)
@@ -137,8 +144,17 @@ class ValueSourceTest {
         assertEquals("87654321", client.value)
         assertTrue(source.kept(client, AnswerClass.DIRECT, rowsPassed = true))
         assertEquals("vk-script", health.learned(VK, CLIENT.name)?.source)
-        assertNull(health.learned(VK, CLIENT.name)?.value)
-        assertFalse(checkNotNull(file.text).contains("87654321"))
+        assertEquals("D's wiring: VK's client id with its value", "87654321", health.learned(VK, CLIENT.name)?.value)
+        assertTrue(checkNotNull(file.text).contains("87654321"))
+
+        val appId = ValueKind(VK, "appId", Regex("[0-9]{6,10}"), Regex("app_id:\"([0-9]+)\""))
+        source.rejected(checkNotNull(source.value(appId, "1234567")))
+        val app = checkNotNull(source.heal(appId, USER_AGENT).candidate)
+        assertEquals("2345678", app.value)
+        assertTrue(source.kept(app, AnswerClass.DIRECT, rowsPassed = true))
+        assertEquals("vk-script", health.learned(VK, "appId")?.source)
+        assertNull("another ID by name and source only", health.learned(VK, "appId")?.value)
+        assertFalse(checkNotNull(file.text).contains("2345678"))
         assertFalse("a bundled value is the build's: nothing to keep", source.kept(checkNotNull(source.value(SECRET, "AbCdEfGh12IjKlMn34Op")), AnswerClass.DIRECT, true))
         assertNull(health.learned(VK, SECRET.name))
     }

@@ -13,11 +13,12 @@ import com.alal.yft.extractor.api.SiteExtractionFailure
  *    that R9 does not carry the web client's values, plan §2 and §9);
  * 2. a **self-healed** value read today ([heal]; memory only, for the day);
  * 3. a **learned** value ([SiteHealth.learn]: kept only after an OK answer and a V pass; the
- *    health keeps the value itself only for a public version, so this is VK's API version, never an
- *    ID or a secret);
+ *    health keeps the value itself only for a public version or a name with its own pattern
+ *    ([SiteHealth.VALUES]: VK's client id and API version, agent D's wiring), never a secret);
  * 4. the **bundled** value the rung was built with;
- * 5. after a rejection, one heal read: **one** pattern-matched value ([ValueKind.anchor]'s group
- *    1, the whole value matching [ValueKind.pattern]) from a [ValueReader] (VK: [VkClientSource],
+ * 5. after a rejection, one heal read: **one** pattern-matched value ([ValueKind.anchor]'s match,
+ *    read by [ValueKind.valueOf]: group 1 unless the kind says otherwise; the whole value matching
+ *    [ValueKind.pattern]) from a [ValueReader] (VK: [VkClientSource],
  *    the source agent A proved); at most once a day per value (the health's clock, claimed before
  *    the read), not while the site is stopped (a bot check or 429, which a read also starts), at
  *    most [ValueKind.maxBytes];
@@ -68,7 +69,7 @@ internal class ValueSource(
         listOfNotNull(
             signed.valueOf(kind)?.let { Candidate(kind, it, Origin.SIGNED, SIGNED) },
             healedToday(kind),
-            health.learned(kind.site, kind.name)?.takeIf { kind.publicVersion }?.let { learned ->
+            health.learned(kind.site, kind.name)?.takeIf { stored(kind) }?.let { learned ->
                 learned.value?.let { Candidate(kind, it, Origin.LEARNED, learned.source) }
             },
             bundled?.let { Candidate(kind, it, Origin.BUNDLED, BUNDLED) },
@@ -106,7 +107,7 @@ internal class ValueSource(
         if (text.length > kind.maxBytes || text.toByteArray(Charsets.UTF_8).size > kind.maxBytes) {
             return Read(null, "over ${kind.maxBytes} bytes")
         }
-        val values = anchor.findAll(text).mapNotNull { it.groups[1]?.value }.distinct().take(2).toList()
+        val values = anchor.findAll(text).mapNotNull { kind.valueOf(it) }.distinct().take(2).toList()
         val value = when (values.size) {
             0 -> return Read(null, "no value")
             1 -> values.single()
@@ -128,14 +129,15 @@ internal class ValueSource(
     /**
      * [candidate] answered [answerClass]: kept (true) only after an OK answer (`DIRECT` or
      * `PARTIAL`) whose rows passed V ([rowsPassed]) — a healed, learned or alternate value is then
-     * learned (its source and date; the value only for a public version). Signed and bundled
-     * values are the config's and the build's: nothing to keep.
+     * learned (its source and date; the value only for a public version or a name with its own
+     * pattern, [SiteHealth.VALUES]). Signed and bundled values are the config's and the build's:
+     * nothing to keep.
      */
     fun kept(candidate: Candidate, answerClass: AnswerClass, rowsPassed: Boolean): Boolean {
         if (!rowsPassed || answerClass.next != Next.CHECK_ROWS) return false
         if (candidate.origin == Origin.SIGNED || candidate.origin == Origin.BUNDLED) return false
         val kind = candidate.kind
-        health.learn(kind.site, kind.name, candidate.source, candidate.value.takeIf { kind.publicVersion })
+        health.learn(kind.site, kind.name, candidate.source, candidate.value.takeIf { stored(kind) })
         return true
     }
 
@@ -194,6 +196,9 @@ internal class ValueSource(
 
         fun valid(kind: ValueKind, value: String): Boolean = VALUE.matches(value) && kind.pattern.matches(value)
 
+        /** Whether the health keeps [kind]'s value itself: a public version, or a name with its own pattern. */
+        private fun stored(kind: ValueKind): Boolean = kind.publicVersion || SiteHealth.keepsValue(kind.site, kind.name)
+
         private fun key(kind: ValueKind): String = "${kind.site}/${kind.name}"
     }
 }
@@ -201,10 +206,11 @@ internal class ValueSource(
 /**
  * One named value of a site's rung ([ValueSource]): its [site] ([SiteHealth.RUNGS]) and [name]
  * ([SiteHealth.NAME]), the whole value's strict [pattern], where a heal read finds it ([anchor]:
- * group 1 is the value; null: never healed), [publicVersion] (a public version string such as
- * VK's API version: the health may keep the value itself; every other kind — an ID, a client
- * secret, a `doc_id` — is kept by name, source and date only), the bundled [alternates] (≤ 2) and
- * the most a heal read takes ([maxBytes]).
+ * [valueOf] reads the value from its match, group 1 by default; null: never healed),
+ * [publicVersion] (a public version string such as VK's API version: the health may keep the
+ * value itself; so may a name with its own pattern in [SiteHealth.VALUES], VK's client id; every
+ * other kind — a client secret, a `doc_id` — is kept by name, source and date only), the bundled
+ * [alternates] (≤ 2) and the most a heal read takes ([maxBytes]).
  */
 internal class ValueKind(
     val site: String,
@@ -214,6 +220,7 @@ internal class ValueKind(
     val publicVersion: Boolean = false,
     alternates: List<ValueAlternate> = emptyList(),
     val maxBytes: Long = DEFAULT_MAX_BYTES,
+    val valueOf: (MatchResult) -> String? = { it.groups[1]?.value },
 ) {
     val alternates: List<ValueAlternate> = alternates.take(ValueSource.MAX_ALTERNATES)
 

@@ -73,10 +73,16 @@ internal object VkAnswerJudge {
     /** API error 14: VK asks for a captcha. */
     const val CAPTCHA_ERROR = 14L
 
+    /**
+     * API error 8 ("Invalid request"): as VK answers an API version it no longer takes (agent D's
+     * live check: `v=2.0` and `v=5.0`), so V2 heals the API version for it ([VkLadder]).
+     */
+    const val VERSION_ERROR = 8L
+
     /** VK's API errors for the web client's values (A's census §3.1: 5 AUTH and 8 REQUEST seen live). */
     val VALUE_ERRORS: Set<Long> = setOf(
         TOKEN_ERROR, // User authorization failed: the token
-        8L, // Invalid request: as for an API version VK no longer takes
+        VERSION_ERROR, // Invalid request: as for an API version VK no longer takes
         28L, // Application authorization failed
         34L, // Client version deprecated
         101L, // Invalid application API ID
@@ -172,6 +178,13 @@ internal object VkAnswerJudge {
             reading.refused > 0 -> shapeChanged("files on unknown hosts: ${reading.refused}")
             else -> shapeChanged("an entry, no file under VK's keys")
         }
+    }
+
+    /** `video.get`'s API error code in [answer] (VK's `error.error_code`), or null: no error, not JSON, a failure. */
+    fun apiErrorCode(answer: ExtractorHttpResult): Long? {
+        val page = answer as? ExtractorHttpResult.Success ?: return null
+        val root = BoundedJsonParser.parse(page.body.trim()) as? JsonValue.Object ?: return null
+        return (root["error"] as? JsonValue.Object)?.let { it["error_code"].asLongOrNull }
     }
 
     /** VK's API error [code]: the class its kind names; an unknown one (15, 17, 204 too) is TRANSIENT. */

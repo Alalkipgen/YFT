@@ -7,6 +7,7 @@ import com.alal.yft.core.browser.policy.BrowserUserAgent
 import com.alal.yft.detection.master.BackupFinder
 import com.alal.yft.detection.master.BackupFinderPlayerScripts
 import com.alal.yft.detection.master.SocialLadder
+import com.alal.yft.detection.master.VkTrialBreak
 import com.alal.yft.detection.master.YouTubeRouteB
 import com.alal.yft.detection.potoken.BotGuardPoTokenProvider
 import com.alal.yft.detection.script.WebViewSolverEngine
@@ -80,6 +81,11 @@ object SiteAdapterModule {
     @Provides
     @Singleton
     fun provideBackupFinder(@ApplicationContext context: Context): BackupFinder = BackupFinder.get(context)
+
+    /** VK-Master wave 2 (agent D, item 7): the trial's "VK value break", one per process (off elsewhere). */
+    @Provides
+    @Singleton
+    fun provideVkTrialBreak(@ApplicationContext context: Context): VkTrialBreak = VkTrialBreak.get(context)
 
     @Provides
     @Singleton
@@ -208,7 +214,9 @@ object SiteAdapterModule {
         XExtractor(http),
         // P49: Instagram's own answers (app API when signed in, GraphQL, page, embed page).
         InstagramExtractor(http),
-        com.alal.yft.extractor.sites.vk.VkExtractor(http),
+        // VK-Master wave 2 (agent D, item 7): in #12 trial only, main asks with the value the
+        // trial's VK value break chose broken (before main's record); every other build: http.
+        com.alal.yft.extractor.sites.vk.VkExtractor(VkTrialBreak.client(context, http)),
     )
 
     @Provides

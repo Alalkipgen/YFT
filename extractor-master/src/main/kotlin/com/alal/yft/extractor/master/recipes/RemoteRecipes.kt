@@ -11,6 +11,9 @@
  * Social plan S4 (`MASTER_KEY_SOCIAL_PLAN.md` §7.3): the config's rungs off ([rungsOff]), its
  * one-line [status] (the census screen's), an ask on demand ([refreshNow]: the census screen on
  * open) and an ask that runs on its own, outside the caller's lookup ([isolated]).
+ *
+ * VK Master plan §9: v1.0.1 asks for master-recipes-2.json (schema 2, VK included,
+ * [RemoteRecipeConfig2]); a schema-1 address keeps v1.0.0's reader and VK's bundled recipe.
  */
 package com.alal.yft.extractor.master.recipes
 
@@ -97,7 +100,7 @@ class RemoteRecipes internal constructor(
     internal fun accept(envelope: String): String {
         val key = signature ?: return "recipe config: no key"
         val payload = key.payload(envelope) ?: return "recipe config ignored: not signed by this build's key"
-        return when (val parsed = RemoteRecipeConfig.parse(payload, bundled)) {
+        return when (val parsed = parse(payload)) {
             is RemoteRecipeConfig.Parsed.Invalid -> "recipe config ignored: ${parsed.reason}"
             is RemoteRecipeConfig.Parsed.Valid -> when {
                 parsed.expiresEpochDay < today() -> "recipe config ignored: expired"
@@ -107,6 +110,24 @@ class RemoteRecipes internal constructor(
                     applied = Applied(parsed.version, parsed.expiresEpochDay, parsed.recipes, parsed.rungsOff)
                     "recipe config ${parsed.version} applied"
                 }
+            }
+        }
+    }
+
+    /**
+     * VK Master plan §9: a `-2.json` address ([SCHEMA_2_SUFFIX], v1.0.1 on) carries schema 2, all
+     * the bundled sites, VK's too ([RemoteRecipeConfig2]); any other (v1.0.0's
+     * master-recipes.json) carries schema 1, which never names VK, so it is laid over the bundled
+     * recipes minus VK's and VK's bundled recipe stays, in [bundled]'s order.
+     */
+    private fun parse(payload: String): RemoteRecipeConfig.Parsed {
+        if (configUrl.endsWith(SCHEMA_2_SUFFIX)) return RemoteRecipeConfig2.parse(payload, bundled)
+        val vk = RemoteRecipeConfig2.VK
+        return when (val parsed = RemoteRecipeConfig.parse(payload, bundled.filter { it.site != vk })) {
+            is RemoteRecipeConfig.Parsed.Invalid -> parsed
+            is RemoteRecipeConfig.Parsed.Valid -> {
+                val bySite = parsed.recipes.associateBy { it.site }
+                parsed.copy(recipes = bundled.map { bySite[it.site] ?: it })
             }
         }
     }
@@ -173,6 +194,9 @@ class RemoteRecipes internal constructor(
         /** S4: the next ask after an answer (applied or not): six hours. */
         const val ANSWERED_MILLIS = 6 * 3_600_000L
         const val RETRY_MILLIS = 3_600_000L
+
+        /** VK Master plan §9: the end of a schema-2 config's address (master-recipes-2.json). */
+        const val SCHEMA_2_SUFFIX = "-2.json"
         val CONFIG_HOSTS = setOf("raw.githubusercontent.com")
         private const val STATUS = "recipes:"
         private val NOT_NEWER = Regex("""^recipe config ignored: version (\d+) is not newer$""")

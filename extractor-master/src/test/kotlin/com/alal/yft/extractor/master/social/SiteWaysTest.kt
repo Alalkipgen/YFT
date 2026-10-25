@@ -35,6 +35,7 @@ import com.alal.yft.extractor.master.social.SiteWays.TWEET_RESULT
 import com.alal.yft.extractor.sites.facebook.FacebookExtractor
 import com.alal.yft.extractor.sites.instagram.InstagramExtractor
 import com.alal.yft.extractor.sites.tiktok.TikTokExtractor
+import com.alal.yft.extractor.sites.vk.VkExtractor
 import com.alal.yft.extractor.sites.x.XExtractor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -46,8 +47,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S0a: the census's site table ([SiteWays]): the four sites with main's IDs, their 41
- * slots and what each kind expects, the hosts the one-row check may ask, each site's way labels,
+ * Social plan S0a: the census's site table ([SiteWays]): the five sites with main's IDs (VK's,
+ * [VkSite], since VK Master wave 2), their 51 slots and what each kind expects, the hosts the one-row check may ask, each site's way labels,
  * the readings of main's committed fixtures and the shape fingerprints. The labels of the asks
  * main's adapters and Master's contracts really send are [SiteWaysDriftTest]'s. No live calls.
  */
@@ -55,9 +56,9 @@ class SiteWaysTest {
     private val none = FakeExtractorHttpClient()
 
     @Test
-    fun `the table holds the four sites with main's IDs, names and ways`() {
+    fun `the table holds the five sites with main's IDs, names and ways`() {
         val main: List<SiteExtractor> =
-            listOf(FacebookExtractor(none), TikTokExtractor(none), InstagramExtractor(none), XExtractor(none))
+            listOf(FacebookExtractor(none), TikTokExtractor(none), InstagramExtractor(none), XExtractor(none), VkExtractor(none))
 
         assertEquals(main.map { it.id }, SiteWays.ALL.map { it.id })
         assertEquals(main.map { it.displayName }, SiteWays.ALL.map { it.name })
@@ -66,9 +67,10 @@ class SiteWaysTest {
         assertEquals(listOf(APP_API, GRAPHQL, PAGE, EMBED_PAGE), SiteWays.INSTAGRAM.mainWays)
         assertEquals(listOf(TWEET_RESULT), SiteWays.X.mainWays)
         assertEquals(
-            listOf(PLUGIN_PLAYER, EMBED_PLAYER, EMBED_PAGE, TWEET_RESULT),
+            listOf(PLUGIN_PLAYER, EMBED_PLAYER, EMBED_PAGE, TWEET_RESULT, "video.get"),
             SiteWays.ALL.map { it.masterWay },
         )
+        assertSame(VkSite.SITE, SiteWays.ALL.last())
         SiteWays.ALL.forEach { assertSame(it, SiteWays.site(it.id)) }
         assertNull(SiteWays.site("youtube"))
         assertNull(SiteWays.site("Facebook"))
@@ -76,9 +78,9 @@ class SiteWaysTest {
     }
 
     @Test
-    fun `the census lists 41 slots, each with its kind`() {
-        assertEquals(listOf(13, 10, 10, 8), SiteWays.ALL.map { it.slots.size })
-        assertEquals(41, SiteWays.ALL.sumOf { it.slots.size })
+    fun `the census lists 51 slots, each with its kind`() {
+        assertEquals(listOf(13, 10, 10, 8, 10), SiteWays.ALL.map { it.slots.size })
+        assertEquals(51, SiteWays.ALL.sumOf { it.slots.size })
         assertEquals(
             List(3) { "video" } + List(3) { "reel" } + listOf(
                 "watch link", "share link", "post with a video", "group post", "live replay", "sign-in-only",
@@ -114,10 +116,10 @@ class SiteWaysTest {
     fun `each kind expects rows or the site's final answer`() {
         // Video kinds expect rows, and no reason is right for them.
         val videoKinds = SiteWays.ALL.flatMap { site -> site.slots.filter { it.expect.rows } }
-        assertEquals(30, videoKinds.size)
+        assertEquals(37, videoKinds.size)
         assertTrue(videoKinds.all { it.expect.reasons.isEmpty() && it.expect.wantsRows(session = false) })
-        assertEquals(listOf(11, 6, 7, 6), SiteWays.ALL.map { site -> site.slots.count { it.expect.wantsRows(false) } })
-        assertEquals(listOf(12, 6, 8, 6), SiteWays.ALL.map { site -> site.slots.count { it.expect.wantsRows(true) } })
+        assertEquals(listOf(11, 6, 7, 6, 7), SiteWays.ALL.map { site -> site.slots.count { it.expect.wantsRows(false) } })
+        assertEquals(listOf(12, 6, 8, 6, 8), SiteWays.ALL.map { site -> site.slots.count { it.expect.wantsRows(true) } })
 
         for (site in listOf(SiteWays.FACEBOOK, SiteWays.INSTAGRAM)) {
             val signIn = site.slots.single { it.label == "sign-in-only" }.expect
@@ -139,9 +141,11 @@ class SiteWaysTest {
             SiteWays.FACEBOOK.kind(12)!!.expect,
         )
         assertEquals("sign-in-only", SiteWays.FACEBOOK.kind(12)!!.label)
+        // VK's private or sign-in-only slot, signed out, answers as a removed video does.
+        assertEquals(setOf(PRIVATE_OR_UNAVAILABLE, NO_MEDIA_FOUND), VkSite.SITE.kind(9)!!.expect.ambiguousWithoutSession)
         assertEquals(
             "no other kind is ambiguous",
-            listOf(SiteWays.FACEBOOK.kind(12), SiteWays.INSTAGRAM.kind(10)),
+            listOf(SiteWays.FACEBOOK.kind(12), SiteWays.INSTAGRAM.kind(10), VkSite.SITE.kind(9)),
             SiteWays.ALL.flatMap { it.slots }.filter { it.expect.ambiguousWithoutSession.isNotEmpty() },
         )
 

@@ -6,6 +6,7 @@ import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.PageMediaRole
 import com.alal.yft.extractor.api.SiteExtractionFailure
+import com.alal.yft.extractor.api.SiteExtractionFailure.GEO_RESTRICTED
 import com.alal.yft.extractor.api.SiteExtractionFailure.LOGIN_REQUIRED
 import com.alal.yft.extractor.api.SiteExtractionFailure.NO_MEDIA_FOUND
 import com.alal.yft.extractor.api.SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE
@@ -30,8 +31,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * VK-Master plan §7, §10, Appendix B step 4: VK's site ([VkSite.SITE], agent D adds it to the
- * census's table): V may ask VK's video servers only (`vk{N}-{N}.vkuser.net`, `vkvd{N}.okcdn.ru`),
+ * VK-Master plan §7, §10, Appendix B step 4: VK's site ([VkSite.SITE], in the census's table
+ * since wave 2): V may ask VK's video servers only (`vk{N}-{N}.vkuser.net`, `vkvd{N}.okcdn.ru`),
  * never okcdn.ru's image host, plain HTTP, user info or another site's host; in a VK lookup the
  * shared row check (V) asks VK's media hosts only, never a manifest, and its reads are no way of
  * VK's (main's manifest reads are, [VkLabelsTest]); the table's placeholder slots (A finalizes);
@@ -114,20 +115,29 @@ class VkSiteTest {
 
         assertEquals(
             listOf(
-                "18+ video", "18+ video", "18+ video with list", "video", "video", "clip", "removed",
-                "private or sign-in-only", "live replay",
+                "18+ video with list", "18+ video with list", "18+ video", "video", "video", "clip",
+                "finished live", "removed", "private or sign-in-only", "region-limited",
             ),
             site.slots.map { it.label },
         )
         val wantRows = site.slots.filter { it.expect.rows }.map { it.label }
-        assertEquals(listOf("18+ video", "18+ video", "18+ video with list", "video", "video", "clip", "live replay"), wantRows)
-        assertEquals(setOf(PRIVATE_OR_UNAVAILABLE, NO_MEDIA_FOUND), site.kind(7)?.expect?.reasons)
-        val private = checkNotNull(site.kind(8)).expect
-        assertEquals(setOf(LOGIN_REQUIRED, PRIVATE_OR_UNAVAILABLE, NO_MEDIA_FOUND), private.reasons)
+        assertEquals(
+            listOf("18+ video with list", "18+ video with list", "18+ video", "video", "video", "clip", "finished live"),
+            wantRows,
+        )
+        assertTrue("no slot wants a height", site.slots.all { it.expect.minHeight == null })
+        assertEquals(setOf(PRIVATE_OR_UNAVAILABLE, NO_MEDIA_FOUND), site.kind(8)?.expect?.reasons)
+        val private = checkNotNull(site.kind(9)).expect
+        assertEquals(setOf(LOGIN_REQUIRED), private.reasons)
+        assertEquals(setOf(PRIVATE_OR_UNAVAILABLE, NO_MEDIA_FOUND), private.ambiguousWithoutSession)
         assertFalse(private.wantsRows(session = false))
         assertTrue(private.wantsRows(session = true))
+        val region = checkNotNull(site.kind(10)).expect
+        assertEquals(setOf(GEO_RESTRICTED), region.reasons)
+        assertFalse(region.wantsRows(session = true))
         assertNull(site.kind(0))
-        assertNull(site.kind(10))
+        assertNull(site.kind(11))
+        assertEquals("W's weekly slots: an 18+ video with list, a video, a removed one", listOf(1, 4, 8), SiteWeekly.SLOTS["vk"])
         assertFalse(SiteExtractionFailure.RESPONSE_CHANGED in site.slots.flatMap { it.expect.reasons })
     }
 
