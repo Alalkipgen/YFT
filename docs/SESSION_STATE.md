@@ -1145,161 +1145,34 @@ Keep at least the heading and one blank line between sections, so Git merges the
   testDebugUnitTest :core-model:test :extractor-api:test :extractor-generic:test
   :extractor-sites:test :app:assembleDebug :app:assembleRelease`.
 
-## In-app update agent — `work/phase-in-app-update` (U0–U3)
+## VK-Master agent A — `work/phase-vk-master-census` (recon / census, wave 1)
 
-- Plan: `docs/IN_APP_UPDATE_PLAN.md` (the owner's request, 2026-10-24: the in-app update ships in
-  v1.0.0, the first stable release, with A and VK; revised after his review the same day). Branch
-  made from PR #2's head `8dc46ff` (`spike/master-extractor-backup`).
-- State (2026-10-25 MMT): **U1 green** — the U1 cut `e615a96` (CI all success: checkpoint validation
-  40123514346, Emulator smoke 40123514304, Preview APK 40123514313). **U2 green** — `d5f36f8`
-  (`checkpoint(phase-in-app-update): U2: wait for Android's installer through Compose`, on U2's
-  `6883e4d`; CI all success: checkpoint validation 40133089357, Emulator smoke 40133089369 (59
-  tests, 0 failures), Preview APK 40133089364): Download APK to update runs in YFT
-  (`UpdateInstallFlow`, one for the process): allowed to install? → free space → the release's
-  `SHA256SUMS` line → the APK into the cache (check 1, the checksum) → check 2, the signature →
-  check 3, the package and version → Android's installer, where the user confirms (YFT never
-  installs by itself); Cancel; every failure says which step, "Nothing was installed." and Download
-  in browser; Reinstall this build (test) in debug and preview only. The manifest:
-  `REQUEST_INSTALL_PACKAGES` and the unexported `InstallStatusReceiver`. **U3 PASS** on the owner's
-  phone (the preview of `d5f36f8`, 2026-10-25 10:39–10:53 MMT): every step of plan §5.4; recorded in
-  plan §12 (the release commit puts it in `docs/PHONE_TEST_NOTES.md`). **U3 fixes** — checkpoint
-  `checkpoint(phase-in-app-update): U3 fixes: the button's two lines, the notes as plain text` (its
-  SHA and CI in plan §12's next entry): **Download APK to update** wraps to two lines at large text
-  sizes instead of being cut (`YftPrimaryButton`'s optional `maxLines`, default 1), and the notes
-  drop Markdown's marks (`ReleaseNotes`). The reinstall test's "Update cancelled." without Download
-  in browser is by design (that link is the found release's APK; the test is no release). Beside the
-  plan's letter: plan §12's U2 and U3 entries. Next: CI green, then STOP with a short Burmese
-  report; no new phone test — the owner checks both fixes in his #12. Time box: CI green by
-  2026-10-26 24:00 MMT.
-- The owner's review: no Home card, no About change, no dialog; the Version row's version on its
-  second line; every text a true claim (U1 never says "verified").
-- Merge (the owner's order, only when he says): A → VK → this branch into
-  `spike/master-extractor-backup` with merge commits, then the release commit (`1.0.0` / `1000000`,
-  the shared docs) on top. No U4: `main` is never merged into this branch, no pull request. Expected
-  conflict: this file only (every section kept). U2 late → `work/phase-in-app-update-u1` (the U1
-  cut) instead.
-- Phone (U3): PASS on 2026-10-25, every step (plan §5.4, §12); the U3 fixes are checked in the
-  owner's #12.
-- Found at U0: every release made by `release-draft.yml` carries `SHA256SUMS` (`release-prep.sh` →
-  `verify-release-apk.sh`; uploaded on create and refresh), so no workflow change. Published today:
-  only `v1.0.0-beta.1` (prerelease, versionCode 1); beta.2 and beta.3 are drafts.
-- Version code rule (plan §4.2): from the tag, with or without `v`, `X.Y.Z` → X·1000000 + Y·10000 +
-  Z·100 (v1.0.0 = 1000000); the release commit sets it, a JVM test guards it.
-- For the release commit (plan §11): About's first privacy line
-  ("YFT only contacts the sites you open…") must name the update check.
-- Rules: the plan's §2 (no push to `main` or the spike except the merge the owner calls, no pull
-  request or label, no `recipes` branch, no release or tag, no APK on the owner's phone before S5's
-  run 3 is counted).
-- Validation: `./gradlew --no-daemon :app:testDebugUnitTest --tests 'com.alal.yft.update.*'`; before
-  a push, CI's set (plan §7); U2 also the Emulator smoke (`UpdateInstallInstrumentedTest`, plan
-  §6.2: GitHub played by an in-test interceptor; Android's installer always cancelled).
-
-## Release agent — `work/phase-release-v1` (the v1.0.0 release commit, #12)
-
-- Task (the owner, 2026-10-25): the v1.0.0 release commit per decision 30 (iv)
-  (`MASTER_KEY_SOCIAL_PLAN.md` §8) and its two #12 preview APKs, then STOP with a short Burmese
-  report. Branch made from `origin/spike/master-extractor-backup` `038c1cd4` (PR #2's branch after
-  the download-fixes, VK and in-app-update merges; its CI green: Work-branch checkpoint
-  validation 40171179191, Master opt-in debug APK 40171175629). One commit or a few, the release
-  commit last; the owner (2026-10-25): push a checkpoint as soon as a part is green.
-- Built (checkpoint 1, this commit):
-  - `gradle.properties`: `1.0.0` / `1000000` (the version code rule, `VersionCodeRuleTest`).
-  - `app/build.gradle.kts`: `releaseMaster(key, url, trials)` — the release, #12 normal
-    (`preview`) and #12 trial (`previewTrial`) never read a `-Pyft.*` switch: Master on (route B:
-    the own solver, the client ladder; the four sites' ladders with L3; the capture; R9 with the
-    committed key `extractor-master/recipes/master-recipes.pub.hex` and the `recipes` branch's
-    URL), never the test hooks, the own solver's next ladder or Instagram's tab-fetch rung; the
-    trials only in `previewTrial` (`.trial`, "YFT Trial", `-trial.<run>`, the test key); quiet
-    (`QUIET_RELEASE`) in the release and `preview` only.
-  - (i) **Backup finder** (`detection/master/BackupFinder.kt`, on by default, app-private prefs):
-    off → no lookup asks Master (`SiteAdapterModule`'s registry and recovery, the browser's
-    fallback and capture, YouTube's own solver via `BackupFinderPlayerScripts`) and Master's
-    client refuses every request before it is sent (GitHub raw: R9, the version tables);
-    Settings row `settings-backup-finder`.
-  - (ii) About › Privacy's first line names GitHub (raw.githubusercontent.com for the backup
-    finder, api.github.com for Check automatically).
-  - (v) The quiet release (`ui/QuietRelease.kt`: `LocalQuietRelease`, `ShowDetails`, `QuietLines`):
-    the browser's lookup notice and Try again hidden (the focus notices stay; a failed one says
-    the quiet line); the sheet's one line ("Couldn't get this video.", TikTok's check with Show
-    check, "Play the video, then tap Download again."; Download again looks up again); Home's
-    sheet the same, Home's Copy details and Downloads' failure details hidden; a failed
-    download's retry stays; About's version line tapped 7 times turns Show details on or off.
-  - (iii) `.github/workflows/preview-apk.yml`: one run builds `:app:assemblePreview
-    :app:assemblePreviewTrial`, verifies both (`com.alal.yft.preview`, `com.alal.yft.trial`) and
-    uploads `yft-preview-apk` and `yft-preview-trial-apk`.
-  - Tests: `BackupFinderTest` (4), `QuietReleaseTest`, and new cases in `BrowserViewModelTest`,
-    `BrowserScreenTest`, `QuickDownloadScreenTest`, `AboutScreenTest`, `SettingsScreenTest`,
-    `SettingsViewModelTest`, `DownloadsScreenTest`; `MasterParityLiveTest` passes the switch.
-  - Docs so far: `CHANGELOG.md` `## [1.0.0]` (the Unreleased section becomes 1.0.0; the header's
-    version code rule), `docs/release/1.0.0.md`.
-- Local validation (2026-10-25): `testDebugUnitTest` → app 1278 (66 skipped), core-browser 150,
-  core-data 35, core-download 281, core-media 39, extractor-master-android 70: 0 failures;
-  `:app:compileDebugAndroidTestKotlin` OK.
-- Checkpoint 1 `1244f80b`: CI green (Work-branch checkpoint validation #540 40184741769,
-  Android emulator smoke #134 40184741829, Preview APK (test key) #101 40184741778 with
-  `yft-preview-apk` 12596296561 and `yft-preview-trial-apk` 12596046940). Local: `lintDebug`,
-  `:app:assembleRelease` (R8), `:app:assemblePreview`, `:app:assemblePreviewTrial`,
-  `:extractor-master:test`, `:core-model:test :extractor-api:test :extractor-generic:test
-  :extractor-sites:test`: all green.
-- R8 (the owner, 2026-10-25: "decide by running the minified build … not by compiling alone —
-  YouTube route B, one social ladder and the capture must work in it"): this agent's computer has
-  no KVM, so checkpoint 2 adds `.github/workflows/minified-check.yml` (pushes to
-  `work/phase-release-*` only): it builds #12 normal and #12 trial as Preview APK does (R8, a fresh
-  test key), runs both on the emulator smoke's API 34 emulator and drives them through their
-  screens (`scripts/ci-minified-check.sh`, the opt-in `MinifiedBuildCheckTest`, `-e yft.minified
-  <package>`; the smoke skips it): YouTube (route B's notice in the trial), X then Facebook (the
-  ladder's notice), Facebook's video with the capture's "Play the video…" answered by a tap on the
-  video. Each answer is an annotation; a crash or a run that cannot finish fails the job. Static
-  review so far: no reflection, ServiceLoader or serialization in Master; `@JavascriptInterface`
-  kept (the own solver's bridge); the capture talks by `evaluateJavascript` and `org.json`; assets
-  by name; only details lines carry a class name (`ClientLadder`'s `L: <outcome>`, the trial
-  check's failure), shown renamed in a shrunk build.
-- Checkpoint 2 `29fd1ba9`: Preview APK (test key) #102 40187305143 green — the #12 links the
-  owner asked for: `yft-preview-apk` 12596686333 (#12 normal), `yft-preview-trial-apk`
-  12596591356 (#12 trial). Minified build check #1 40187305152 and Android emulator smoke #135
-  40187305135 red for one cause, the new test class: `fun youtubeRouteB() = check(…)` returned a
-  `Boolean`, so JUnit refused the whole class (`initializationError`; the smoke runs every
-  androidTest class, and the opt-in check skips itself only inside a test). Fixed in checkpoint 3:
-  every `@Test` a block body returning `Unit` (javap: all `public void`); route B's page waits for
-  the browser ("Close browser") before it types the address. Work-branch checkpoint validation
-  #541 40187305159: green.
-- rc.1 (the owner, 2026-10-25): the release-key update test (`IN_APP_UPDATE_PLAN.md` §5.5) WILL
-  run in P8 with `1.0.0-rc.1`. This agent prepares the docs only (checkpoint 3): `CHANGELOG.md`
-  `## [1.0.0-rc.1]`, `docs/release/1.0.0-rc.1.md`, `docs/RELEASE.md` (the identity table, the
-  version code rule, the preview table, the Release draft facts, the test's five steps). What rc.1
-  still needs and this agent does not make (a build-config change, the owner's): a commit whose
-  `gradle.properties` says `yft.versionName=1.0.0-rc.1` / `yft.versionCode=999901`
-  (`VersionCodeRuleTest` accepts it) — the Release draft workflow has no version input, it reads
-  the run's commit. No tag, no Release draft run, no publish.
-- Also fixed in checkpoint 3: CHANGELOG's "Check automatically is off until you turn it on" — in
-  the release it is on by default (`defaultAutoCheck` is the release mode; off in the test mode
-  and the previews); `docs/release/1.0.0.md`'s privacy line says the same.
-- Checkpoint 3 `b90c955d` (rc.1's docs, the wording fix, the check's test): all green —
-  Work-branch checkpoint validation #544 40188796317, Android emulator smoke #138 40188796316,
-  Preview APK #105 40188796270, Minified build check #2 40188796284.
-- **R8, decided by the run:** the shrunk builds ran through their screens with no crash and no
-  R8-type error. #12 normal: X rows, Facebook rows, YouTube's quiet line "Play the video, then tap
-  Download again.". #12 trial: `master: x ladder after RESPONSE_CHANGED; main's answer replayed,
-  no new ask; trial: Master's rows 3, main's 3; the same item: yes; duration within 1 s: yes` (one
-  social ladder works shrunk); Facebook rows; YouTube `master: route B not run: BOT_CHECK is final`
-  (YouTube's bot check on CI's address; final by design, so route B cannot be reached there); the
-  capture not asked (Facebook gave rows in both builds). No keep rule added (the existing rules
-  keep the own solver's `@JavascriptInterface` bridge; no reflection, ServiceLoader or
-  serialization in Master). Route B and the capture in the shrunk builds: #12 on the owner's
-  phone; a failure there that the debug APK does not show is an R8 fix before the merge.
-- Checkpoint 4 (this one, docs only): the release commit's shared docs — `PROGRESS.md`,
-  `docs/TEST_MATRIX.md` (S5's run 3, VK1–VK3, VK5, D1–D4, U1–U3, the release commit),
-  `docs/PHONE_TEST_NOTES.md` (S5's run 3, VK3, VK5, D1–D4, U3, the U3 fixes),
-  `docs/SUPPORT_MATRIX.md` (VK, the ladders in the release, the backup finder, the in-app
-  update), README (1.0.0, the install notes, `yft-preview-trial-apk`), the status lines of
-  `MASTER_KEY_SOCIAL_PLAN.md`, `docs/IN_APP_UPDATE_PLAN.md` (§0, §5.5, §12) and
-  `docs/VK_PLAN.md`.
-- The #12 APKs (the owner asked for `29fd1ba9`'s; later commits changed only the check's test and
-  docs, so the app is the same): Preview APK #102 40187305143 — `yft-preview-apk` 12596686333
-  (#12 normal), `yft-preview-trial-apk` 12596591356 (#12 trial).
-- Next: STOP and report (Burmese, short); then the owner's #12, PR #2's merge, R9's first Run
-  workflow, P8 with rc.1's update test.
-- Rules: no site pack, engine or main lookup change; rc.1 docs only (no version change, tag,
-  Release draft run or publish); never `main`, the spike, PR #2, a label,
-  `master-recipes-publish`, `release-draft`, signing, the `recipes` branch, a tag or a release,
-  `work/phase-vk-master*`; no APK on the owner's phone.
+- Plan: `docs/VK_MASTER_PLAN.md` §11 and Appendix A (the owner's go, 2026-10-25). Branch made from
+  `origin/work/phase-vk-master` (`50f2e9fb`). Docs and sanitized fixtures only — no Kotlin, Gradle or
+  workflow file.
+- State (2026-10-25): **recon done, STOP.** Answers in `docs/VK_MASTER_CENSUS.md`; fixtures in
+  `extractor-master/src/test/resources/fixtures/vk-master/` (README there, every value made up).
+- Findings (short):
+  - Q1 Vx: **no independent route** — `api.vk.com`/`api.vk.ru` and `login.vk.com` are aliases of the
+    same token endpoint and API; mobile pages carry no signed-out files; yt-dlp uses a login-gated
+    `al_video.php`. Recommendation: do not build Vx.
+  - Q2 source: the web client's values sit in vkvideo.ru's public script (`core_spa`, `common`, and the
+    cheap ~40 KB `error_monitoring` chunk), stable across loads (same content hashes; the static host
+    shards and file names are content-hashed, so discover URLs from the page). yt-dlp is **not** a
+    second source.
+  - Q3: token mint checks `client_id` (wrong → `401 invalid_client`) but **not** the secret (a wrong
+    secret still mints a working token); `video.get` errors 5 (auth), 8 (bad version), restriction
+    `can_play=0` (deleted). VK's `API_ERROR_*` map recorded (6/9/29 rate, 14 captcha, 13300 geo).
+  - Q4: 18+ files on `vk{N}-{N}.vkuser.net`, normal on `vkvd{N}.okcdn.ru` (failover `vkvd{N}.okcdn.ru`
+    also 206); expiry ~72 h; a file binds **both** `srcAg` (other agent → 400) and `srcIp` (signed;
+    tampered → 400); `Referer` optional → track E evidence labels.
+  - Q5 budget proposal: VK `4 req / 1 MiB / 15 s`. Q6: 10 census slots, W `[1, 4, 8]`.
+- Hand-offs to agent D (shared files, not edited here): `SocialStops.kt` (VK budget), `SiteWays.kt`
+  (VK `Site` + slots), `SiteWeekly.kt` (W slots), census screen, `ContractRecipes.ALL` (`VkRecipe`).
+- Backlog: a daily CI canary for VK — off for now (a cloud IP answered today, but is not a phone);
+  the host aliases as a `VkClient` resilience note, not a rung.
+- Validation: docs and test fixtures only; no code changed. Fixture hygiene scanned locally (no IP,
+  signed value, long hex/key-like run, session name or real id/secret/version; all JSON valid); no
+  test lists this folder yet (`ShapeLayerTest` names its master fixtures one by one). No local
+  Gradle run (no Android SDK here): the fixture checkpoint's `Work-branch checkpoint validation`
+  run is the gate (the census-doc checkpoint was docs only, so it started no CI).
