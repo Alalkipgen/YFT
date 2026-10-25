@@ -1644,3 +1644,66 @@ Keep at least the heading and one blank line between sections, so Git merges the
   `ContractRecipes.ALL`; no app wiring, shared app file, engine, census screen, D7 matrix, shared
   doc or Master YouTube file); `VkClientSource` heals the client id and the API version only,
   never the secret; no live network in tests; no real VK value printed or committed.
+
+## VK-Master wiring agent (D) — `work/phase-vk-master-wire`
+
+- Plan: `docs/VK_MASTER_PLAN.md` §8 (wave 2, the wiring for v1.0.1). Branch from `df3cc10f`
+  (B's pack and C's kit merged). Part 1 (this checkpoint): VK registered everywhere, V2's heal
+  wired, the app's wiring, the trial's break, CI. **STOP 1**: the owner's phone proof; part 2
+  only after its PASS. No value (client id, secret, version) in code, fixtures, logs or docs.
+- Registered: `VkRecipe.RECIPE` in `ContractRecipes.ALL`; `VkSite.SITE` in `SiteWays.ALL` (5
+  sites, 51 slots; VK's slot 9 ambiguous without a session); `SocialBudget.VK` = `VkSite.BUDGET`;
+  `VkLadder.V3` in `RungsOff.CAPTURES`; VK's V1–V3 in `LadderRungs`; W's slots `vk` 1, 4, 8;
+  the census's session cookie `remixsid`; the app's `SocialLadder` (`VK_SITE_ID`, `SITES`,
+  `stage()`'s list, VK's final words: removed → main's `VkExtractor.NOT_FOUND_MESSAGE`, region
+  limit → the app's); the debug census's registry and note.
+- R9: `RemoteRecipes` reads schema 2 when its URL ends `-2.json` (`RemoteRecipeConfig2.parse`
+  over the bundled recipes, VK's included), else schema 1 over the four sites (VK's bundled
+  recipe kept). The release and previews read `recipes/master-recipes-2.json`; v1.0.0 keeps
+  `master-recipes.json`. The recipes branch (`5d04b076`) has only `master-recipes.json` (v8):
+  **C's publish workflow must run once before v1.0.1 ships** (until then v1.0.1 finds no file
+  and runs on its bundled recipes). Scripts and configs unchanged here.
+- V2's heal (`VkClientValues.healing`, `HealingVkValues`, `ValueSource`, `SiteHealth`,
+  `VkClientSource`): main's token refused → the client id; `video.get` error 8 → the API version;
+  any other value refusal → the client id first, then the version. One read per pass: vkvideo.ru's
+  page (desktop Chrome's agent, the chain's own redirect cookies) and its `web/chunks/common`
+  script, cached for the pass, so the second value costs no request. Order: healed today →
+  learned (kept in `files/master/site-health.json` after an OK answer whose rows passed V) →
+  one read at most a day per value. A value VK refuses again is dropped and healed again. Never
+  the secret (VK does not check it). Lines name only where a value came from ("healed from
+  vkvideo-script (the page and its common script: N asks, N bytes)", "healed today …; no new
+  ask", "learned from …; no new ask", "… over the lookup's request/byte budget; not read", "no
+  value (why)"), never the value. The engine calls `Staged.checked` once after V.
+- Live check (signed out, US IP; scripts in the hand-off zip, values replaced):
+  - The page needs desktop Chrome's agent and the chain's cookies; the phone agent lands on
+    m.vkvideo.ru, which names no script. The page read is **1 lookup ask but 4 HTTP requests**
+    (3 redirects); `OkHttpExtractorClient` also retries a transient error (after 1 s and 3 s).
+  - `error_monitoring` carries the client id only as a hex literal (C's anchor: 0 matches) and
+    `core_spa`'s names are stripped: both dropped. `common` (~1.8 MB) carries both values; the
+    anchors take a hex client id (made decimal) and `API_VERSION:` through a short alias.
+  - A broken token client id → 401 `invalid_client`; the secret only → token and `video.get`
+    work; `v` 2.0 or 5.0 → error 8; a wrong client id in `video.get`'s query → still OK.
+  - The read cannot stop at the first match: the app's client cannot stream and refuses an
+    answer over its bound (`RESPONSE_TOO_LARGE`), so `common` is read whole.
+- Budget (`VkSite.BUDGET`): **19 requests** = main 6 + page 1 + common 1 + token 1 + `video.get`
+  2 + V 8 (the second `video.get` only when the version breaks after the client id was healed;
+  one break: 18); **7,356,416 bytes** = page 1 MiB + common 4 MiB + token 16 KiB + `video.get`
+  1 MiB × 2 (the owner's 6,569,984: `error_monitoring`'s 256 KiB dropped, a second `video.get`
+  added); 15 s.
+- The trial's "VK value break" (#12 trial only, `BuildConfig.SOCIAL_TRIAL`; Settings › Browser,
+  below Backup finder): Off / client id / API version / client secret only. Main's VK asks with
+  that value broken (`VkTrialBreak`'s client, before main's record), and V2 gets the same change
+  of main's values. Read once per process (main keeps its token for a day): "Restart YFT to
+  apply". `verify-release-debug-actions.py` rejects its label (`TRIAL_TOOL_MARKERS`) in every
+  APK but `com.alal.yft.trial` (`--allow-trial-tools`, set by `verify-release-apk.sh` for that
+  package only).
+- Provenance: `VkClientSource.kt` ← `TikTokAgents.kt` `desktop`, `CHROME_MAJOR`,
+  `FALLBACK_CHROME_MAJOR` (rows recorded at the base; the self-check: 0 drift).
+- Tests: `:extractor-master:test` 1,090+ (VkLadderTest's heal cases, VkClientSourceTest on the
+  live shapes, RemoteRecipesSchema2Test, SiteWays/SiteWeekly/SiteHealth/ValueSource updates);
+  app: `SocialLadderVkTest`, `VkTrialBreakTest`, the Settings row, the census's registry
+  (CI only: no Android SDK here); `scripts/tests` 69. `minified-check.yml` runs on this branch too.
+- Phone proof (the owner; Backup finder on): (1) #12 trial, client id broken, an 18+ VK video:
+  rows; Details "V2 heal client_id: healed from …" with asks and bytes; (2) again: healed today,
+  no new read; (3) restart, again: learned; (4) 1–3 with the API version broken; (5) the secret
+  only: no heal (V1 answers); (6) #12 normal: an 18+ video, a public video and a clip work.
