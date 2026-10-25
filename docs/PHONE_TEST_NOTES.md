@@ -900,3 +900,29 @@ The owner's phone (HyperOS); times MMT (UTC+6:30).
 ### After the test
 - The `v1.0.0-rc.1` draft deleted (no tag had been pushed) and the branch `release/1.0.0-rc.1`
   deleted. 1.0.0 goes to the friends: https://github.com/Alalkipgen/YFT/releases/tag/v1.0.0
+
+## 2026-10-26 — VK-Master wave 2: STOP 1's phone proof (YFT Trial of `ef680866`)
+`docs/VK_MASTER_PLAN.md` §8; agent D's record (`docs/SESSION_STATE.md`, "VK-Master wiring agent
+(D)", part 2). The owner's phone (HyperOS); times MMT (UTC+6:30); Backup finder on; Settings ›
+Browser › VK value break (the trial only), then a restart. VK's test links, video ids and values
+are left out here.
+
+### YFT Trial of `ef680866` (Preview APK run 40229996001) — PASS, one finding
+- The video: an 18+ VK video whose vkvideo.ru link lands on m.vkvideo.ru. The lines below are
+  from Lookup details (no value in any line).
+- **The finding (05:06), client id broken:** "Play the video on this page, then tap Try again.";
+  Details: V1's `login.vk.ru: VALUE_REJECTED (status 401 …)`, then `V2 heal client_id: no value
+  (not read (read in the last day))` — an earlier lookup of the link, cut short, had claimed the
+  day's one read and got no answer. Fixed in part 2 (`8d3abe61`): such a read is given back.
+- After Clear data, client id broken: rows (`video.get` 9, 6 checked); `V2 heal client_id:
+  healed from vkvideo-script (the page and its common script: 2 asks, 2115863 bytes)`, main's
+  login answered. Again: `healed today from vkvideo-script; no new ask` (5 rows: one `media check
+  NETWORK`). Force stop, reopen: `learned from vkvideo-script; no new ask` (6 rows).
+- API version broken: `V2 heal v: healed from vkvideo-script (… 2 asks, 2115864 bytes)`, main's
+  login "main's identical answer replayed" (6 rows); again `healed today …; no new ask` (5: one
+  `NETWORK`); Force stop, reopen: `learned …; no new ask` (6). Another 18+ video with the learned
+  version: 6 checked rows, "Found on this page 1".
+
+### Part 1's builds (`9a049a14`, Preview APK run 40217521644) — PASS
+- YFT Trial, the secret only broken: rows, no heal (V1 answers).
+- YFT Preview (#12 normal), Backup finder on: an 18+ video, a public video and a clip: rows.

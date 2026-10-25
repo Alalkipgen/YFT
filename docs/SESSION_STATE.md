@@ -1754,3 +1754,55 @@ Keep at least the heading and one blank line between sections, so Git merges the
   vk …` lines with `master: vk V2 heal client_id: healed from vkvideo-script (the page and its
   common script: N asks, N bytes)`, no value. A value healed before reads `healed today from …`
   or `learned from …; no new ask` instead (clear the app's storage first to see a read).
+
+### Part 2 (after STOP 1's PASS; the owner's go, 2026-10-26)
+
+- **STOP 1, the phone proof: PASS** (the owner's HyperOS phone, 2026-10-26 05:06–05:27 MMT; YFT
+  Trial of `ef680866`, Preview APK run 40229996001; Backup finder on; an 18+ VK video whose
+  vkvideo.ru link lands on m.vkvideo.ru; Lookup details after each success, no value in a line):
+  - Client id broken, the app's storage cleared: rows; `V2 heal client_id: healed from
+    vkvideo-script (the page and its common script: 2 asks, 2115863 bytes)`, main's login
+    answered, `video.get` 9 rows, 6 checked. Again: `healed today from vkvideo-script; no new
+    ask` (5 rows: one `media check NETWORK`). Force stop, reopen: `learned from vkvideo-script;
+    no new ask` (6 rows).
+  - API version broken: the same three (`V2 heal v: healed from vkvideo-script (… 2 asks,
+    2115864 bytes)`, main's login "main's identical answer replayed"; 6, 5 and 6 rows). Another
+    18+ video with the learned version: 6 checked rows.
+  - On part 1's trial and preview (`9a049a14`, run 40217521644; only the success sheet changed
+    since): the secret only, rows and no heal (V1 answers); #12 normal, an 18+ video, a public
+    video and a clip: rows.
+  - **The finding** (fixed below): the first try (05:06) ended with "Play the video on this page,
+    then tap Try again." and `V2 heal client_id: no value (not read (read in the last day))` —
+    an earlier lookup of the link, cut short (most likely by the redirect's new page, or by the
+    lookup's 15 s during the 1.8 MB script), had claimed the day's one read and got no answer: no
+    heal until the next day.
+- `main` merged in: PR #7 → `971e9826` (`73470d6a`: 1.0.0 and P8's records; docs only against the
+  branch).
+- Provenance (`extractor-master/toolkit-provenance.tsv`): the base `34a41890` → `d732edcc`
+  (v1.0.0's `main`); the VK-Master pack's 76 rows, `# pending` until now, active (main's VK
+  symbols are the same at `d732edcc` as at `50fb8d0f`); 5 drifted X rows re-recorded (main's X
+  card fix `352b8ec0`, reviewed in the copies' headers). `--write`: 256 symbols; the self-check
+  against `d732edcc`: 256 checked, 0 drifted. The script unchanged.
+- The fix (`ValueSource`, `SiteHealth.giveBackRead`, `VkLadder`): the day's read is still claimed
+  before it goes; a read cut short before its answer — a cancel (a closed page, the lookup's
+  deadline) or no network (`NETWORK` with no status) — gives it back, at most 3 times a day per
+  value (memory only; then it stays spent, so a read that never finishes is not tried all day).
+  An answer of the site to the read (a status, a bot check, a page without the value) spends it
+  as before. Lines: `read failed (NETWORK: …); given back`; the ladder's `V2 <value>: no answer
+  in time; the day's read given back`. No budget, request, rung or value change.
+- Tests: `ValueSourceTest` (a cancel, the deadline, no network: given back three times a day,
+  then spent), `VkClientSourceTest` (no network on the page or the script: given back, read
+  again), `VkLadderTest` (a read the lookup's time cut: the next lookup reads and heals). Local:
+  `:extractor-master:test` 1,093 (0 failed; 2 skipped as before), `scripts/tests` 69 OK.
+- Backlog: YouTube's `VersionSource`/`ClientHealth` spend a read cut short the same way
+  (untouched); a heal read that goes on after the lookup's deadline, for the next lookup (an
+  idea); V2 asks a new token on a repeat while main's token is kept (minor).
+- Commit `8d3abe61` (the fix, its tests, the provenance). CI on `8d3abe61`, all green:
+  checkpoint validation 40245342928, emulator smoke 40245342984, Preview APK 40245342911 (YFT
+  Trial: artifact `yft-preview-trial-apk` 12618851960), minified check 40245342934.
+- Next (the owner, that YFT Trial): Clear data → Settings › Browser › VK value break = Client id
+  → Force stop, reopen → Backup finder on → the phone proof's 18+ video by its vkvideo.ru link →
+  rows with `healed from vkvideo-script …`; a first lookup cut short reads `no answer in time;
+  the day's read given back` (or `…; given back`) and Try again heals. Part 2's steps 1–5 done
+  (main merged, the pending rows active, 0 drift, CI, **the STOP 2 report**); the PR to `main`
+  (v1.0.1) only with the owner's go.
