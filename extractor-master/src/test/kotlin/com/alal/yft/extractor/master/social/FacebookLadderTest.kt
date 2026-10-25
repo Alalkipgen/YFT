@@ -18,6 +18,7 @@ import com.alal.yft.extractor.master.lookup.LookupAsk
 import com.alal.yft.extractor.master.lookup.LookupRecord
 import com.alal.yft.extractor.master.modules.youtube.testing.FakeExtractorHttpClient
 import com.alal.yft.extractor.master.recipes.ContractRecipes
+import com.alal.yft.extractor.master.recipes.RemoteRecipeConfig2
 import com.alal.yft.extractor.master.recipes.RemoteRecipes
 import com.alal.yft.extractor.master.recipes.SignedRecipes
 import com.alal.yft.extractor.sites.facebook.FacebookExtractor
@@ -370,7 +371,9 @@ class FacebookLadderTest {
         val docs = File(checkNotNull(System.getProperty("yft.recipeDocs")) { "recipe docs unset" })
         suspend fun lookup(config: String): MasterResult.Success {
             val text = File(docs, "configs/$config.json").readText()
-            val remote = SignedRecipes.applied(text.trim().removeSuffix("}").trimEnd() + ""","version":1,"expires":"2027-12-31"}""")
+            // VK Master plan §9: the committed config is schema 2; v1.0.0's file is its schema-1 projection.
+            val composed = text.trim().removeSuffix("}").trimEnd() + ""","version":1,"expires":"2027-12-31"}"""
+            val remote = SignedRecipes.applied(checkNotNull(RemoteRecipeConfig2.schema1(composed)))
             val http = answering(embedUrl(identity) to embed(VIDEO), contentType = HTML)
             return withContext(record() + MainPages()) {
                 engine(http, contractsOf = { client -> SiteContracts(client, remote) })

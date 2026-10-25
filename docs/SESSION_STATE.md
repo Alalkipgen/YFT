@@ -1151,9 +1151,9 @@ Keep at least the heading and one blank line between sections, so Git merges the
   prompt). Branch made from `origin/work/phase-vk-master` `50f2e9fb` (the plan's commit). New,
   additive code only: nothing is wired into the app; `RemoteRecipeConfig.kt` (the schema-1 reader)
   and `ContractRecipes.ALL` are unchanged.
-- State (2026-10-25): step 1 (the kit) done, this checkpoint. Next: step 2 (R9 schema 2), then
-  step 3 (the scoping question); step 4 (`VkClientSource`, part 2) only after agent A's proof and
-  the owner's go.
+- State (2026-10-25): step 1 (the kit, `ac2005ca`) and step 2 (R9 schema 2, this checkpoint)
+  done. Next: step 3 (the scoping question); step 4 (`VkClientSource`, part 2) only after agent
+  A's proof and the owner's go.
 - Step 1 — the kit (`extractor-master/.../master/social/`; YouTube's `ClientHealth` and
   `VersionSource` stay YouTube's):
   - `SiteHealth.kt`, data only: per site (`facebook`, `tiktok`, `x`, `instagram`, `vk`) and rung
@@ -1176,11 +1176,51 @@ Keep at least the heading and one blank line between sections, so Git merges the
     `rejected()` skips it for the day. Values are `[A-Za-z0-9._,%=+-]{1,256}` only: never code,
     never invented, counted up or brute-forced; notes name the source, never the value.
   - Tests: `SiteHealthTest` 9, `ValueSourceTest` 8 (made-up values only).
+- Step 2 — R9 schema 2 (additive; the schema-1 reader stays exactly as shipped):
+  - `recipes/RemoteRecipeConfig2.kt` (new reader): schema 2 = schema 1 + site `vk` + rungs
+    V1–V3. It checks the frame (size, bounded JSON, top keys, `schema` 2, known sites and rungs,
+    no rung twice), then hands the four sites' schema-1 projection to the unchanged
+    `RemoteRecipeConfig.parse`, and VK's part as a one-site schema-1 config with the bundled VK
+    recipe, so every schema-1 rule (same host, header names, paths only added, bounds) holds for
+    VK too; anything rejected rejects the whole config. A config naming `vk` in a build without a
+    VK recipe → `Invalid("unknown site vk")`. `schema1(text)` is the projection.
+  - `extractor-master/recipes/master-recipes-2.schema.json` (schema 1's `$defs` unchanged;
+    `schema` 2; site `vk`; `rungsOff` + V1–V3, ≤ 14) and `master-recipes-2.example.json` (its
+    projection is `master-recipes.example.json`). The committed configs (`configs/defaults.json`,
+    `drill-key-change.json`, `drill-rung-off.json`) are now `"schema": 2`; they name no VK, so
+    their schema-1 file is byte for byte what the helper composed before.
+  - `scripts/master-recipes-publish.py`: `compose` writes both payloads (`--out` schema 1,
+    `--out2` schema 2; a committed config must be schema 2); `check` per schema (the schema
+    file's const); new `pair` (both signed by the key, schemas 1 and 2, the first the projection
+    of the second). `scripts/master-recipe-sign.sh` signs schema 1 or 2. The workflow
+    (`master-recipes-publish.yml`; trigger and guards unchanged): next version = the higher of the
+    two live files + 1 (no `master-recipes-2.json` yet = 0); compose; check both; sign both with
+    the one key; verify both + `pair`; one commit with `master-recipes.json`,
+    `master-recipes-2.json` and both `published/` copies (`v…-<name>.schema2.json`). Not run.
+  - Tests: `RemoteRecipeConfig2Test` 6; `test_master_recipes_publish.py` 16 (3 of them run the
+    workflow's own step scripts against a temporary git remote with a throwaway key; they need
+    `jsonschema`). Two existing tests changed, intent kept: `RemoteRecipesS4Test` and
+    `FacebookLadderTest` read the committed (now schema-2) configs through
+    `RemoteRecipeConfig2.schema1`, i.e. v1.0.0's file.
 - Validation (JDK 17; this sandbox has no Android SDK, so Gradle needs `--configure-on-demand`):
-  `./gradlew --no-daemon :extractor-master:test` → 997 tests, 0 failures, 2 skipped (980 at the
-  base); `python3 -m unittest discover -s scripts/tests -p 'test_master_recipes_publish.py'` →
-  7 tests OK (1 skipped: no `jsonschema` here; unchanged in this step). Work-branch CI does not
-  run these.
+  `./gradlew --no-daemon :extractor-master:test` → 1003 tests, 0 failures, 2 skipped (980 at the
+  base, 997 at step 1); `python3 -m unittest discover -s scripts/tests -p
+  'test_master_recipes_publish.py'` → 16 tests OK (4 skipped: this `python3` has no
+  `jsonschema`; with `jsonschema` 4.23.0, the workflow's pin: 16 OK, 0 skipped). All 65 tests in
+  `scripts/tests` pass. Work-branch CI does not run these.
+- Hand-offs (not done here: shared files):
+  - D (wiring, v1.0.1): `RemoteRecipes` reads `master-recipes-2.json` (Gradle
+    `yft.masterRecipeUrl`) with `RemoteRecipeConfig2.parse(text, ContractRecipes.ALL + B's
+    VkRecipe)`; `RungsOff`/`LadderRungs` learn V1–V3; `SiteHealth` on
+    `files/master/site-health.json` (an `AtomicTextFile`, read on first use off the lookup
+    thread), `clearCooldowns()` on a new config; `ValueSource` per site for B's `VkClientValues`.
+    v1.0.0 keeps the schema-1 URL.
+  - B: `VkLadder.SITE_ID` and `VkRecipe.site` = `"vk"`, the rungs named `V1`–`V3` (both readers
+    and `SiteHealth.RUNGS` use these names); B's client values as `ValueKind`s (API version
+    `publicVersion = true`; IDs and the secret are kept by name, source and date only).
+  - Docs (shared, the owner's or D's): the R9 runbook (`MASTER_KEY_SOCIAL_PLAN.md`, configs at
+    `extractor-master/recipes/configs/`) should say a config is schema 2 and one run publishes
+    both files.
 - Rules: Appendix C's "Never" list (no push to `main`, `spike/*` or another agent's branch; no PR;
   no label; no publish run or `recipes` branch; no change to the schema-1 reader or
   `ContractRecipes.ALL`; no app wiring, shared app file, engine, census screen, D7 matrix, shared
