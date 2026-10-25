@@ -1144,3 +1144,33 @@ Keep at least the heading and one blank line between sections, so Git merges the
   `--tests 'com.alal.yft.extractor.sites.vk.*'`); before a push the CI set: `lintDebug
   testDebugUnitTest :core-model:test :extractor-api:test :extractor-generic:test
   :extractor-sites:test :app:assembleDebug :app:assembleRelease`.
+
+## VK-Master pack agent (B) — `work/phase-vk-master-pack`
+
+- Plan: `docs/VK_MASTER_PLAN.md` Appendix B (sections 4, 5, 7, 11; section 2 and ADR-006 first).
+  Branch made from `origin/work/phase-vk-master` (`50f2e9fb`, the plan's commit on `50fb8d0f`).
+  New Master code only, in `extractor-master/.../master/social/Vk*.kt`; not wired into the app
+  (agent D); main's VK adapter and every shared file untouched.
+- Validation before every checkpoint (work-branch CI runs neither):
+  `./gradlew --no-daemon :extractor-master:test` and
+  `python3 scripts/master-toolkit-drift.py --ref 34a4189002b7c9aaf6085ae4adab27b343ca28dc`.
+  Baseline at `50f2e9fb`: 980 tests, 0 failed (2 skipped), 2 min 52 s; drift 177 symbols, 0.
+- Checkpoints (pushed through the GitHub connection; this sandbox has no git push credential):
+  - Step 1 — `VkClient` (the web client's identifiers, the token's read, the asks' headers, VK's
+    media hosts, never `iv.okcdn.ru`), `VkClientValues` (interface; `bundled(mutate)`: main's
+    values, a debug hook's change first), `VkClientTest` (12), `VkClientDriftTest` (3: main's
+    adapter asks the token and `video.get` exactly as `VkClient`), fixtures `vk-pack/` (made up).
+    Local: `:extractor-master:test` 995 tests, 0 failed (2 skipped); drift 177/0; the 35 pending
+    rows re-hash equal at `50fb8d0f`.
+- Provenance (proposal for the owner, Appendix B step 1): no base bump, no script change. Main's
+  VK files came after the base `34a41890`, so their rows wait in `toolkit-provenance.tsv`'s header
+  as `# pending<TAB>master<TAB>main<TAB>symbol<TAB>sha256` lines, hashed at `50fb8d0f` with the
+  drift script's own `symbol_text`/`digest` (comments: the script skips them, `--write` keeps
+  them, the self-check stays 177/0). Meanwhile `VkClientDriftTest` checks the copies at run time.
+  To activate (owner/D): when the base moves past main's VK files, review each copy, drop the
+  prefix, `--write`. Option for later: a per-row ref column in the script (a shared-file change).
+- Next: step 2, `VkAnswerJudge` over `AnswerClass` (§5).
+- Backlog (out of scope here): wiring (D: `VkRecipe` in `ContractRecipes.ALL`, `VkLadder` in the
+  social ladders, `VkSite.SITE` in `SiteWays`, `VkSite.BUDGET` in `SocialStops`, V3 in
+  `RungsOff`); the live values source (C: `ValueSource`/`SiteHealth`/`VkClientSource`); R9 schema
+  2's V1–V3 rungs (C); the final budget numbers, error taxonomy and census slots (A).
