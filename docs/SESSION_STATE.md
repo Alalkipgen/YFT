@@ -1735,7 +1735,12 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - Backlog: not on Home's paste-a-link sheet (its own lookup), under a format's failure after a
   success (that failure's own Details), after the player-file fallback, or for Master on demand
   on a generic page (its rows carry no lines today).
-- Next: CI, the Trial APK and the owner's phone step (YFT Trial, VK value break = Client id,
-  restart, Backup finder on, the phone proof's VK video, Download › Lookup details: the rows,
-  then `master: vk …` lines with `master: vk V2 heal client_id: healed from vkvideo-script (the
-  page and its common script: N asks, N bytes)`, no value).
+- Commits: `14b2199b` (step 1: checkpoint validation and emulator smoke green; its Preview APK
+  and minified runs cancelled by step 2's) and `ef680866` (step 2). CI on `ef680866`, all green:
+  checkpoint validation 40229995920, emulator smoke 40229995926, Preview APK 40229996001 (YFT
+  Trial: artifact `yft-preview-trial-apk` 12612896445), minified check 40229995936.
+- Next (the owner, YFT Trial): Settings › Browser › VK value break = Client id, restart, Backup
+  finder on, the phone proof's VK video, Download › Lookup details: the rows, then the `master:
+  vk …` lines with `master: vk V2 heal client_id: healed from vkvideo-script (the page and its
+  common script: N asks, N bytes)`, no value. A value healed before reads `healed today from …`
+  or `learned from …; no new ask` instead (clear the app's storage first to see a read).
