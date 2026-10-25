@@ -1150,8 +1150,8 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - Plan: `docs/VK_MASTER_PLAN.md` §11 and Appendix A (the owner's go, 2026-10-25). Branch made from
   `origin/work/phase-vk-master` (`50f2e9fb`). Docs and sanitized fixtures only — no Kotlin, Gradle or
   workflow file.
-- State (2026-10-25): **census doc done** (`docs/VK_MASTER_CENSUS.md`, checkpoint 1); next: the
-  sanitized fixtures in `extractor-master/src/test/resources/fixtures/vk-master/`, then STOP.
+- State (2026-10-25): **recon done, STOP.** Answers in `docs/VK_MASTER_CENSUS.md`; fixtures in
+  `extractor-master/src/test/resources/fixtures/vk-master/` (README there, every value made up).
 - Findings (short):
   - Q1 Vx: **no independent route** — `api.vk.com`/`api.vk.ru` and `login.vk.com` are aliases of the
     same token endpoint and API; mobile pages carry no signed-out files; yt-dlp uses a login-gated
@@ -1171,4 +1171,8 @@ Keep at least the heading and one blank line between sections, so Git merges the
   (VK `Site` + slots), `SiteWeekly.kt` (W slots), census screen, `ContractRecipes.ALL` (`VkRecipe`).
 - Backlog: a daily CI canary for VK — off for now (a cloud IP answered today, but is not a phone);
   the host aliases as a `VkClient` resilience note, not a rung.
-- Validation: docs only so far; no code changed. Docs-only pushes start no CI (`AGENTS.md`).
+- Validation: docs and test fixtures only; no code changed. Fixture hygiene scanned locally (no IP,
+  signed value, long hex/key-like run, session name or real id/secret/version; all JSON valid); no
+  test lists this folder yet (`ShapeLayerTest` names its master fixtures one by one). No local
+  Gradle run (no Android SDK here): the fixture checkpoint's `Work-branch checkpoint validation`
+  run is the gate (the census-doc checkpoint was docs only, so it started no CI).
