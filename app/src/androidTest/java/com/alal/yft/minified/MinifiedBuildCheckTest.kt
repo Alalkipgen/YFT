@@ -49,7 +49,9 @@ class MinifiedBuildCheckTest {
 
     /** YouTube: the trial's notice names route B's answer (`master: route B after …`). */
     @Test
-    fun youtubeRouteB() = check("youtube-route-b", YOUTUBE, if (trial) ROUTE_B else null)
+    fun youtubeRouteB() {
+        check("youtube-route-b", YOUTUBE, if (trial) ROUTE_B else null)
+    }
 
     /** X's ladder (the trial's notice `master: x …`); Facebook's when X gives no Master line. */
     @Test
@@ -114,6 +116,10 @@ class MinifiedBuildCheckTest {
         val open = device.wait(Until.findObject(By.pkg(target).text("Open browser")), LAUNCH_MS)
             ?: error("Home's Open browser did not show")
         open.click()
+        // Home's link field is an EditText too: the browser's own control first.
+        if (device.wait(Until.hasObject(By.pkg(target).desc("Close browser")), LAUNCH_MS) != true) {
+            error("The browser did not open")
+        }
         val address = device.wait(
             Until.findObject(By.pkg(target).clazz("android.widget.EditText")), LAUNCH_MS,
         ) ?: error("The browser's address field did not show")
@@ -267,6 +273,6 @@ class MinifiedBuildCheckTest {
         const val BUTTON_MS = 60_000L
         const val SHEET_MS = 120_000L
         const val PLAY_MS = 12_000L
-        const val POLL_MS = 2_000L
+        const val POLL_MS = 3_000L
     }
 }

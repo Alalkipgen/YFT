@@ -32,8 +32,8 @@ the download fixes D1–D4.
   vkvideo.ru's own signed-out API (VK5).
 - In-app update (U1–U3): YFT tells you when a new version is out (Settings → About → Updates),
   with its release notes, and installs it after checking its checksum and signature, with
-  Android's confirmation. Check automatically is off until you turn it on; then YFT asks GitHub
-  (api.github.com) about its newest release once a day.
+  Android's confirmation. Check automatically is on (turn it off in Updates): once a day, when
+  YFT opens, it asks GitHub (api.github.com) about its newest release.
 - Home's first-run sites add Instagram and X beside YouTube, Facebook and TikTok (D4); a list
   kept from an older version gets each once, at its end, unless it has that site already.
 - Show details (decision 30 (v)): the release keeps a lookup's Details and Copy details hidden;
@@ -500,6 +500,20 @@ the download fixes D1–D4.
   links keep the page, and a video's full-screen button works (Back leaves full screen).
 - Facebook in the browser: the lookup asks Facebook for its desktop page, so a reel opened in the
   browser no longer shows "Facebook changed its page format" and finds the video's qualities.
+
+## [1.0.0-rc.1]
+
+The release-key test build of 1.0.0 for the update test in P8 (`docs/IN_APP_UPDATE_PLAN.md` §5.5;
+the owner's decision of 2026-10-25). Not for friends and never published: the Release draft
+workflow makes it a draft prerelease, the owner installs its APK on his phone, publishes 1.0.0, and
+the rc then finds 1.0.0, checks its checksum and signature and installs it with Android's
+confirmation. The draft is deleted after the test. Not dated: it is never released.
+
+- The same code as 1.0.0 (above): the release commit with `yft.versionName=1.0.0-rc.1` and
+  `yft.versionCode=999901` in `gradle.properties` — the version code rule's prerelease code, below
+  1.0.0's 1000000 and above every beta, so 1.0.0 installs over it and it installs over a beta.
+- Signed with the release key, so it runs as the release does (Check automatically on, only
+  published stable releases offered); its notes are `docs/release/1.0.0-rc.1.md`.
 
 ## [1.0.0-beta.3] - 2026-10-04
 

@@ -1254,9 +1254,31 @@ Keep at least the heading and one blank line between sections, so Git merges the
   kept (the own solver's bridge); the capture talks by `evaluateJavascript` and `org.json`; assets
   by name; only details lines carry a class name (`ClientLadder`'s `L: <outcome>`, the trial
   check's failure), shown renamed in a shrunk build.
-- Next: the check's answers decide the R8 rules; the rest of the shared docs (`docs/RELEASE.md`, `PROGRESS.md`, `docs/TEST_MATRIX.md`, `docs/PHONE_TEST_NOTES.md`,
-  `docs/SUPPORT_MATRIX.md`, README, the plans' status lines) in the release commit; CI green
-  (checkpoint validation, Emulator smoke, Preview APK with both #12 APKs); STOP and report.
-- Rules: no site pack, engine or main lookup change; no rc.1; never `main`, the spike, PR #2, a
-  label, `master-recipes-publish`, `release-draft`, signing, the `recipes` branch, a tag or a
-  release, `work/phase-vk-master*`; no APK on the owner's phone.
+- Checkpoint 2 `29fd1ba9`: Preview APK (test key) #102 40187305143 green — the #12 links the
+  owner asked for: `yft-preview-apk` 12596686333 (#12 normal), `yft-preview-trial-apk`
+  12596591356 (#12 trial). Minified build check #1 40187305152 and Android emulator smoke #135
+  40187305135 red for one cause, the new test class: `fun youtubeRouteB() = check(…)` returned a
+  `Boolean`, so JUnit refused the whole class (`initializationError`; the smoke runs every
+  androidTest class, and the opt-in check skips itself only inside a test). Fixed in checkpoint 3:
+  every `@Test` a block body returning `Unit` (javap: all `public void`); route B's page waits for
+  the browser ("Close browser") before it types the address. Work-branch checkpoint validation
+  #541 40187305159: green.
+- rc.1 (the owner, 2026-10-25): the release-key update test (`IN_APP_UPDATE_PLAN.md` §5.5) WILL
+  run in P8 with `1.0.0-rc.1`. This agent prepares the docs only (checkpoint 3): `CHANGELOG.md`
+  `## [1.0.0-rc.1]`, `docs/release/1.0.0-rc.1.md`, `docs/RELEASE.md` (the identity table, the
+  version code rule, the preview table, the Release draft facts, the test's five steps). What rc.1
+  still needs and this agent does not make (a build-config change, the owner's): a commit whose
+  `gradle.properties` says `yft.versionName=1.0.0-rc.1` / `yft.versionCode=999901`
+  (`VersionCodeRuleTest` accepts it) — the Release draft workflow has no version input, it reads
+  the run's commit. No tag, no Release draft run, no publish.
+- Also fixed in checkpoint 3: CHANGELOG's "Check automatically is off until you turn it on" — in
+  the release it is on by default (`defaultAutoCheck` is the release mode; off in the test mode
+  and the previews); `docs/release/1.0.0.md`'s privacy line says the same.
+- Next: checkpoint 3's four runs (checkpoint validation, Emulator smoke, Preview APK, Minified
+  build check); the check's answers decide R8; the rest of the shared docs (`PROGRESS.md`,
+  `docs/TEST_MATRIX.md`, `docs/PHONE_TEST_NOTES.md`, `docs/SUPPORT_MATRIX.md`, README, the plans'
+  status lines) in the release commit; STOP and report.
+- Rules: no site pack, engine or main lookup change; rc.1 docs only (no version change, tag,
+  Release draft run or publish); never `main`, the spike, PR #2, a label,
+  `master-recipes-publish`, `release-draft`, signing, the `recipes` branch, a tag or a release,
+  `work/phase-vk-master*`; no APK on the owner's phone.
