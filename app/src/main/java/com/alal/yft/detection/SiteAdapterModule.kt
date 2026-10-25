@@ -191,6 +191,7 @@ object SiteAdapterModule {
         XExtractor(http),
         // P49: Instagram's own answers (app API when signed in, GraphQL, page, embed page).
         InstagramExtractor(http),
+        com.alal.yft.extractor.sites.vk.VkExtractor(http),
     )
 
     @Provides
