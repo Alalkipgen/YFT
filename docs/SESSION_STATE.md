@@ -1145,6 +1145,334 @@ Keep at least the heading and one blank line between sections, so Git merges the
   testDebugUnitTest :core-model:test :extractor-api:test :extractor-generic:test
   :extractor-sites:test :app:assembleDebug :app:assembleRelease`.
 
+## In-app update agent — `work/phase-in-app-update` (U0–U3)
+
+- Plan: `docs/IN_APP_UPDATE_PLAN.md` (the owner's request, 2026-10-24: the in-app update ships in
+  v1.0.0, the first stable release, with A and VK; revised after his review the same day). Branch
+  made from PR #2's head `8dc46ff` (`spike/master-extractor-backup`).
+- State (2026-10-25 MMT): **U1 green** — the U1 cut `e615a96` (CI all success: checkpoint validation
+  40123514346, Emulator smoke 40123514304, Preview APK 40123514313). **U2 green** — `d5f36f8`
+  (`checkpoint(phase-in-app-update): U2: wait for Android's installer through Compose`, on U2's
+  `6883e4d`; CI all success: checkpoint validation 40133089357, Emulator smoke 40133089369 (59
+  tests, 0 failures), Preview APK 40133089364): Download APK to update runs in YFT
+  (`UpdateInstallFlow`, one for the process): allowed to install? → free space → the release's
+  `SHA256SUMS` line → the APK into the cache (check 1, the checksum) → check 2, the signature →
+  check 3, the package and version → Android's installer, where the user confirms (YFT never
+  installs by itself); Cancel; every failure says which step, "Nothing was installed." and Download
+  in browser; Reinstall this build (test) in debug and preview only. The manifest:
+  `REQUEST_INSTALL_PACKAGES` and the unexported `InstallStatusReceiver`. **U3 PASS** on the owner's
+  phone (the preview of `d5f36f8`, 2026-10-25 10:39–10:53 MMT): every step of plan §5.4; recorded in
+  plan §12 (the release commit puts it in `docs/PHONE_TEST_NOTES.md`). **U3 fixes** — checkpoint
+  `checkpoint(phase-in-app-update): U3 fixes: the button's two lines, the notes as plain text` (its
+  SHA and CI in plan §12's next entry): **Download APK to update** wraps to two lines at large text
+  sizes instead of being cut (`YftPrimaryButton`'s optional `maxLines`, default 1), and the notes
+  drop Markdown's marks (`ReleaseNotes`). The reinstall test's "Update cancelled." without Download
+  in browser is by design (that link is the found release's APK; the test is no release). Beside the
+  plan's letter: plan §12's U2 and U3 entries. Next: CI green, then STOP with a short Burmese
+  report; no new phone test — the owner checks both fixes in his #12. Time box: CI green by
+  2026-10-26 24:00 MMT.
+- The owner's review: no Home card, no About change, no dialog; the Version row's version on its
+  second line; every text a true claim (U1 never says "verified").
+- Merge (the owner's order, only when he says): A → VK → this branch into
+  `spike/master-extractor-backup` with merge commits, then the release commit (`1.0.0` / `1000000`,
+  the shared docs) on top. No U4: `main` is never merged into this branch, no pull request. Expected
+  conflict: this file only (every section kept). U2 late → `work/phase-in-app-update-u1` (the U1
+  cut) instead.
+- Phone (U3): PASS on 2026-10-25, every step (plan §5.4, §12); the U3 fixes are checked in the
+  owner's #12.
+- Found at U0: every release made by `release-draft.yml` carries `SHA256SUMS` (`release-prep.sh` →
+  `verify-release-apk.sh`; uploaded on create and refresh), so no workflow change. Published today:
+  only `v1.0.0-beta.1` (prerelease, versionCode 1); beta.2 and beta.3 are drafts.
+- Version code rule (plan §4.2): from the tag, with or without `v`, `X.Y.Z` → X·1000000 + Y·10000 +
+  Z·100 (v1.0.0 = 1000000); the release commit sets it, a JVM test guards it.
+- For the release commit (plan §11): About's first privacy line
+  ("YFT only contacts the sites you open…") must name the update check.
+- Rules: the plan's §2 (no push to `main` or the spike except the merge the owner calls, no pull
+  request or label, no `recipes` branch, no release or tag, no APK on the owner's phone before S5's
+  run 3 is counted).
+- Validation: `./gradlew --no-daemon :app:testDebugUnitTest --tests 'com.alal.yft.update.*'`; before
+  a push, CI's set (plan §7); U2 also the Emulator smoke (`UpdateInstallInstrumentedTest`, plan
+  §6.2: GitHub played by an in-test interceptor; Android's installer always cancelled).
+
+## Release agent — `work/phase-release-v1` (the v1.0.0 release commit, #12)
+
+- Task (the owner, 2026-10-25): the v1.0.0 release commit per decision 30 (iv)
+  (`MASTER_KEY_SOCIAL_PLAN.md` §8) and its two #12 preview APKs, then STOP with a short Burmese
+  report. Branch made from `origin/spike/master-extractor-backup` `038c1cd4` (PR #2's branch after
+  the download-fixes, VK and in-app-update merges; its CI green: Work-branch checkpoint
+  validation 40171179191, Master opt-in debug APK 40171175629). One commit or a few, the release
+  commit last; the owner (2026-10-25): push a checkpoint as soon as a part is green.
+- Built (checkpoint 1, this commit):
+  - `gradle.properties`: `1.0.0` / `1000000` (the version code rule, `VersionCodeRuleTest`).
+  - `app/build.gradle.kts`: `releaseMaster(key, url, trials)` — the release, #12 normal
+    (`preview`) and #12 trial (`previewTrial`) never read a `-Pyft.*` switch: Master on (route B:
+    the own solver, the client ladder; the four sites' ladders with L3; the capture; R9 with the
+    committed key `extractor-master/recipes/master-recipes.pub.hex` and the `recipes` branch's
+    URL), never the test hooks, the own solver's next ladder or Instagram's tab-fetch rung; the
+    trials only in `previewTrial` (`.trial`, "YFT Trial", `-trial.<run>`, the test key); quiet
+    (`QUIET_RELEASE`) in the release and `preview` only.
+  - (i) **Backup finder** (`detection/master/BackupFinder.kt`, on by default, app-private prefs):
+    off → no lookup asks Master (`SiteAdapterModule`'s registry and recovery, the browser's
+    fallback and capture, YouTube's own solver via `BackupFinderPlayerScripts`) and Master's
+    client refuses every request before it is sent (GitHub raw: R9, the version tables);
+    Settings row `settings-backup-finder`.
+  - (ii) About › Privacy's first line names GitHub (raw.githubusercontent.com for the backup
+    finder, api.github.com for Check automatically).
+  - (v) The quiet release (`ui/QuietRelease.kt`: `LocalQuietRelease`, `ShowDetails`, `QuietLines`):
+    the browser's lookup notice and Try again hidden (the focus notices stay; a failed one says
+    the quiet line); the sheet's one line ("Couldn't get this video.", TikTok's check with Show
+    check, "Play the video, then tap Download again."; Download again looks up again); Home's
+    sheet the same, Home's Copy details and Downloads' failure details hidden; a failed
+    download's retry stays; About's version line tapped 7 times turns Show details on or off.
+  - (iii) `.github/workflows/preview-apk.yml`: one run builds `:app:assemblePreview
+    :app:assemblePreviewTrial`, verifies both (`com.alal.yft.preview`, `com.alal.yft.trial`) and
+    uploads `yft-preview-apk` and `yft-preview-trial-apk`.
+  - Tests: `BackupFinderTest` (4), `QuietReleaseTest`, and new cases in `BrowserViewModelTest`,
+    `BrowserScreenTest`, `QuickDownloadScreenTest`, `AboutScreenTest`, `SettingsScreenTest`,
+    `SettingsViewModelTest`, `DownloadsScreenTest`; `MasterParityLiveTest` passes the switch.
+  - Docs so far: `CHANGELOG.md` `## [1.0.0]` (the Unreleased section becomes 1.0.0; the header's
+    version code rule), `docs/release/1.0.0.md`.
+- Local validation (2026-10-25): `testDebugUnitTest` → app 1278 (66 skipped), core-browser 150,
+  core-data 35, core-download 281, core-media 39, extractor-master-android 70: 0 failures;
+  `:app:compileDebugAndroidTestKotlin` OK.
+- Checkpoint 1 `1244f80b`: CI green (Work-branch checkpoint validation #540 40184741769,
+  Android emulator smoke #134 40184741829, Preview APK (test key) #101 40184741778 with
+  `yft-preview-apk` 12596296561 and `yft-preview-trial-apk` 12596046940). Local: `lintDebug`,
+  `:app:assembleRelease` (R8), `:app:assemblePreview`, `:app:assemblePreviewTrial`,
+  `:extractor-master:test`, `:core-model:test :extractor-api:test :extractor-generic:test
+  :extractor-sites:test`: all green.
+- R8 (the owner, 2026-10-25: "decide by running the minified build … not by compiling alone —
+  YouTube route B, one social ladder and the capture must work in it"): this agent's computer has
+  no KVM, so checkpoint 2 adds `.github/workflows/minified-check.yml` (pushes to
+  `work/phase-release-*` only): it builds #12 normal and #12 trial as Preview APK does (R8, a fresh
+  test key), runs both on the emulator smoke's API 34 emulator and drives them through their
+  screens (`scripts/ci-minified-check.sh`, the opt-in `MinifiedBuildCheckTest`, `-e yft.minified
+  <package>`; the smoke skips it): YouTube (route B's notice in the trial), X then Facebook (the
+  ladder's notice), Facebook's video with the capture's "Play the video…" answered by a tap on the
+  video. Each answer is an annotation; a crash or a run that cannot finish fails the job. Static
+  review so far: no reflection, ServiceLoader or serialization in Master; `@JavascriptInterface`
+  kept (the own solver's bridge); the capture talks by `evaluateJavascript` and `org.json`; assets
+  by name; only details lines carry a class name (`ClientLadder`'s `L: <outcome>`, the trial
+  check's failure), shown renamed in a shrunk build.
+- Checkpoint 2 `29fd1ba9`: Preview APK (test key) #102 40187305143 green — the #12 links the
+  owner asked for: `yft-preview-apk` 12596686333 (#12 normal), `yft-preview-trial-apk`
+  12596591356 (#12 trial). Minified build check #1 40187305152 and Android emulator smoke #135
+  40187305135 red for one cause, the new test class: `fun youtubeRouteB() = check(…)` returned a
+  `Boolean`, so JUnit refused the whole class (`initializationError`; the smoke runs every
+  androidTest class, and the opt-in check skips itself only inside a test). Fixed in checkpoint 3:
+  every `@Test` a block body returning `Unit` (javap: all `public void`); route B's page waits for
+  the browser ("Close browser") before it types the address. Work-branch checkpoint validation
+  #541 40187305159: green.
+- rc.1 (the owner, 2026-10-25): the release-key update test (`IN_APP_UPDATE_PLAN.md` §5.5) WILL
+  run in P8 with `1.0.0-rc.1`. This agent prepares the docs only (checkpoint 3): `CHANGELOG.md`
+  `## [1.0.0-rc.1]`, `docs/release/1.0.0-rc.1.md`, `docs/RELEASE.md` (the identity table, the
+  version code rule, the preview table, the Release draft facts, the test's five steps). What rc.1
+  still needs and this agent does not make (a build-config change, the owner's): a commit whose
+  `gradle.properties` says `yft.versionName=1.0.0-rc.1` / `yft.versionCode=999901`
+  (`VersionCodeRuleTest` accepts it) — the Release draft workflow has no version input, it reads
+  the run's commit. No tag, no Release draft run, no publish.
+- Also fixed in checkpoint 3: CHANGELOG's "Check automatically is off until you turn it on" — in
+  the release it is on by default (`defaultAutoCheck` is the release mode; off in the test mode
+  and the previews); `docs/release/1.0.0.md`'s privacy line says the same.
+- Checkpoint 3 `b90c955d` (rc.1's docs, the wording fix, the check's test): all green —
+  Work-branch checkpoint validation #544 40188796317, Android emulator smoke #138 40188796316,
+  Preview APK #105 40188796270, Minified build check #2 40188796284.
+- **R8, decided by the run:** the shrunk builds ran through their screens with no crash and no
+  R8-type error. #12 normal: X rows, Facebook rows, YouTube's quiet line "Play the video, then tap
+  Download again.". #12 trial: `master: x ladder after RESPONSE_CHANGED; main's answer replayed,
+  no new ask; trial: Master's rows 3, main's 3; the same item: yes; duration within 1 s: yes` (one
+  social ladder works shrunk); Facebook rows; YouTube `master: route B not run: BOT_CHECK is final`
+  (YouTube's bot check on CI's address; final by design, so route B cannot be reached there); the
+  capture not asked (Facebook gave rows in both builds). No keep rule added (the existing rules
+  keep the own solver's `@JavascriptInterface` bridge; no reflection, ServiceLoader or
+  serialization in Master). Route B and the capture in the shrunk builds: #12 on the owner's
+  phone; a failure there that the debug APK does not show is an R8 fix before the merge.
+- Checkpoint 4 (this one, docs only): the release commit's shared docs — `PROGRESS.md`,
+  `docs/TEST_MATRIX.md` (S5's run 3, VK1–VK3, VK5, D1–D4, U1–U3, the release commit),
+  `docs/PHONE_TEST_NOTES.md` (S5's run 3, VK3, VK5, D1–D4, U3, the U3 fixes),
+  `docs/SUPPORT_MATRIX.md` (VK, the ladders in the release, the backup finder, the in-app
+  update), README (1.0.0, the install notes, `yft-preview-trial-apk`), the status lines of
+  `MASTER_KEY_SOCIAL_PLAN.md`, `docs/IN_APP_UPDATE_PLAN.md` (§0, §5.5, §12) and
+  `docs/VK_PLAN.md`.
+- The #12 APKs (the owner asked for `29fd1ba9`'s; later commits changed only the check's test and
+  docs, so the app is the same): Preview APK #102 40187305143 — `yft-preview-apk` 12596686333
+  (#12 normal), `yft-preview-trial-apk` 12596591356 (#12 trial).
+- Next: STOP and report (Burmese, short); then the owner's #12, PR #2's merge, R9's first Run
+  workflow, P8 with rc.1's update test.
+- Rules: no site pack, engine or main lookup change; rc.1 docs only (no version change, tag,
+  Release draft run or publish); never `main`, the spike, PR #2, a label,
+  `master-recipes-publish`, `release-draft`, signing, the `recipes` branch, a tag or a release,
+  `work/phase-vk-master*`; no APK on the owner's phone.
+
+## VK-Master agent A — `work/phase-vk-master-census` (recon / census, wave 1)
+
+- Plan: `docs/VK_MASTER_PLAN.md` §11 and Appendix A (the owner's go, 2026-10-25). Branch made from
+  `origin/work/phase-vk-master` (`50f2e9fb`). Docs and sanitized fixtures only — no Kotlin, Gradle or
+  workflow file.
+- State (2026-10-25): **recon done, STOP.** Answers in `docs/VK_MASTER_CENSUS.md`; fixtures in
+  `extractor-master/src/test/resources/fixtures/vk-master/` (README there, every value made up).
+- Findings (short):
+  - Q1 Vx: **no independent route** — `api.vk.com`/`api.vk.ru` and `login.vk.com` are aliases of the
+    same token endpoint and API; mobile pages carry no signed-out files; yt-dlp uses a login-gated
+    `al_video.php`. Recommendation: do not build Vx.
+  - Q2 source: the web client's values sit in vkvideo.ru's public script (`core_spa`, `common`, and the
+    cheap ~40 KB `error_monitoring` chunk), stable across loads (same content hashes; the static host
+    shards and file names are content-hashed, so discover URLs from the page). yt-dlp is **not** a
+    second source.
+  - Q3: token mint checks `client_id` (wrong → `401 invalid_client`) but **not** the secret (a wrong
+    secret still mints a working token); `video.get` errors 5 (auth), 8 (bad version), restriction
+    `can_play=0` (deleted). VK's `API_ERROR_*` map recorded (6/9/29 rate, 14 captcha, 13300 geo).
+  - Q4: 18+ files on `vk{N}-{N}.vkuser.net`, normal on `vkvd{N}.okcdn.ru` (failover `vkvd{N}.okcdn.ru`
+    also 206); expiry ~72 h; a file binds **both** `srcAg` (other agent → 400) and `srcIp` (signed;
+    tampered → 400); `Referer` optional → track E evidence labels.
+  - Q5 budget proposal: VK `4 req / 1 MiB / 15 s`. Q6: 10 census slots, W `[1, 4, 8]`.
+- Hand-offs to agent D (shared files, not edited here): `SocialStops.kt` (VK budget), `SiteWays.kt`
+  (VK `Site` + slots), `SiteWeekly.kt` (W slots), census screen, `ContractRecipes.ALL` (`VkRecipe`).
+- Backlog: a daily CI canary for VK — off for now (a cloud IP answered today, but is not a phone);
+  the host aliases as a `VkClient` resilience note, not a rung.
+- Validation: docs and test fixtures only; no code changed. Fixture hygiene scanned locally (no IP,
+  signed value, long hex/key-like run, session name or real id/secret/version; all JSON valid); no
+  test lists this folder yet (`ShapeLayerTest` names its master fixtures one by one). No local
+  Gradle run (no Android SDK here): the fixture checkpoint's `Work-branch checkpoint validation`
+  run is the gate (the census-doc checkpoint was docs only, so it started no CI).
+
+## VK-Master pack agent (B) — `work/phase-vk-master-pack`
+
+- Plan: `docs/VK_MASTER_PLAN.md` Appendix B (sections 4, 5, 7, 11; section 2 and ADR-006 first).
+  Branch made from `origin/work/phase-vk-master` (`50f2e9fb`, the plan's commit on `50fb8d0f`).
+  New Master code only, in `extractor-master/.../master/social/Vk*.kt`; not wired into the app
+  (agent D); main's VK adapter and every shared file untouched.
+- Validation before every checkpoint (work-branch CI runs neither):
+  `./gradlew --no-daemon :extractor-master:test` and
+  `python3 scripts/master-toolkit-drift.py --ref 34a4189002b7c9aaf6085ae4adab27b343ca28dc`.
+  Baseline at `50f2e9fb`: 980 tests, 0 failed (2 skipped), 2 min 52 s; drift 177 symbols, 0.
+- Checkpoints (pushed through the GitHub connection; this sandbox has no git push credential):
+  - Step 1 — `VkClient` (the web client's identifiers, the token's read, the asks' headers, VK's
+    media hosts, never `iv.okcdn.ru`), `VkClientValues` (interface; `bundled(mutate)`: main's
+    values, a debug hook's change first), `VkClientTest` (12), `VkClientDriftTest` (3: main's
+    adapter asks the token and `video.get` exactly as `VkClient`), fixtures `vk-pack/` (made up).
+    Local: `:extractor-master:test` 995 tests, 0 failed (2 skipped); drift 177/0; the 35 pending
+    rows re-hash equal at `50fb8d0f`. Pushed `81c26409`.
+  - Step 2 — `VkAnswerJudge` (+ `VkReading`) over the shared `AnswerClass` (§5): rows → DIRECT
+    or PARTIAL (shape scan, or beside refused files); the embed's adult answer → VIDEO_WITHOUT_FILES
+    (main's trigger, not a Master class); the embed's other message → NEEDS_PLAYBACK; the shell →
+    TRANSIENT; the token refused (400/401, no token) and API errors 5, 8, 28, 34, 101 →
+    VALUE_REJECTED; error 14 and the token's captcha → BOT_CHECK; 429 and errors 6, 9, 29 →
+    RATE_LIMITED; `can_play` 0 + VK's `delete_outline` icon → REMOVED (the only final); every other
+    error or restriction → TRANSIENT. Codes and icon provisional (A's taxonomy). `VkAnswerJudgeTest`
+    (10). 13 more pending rows (48). Local: 1005 tests, 0 failed (2 skipped); drift 177/0;
+    pending 48/0.
+  - Step 3 — `VkLadder` (a `SocialStage`, not wired) with `VkReader` and `VkSite.BUDGET`
+    (placeholder 20 requests / 2 MiB / 30 s from VK_PLAN §13; A finalizes). `VkReader`: Master's
+    own read of the embed's `apiPrefetchCache` and of `video.get` — VK's key table, then the shape
+    scan, bound to `owner_id` + `id` (a renamed key by its shape or its address's type; never the
+    trailer, the poster, a picture or another video's entry; VK's video servers only), written as
+    one video's JSON answer for VK's recipe. V1 (no request): main's kept embed pages and
+    `video.get` answers (`MainPages`) and main's token asks by status (`LookupRecord`), judged;
+    rows → V (PAGE_DATA); VK's deleted icon → final; a 429 or a bot check → stop, the host cools.
+    V2 only after the adult answer and a VALUE_REJECTED class: the first value not main's
+    (`VkClientValues`: bundled + debug hook), one token held in memory and one `video.get`, the
+    lookup's user agent, no cookie, VK's budget and the lookup's time; route B's rules (main's
+    identical token answer replayed; main's `video.get` never asked again — then no token is asked
+    for it). V3 = the shared capture (`captureOff` when the config turns it off); rungs off read
+    through a `rungsOff` function (C's schema 2 names V1–V3). The judge's token evidence reworded
+    so no line has a word the sanitizer drops. Tests: `VkReaderTest` (7), `VkLadderTest` (11:
+    main's real VK adapter, then the engine; VK's recipe is the test's own until step 4), the
+    judge's evidence check extended (sanitizer). 28 more pending rows (76, `VkEmbedParser.kt`).
+    Local: 1023 tests, 0 failed (2 skipped), 1 min 8 s; drift 177/0; pending 76/0.
+  - Step 4 — `VkRecipe` (VK's contract for `VkReader`'s one-video answer: `id`, `files.*` by
+    `type`, title, length, picture, expiry; its endpoint keeps `{version}`, so R8 never asks VK on
+    its own; answer hosts api.vkvideo.ru, vk.com, vk.ru; no media host list, VK's servers are
+    numbered; **not** in `ContractRecipes.ALL`), `VkLabels` (ways from the method and address
+    alone, never a header's value: the embed page, the anonymous token, `video.get`, main's
+    manifest reads, the file check; readings by Master's reader and judge: rows DATA; the adult
+    answer, VK's message and `can_play` 0 NO_POST; error 14 and the token's captcha BOT_CHECK; a
+    token of VK's shape DATA (checked, dropped); not JSON NOT_JSON; else NO_DATA, VK's rate errors
+    too), `VkSite.SITE` (main's name and ways, Master's way V2's `video.get`; V on VK's video
+    servers only through `VkClient.mediaFile`, never `iv.okcdn.ru`; nine placeholder slots from
+    §10, A finalizes). `VkLadder` also finds main's token asks by the token's way in a labelled
+    record (main's other values). Tests: `VkLabelsTest` (6: main's real adapter in a labelled
+    record), `VkSiteTest` (3), `VkLadderTest` (13: VK's recipe now `VkRecipe.RECIPE`; labelled:
+    the token's captcha stops VK and cools login.vk.ru, an answer without a value → V2); fixture
+    `token_no_value.json`. Local: 1034 tests, 0 failed (2 skipped), 2 min 1 s; drift 177/0;
+    pending 76/0.
+    Finding: V's reads go through `RouteBMediaStartReader` into the record as Master's GET of the
+    file with the row's own headers (the same as main's manifest GET), and the labels see the ask
+    only — so `MANIFEST` goes only to a GET of a VK video-server file whose path ends `.m3u8` or
+    `.mpd` (V never reads a manifest row); a manifest address that hides its kind stays
+    unlabelled, never mislabelled (A/D: confirm VK's real manifest addresses in the recon).
+    Pushed `a8a78b25`; CI: checkpoint validation, emulator smoke, preview APK — all success.
+  - Step 5 — the engine tests not yet covered (the ladder in the engine already was:
+    `VkLadderTest`, main's real adapter, then the engine with VK's recipe and `VkLadder` as the
+    social stage). `VkRecipeTest` (2): with VK's recipe, R8 asks VK nothing on its own — without
+    VK's ladder, or with it outside a lookup's record: "no endpoint for this video", then the
+    shared capture, no ask; the contract layer reads `VkReader`'s answer with VK's recipe — the
+    files in VK's order with their kinds and sizes, the title, length, picture and expiry; an
+    answer naming another video gives no row. `VkLadderTest` (14, +1): a build without VK's
+    recipe (today's `ContractRecipes.ALL`) checks none of main's rows — V1 says so, then the
+    shared capture. A mutation check (VK's endpoint without `{version}`) fails the first test.
+    Local: 1037 tests, 0 failed (2 skipped), 1 min 38 s; drift 177/0; pending 76/0.
+    Pushed `0216f7e4`; CI: checkpoint validation, emulator smoke, preview APK — all success.
+  - Addendum (the owner's, after agent A's census: `origin/work/phase-vk-master-census` at
+    `d333fb18`, `docs/VK_MASTER_CENSUS.md`, read only, not merged):
+    1. Judge: API error 13300 (`ACCESS_GEO`) → REGION_LIMITED (final, GEO_RESTRICTED) in V1 and
+       V2; 15, 17 and 204 stay TRANSIENT (no other evidence); `VkLabels`: 13300 is NO_POST. The
+       codes and the deleted icon are no longer provisional (A's §3).
+    2. Budget, the worst case counted as the four sites' (`SocialStops`: the lookup's whole
+       record): main ≤ 6 asks in a lookup it fails (B, B again after the shell, B2; path D's
+       `video.get` with the kept token, one new token, `video.get` again; main reads manifests only
+       for an answer it answers with), V1 0, V2 ≤ 4 (the page naming today's script and the
+       script, C's live source; then the token and `video.get`), V ≤ 8 reads → **18 requests**;
+       **1 MiB + 16 KiB** (V2's two answers at main's bounds, which V2's own check needs; A's
+       1 MiB is too small; the live source's reads add their bounds when C wires it); **15 s**
+       (main's deadline, `VkExtractor.DEADLINE_MS`). A's 4 / 1 MiB / 15 s counted Master's own
+       asks and one script read only. `VkLadderTest` runs main's real adapter to its 6 asks (a
+       token in memory, the shell twice, the adult answer, error 5 twice) and V2 still heals; one
+       byte less and V2 asks nothing.
+    3. A's §3.2a (login.vk.ru checks the client id, not the secret): the tests' heal is a rotated
+       client id (login.vk.ru answers main's id with 401 `invalid_client`), the heal after error 8
+       a new API version; a new secret alone heals nothing (V2's token refused, no `video.get`).
+       `VkClientValues.bundled`'s KDoc says so for D's debug mutate hook (the phone proof).
+    4. `VkPackFixtureHygieneTest` (3), A's draft rules with main's: every query value `FIXTURE`
+       (a test puts its own expiry in: `vkPack`), no IP, cookie or session name, long hex or
+       key-like run, only the made-up IDs, titles "Fixture …", none of `VkClient`'s values (an
+       echo says `5.000` / `100000`), no token answer (`token_okay.json` removed, `vkToken` builds
+       it); the fixture list fixed; the rules caught on a leaky sample. New fixtures
+       `video_get_error_8.json`, `video_get_error_13300.json`.
+    5. Names as C's schema 2 reads them: site `vk` (`VkClient`, `VkLadder`, `VkSite.SITE`,
+       `VkRecipe.RECIPE`), rungs `VkLadder.RUNGS` = `V1`, `V2`, `V3` (`VkSiteTest`).
+    Tests: `VkAnswerJudgeTest` 11 (+1), `VkLadderTest` 17 (+3), `VkSiteTest` 4 (+1),
+    `VkPackFixtureHygieneTest` 3 (new). Local: 1045 tests, 0 failed (2 skipped), 2 min 1 s;
+    drift 177/0; pending 76/0.
+- Provenance (proposal for the owner, Appendix B step 1): no base bump, no script change. Main's
+  VK files came after the base `34a41890`, so their rows wait in `toolkit-provenance.tsv`'s header
+  as `# pending<TAB>master<TAB>main<TAB>symbol<TAB>sha256` lines, hashed at `50fb8d0f` with the
+  drift script's own `symbol_text`/`digest` (comments: the script skips them, `--write` keeps
+  them, the self-check stays 177/0). Meanwhile `VkClientDriftTest` checks the copies at run time.
+  To activate (owner/D): when the base moves past main's VK files, review each copy, drop the
+  prefix, `--write`. Option for later: a per-row ref column in the script (a shared-file change).
+- Status: Appendix B done (steps 1–5) and the owner's addendum (A's census) applied; stopped and
+  reported to the owner. Next: the owner's provenance decision (above), then D's wiring, C's
+  values source and A's census slots (Backlog, For review).
+- Backlog (out of scope here): wiring (D: `VkRecipe` in `ContractRecipes.ALL`, `VkLadder` in the
+  social ladders, `VkSite.SITE` in `SiteWays`, `VkSite.BUDGET` in `SocialStops`, V3 in
+  `RungsOff`, `SiteWeekly` `vk → [1, 4, 8]`); the live values source (C: `ValueSource`/`SiteHealth`/
+  `VkClientSource`: heal the client id first, then `v`; its two reads are in VK's 18 requests,
+  their byte bounds to add to VK's bytes); R9 schema 2's V1–V3 rungs (C; the names match); the
+  census slots (A's 10, the region-limited one included, against this pack's 9 placeholders: D).
+- For review (D, owner): V2's `video.get` is listed in the lookup's record without its bearer
+  (Master's own anonymous token, never the user's credential), so route B's rule 1 does not refuse
+  it; route B's rule 4 means values that differ from main's only on the token's side ask nothing
+  once main asked `video.get` in the lookup. Keeping a healed value after V passes needs a hook
+  from the engine's checks (the ladder does not see V's result: C/D). VK's key table is code in
+  `VkReader`, so an R9 overlay of VK's recipe does not reach it; a schema-2 overlay must not set
+  VK's endpoint (an overlay may give it known placeholders, `RemoteRecipeConfig.endpoint`).
+  `CandidateFactory` gives a cross-origin `Referer` as the origin, not the full page (§7 wants the
+  vk.com page; A: the Referer is optional). D's debug mutate hook (the phone proof) breaks the
+  client id or the API version, never the secret alone (A's §3.2a: any secret gets a token, so
+  no value-rejected path). Until D adds `VkSite.SITE` to `SiteWays.ALL`, a row check built without it meets a
+  VK lookup with its own site's hosts (the app's: Facebook's) and refuses VK's rows.
+
 ## VK-Master kit agent (C) — `work/phase-vk-master-kit`
 
 - Plan: `docs/VK_MASTER_PLAN.md` §8 (self-heal), §9 (R9 schema 2), Appendix C (this agent's
