@@ -8,10 +8,15 @@ release's tag: a stable X.Y.Z is X·1000000 + Y·10000 + Z·100 (1.0.0 = 1000000
 a prerelease just below its version's (1.0.0-rc.1 = 999901). Android refuses to install a lower
 one.
 
-## [1.0.0]
+## [1.0.1]
 
-The first stable release, for the owner's friends (the social plan's decision 30). Not dated yet:
-the owner dates this section when he publishes it (`docs/RELEASE.md` §5). Everything since
+Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.md` §5). Nothing
+yet.
+
+## [1.0.0] - 2026-10-26
+
+The first stable release, for the owner's friends (the social plan's decision 30), published on
+2026-10-26 (MMT; 2026-10-25 20:01 UTC) after P8's release-key update test passed. Everything since
 `1.0.0-beta.3`: Phases 11–15 and P39–P50, the backup finder (Master), VK, the in-app update and
 the download fixes D1–D4.
 
