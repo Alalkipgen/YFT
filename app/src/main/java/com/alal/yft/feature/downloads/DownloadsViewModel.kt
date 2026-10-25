@@ -15,8 +15,11 @@ import com.alal.yft.download.FileDeletion
 import com.alal.yft.download.InMemoryBackgroundHealthStore
 import com.alal.yft.download.SavedDownloadFile
 import com.alal.yft.download.policy.DownloadNetworkStatus
+import com.alal.yft.feature.settings.YouTubeSessionReset
+import com.alal.yft.feature.settings.YouTubeSessionResetResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -50,6 +53,8 @@ class DownloadsViewModel @Inject constructor(
     private val serviceStarter: DownloadServiceStarter,
     /** "Delete file" (P42); tests of other controls leave it out. */
     private val fileDeleter: DownloadedFileDeleter = DownloadedFileDeleter.Unavailable,
+    /** "Reset YouTube session" (item 7 Track B3); tests of other controls leave it out. */
+    private val youTubeSession: YouTubeSessionReset = YouTubeSessionReset.Unavailable,
 ) : ViewModel() {
     /** Without a network policy or storage, for tests that only exercise the queue. */
     constructor(queue: DownloadQueue) : this(queue, DownloadNetworkStatus.AlwaysAllowed)
@@ -91,6 +96,18 @@ class DownloadsViewModel @Inject constructor(
     ) {
         this.asksBeforeDeletingFile = asksBeforeDeletingFile
     }
+
+    /** For tests of "Reset YouTube session" (item 7 Track B3). */
+    internal constructor(queue: DownloadQueue, youTubeSession: YouTubeSessionReset) : this(
+        queue = queue,
+        networkStatus = DownloadNetworkStatus.AlwaysAllowed,
+        storageSource = DownloadStorageSource.None,
+        speeds = DownloadSpeedMeter(),
+        health = InMemoryBackgroundHealthStore(),
+        systemStatus = BackgroundSystemStatus.Unlimited,
+        serviceStarter = NoServiceStarter,
+        youTubeSession = youTubeSession,
+    )
 
     private val mutableUiState = MutableStateFlow(DownloadsUiState.Empty)
     val uiState: StateFlow<DownloadsUiState> = mutableUiState.asStateFlow()
@@ -211,6 +228,23 @@ class DownloadsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Item 7 Track B3: "Reset YouTube session", asked on a download YouTube refused while its
+     * link had time left; the snackbar says what went (the screen asked first).
+     */
+    fun resetYouTubeSession() {
+        viewModelScope.launch {
+            val message = try {
+                youTubeResetMessage(youTubeSession.reset())
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                YOUTUBE_RESET_FAILED
+            }
+            mutableMessages.send(message)
+        }
+    }
+
     fun pauseAll() {
         viewModelScope.launch { queue.pauseAll() }
     }
@@ -255,6 +289,24 @@ data class DeleteFileQuestion(val id: String, val fileName: String)
 internal const val DELETE_CONFIRM = true
 internal const val FILE_DELETED = "File deleted"
 internal const val FILE_NOT_DELETED = "Could not delete the file"
+
+/** Item 7 Track B3: what "Reset YouTube session" did, for the snackbar. */
+internal fun youTubeResetMessage(result: YouTubeSessionResetResult): String =
+    if (result.cookiesLeft == 0) {
+        "YouTube session reset (${cookies(result.cookiesRemoved)} removed). Reopen the page " +
+            "in the browser, then download again."
+    } else {
+        "YouTube session partly reset: ${cookies(result.cookiesLeft)} stayed, which Clear " +
+            "browsing data in Settings removes (it signs you out of every site in YFT)."
+    }
+
+private fun cookies(count: Int): String = when (count) {
+    0 -> "no cookies"
+    1 -> "1 cookie"
+    else -> "$count cookies"
+}
+
+internal const val YOUTUBE_RESET_FAILED = "Could not reset the YouTube session"
 
 /** Tests and previews start no service. */
 private object NoServiceStarter : DownloadServiceStarter {

@@ -17,15 +17,21 @@ import com.alal.yft.core.model.download.DownloadProgress
 import com.alal.yft.core.model.download.HlsDownloadPlan
 import com.alal.yft.core.model.download.HlsTransferCheckpoint
 import com.alal.yft.core.model.download.HlsTransferResult
+import com.alal.yft.core.model.download.PublishedFile
 import com.alal.yft.core.model.download.RemoteFileMetadata
 import com.alal.yft.core.model.download.TransferCheckpoint
 
 sealed interface QueueTransferResult {
     val checkpoint: TransferCheckpoint
 
+    /**
+     * [publishedAs] is the name and type the file was published under when they are not the
+     * planned ones (D1: an HLS download kept as MPEG-TS); null when they are.
+     */
     data class Completed(
         val bytesWritten: Long,
         override val checkpoint: TransferCheckpoint,
+        val publishedAs: PublishedFile? = null,
     ) : QueueTransferResult
 
     data class Failure(
@@ -78,8 +84,11 @@ class DefaultDownloadTransferDispatcher(
                 onCheckpoint = onCheckpoint,
             )
         ) {
-            is HlsTransferResult.Completed ->
-                QueueTransferResult.Completed(result.bytesWritten, result.checkpoint)
+            is HlsTransferResult.Completed -> QueueTransferResult.Completed(
+                bytesWritten = result.bytesWritten,
+                checkpoint = result.checkpoint,
+                publishedAs = result.publishedAs,
+            )
             is HlsTransferResult.Failure ->
                 QueueTransferResult.Failure(result.failure, result.checkpoint)
         }

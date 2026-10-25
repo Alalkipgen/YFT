@@ -16,11 +16,13 @@ import com.alal.yft.extractor.api.SiteExtractionResult
 import com.alal.yft.extractor.api.SiteExtractor
 import com.alal.yft.extractor.api.SiteExtractorRegistry
 import com.alal.yft.extractor.api.SitePageIdentity
+import com.alal.yft.extractor.master.lookup.LookupRecord
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -68,6 +70,37 @@ class SiteLookupCacheTest {
         assertEquals(3, extractor.requests.size)
         coordinator.inspect(other, PUBLIC, NOW + SiteLookupCache.MAX_AGE_MS)
         assertEquals(4, extractor.requests.size)
+    }
+
+    /**
+     * Phase 1.4 item 7 F2: a route-B lookup's record notes when main's answer reached it without
+     * main asking in it — the remembered answer, or another caller's running lookup (that caller's
+     * record gets main's requests). The lookup that asks notes nothing; the answers are the same.
+     */
+    @Test
+    fun aLookupsRecordNotesAnAnswerItDidNotAskFor() = runTest {
+        val asking = LookupRecord()
+        val remembered = LookupRecord()
+        assertTrue(withContext(asking) { coordinator.inspect(PAGE, PUBLIC, NOW) } is SiteAdapterOutcome.Detected)
+        assertTrue(withContext(remembered) { coordinator.inspect(PAGE, PUBLIC, NOW + 1_000) } is SiteAdapterOutcome.Detected)
+        assertNull(asking.reuse)
+        assertEquals(LookupRecord.Reuse.REMEMBERED, remembered.reuse)
+        assertEquals(1, extractor.requests.size)
+
+        extractor.gate = CompletableDeferred()
+        val other = "https://fixture.test/video/7"
+        val first = LookupRecord()
+        val joined = LookupRecord()
+        val home = async(first) { coordinator.inspect(other, PUBLIC, NOW) }
+        runCurrent()
+        val browser = async(joined) { coordinator.inspect(other, PUBLIC, NOW, fresh = true) }
+        runCurrent()
+        extractor.gate!!.complete(Unit)
+        assertTrue(home.await() is SiteAdapterOutcome.Detected)
+        assertTrue(browser.await() is SiteAdapterOutcome.Detected)
+        assertNull(first.reuse)
+        assertEquals(LookupRecord.Reuse.JOINED, joined.reuse)
+        assertEquals(2, extractor.requests.size)
     }
 
     @Test

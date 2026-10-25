@@ -1,0 +1,192 @@
+name: Master recipes publish (spike)
+
+# Social plan S4 (MASTER_KEY_SOCIAL_PLAN.md section 7.3, 7.5; R9 in MASTER_KEY_PHASE1_PLAN.md): a
+# data fix without a new APK. Signs one committed, data-only recipe config
+# (extractor-master/recipes/configs/<name>.json) with the repository secret YFT_RECIPE_KEY and
+# publishes it on the branch "recipes" as master-recipes.json, the address a social-ladder debug
+# build asks (raw.githubusercontent.com; yft.masterRecipeUrl's default). Start: the owner's label
+# recipes:<name> on draft PR #2 (GitHub shows "Run workflow" only on the default branch; a manual
+# run takes the config's name). Each run: the next version (the live one plus one), expiring a
+# year after the run (UTC); the schema and the reader's limits checked; the secret's key checked
+# against the committed public key (extractor-master/recipes/master-recipes.pub.hex); the envelope
+# verified with that key; then one new commit on "recipes" (never forced): master-recipes.json,
+# published/v<N>-<name>.json and history.tsv. The label is taken off afterwards, so the same
+# label can publish again. Any other label or event, another repository's pull request or another
+# person's label: skipped. Runs never overlap. The private key is written only to the runner's
+# temporary directory (owner-only) and shredded at the step's end; it is never printed.
+on:
+  pull_request:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      config:
+        description: "Config name (extractor-master/recipes/configs/<name>.json)"
+        type: string
+        default: defaults
+
+concurrency:
+  group: master-recipes-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: >-
+      github.triggering_actor == github.repository_owner && (
+      github.event_name == 'workflow_dispatch' || (
+      github.event_name == 'pull_request' && startsWith(github.event.label.name, 'recipes:') &&
+      github.event.pull_request.head.repo.full_name == github.repository))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    env:
+      CONFIG_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.config || github.event.label.name }}
+      SOURCE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # A label run publishes from the PR head itself, not its merge with main.
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Schema checker
+        shell: bash
+        run: python -m pip install --disable-pip-version-check --quiet "jsonschema==4.23.0"
+      - name: The config and the next version
+        id: plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          name="${CONFIG_NAME#recipes:}"
+          if [[ ! "$name" =~ ^[a-z0-9][a-z0-9-]{0,39}$ ]]; then
+            echo "::error title=Recipes::not a config name (lowercase letters, digits and dashes)"
+            exit 1
+          fi
+          config="extractor-master/recipes/configs/$name.json"
+          if [[ ! -f "$config" ]]; then
+            echo "::error title=Recipes::no config $config at this commit"
+            exit 1
+          fi
+          live=0
+          parent=""
+          found=0
+          git ls-remote --exit-code --heads origin recipes >/dev/null || found=$?
+          if [[ "$found" -eq 0 ]]; then
+            git fetch --no-tags --depth=1 origin recipes
+            parent="$(git rev-parse FETCH_HEAD)"
+            git show "$parent:master-recipes.json" > "$RUNNER_TEMP/live.json"
+            live="$(python scripts/master-recipes-publish.py live-version "$RUNNER_TEMP/live.json")"
+          elif [[ "$found" -ne 2 ]]; then
+            echo "::error title=Recipes::the recipes branch could not be read"
+            exit 1
+          fi
+          {
+            echo "name=$name"
+            echo "config=$config"
+            echo "parent=$parent"
+            echo "live=$live"
+            echo "version=$((live + 1))"
+            echo "expires=$(date -u -d '+365 days' +%F)"
+          } >> "$GITHUB_OUTPUT"
+      - name: Compose and check the payload
+        shell: bash
+        env:
+          CONFIG: ${{ steps.plan.outputs.config }}
+          VERSION: ${{ steps.plan.outputs.version }}
+          EXPIRES: ${{ steps.plan.outputs.expires }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/recipes"
+          python scripts/master-recipes-publish.py compose "$CONFIG" --version "$VERSION" --expires "$EXPIRES" \
+            --out "$RUNNER_TEMP/recipes/payload.json"
+          python scripts/master-recipes-publish.py check "$RUNNER_TEMP/recipes/payload.json" \
+            --schema extractor-master/recipes/master-recipes.schema.json
+      - name: Sign with the repository's recipe key
+        shell: bash
+        env:
+          YFT_RECIPE_KEY: ${{ secrets.YFT_RECIPE_KEY }}
+        run: |
+          set -euo pipefail
+          key="$RUNNER_TEMP/recipe-key.pem"
+          trap 'shred -u "$key" 2>/dev/null || rm -f "$key"' EXIT
+          if [[ -z "$YFT_RECIPE_KEY" ]]; then
+            echo "::error title=Recipes::the secret YFT_RECIPE_KEY is not set"
+            exit 1
+          fi
+          (umask 077 && printf '%s\n' "$YFT_RECIPE_KEY" > "$key")
+          derived="$(bash scripts/master-recipe-sign.sh pubkey "$key")"
+          committed="$(tr -d ' \r\n' < extractor-master/recipes/master-recipes.pub.hex)"
+          if [[ -z "$derived" || "$derived" != "$committed" ]]; then
+            echo "::error title=Recipes::the secret's key is not the committed public key"
+            exit 1
+          fi
+          bash scripts/master-recipe-sign.sh sign "$key" "$RUNNER_TEMP/recipes/payload.json" \
+            "$RUNNER_TEMP/recipes/master-recipes.json"
+      - name: Verify the envelope with the committed public key
+        shell: bash
+        run: |
+          python scripts/master-recipes-publish.py verify "$RUNNER_TEMP/recipes/master-recipes.json" \
+            --key extractor-master/recipes/master-recipes.pub.hex --payload "$RUNNER_TEMP/recipes/payload.json"
+      - name: Publish on the recipes branch (one new commit, never forced)
+        shell: bash
+        env:
+          NAME: ${{ steps.plan.outputs.name }}
+          PARENT: ${{ steps.plan.outputs.parent }}
+          VERSION: ${{ steps.plan.outputs.version }}
+          EXPIRES: ${{ steps.plan.outputs.expires }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/recipes"
+          export GIT_INDEX_FILE="$RUNNER_TEMP/recipes.index"
+          rm -f "$GIT_INDEX_FILE"
+          header="$(printf 'version\tconfig\tsource\tpublished\texpires')"
+          if [[ -n "$PARENT" ]]; then
+            git read-tree "$PARENT"
+            git show "$PARENT:history.tsv" > "$out/history.tsv" 2>/dev/null || echo "$header" > "$out/history.tsv"
+          else
+            git read-tree --empty
+            echo "$header" > "$out/history.tsv"
+          fi
+          printf '%s\t%s\t%s\t%s\t%s\n' "$VERSION" "$NAME" "${SOURCE_SHA:0:12}" "$(date -u +%FT%TZ)" "$EXPIRES" \
+            >> "$out/history.tsv"
+          add() { git update-index --add --cacheinfo "100644,$(git hash-object -w "$1"),$2"; }
+          add "$out/master-recipes.json" master-recipes.json
+          add "$out/master-recipes.json" "published/v$VERSION-$NAME.json"
+          add "$out/history.tsv" history.tsv
+          tree="$(git write-tree)"
+          export GIT_AUTHOR_NAME="github-actions[bot]"
+          export GIT_AUTHOR_EMAIL="41898282+github-actions[bot]@users.noreply.github.com"
+          export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME" GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
+          message="Recipes version $VERSION: $NAME (from ${SOURCE_SHA:0:12}, expires $EXPIRES)"
+          if [[ -n "$PARENT" ]]; then
+            commit="$(git commit-tree "$tree" -p "$PARENT" -m "$message")"
+          else
+            commit="$(git commit-tree "$tree" -m "$message")"
+          fi
+          git push origin "$commit:refs/heads/recipes"
+          {
+            echo "### Recipes version $VERSION published"
+            echo ""
+            echo "- config: \`$NAME\` (from \`${SOURCE_SHA:0:12}\`)"
+            echo "- expires: $EXPIRES (UTC)"
+            echo "- address: https://raw.githubusercontent.com/$GITHUB_REPOSITORY/recipes/master-recipes.json (cached up to 5 minutes)"
+            echo "- a social-ladder build applies it at its next ask: the census screen on open, else within 6 hours"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Take the label off (the same label can publish again)
+        if: always() && github.event_name == 'pull_request'
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LABEL: ${{ github.event.label.name }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          label="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$LABEL")"
+          gh api -X DELETE "repos/$GITHUB_REPOSITORY/issues/$PR/labels/$label" > /dev/null

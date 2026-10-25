@@ -7,6 +7,7 @@ import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.core.model.settings.SearchEngine
+import com.alal.yft.detection.master.BackupFinder
 import com.alal.yft.feature.browser.FakeBrowserHistoryRepository
 import com.alal.yft.feature.browser.FakeBrowserPreferencesRepository
 import com.alal.yft.testing.MainDispatcherRule
@@ -191,6 +192,32 @@ class SettingsViewModelTest {
 
         assertEquals("That could not be completed. Try again.", viewModel.uiState.value.message)
         assertFalse(viewModel.uiState.value.working)
+    }
+
+    @Test
+    fun theBackupFinderSwitchIsShownAndSetOnlyInABuildWithMaster() = runTest {
+        // Decision 30 (i): on by default; off, no lookup asks Master.
+        val finder = BackupFinder.inMemory(on = true, available = true)
+        val viewModel = SettingsViewModel(
+            preferences, cleaner, history, settings, browser, browserHistory, finder,
+        )
+        backgroundScope.launch { viewModel.uiState.collect {} }
+        runCurrent()
+        assertEquals(true, viewModel.uiState.value.backupFinder)
+
+        viewModel.onAction(SettingsAction.SetBackupFinder(false))
+        runCurrent()
+        assertFalse(finder.isOn())
+        assertEquals(false, viewModel.uiState.value.backupFinder)
+
+        val without = SettingsViewModel(
+            preferences, cleaner, history, settings, browser, browserHistory,
+            BackupFinder.inMemory(available = false),
+        )
+        backgroundScope.launch { without.uiState.collect {} }
+        runCurrent()
+        assertNull(without.uiState.value.backupFinder)
+        assertNull(subscribed().uiState.value.backupFinder)
     }
 
     private fun TestScope.subscribed(): SettingsViewModel {

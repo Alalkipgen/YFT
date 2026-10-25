@@ -25,6 +25,7 @@ import com.alal.yft.feature.preview.PreviewRoute
 import com.alal.yft.feature.quickdownload.QuickDownloadRoute
 import com.alal.yft.feature.settings.SettingsRoute
 import com.alal.yft.ui.components.YftModalSheet
+import com.alal.yft.update.UpdatesRoute
 
 @Composable
 fun YftNavHost(
@@ -107,13 +108,18 @@ fun YftNavHost(
     settingsContent: @Composable (
         onOpenAbout: () -> Unit,
         onOpenLicenses: () -> Unit,
-    ) -> Unit = { onOpenAbout, onOpenLicenses ->
+        onOpenUpdates: () -> Unit,
+    ) -> Unit = { onOpenAbout, onOpenLicenses, onOpenUpdates ->
         SettingsRoute(
             themeMode = themeMode,
             onThemeModeChanged = onThemeModeChanged,
             onOpenAbout = onOpenAbout,
             onOpenLicenses = onOpenLicenses,
+            onOpenUpdates = onOpenUpdates,
         )
+    },
+    updatesContent: @Composable (onNavigateBack: () -> Unit) -> Unit = { onNavigateBack ->
+        UpdatesRoute(onNavigateBack = onNavigateBack)
     },
 ) {
     val navigateBack = { navController.navigateUp(); Unit }
@@ -125,6 +131,9 @@ fun YftNavHost(
     }
     val openLicenses = {
         navController.navigate(YftDestination.LICENSES.route) { launchSingleTop = true }
+    }
+    val openUpdates = {
+        navController.navigate(YftDestination.UPDATES.route) { launchSingleTop = true }
     }
     val openQuickDownload = {
         navController.navigate(YftDestination.QUICK_DOWNLOAD.route) { launchSingleTop = true }
@@ -244,13 +253,16 @@ fun YftNavHost(
             playerContent(navigateBack)
         }
         composable(YftDestination.SETTINGS.route) {
-            settingsContent(openAbout, openLicenses)
+            settingsContent(openAbout, openLicenses, openUpdates)
         }
         composable(YftDestination.ABOUT.route) {
             AboutRoute(onNavigateBack = navigateBack, onOpenLicenses = openLicenses)
         }
         composable(YftDestination.LICENSES.route) {
             LicensesScreen(onNavigateBack = navigateBack)
+        }
+        composable(YftDestination.UPDATES.route) {
+            updatesContent(navigateBack)
         }
     }
 }

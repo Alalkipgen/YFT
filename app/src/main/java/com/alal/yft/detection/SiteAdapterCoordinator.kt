@@ -10,6 +10,7 @@ import com.alal.yft.extractor.api.SiteExtractionResult
 import com.alal.yft.extractor.api.SiteExtractorRegistry
 import com.alal.yft.extractor.api.SitePageData
 import com.alal.yft.extractor.api.SitePageIdentity
+import com.alal.yft.extractor.master.lookup.LookupRecord
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -26,6 +27,12 @@ sealed interface SiteAdapterOutcome {
     data class Detected(
         val adapterId: String,
         val candidates: List<MediaCandidate>,
+        /**
+         * Phase 1.4 item 7 (YouTube routing B) R4: the backup's details of rows it found — only
+         * route B's (its line first: `master: route B after <reason>; replayed N; new M`), so a
+         * route-B build can show them. Every other answer: none.
+         */
+        val details: List<String> = emptyList(),
     ) : SiteAdapterOutcome
 
     data class Failed(
@@ -34,10 +41,17 @@ sealed interface SiteAdapterOutcome {
         val message: String,
         val allowsGenericFallback: Boolean,
         val details: List<String> = emptyList(),
+        /**
+         * Social plan task 15 (F3b): the answer is final whatever its [reason] — a social ladder's
+         * photos-only answer (Instagram, TikTok, X: the post has no video), so asking again cannot
+         * change it. Only Master's browser fallback sets it, in a social-ladder build; every other
+         * answer: false, as before.
+         */
+        val final: Boolean = false,
     ) : SiteAdapterOutcome {
         /** Whether asking again can change the answer, so the browser offers Try again. */
         val canRetry: Boolean
-            get() = reason !in FINAL_REASONS
+            get() = !final && reason !in FINAL_REASONS
 
         /**
          * Whether the site's own player playing the video is what the lookup waits for, so the
@@ -109,15 +123,24 @@ class SiteAdapterCoordinator @Inject constructor(
         if (fresh) {
             lookups.forget(key)
         } else {
-            remembered(key, nowEpochMs)?.let { return it.anchoredTo(pageUrl) }
+            remembered(key, nowEpochMs)?.let {
+                // Phase 1.4 item 7 F2: a route-B lookup's record notes that main did not ask in it
+                // (only a route-B build's YouTube lookup has a record; elsewhere nothing happens).
+                currentCoroutineContext()[LookupRecord]?.noteReuse(LookupRecord.Reuse.REMEMBERED)
+                return it.anchoredTo(pageUrl)
+            }
         }
         // The shared lookup runs on the caller's dispatcher; the last caller to stop stops it.
         val context = currentCoroutineContext().minusKey(Job)
+        var started = false
         val lookup = lookups.join(key) {
+            started = true
             CoroutineScope(context + SupervisorJob()).async {
                 extract(matched, pageUrl, requestContext, nowEpochMs, key, tab)
             }
         }
+        // F2: joining another caller's running lookup — main's requests go to that caller's record.
+        if (!started) context[LookupRecord]?.noteReuse(LookupRecord.Reuse.JOINED)
         return try {
             when (val outcome = lookup.work.await()) {
                 is SiteAdapterOutcome.Detected -> outcome.anchoredTo(pageUrl)
@@ -376,6 +399,10 @@ class SiteAdapterCoordinator @Inject constructor(
     fun handles(pageUrl: String): Boolean =
         registry.select(pageUrl) is SiteAdapterSelection.Matched
 
+    /** The backup experiment must not turn an explicitly disabled match into a fallback. */
+    fun allowsMasterFallback(pageUrl: String): Boolean =
+        registry.select(pageUrl) !is SiteAdapterSelection.Disabled
+
     /**
      * The video [pageUrl] shows as "site:contentId", the same for every address of it, or null
      * when no enabled adapter handles the page (P12: one lookup per video).
@@ -384,6 +411,10 @@ class SiteAdapterCoordinator @Inject constructor(
         (registry.select(pageUrl) as? SiteAdapterSelection.Matched)?.identity?.let { identity ->
             "${identity.siteId}:${identity.contentId}"
         }
+
+    /** R8 (Master): the video an enabled adapter identified for [pageUrl], or null. */
+    fun identity(pageUrl: String): SitePageIdentity? =
+        (registry.select(pageUrl) as? SiteAdapterSelection.Matched)?.identity
 
     /**
      * Whether two addresses show the same post of the same site, for example when the site adds

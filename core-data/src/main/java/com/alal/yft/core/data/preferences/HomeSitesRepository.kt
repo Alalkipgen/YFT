@@ -28,7 +28,8 @@ interface HomeSitesRepository {
  * Keeps the shortcuts in the app's preferences store. Until the user changes the list, the
  * first-run [HomeSites.DEFAULTS] are shown; after that an empty list stays empty. A list stored
  * with older defaults is moved to the current ones once ([HomeSites.migrateDefaults]); the
- * stored defaults version makes sure it never runs twice.
+ * stored defaults version makes sure it never runs twice. D4: a version 2 list gets Instagram
+ * and X once; one the user changes afterwards is never given them again.
  */
 @Singleton
 class DataStoreHomeSitesRepository @Inject constructor(
@@ -59,10 +60,12 @@ class DataStoreHomeSitesRepository @Inject constructor(
         if (defaultsChecked) return
         try {
             dataStore.edit { stored ->
-                if ((stored[DEFAULTS_VERSION] ?: 1) < HomeSites.DEFAULTS_VERSION) {
+                val version = stored[DEFAULTS_VERSION] ?: 1
+                if (version < HomeSites.DEFAULTS_VERSION) {
                     stored[SITES]?.let { encoded ->
-                        val migrated = HomeSites.migrateDefaults(HomeSites.decode(encoded))
-                        stored[SITES] = HomeSites.encode(migrated)
+                        // D4: the stored version picks the move (version 2: Instagram and X).
+                        val sites = HomeSites.decode(encoded)
+                        stored[SITES] = HomeSites.encode(HomeSites.migrateDefaults(sites, version))
                     }
                     stored[DEFAULTS_VERSION] = HomeSites.DEFAULTS_VERSION
                 }

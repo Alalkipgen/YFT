@@ -71,6 +71,22 @@ class PublicDownloadDestinationTest {
     }
 
     @Test
+    fun `D3 a long Myanmar name keeps its extension within the byte limit`() {
+        // သတ္တဝါ ×40: cut at a grapheme, 219 bytes and ".mp4", never after ္.
+        val word = "\u101E\u1010\u1039\u1010\u101D\u102B"
+        val store = FakePublicContentStore()
+
+        MediaStoreDownloadDestination.create(
+            store = store,
+            displayName = word.repeat(40) + ".mp4",
+            mimeType = "video/mp4",
+            relativePath = "Download/YFT",
+        )
+
+        assertEquals(word.repeat(12) + "\u101E.mp4", store.pendingMedia.single().displayName)
+    }
+
+    @Test
     fun `discard removes an unpublished MediaStore item`() {
         val store = FakePublicContentStore()
         val destination = MediaStoreDownloadDestination.create(
@@ -283,6 +299,73 @@ class PublicDownloadDestinationTest {
     }
 
     @Test
+    fun `D1 an app storage file renamed to ts is published under a free name`() {
+        val folder = Files.createTempDirectory("rename").toFile()
+        try {
+            File(folder, "clip.ts").writeBytes(ByteArray(1))
+            File(folder, "clip (1).ts.0123abcd.part").writeBytes(ByteArray(1))
+            val partial = File(folder, "clip.mp4.4567cdef.part").apply { writeBytes(ByteArray(3)) }
+            val destination = FileDownloadDestination(partial, File(folder, "clip.mp4"))
+
+            // A published file and another download's reservation both take a name.
+            assertEquals("clip (2).ts", destination.renameExtension("ts", "video/mp2t"))
+            destination.commit()
+
+            assertArrayEquals(ByteArray(3), File(folder, "clip (2).ts").readBytes())
+            assertFalse(File(folder, "clip.mp4").exists())
+
+            // Starting over writes under the planned name again.
+            partial.writeBytes(ByteArray(2))
+            val again = FileDownloadDestination(partial, File(folder, "clip.mp4"))
+            assertEquals("clip (3).ts", again.renameExtension("ts", "video/mp2t"))
+            again.renew().commit()
+            assertTrue(File(folder, "clip.mp4").isFile)
+        } finally {
+            folder.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `D1 a pending MediaStore row is renamed with its type and SAF at commit`() {
+        val store = FakePublicContentStore()
+        val media = MediaStoreDownloadDestination.create(
+            store = store,
+            displayName = "clip.mp4",
+            mimeType = "video/mp4",
+        )
+        store.createPendingMedia("clip.ts", "video/mp2t", "Download/YFT/")
+
+        assertEquals("clip (1).ts", media.renameExtension("ts", "video/mp2t; x=1"))
+        assertEquals(
+            PendingMedia("clip (1).ts", "video/mp2t", "Download/YFT/"),
+            store.pendingMedia.first(),
+        )
+        media.commit()
+        assertEquals(listOf("content://media/pending/1"), store.publishedMedia)
+        assertThrows(IllegalStateException::class.java) { media.renameExtension("ts", "x/y") }
+
+        val document = SafDownloadDestination.create(
+            store = store,
+            treeUri = "content://documents/tree/downloads",
+            displayName = "Mr. Smith.mp4",
+            mimeType = "video/mp4",
+            temporaryId = "task-7",
+        )
+        assertEquals("Mr. Smith.ts", document.renameExtension("ts", "video/mp2t"))
+        document.commit()
+        assertEquals("Mr. Smith.ts", store.renames.single().finalDisplayName)
+    }
+
+    @Test
+    fun `D1 a name's extension is replaced or added`() {
+        assertEquals("clip.ts", withExtension("clip.mp4", "ts"))
+        assertEquals("Mr. Smith.ts", withExtension("Mr. Smith", "ts"))
+        assertEquals("v1.2 final.ts", withExtension("v1.2 final.m3u8", "ts"))
+        assertEquals("song.mp3", withExtension("song", "mp3"))
+        assertEquals(".hidden.ts", withExtension(".hidden", "ts"))
+    }
+
+    @Test
     fun `unsafe relative path is rejected before creating public content`() {
         val store = FakePublicContentStore()
 
@@ -440,6 +523,7 @@ class PublicDownloadDestinationTest {
         val pendingMedia = mutableListOf<PendingMedia>()
         val publishedMedia = mutableListOf<String>()
         val deletedMedia = mutableListOf<String>()
+        val renamedMedia = mutableListOf<String>()
         val temporaryDocuments = mutableListOf<TemporaryDocument>()
         val renames = mutableListOf<Rename>()
         val deletedDocuments = mutableListOf<String>()
@@ -463,6 +547,22 @@ class PublicDownloadDestinationTest {
         override fun deletePendingMedia(uri: String) {
             deletedMedia += uri
             outputs.remove(uri)
+        }
+
+        /** Renames the row like MediaStore: the name's extension and the type at once. */
+        override fun renamePendingMedia(uri: String, extension: String, mimeType: String): String {
+            val index = uri.substringAfterLast('/').toInt() - 1
+            val row = pendingMedia[index]
+            val name = withExtension(row.displayName, extension).let { wanted ->
+                if (pendingMedia.any { it.displayName == wanted }) {
+                    "${wanted.substringBeforeLast('.')} (1).$extension"
+                } else {
+                    wanted
+                }
+            }
+            pendingMedia[index] = row.copy(displayName = name, mimeType = mimeType)
+            renamedMedia += uri
+            return name
         }
 
         override fun createTemporaryDocument(

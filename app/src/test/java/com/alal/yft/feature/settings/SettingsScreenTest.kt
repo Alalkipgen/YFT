@@ -190,6 +190,22 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun `the Backup finder is on by default and only in a build with Master`() {
+        setContent()
+        composeRule.onAllNodesWithTag("settings-backup-finder").assertCountEquals(0)
+
+        shown.value = SettingsUiState(backupFinder = true)
+        composeRule.onNodeWithTag("settings-backup-finder").performScrollTo()
+            .assertIsOn()
+            .performClick()
+        composeRule.onNodeWithText("Backup finder").assertExists()
+        composeRule.onNodeWithText(BACKUP_FINDER_SUPPORTING).assertExists()
+        assertEquals(listOf<SettingsAction>(SettingsAction.SetBackupFinder(false)), actions)
+        shown.value = SettingsUiState(backupFinder = false)
+        composeRule.onNodeWithTag("settings-backup-finder").assertIsOff()
+    }
+
+    @Test
     fun `the browser history is saved until switched off and is cleared after a question`() {
         setContent()
 

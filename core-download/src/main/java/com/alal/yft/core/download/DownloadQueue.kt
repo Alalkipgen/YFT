@@ -749,16 +749,19 @@ class DownloadQueue(
     ) = gate.withLock {
         val current = taskLocked(id) ?: return@withLock
         val publishedUri = runtimeTasks[id]?.destination?.publishedUri
-        val checkpointBytes = result.checkpoint.downloadedBytes
-        val totalBytes = when (current.planType) {
-            DownloadPlanType.AUDIO_VIDEO_MUX -> null
-            else -> (current.totalBytes ?: result.bytesWritten)
-                .coerceAtLeast(checkpointBytes)
-        }
+        // D1 follow-ups 3 and 4: a download shows the size of the file it published, one size
+        // on every screen, for every plan type: an HLS download's MP4, an MP3 or M4A made from
+        // a direct download, a merged video, a DASH file; not its pieces', source's or tracks'.
+        // The checkpoint keeps what was downloaded.
+        val publishedBytes = result.bytesWritten
+        // D1: a file kept in another format than planned shows the name it was published as.
+        val published = result.publishedAs
         val completed = current.copy(
+            displayName = published?.displayName ?: current.displayName,
+            mimeType = published?.mimeType ?: current.mimeType,
             status = DownloadTaskStatus.COMPLETED,
-            totalBytes = totalBytes,
-            downloadedBytes = checkpointBytes,
+            totalBytes = publishedBytes,
+            downloadedBytes = publishedBytes,
             requiresLinkRefresh = false,
             failureReason = null,
             failure = null,
@@ -775,7 +778,35 @@ class DownloadQueue(
         result: QueueTransferResult.Failure,
     ) = gate.withLock {
         val current = taskLocked(id) ?: return@withLock
-        val needsRefresh = result.failure.reason in REFRESH_FAILURES
+        val now = clock()
+        val plan = runtimeTasks[id]?.plan
+        // Item 7 Track B1: YouTube refusing a link with time left on it is not an expired link.
+        val reported = if (
+            plan != null && GoogleVideoLinkFacts.refusedWithTimeLeft(plan, result.failure, now)
+        ) {
+            result.failure.copy(reason = DownloadFailureReason.YOUTUBE_REFUSED)
+        } else {
+            result.failure
+        }
+        val needsRefresh = reported.reason in REFRESH_FAILURES
+        // F6 (debug spike): a YouTube media link's facts lead the details, without the link.
+        val failure = plan
+            ?.let { known ->
+                GoogleVideoLinkFacts.describe(
+                    plan = known,
+                    nowEpochMs = now,
+                    downloadedBytes = result.checkpoint.downloadedBytes,
+                    ageMs = now - current.createdAtEpochMs,
+                )
+            }
+            ?.let { facts ->
+                reported.copy(
+                    detail = DownloadFailureDetails.sanitize(
+                        listOfNotNull(facts, reported.detail).joinToString("; "),
+                    ),
+                )
+            }
+            ?: reported
         val checkpointTotal = (result.checkpoint as? DirectTransferCheckpoint)?.totalBytes
         val failed = current.copy(
             status = if (needsRefresh) {
@@ -790,10 +821,10 @@ class DownloadQueue(
                 },
             downloadedBytes = result.checkpoint.downloadedBytes,
             requiresLinkRefresh = needsRefresh,
-            failureReason = result.failure.reason,
-            failure = result.failure,
+            failureReason = failure.reason,
+            failure = failure,
             checkpoint = result.checkpoint,
-            updatedAtEpochMs = clock(),
+            updatedAtEpochMs = now,
         )
         if (needsRefresh) runtimeTasks.remove(id)
         saveAndPublishLocked(failed)
@@ -816,9 +847,12 @@ class DownloadQueue(
         }
     }
 
-    /** A stopped stream task shows what its checkpoint keeps (P41), not the bytes in flight. */
+    /**
+     * A stopped stream task shows what its checkpoint keeps (P41), not the bytes in flight; a
+     * completed one the file it published (D1 follow-up 4).
+     */
     private fun StoredDownloadTask.withCheckpointBytes(): StoredDownloadTask =
-        if (planType.showsBytesInFlight) {
+        if (planType.showsBytesInFlight && !status.showsPublishedBytes) {
             copy(downloadedBytes = checkpoint.downloadedBytes)
         } else {
             this
@@ -860,6 +894,8 @@ class DownloadQueue(
             DownloadFailureReason.AUTHENTICATION_REQUIRED,
             DownloadFailureReason.ACCESS_DENIED,
             DownloadFailureReason.GONE,
+            // Track B1: the refused link stays refused; a fresh lookup gives a new one.
+            DownloadFailureReason.YOUTUBE_REFUSED,
         )
     }
 }

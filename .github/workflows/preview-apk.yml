@@ -1,8 +1,10 @@
 name: Preview APK (test key)
 
-# P7: the owner's test build. The release code (minified, not debuggable) as
-# com.alal.yft.preview, signed with a throwaway test key made fresh in this job and deleted at
-# its end. It never sees the release key or any repository secret.
+# P7: the owner's test builds. The release code (minified, not debuggable) as
+# com.alal.yft.preview ("YFT Preview", #12 normal: the release's flags and look exactly) and, by
+# decision 30 (iii), as com.alal.yft.trial ("YFT Trial", #12 trial: the same with the trials on
+# and every detail shown), both signed with one throwaway test key made fresh in this job and
+# deleted at its end. It never sees the release key or any repository secret.
 on:
   push:
     branches: ["work/phase-*"]
@@ -29,7 +31,7 @@ concurrency:
 jobs:
   preview:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-java@v5
@@ -49,7 +51,7 @@ jobs:
           gradle-version: "8.9"
       # Each run makes its own test key, so a newer preview does not install over an older one:
       # uninstall the old preview first (docs/RELEASE.md).
-      - name: Build, verify and stage the preview APK with a fresh test key
+      - name: Build, verify and stage the preview APKs with a fresh test key
         shell: bash
         run: |
           key_dir="$RUNNER_TEMP/yft-preview-key"
@@ -70,24 +72,43 @@ jobs:
             -alias "$YFT_PREVIEW_KEY_ALIAS" -storepass:env YFT_PREVIEW_STORE_PASSWORD \
             | sed -n 's/^[[:space:]]*SHA256: //p' | head -n 1)"
           test -n "$certificate"
-          ./gradlew --no-daemon :app:assemblePreview "-Pyft.previewBuild=$GITHUB_RUN_NUMBER"
+          ./gradlew --no-daemon :app:assemblePreview :app:assemblePreviewTrial \
+            "-Pyft.previewBuild=$GITHUB_RUN_NUMBER"
           version="$(sed -n 's/^yft\.versionName=//p' gradle.properties | tail -n 1)"
           bash scripts/verify-release-apk.sh --package com.alal.yft.preview \
             --expected-version "$version-preview.$GITHUB_RUN_NUMBER" \
             --expected-cert-sha256 "$certificate" \
             --out-dir "$RUNNER_TEMP/yft-preview-apk" \
             app/build/outputs/apk/preview/app-preview.apk
+          bash scripts/verify-release-apk.sh --package com.alal.yft.trial \
+            --expected-version "$version-trial.$GITHUB_RUN_NUMBER" \
+            --expected-cert-sha256 "$certificate" \
+            --out-dir "$RUNNER_TEMP/yft-preview-trial-apk" \
+            app/build/outputs/apk/previewTrial/app-previewTrial.apk
           {
-            echo "### YFT preview APK (test key, not the release key)"
+            echo "### YFT preview APK — #12 normal (test key, not the release key)"
             echo
             echo '```'
             cat "$RUNNER_TEMP/yft-preview-apk/release-info.txt"
             echo '```'
+            echo
+            echo "### YFT trial APK — #12 trial (test key, not the release key)"
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/yft-preview-trial-apk/release-info.txt"
+            echo '```'
           } >>"$GITHUB_STEP_SUMMARY"
-      - name: Upload the preview APK
+      - name: Upload the preview APK (#12 normal)
         uses: actions/upload-artifact@v4
         with:
           name: yft-preview-apk
           path: ${{ runner.temp }}/yft-preview-apk/*
+          retention-days: 30
+          if-no-files-found: error
+      - name: Upload the trial APK (#12 trial)
+        uses: actions/upload-artifact@v4
+        with:
+          name: yft-preview-trial-apk
+          path: ${{ runner.temp }}/yft-preview-trial-apk/*
           retention-days: 30
           if-no-files-found: error

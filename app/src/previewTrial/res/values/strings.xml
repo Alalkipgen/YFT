@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Decision 30 (iii): #12 trial installs next to the release app and #12 normal (YFT Preview). -->
+<resources>
+    <string name="app_name">YFT Trial</string>
+</resources>

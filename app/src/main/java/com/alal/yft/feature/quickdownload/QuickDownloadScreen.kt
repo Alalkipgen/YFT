@@ -1,5 +1,7 @@
 package com.alal.yft.feature.quickdownload
 
+import android.os.Build
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,23 +36,29 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.alal.yft.core.model.logging.DiagnosticTextSanitizer
 import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.feature.preview.MeteredDownloadDialog
 import com.alal.yft.feature.preview.PreviewDownloadStatus
 import com.alal.yft.thumbnail.rememberRemoteThumbnail
 import com.alal.yft.ui.components.YftMediaKind
 import com.alal.yft.ui.components.YftMetaChip
+import com.alal.yft.ui.LocalQuietRelease
+import com.alal.yft.ui.QuietLines
 import com.alal.yft.ui.components.YftPrimaryButton
 import com.alal.yft.ui.components.YftRadioMark
 import com.alal.yft.ui.components.YftTextButton
@@ -87,6 +95,8 @@ fun QuickDownloadRoute(
         onReload = { if (viewModel.reloadPage()) onNavigateBack() },
         onOpenDownloads = onOpenDownloads,
         onClose = onNavigateBack,
+        // Decision 30 (v): a quiet build's Show check opens TikTok's check in the browser.
+        onShowCheck = { if (viewModel.showSiteCheck()) onNavigateBack() },
     )
 }
 
@@ -115,7 +125,9 @@ fun QuickDownloadScreen(
     onClose: () -> Unit = {},
     onReload: () -> Unit = {},
     onPickEarly: (OptionSection) -> Unit = {},
+    onShowCheck: () -> Unit = {},
 ) {
+    val quiet = LocalQuietRelease.current
     if (state.downloadStatus == PreviewDownloadStatus.ConfirmMetered) {
         MeteredDownloadDialog(onConfirm = onConfirmMetered, onDismiss = onDismissMetered)
     }
@@ -258,6 +270,11 @@ fun QuickDownloadScreen(
                 onDownload = onDownload,
                 onPickEarly = onPickEarly,
             )
+            // Decision 30 (v): a quiet build says one line (TikTok's check keeps its Show check).
+            quiet -> QuietFailure(
+                line = QuietLines.of(state.failure, state.siteCheck),
+                onShowCheck = onShowCheck.takeIf { state.siteCheck },
+            )
             else -> Failure(
                 message = state.failure,
                 onRetry = onRetry.takeIf { state.canRetry },
@@ -266,6 +283,33 @@ fun QuickDownloadScreen(
             )
         }
     }
+}
+
+/**
+ * Decision 30 (v): the quiet build's failure — one line and nothing else (no Details, Copy
+ * details, Master lines, Try again or reload): Download again looks up again. TikTok's check
+ * keeps one Show check, which opens the check in the browser ([onShowCheck]).
+ */
+@Composable
+private fun ColumnScope.QuietFailure(line: String, onShowCheck: (() -> Unit)?) {
+    Text(
+        text = line,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp)
+            .testTag("quick-error"),
+        color = YftTheme.colors.coralText,
+        style = MaterialTheme.typography.bodyMedium,
+        textAlign = TextAlign.Center,
+    )
+    onShowCheck ?: return
+    YftTonalButton(
+        text = "Show check",
+        onClick = onShowCheck,
+        modifier = Modifier
+            .align(Alignment.CenterHorizontally)
+            .testTag("quick-show-check"),
+    )
 }
 
 @Composable
@@ -589,6 +633,11 @@ private fun PlaceholderBar(color: Color, modifier: Modifier) {
     Box(modifier = modifier.clip(YftShapes.thumbnailSmall).background(color))
 }
 
+/**
+ * The sheet's failure: its message and Details, then Try again and the reload. Social plan task 15
+ * (F3): the message and the Details scroll, and Try again and the reload stay pinned under them,
+ * so long Details never hide them; the Details, once shown, offer Copy details ([copiedDetails]).
+ */
 @Composable
 private fun ColumnScope.Failure(
     message: String?,
@@ -596,17 +645,25 @@ private fun ColumnScope.Failure(
     details: List<String> = emptyList(),
     onReload: (() -> Unit)? = null,
 ) {
-    Text(
-        text = message ?: "No format of this video could be read.",
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 16.dp)
-            .testTag("quick-error"),
-        color = YftTheme.colors.coralText,
-        style = MaterialTheme.typography.bodyMedium,
-        textAlign = TextAlign.Center,
-    )
-    FailureDetails(details)
+            .weight(1f, fill = false)
+            .verticalScroll(rememberScrollState())
+            .testTag("quick-error-scroll"),
+    ) {
+        Text(
+            text = message ?: "No format of this video could be read.",
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp)
+                .testTag("quick-error"),
+            color = YftTheme.colors.coralText,
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+        )
+        FailureDetails(details, copyTag = "quick-error-copy")
+    }
     // P12: a protected video has no Try again; asking again would not change it.
     onRetry ?: return
     YftTonalButton(
@@ -713,19 +770,39 @@ private fun ColumnScope.DownloadAction(
  * P24: "Details" under a failure: the step, the host and the status of the request that failed,
  * so a screenshot tells what went wrong. Hidden until asked for. P29: also under the line about
  * the next video ([tag] `quick-next-video-details`), with both attempts. P43: under the line
- * about a skipped ad without a tag ([tag] null).
+ * about a skipped ad without a tag ([tag] null). Social plan task 15 (F3): with a [copyTag] (the
+ * sheet's failure), the shown Details offer "Copy details" beside "Hide details".
  */
 @Composable
-private fun ColumnScope.FailureDetails(lines: List<String>, tag: String? = "quick-error-details") {
-    if (lines.isEmpty()) return
+private fun ColumnScope.FailureDetails(
+    lines: List<String>,
+    tag: String? = "quick-error-details",
+    copyTag: String? = null,
+) {
+    // Decision 30 (v): a quiet build shows Details only with the hidden Show details on.
+    if (lines.isEmpty() || LocalQuietRelease.current) return
     var shown by rememberSaveable(lines) { mutableStateOf(false) }
-    YftTextButton(
-        text = if (shown) "Hide details" else "Details",
-        onClick = { shown = !shown },
-        modifier = Modifier
-            .align(Alignment.CenterHorizontally)
-            .then(if (tag != null) Modifier.testTag(tag) else Modifier),
-    )
+    if (shown && copyTag != null) {
+        Row(
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            YftTextButton(
+                text = "Hide details",
+                onClick = { shown = false },
+                modifier = if (tag != null) Modifier.testTag(tag) else Modifier,
+            )
+            CopyDetails(lines, copyTag)
+        }
+    } else {
+        YftTextButton(
+            text = if (shown) "Hide details" else "Details",
+            onClick = { shown = !shown },
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .then(if (tag != null) Modifier.testTag(tag) else Modifier),
+        )
+    }
     if (shown) {
         Text(
             text = lines.joinToString("\n"),
@@ -739,6 +816,36 @@ private fun ColumnScope.FailureDetails(lines: List<String>, tag: String? = "quic
         )
     }
 }
+
+/** Task 15 (F3): "Copy details" puts [copiedDetails] of [lines] on the clipboard. */
+@Composable
+private fun CopyDetails(lines: List<String>, tag: String) {
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    YftTextButton(
+        text = "Copy details",
+        onClick = {
+            clipboard.setText(AnnotatedString(copiedDetails(lines)))
+            // Android 13 and later confirm a copy themselves.
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                Toast.makeText(context, "Details copied", Toast.LENGTH_SHORT).show()
+            }
+        },
+        modifier = Modifier.testTag(tag),
+    )
+}
+
+/**
+ * Social plan task 15 (F3): what "Copy details" copies — the Details' [lines] as shown, one per
+ * line, each cleaned once more ([DiagnosticTextSanitizer.redact]: a link as its site's origin, no
+ * query, no credential line) and each origin as its bare host, so the copy holds words only,
+ * never a link.
+ */
+internal fun copiedDetails(lines: List<String>): String =
+    lines.joinToString("\n") { line -> DiagnosticTextSanitizer.redact(line).replace(SCHEME, "") }
+
+/** A link's scheme and its `://` ([copiedDetails] keeps the host only). */
+private val SCHEME = Regex("""(?i)\b[a-z][a-z0-9+.-]*://""")
 
 /** "Download · 25 MB"; just "Download" while the size is unknown. */
 internal fun downloadLabel(option: SheetOption?): String =

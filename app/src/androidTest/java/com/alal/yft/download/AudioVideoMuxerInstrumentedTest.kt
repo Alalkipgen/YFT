@@ -76,6 +76,56 @@ class AudioVideoMuxerInstrumentedTest {
     }
 
     /**
+     * Phase 1.4 item 1: a 2K/4K VP9 keyframe is larger than the 256 KiB buffer a WebM track gets
+     * (it states no maximum input size); on the owner's phone (Android 16, 2026-10-16) the 1440p
+     * merge failed with a bare `IllegalArgumentException`. The video is 800 × 450 noise, 25 frames
+     * at 25 fps (libvpx-vp9, crf 10), its keyframe 355,713 bytes; it is kept as Base64 text
+     * (`video-vp9-big-keyframe.webm.b64`, 357,213 bytes decoded) and merged with the Opus track.
+     */
+    @Test
+    fun aVp9KeyframeOver256KibMergesIntoOneWebm() {
+        assumeTrue(Build.VERSION.SDK_INT >= AudioVideoMuxCompatibility.WEBM_OPUS_MIN_SDK)
+        val video = base64Asset("mux/video-vp9-big-keyframe.webm.b64", "video-vp9-big-keyframe.webm")
+        assertEquals(BIG_KEYFRAME_FILE_BYTES, video.length())
+        val output = File(directory, "vp9-big.webm")
+
+        val result = AndroidMp4AudioVideoMuxer().mux(
+            video,
+            asset("mux/audio-opus.webm"),
+            output,
+            AudioVideoMuxCompatibility.WEBM_OUTPUT_MIME,
+        )
+
+        assertTrue("$result", result is LocalMuxResult.Completed)
+        assertEquals(output.length(), (result as LocalMuxResult.Completed).bytesWritten)
+        val extractor = MediaExtractor()
+        try {
+            extractor.setDataSource(output.path)
+            val mimeTypes = (0 until extractor.trackCount).map { index ->
+                extractor.getTrackFormat(index).getString(MediaFormat.KEY_MIME)
+            }
+            assertEquals(listOf(MediaFormat.MIMETYPE_VIDEO_VP9, MediaFormat.MIMETYPE_AUDIO_OPUS), mimeTypes)
+            val format = extractor.getTrackFormat(0)
+            assertEquals(800, format.getInteger(MediaFormat.KEY_WIDTH))
+            assertEquals(450, format.getInteger(MediaFormat.KEY_HEIGHT))
+            extractor.selectTrack(0)
+            val buffer = java.nio.ByteBuffer.allocateDirect(BIG_KEYFRAME_FILE_BYTES.toInt())
+            var frames = 0
+            var largest = 0
+            while (extractor.sampleTime >= 0) {
+                buffer.clear()
+                largest = maxOf(largest, extractor.readSampleData(buffer, 0))
+                frames += 1
+                extractor.advance()
+            }
+            assertEquals(25, frames)
+            assertEquals(BIG_KEYFRAME_BYTES, largest)
+        } finally {
+            extractor.release()
+        }
+    }
+
+    /**
      * AV1 merges are off ([AudioVideoMuxCompatibility.AV1_MP4_ENABLED]) because this merge failed
      * on the API 34 emulator (P4). The probe still tries it on Android 14+ and logs a `YFT-DIAG`
      * line with the step that failed, so CI shows when a new image starts to write AV1.
@@ -169,8 +219,18 @@ class AudioVideoMuxerInstrumentedTest {
         return file
     }
 
+    /** A binary fixture kept as Base64 text (MIME lines), decoded into the test's directory. */
+    private fun base64Asset(name: String, fileName: String): File {
+        val text = instrumentation.context.assets.open(name).bufferedReader().use { it.readText() }
+        val file = File(directory, fileName)
+        file.writeBytes(android.util.Base64.decode(text, android.util.Base64.DEFAULT))
+        return file
+    }
+
     private companion object {
         const val TAG = "YftMuxTest"
         const val AV1_MIME_TYPE = "video/av01"
+        const val BIG_KEYFRAME_FILE_BYTES = 357_213L
+        const val BIG_KEYFRAME_BYTES = 355_713
     }
 }

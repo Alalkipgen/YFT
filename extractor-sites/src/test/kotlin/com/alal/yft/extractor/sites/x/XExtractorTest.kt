@@ -106,6 +106,56 @@ class XExtractorTest {
     }
 
     @Test
+    fun `a card's video is the post's, and a video link picks that video of the card`() = runTest {
+        val single = XExtractor(client("1786000000000000080", "x/tweet_card_video.json")).extract(
+            request("https://x.com/fixture_user/status/1786000000000000080"),
+        ) as SiteExtractionResult.Success
+        val extractor = XExtractor(client("1786000000000000090", "x/tweet_card_carousel.json"))
+        val second = extractor.extract(
+            request("https://x.com/fixture_user/status/1786000000000000090/video/2"),
+        ) as SiteExtractionResult.Success
+        val first = extractor.extract(
+            request("https://x.com/fixture_user/status/1786000000000000090"),
+        ) as SiteExtractionResult.Success
+
+        assertEquals(listOf(720, 360, 270), single.candidates.map { it.height })
+        assertEquals(
+            "answer: the card's video 1, 1 in the post · 3 MP4 files (720/360/270)",
+            single.details.last(),
+        )
+        assertEquals("a clip from our shop", single.candidates.first().title)
+        assertEquals(listOf(1280, 568), second.candidates.map { it.height })
+        assertEquals(
+            "answer: the card's video 2, 2 in the post · 2 MP4 files (1280/568)",
+            second.details.last(),
+        )
+        assertEquals(listOf(720, 360), first.candidates.map { it.height })
+        (single.candidates + first.candidates + second.candidates).forEach { candidate ->
+            assertEquals(MediaKind.DIRECT, candidate.kind)
+            assertEquals("video/mp4", candidate.mimeType)
+            assertTrue(candidate.mediaUrl, XSyndication.isMediaUrl(candidate.mediaUrl))
+            assertNull(candidate.requestContext.cookie)
+        }
+    }
+
+    @Test
+    fun `a card without a video, off X's video host or on the quoted post is not read`() = runTest {
+        mapOf(
+            "1786000000000000100" to "tweet_card_no_video",
+            "1786000000000000110" to "tweet_card_off_host",
+            "1786000000000000120" to "tweet_quoted_card",
+        ).forEach { (id, name) ->
+            val failure = XExtractor(client(id, "x/$name.json")).extract(
+                request("https://x.com/fixture_user/status/$id"),
+            ) as SiteExtractionResult.Failure
+
+            assertEquals(name, SiteExtractionFailure.RESPONSE_CHANGED, failure.reason)
+            assertEquals(name, "answer: no video", failure.details.last())
+            assertTrue(name, failure.allowsGenericFallback)
+        }
+    }
+
+    @Test
     fun `a post with only a playlist offers the playlist`() = runTest {
         val result = XExtractor(client("1786000000000000040", "x/tweet_hls_only.json")).extract(
             request("https://x.com/broadcaster/status/1786000000000000040"),

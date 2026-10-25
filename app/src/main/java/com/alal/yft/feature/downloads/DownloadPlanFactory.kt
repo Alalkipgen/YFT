@@ -7,6 +7,7 @@ import com.alal.yft.core.model.download.AudioVideoMuxDownloadPlan
 import com.alal.yft.core.model.download.DashDownloadPlan
 import com.alal.yft.core.model.download.DirectDownloadPlan
 import com.alal.yft.core.model.download.DownloadFailureReason
+import com.alal.yft.core.model.download.FileNames
 import com.alal.yft.core.model.download.HlsDownloadPlan
 import com.alal.yft.core.model.download.Mp3Encoding
 import com.alal.yft.core.model.download.WholeFileTrack
@@ -75,6 +76,11 @@ object DownloadPlanFactory {
         "audio/x-mpegurl",
     )
 
+    /** D1: containers that name a playlist, not a file's type. */
+    private val PLAYLIST_CONTAINERS = setOf("m3u8", "m3u", "mpd", "hls", "dash")
+    private const val HLS_VIDEO_MIME_TYPE = "video/mp4"
+    private const val HLS_AUDIO_MIME_TYPE = "audio/mp4"
+
     fun create(
         asset: MediaAsset,
         variant: MediaVariant,
@@ -136,20 +142,30 @@ object DownloadPlanFactory {
                 ),
             )
 
-            MediaKind.HLS -> DownloadPlanResult.Ready(
-                DownloadRequest.Hls(
-                    plan = HlsDownloadPlan(
-                        taskId = taskId,
-                        playlistUrl = variant.playbackUrl,
-                        suggestedFileName = fileName,
-                        requestContext = context,
-                        mimeType = variant.mimeType,
-                        expiresAtEpochMs = expiry,
+            MediaKind.HLS -> {
+                // D1: the playlist is never the file's type: its pieces become an MP4 (an M4A for
+                // sound alone), or keep their own format when they cannot be remuxed.
+                val mimeType = if (variant.trackType == MediaTrackType.AUDIO) {
+                    HLS_AUDIO_MIME_TYPE
+                } else {
+                    HLS_VIDEO_MIME_TYPE
+                }
+                DownloadPlanResult.Ready(
+                    DownloadRequest.Hls(
+                        plan = HlsDownloadPlan(
+                            taskId = taskId,
+                            playlistUrl = variant.playbackUrl,
+                            suggestedFileName = fileName,
+                            requestContext = context,
+                            mimeType = mimeType,
+                            expiresAtEpochMs = expiry,
+                            remuxToMp4 = true,
+                        ),
+                        fileName = fileName,
+                        mimeType = mimeType,
                     ),
-                    fileName = fileName,
-                    mimeType = variant.mimeType,
-                ),
-            )
+                )
+            }
 
             MediaKind.DASH -> {
                 val representationId = variant.manifestVariantId
@@ -245,6 +261,7 @@ object DownloadPlanFactory {
                     WholeFileTrack(totalBytes = statedLengthOf(variant.playbackUrl))
                 },
                 hlsPlaylist = playlists,
+                expectedDurationMillis = variant.durationMillis?.takeIf { it > 0 },
             ),
             audio = DashDownloadPlan(
                 taskId = "$taskId-audio",
@@ -263,6 +280,7 @@ object DownloadPlanFactory {
                     WholeFileTrack(totalBytes = statedLengthOf(companion.mediaUrl, stated))
                 },
                 hlsPlaylist = playlists,
+                expectedDurationMillis = variant.durationMillis?.takeIf { it > 0 },
             ),
             suggestedFileName = fileName,
             outputMimeType = outputMimeType,
@@ -309,7 +327,8 @@ object DownloadPlanFactory {
 
     /**
      * Builds a safe output name from non-sensitive metadata only. The playback URL is never used
-     * because signed URLs can carry credentials.
+     * because signed URLs can carry credentials. D3: at most [MAX_FILE_NAME_LENGTH] characters
+     * and [FileNames.MAX_NAME_BYTES] UTF-8 bytes with the extension, cut at a grapheme boundary.
      */
     internal fun fileName(asset: MediaAsset, variant: MediaVariant): String {
         val base = listOfNotNull(
@@ -323,8 +342,12 @@ object DownloadPlanFactory {
 
         val extension = extensionFor(variant)
         val maxBase = (MAX_FILE_NAME_LENGTH - extension.length - 1).coerceAtLeast(1)
-        return "${base.take(maxBase).trimEnd('.', ' ', '-', '_')}.$extension"
-            .ifBlank { "yft-download.$extension" }
+        val maxBaseBytes =
+            (FileNames.MAX_NAME_BYTES - FileNames.utf8Bytes(extension) - 1).coerceAtLeast(1)
+        val shortened = FileNames.cut(base, maxBase, maxBaseBytes)
+            .trimEnd('.', ' ', '-', '_')
+            .ifEmpty { "yft-download" }
+        return "$shortened.$extension"
     }
 
     internal fun extensionFor(variant: MediaVariant): String {
@@ -333,17 +356,23 @@ object DownloadPlanFactory {
             val output = AudioVideoMuxCompatibility.outputMimeTypeFor(variant.mimeType)
             return if (output == AudioVideoMuxCompatibility.WEBM_OUTPUT_MIME) "webm" else "mp4"
         }
+        // D1: an HLS download is remuxed into an MP4, an M4A for sound alone.
+        if (variant.kind == MediaKind.HLS) return defaultExtension(variant)
         // Sound alone in an MP4 container is an M4A file (Facebook's and YouTube's audio tracks).
         if (variant.trackType == MediaTrackType.AUDIO && variant.isMp4Container()) return "m4a"
         variant.container?.takeIf { it.isNotBlank() }?.let { container ->
-            return container.lowercase(Locale.US).trimStart('.').sanitizeForFileSystem()
-                .ifBlank { defaultExtension(variant) }
+            val extension = container.lowercase(Locale.US).trimStart('.').sanitizeForFileSystem()
+            // D1: a playlist (m3u8, mpd) is never a file's type; its media type says it.
+            if (extension !in PLAYLIST_CONTAINERS) {
+                return extension.ifBlank { defaultExtension(variant) }
+            }
         }
-        return when (variant.mimeType?.lowercase(Locale.US)) {
+        return when (variant.mimeType?.substringBefore(';')?.trim()?.lowercase(Locale.US)) {
             "video/mp4", "application/mp4" -> "mp4"
             "video/webm" -> "webm"
             "video/x-matroska" -> "mkv"
-            "video/mp2t" -> "mp4"
+            // D1: MPEG-TS bytes downloaded whole stay MPEG-TS, never under an MP4's name.
+            "video/mp2t" -> "ts"
             "audio/mp4", "audio/mp4a-latm" -> "m4a"
             "audio/mpeg" -> "mp3"
             "audio/webm" -> "weba"
@@ -377,20 +406,11 @@ object DownloadPlanFactory {
      * Keeps only characters that are safe in a user-visible file name.
      *
      * Dots are intentionally dropped so a hostile title can never produce a traversal segment
-     * such as `..`; the extension is appended separately.
+     * such as `..`; the extension is appended separately. D3: a letter's marks stay with it
+     * (Myanmar, Thai, Hindi), no longer turned into spaces ([FileNames.keepWords]).
      */
-    private fun String.sanitizeForFileSystem(): String = trim()
-        .map { character ->
-            when {
-                character.isLetterOrDigit() -> character
-                character in ALLOWED_PUNCTUATION -> character
-                else -> ' '
-            }
-        }
-        .joinToString("")
-        .replace(WHITESPACE_RUN, " ")
-        .trim()
+    private fun String.sanitizeForFileSystem(): String =
+        FileNames.keepWords(this, ALLOWED_PUNCTUATION)
 
-    private val WHITESPACE_RUN = Regex("\\s+")
     private const val ALLOWED_PUNCTUATION = "-_()[] "
 }

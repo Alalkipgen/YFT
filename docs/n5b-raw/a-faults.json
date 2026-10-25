@@ -1,0 +1,59 @@
+{
+  "schema": "n5b-raw/1",
+  "agent": "a",
+  "test": "faults",
+  "test_sha": "48dd744debcdaba0d2112cf801f8dfbe913fda8e",
+  "head": "48dd744debcdaba0d2112cf801f8dfbe913fda8e",
+  "head_ok": true,
+  "list_status": "done",
+  "result": "pass",
+  "node": "v24.14.1",
+  "machine": {
+    "cpus": 2,
+    "mem_gb": 4,
+    "platform": "linux x64"
+  },
+  "totals": {
+    "expected_runs": 1,
+    "runs": 1,
+    "seconds": 2524,
+    "max_peak_rss_mb": 2428
+  },
+  "runs": [
+    {
+      "n": "04",
+      "command": "node scripts/verify-own-solver.mjs --ladder --faults",
+      "exit": 0,
+      "seconds": 2524,
+      "peak_rss_mb": 2428,
+      "summary": [
+        "coverage: main, tce, es6, phone",
+        "32/32 files pass (32 checked); own = ejs on 260/260 inputs",
+        "faults: 384 runs, wrong values 0, expected FAILs missed 0",
+        "  fault decoy-n: 32 runs, wrong values 0, missed 0, files not ok 0 | ladder n none 32, sig P 32; steps run 64; cached parts sent 128, hit 64",
+        "  fault decoy-sig: 32 runs, wrong values 0, missed 0, files not ok 0 | ladder n P 32, sig none 32; steps run 64; cached parts sent 128, hit 64",
+        "  fault raw-encoding: 32 runs, wrong values 0, missed 0, files not ok 0 | ladder n P 32, sig none 32; steps run 64; cached parts sent 128, hit 64",
+        "  fault omit-window: 32 runs, wrong values 0, missed 0, files not ok 0 | ladder n P 32, sig P 32; steps run 32; cached parts sent 64, hit 64",
+        "  fault omit-self: 32 runs, wrong values 0, missed 0, files not ok 0 | ladder n P 32, sig P 32; steps run 32; cached parts sent 64, hit 64",
+        "  fault omit-location: 32 runs, wrong values 0, missed 0, files not ok 0 | ladder n E 32, sig E 32; steps run 96; cached parts sent 128, hit 0",
+        "  fault omit-navigator: 32 runs, wrong values 0, missed 0, files not ok 0 | ladder n E 32, sig E 32; steps run 96; cached parts sent 128, hit 0",
+        "  fault omit-document: 32 runs, wrong values 0, missed 0, files not ok 0 | ladder n E 32, sig E 32; steps run 96; cached parts sent 128, hit 0",
+        "  fault omit-XMLHttpRequest: 32 runs, wrong values 0, missed 0, files not ok 0 | ladder n E 32, sig E 32; steps run 96; cached parts sent 128, hit 0",
+        "  fault omit-all: 32 runs, wrong values 0, missed 0, files not ok 0 | ladder n E 32, sig E 32; steps run 96; cached parts sent 128, hit 0",
+        "  fault init-wrong-n: 32 runs, wrong values 0, missed 0, files not ok 0 | ladder n E 32, sig E 32; steps run 96; cached parts sent 128, hit 0",
+        "  fault init-wrong-sig: 32 runs, wrong values 0, missed 0, files not ok 0 | ladder n E 32, sig E 32; steps run 96; cached parts sent 128, hit 0",
+        "ladder init errors: files with errors P 0/32, B 0/32, pP 0/32, pB 0/32",
+        "ladder P steps (largest init/attempt): P 2814/1005 (157/3 ms), pP 2814/1005 (123/168 ms)",
+        "ladder sources (PB+V, per file): n P 32, sig P 32",
+        "phases P (32 files, max/median ms): prepare 928/735, init 157/97, search 378/265, confirm 0/0, selfcheck 8/5, tripwire 212/99, total 1530/1177, wall 1611/1203, hitA 326/205, hitB 1222/902, hitA3 326/205; over 500 ms: hitA 0, hitB 32, hitA3 0; slowest 631d3938 main",
+        "phases B (32 files, max/median ms): prepare 2640/1928, init 246/127, search 2094/1904, confirm 1282/243, selfcheck 296/26, tripwire 149/14, total 5733/4520, wall 5762/4543, hitA 3829/2426, hitB 3829/2426, hitA3 1819/457; over 500 ms: hitA 32, hitB 32, hitA3 12; slowest 631d3938 es6",
+        "phases pP (32 files, max/median ms): prepare 1062/754, init 123/13, search 359/268, confirm 0/0, selfcheck 175/4, tripwire 0/0, total 1357/1091, wall 1371/1104, hitA 212/16, hitB 1121/803, hitA3 212/16; over 500 ms: hitA 0, hitB 32, hitA3 0; slowest 76ad2fe8 es6",
+        "phases pB (32 files, max/median ms): prepare 2760/1974, init 197/19, search 2361/2021, confirm 1343/96, selfcheck 314/26, tripwire 0/0, total 5805/4227, wall 5821/4267, hitA 3959/2306, hitB 3959/2306, hitA3 1765/141; over 500 ms: hitA 32, hitB 32, hitA3 8; slowest 631d3938 es6",
+        "lookup ms (largest per file): P+B 6912 (631d3938 es6), P+B+pP+pB 13878 (631d3938 es6)",
+        "ladder vs ejs: PB+V = ejs 260/260, wrong 0, no value 0; PB off = ejs 132/260, wrong 0, no value 128; B+V = ejs 260/260, wrong 0, no value 0; B off = ejs 132/260, wrong 0, no value 128"
+      ],
+      "unsafe_lines_dropped": 0,
+      "stderr_lines": 3840
+    }
+  ]
+}

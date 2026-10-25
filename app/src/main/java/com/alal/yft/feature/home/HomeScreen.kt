@@ -74,6 +74,7 @@ import com.alal.yft.feature.library.LibraryItem
 import com.alal.yft.feature.library.libraryMeta
 import com.alal.yft.feature.library.rememberMediaDetails
 import com.alal.yft.thumbnail.rememberFileThumbnail
+import com.alal.yft.ui.LocalQuietRelease
 import com.alal.yft.ui.components.PromptboxStatus
 import com.alal.yft.ui.components.YftCard
 import com.alal.yft.ui.components.YftIcon
@@ -293,7 +294,8 @@ private fun LinkCard(
             onCancelSearch = { onAction(HomeAction.CancelSearch) },
             onEdit = { onAction(HomeAction.EditLink) },
         )
-        if (state.status is PromptboxStatus.NotFound) {
+        // Decision 30 (v): a quiet build's Copy details only with Show details on.
+        if (state.status is PromptboxStatus.NotFound && !LocalQuietRelease.current) {
             YftTonalButton(
                 text = "Copy details",
                 icon = YftIcons.Document,

@@ -5,7 +5,7 @@ import re
 import sys
 import zipfile
 
-DEBUG_MARKERS = (b"Crash now", b"YFT debug test crash")
+DEBUG_MARKERS = (b"Crash now", b"YFT debug test crash", b"YFT solver canary")
 
 
 def verify(apk):

@@ -1,0 +1,11 @@
+#EXTM3U
+#EXT-X-VERSION:6
+#EXT-X-TARGETDURATION:7
+#EXTINF:4.004,
+live/0.ts
+#EXTINF:2.336,
+live/1.ts
+#EXTINF:6.006,
+live/2.ts
+#EXTINF:3.170,
+live/3.ts

@@ -6,6 +6,7 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -16,6 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import com.alal.yft.core.model.logging.DiagnosticTextSanitizer
 import com.alal.yft.diagnostics.CrashReportStore
+import com.alal.yft.ui.ShowDetails
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -30,6 +32,9 @@ fun AboutRoute(onNavigateBack: () -> Unit, onOpenLicenses: () -> Unit = {}) {
     LaunchedEffect(store) {
         report = withContext(Dispatchers.IO) { store.read() }
     }
+    // Decision 30 (v): the quiet build's hidden Show details (the version line tapped 7 times).
+    val details = remember(context) { ShowDetails.get(context) }
+    val showDetails by details.on.collectAsState()
     AboutScreen(
         onNavigateBack = onNavigateBack,
         onOpenLicenses = onOpenLicenses,
@@ -46,6 +51,13 @@ fun AboutRoute(onNavigateBack: () -> Unit, onOpenLicenses: () -> Unit = {}) {
                     ).show()
                 }
             }
+        },
+        showDetails = showDetails.takeIf { ShowDetails.quietBuild },
+        onToggleShowDetails = {
+            val on = details.toggle()
+            Toast.makeText(
+                context, if (on) "Show details on" else "Show details off", Toast.LENGTH_SHORT,
+            ).show()
         },
     )
 }

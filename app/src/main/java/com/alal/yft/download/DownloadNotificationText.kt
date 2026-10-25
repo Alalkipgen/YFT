@@ -74,8 +74,13 @@ internal fun finishedNoticeText(task: StoredDownloadTask): String? = when (task.
     DownloadTaskStatus.COMPLETED -> "Downloaded$SEPARATOR${shortTitle(task)}"
     DownloadTaskStatus.FAILED -> "Download failed$SEPARATOR${shortTitle(task)} \u2014 " +
         failureLabel(task.failureReason ?: DownloadFailureReason.NETWORK)
-    DownloadTaskStatus.NEEDS_REFRESH ->
-        "Download failed$SEPARATOR${shortTitle(task)} \u2014 link expired"
+    // Item 7 Track B1: a link YouTube refused while it had time left did not expire.
+    DownloadTaskStatus.NEEDS_REFRESH -> "Download failed$SEPARATOR${shortTitle(task)} \u2014 " +
+        if (task.failureReason == DownloadFailureReason.YOUTUBE_REFUSED) {
+            "YouTube refused"
+        } else {
+            "link expired"
+        }
     else -> null
 }
 

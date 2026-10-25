@@ -206,7 +206,11 @@ internal fun statusChip(
         tone = YftStatusTone.Failed,
     )
 
-    DownloadTaskStatus.NEEDS_REFRESH -> DownloadStatusChip("Link expired", YftStatusTone.Failed)
+    DownloadTaskStatus.NEEDS_REFRESH -> DownloadStatusChip(
+        text = if (row.isYouTubeRefusal()) "YouTube refused" else "Link expired",
+        tone = YftStatusTone.Failed,
+    )
+
     DownloadTaskStatus.CANCELLED -> DownloadStatusChip("Cancelled", YftStatusTone.Neutral)
     else -> null
 }
@@ -249,6 +253,8 @@ internal fun failureLabel(reason: DownloadFailureReason): String = when (reason)
     DownloadFailureReason.STORAGE_UNAVAILABLE -> "storage unavailable"
     DownloadFailureReason.INSUFFICIENT_STORAGE -> "not enough storage"
     DownloadFailureReason.INTEGRITY_MISMATCH -> "integrity mismatch"
+    DownloadFailureReason.LIVE_NOT_READY -> "YouTube still preparing this live video, try later"
+    DownloadFailureReason.YOUTUBE_REFUSED -> "YouTube refused the download"
 }
 
 /** The step a download failed at, for the failure details (P21). */
@@ -296,8 +302,9 @@ internal fun failureDetailsText(
     val stage = failure?.stage?.let { stage -> "${stageLabel(stage)} (${stage.name})" }
     return listOfNotNull(
         "YFT download failure",
-        "Reason: ${reason ?: UNKNOWN}",
+        "Reason: ${reason ?: unknownReason(row)}",
         "What to do: $AUDIO_FROM_VIDEO_HINT".takeIf { row.isAudioFromIncompatibleSound() },
+        "What to do: $YOUTUBE_REFUSED_HINT".takeIf { row.isYouTubeRefusal() },
         "Stage: ${stage ?: UNKNOWN}",
         "HTTP status: ${failure?.httpStatusCode ?: UNKNOWN}",
         "Detail: ${DownloadFailureDetails.sanitize(failure?.detail) ?: UNKNOWN}",
@@ -314,6 +321,24 @@ internal fun failureDetailsText(
 }
 
 /**
+ * F6: a download that needs a fresh link shows its details too, like a failed one: its link
+ * either failed (the reason and the link's facts) or was never tried ([unknownReason]).
+ */
+internal val DownloadRowUiState.showsFailureDetails: Boolean
+    get() = status == DownloadTaskStatus.FAILED || status == DownloadTaskStatus.NEEDS_REFRESH
+
+/**
+ * A download that needs a fresh link without a recorded failure was never tried with its link:
+ * the app keeps a download's link only while it runs, so after a restart the link is gone.
+ */
+private fun unknownReason(row: DownloadRowUiState): String =
+    if (row.status == DownloadTaskStatus.NEEDS_REFRESH) NOT_TRIED_REASON else UNKNOWN
+
+internal const val NOT_TRIED_REASON =
+    "Link not tried (the app was closed or restarted, and YFT keeps a download's link only " +
+        "while it runs)"
+
+/**
  * An M4A or MP3 made from a video whose sound is not AAC fails as INCOMPATIBLE_TRACKS: the
  * video itself still downloads, so say that instead of "Incompatible tracks".
  */
@@ -322,6 +347,28 @@ internal fun DownloadRowUiState.isAudioFromIncompatibleSound(): Boolean =
 
 internal const val AUDIO_FROM_VIDEO_HINT =
     "This video's sound can't be saved as audio. Download the video instead."
+
+/**
+ * Item 7 Track B1: YouTube refused the download while its link still had time left
+ * ([DownloadFailureReason.YOUTUBE_REFUSED]): the link did not expire, so the row must not say
+ * "Link expired" or that reopening the page gets a working one.
+ */
+internal fun DownloadRowUiState.isYouTubeRefusal(): Boolean =
+    (failure?.reason ?: failureReason) == DownloadFailureReason.YOUTUBE_REFUSED
+
+/** Item 7 Track B3: offered on a [isYouTubeRefusal] row, on its card and in its menu. */
+internal const val RESET_YOUTUBE_LABEL = "Reset YouTube session"
+
+internal const val YOUTUBE_REFUSED_HINT =
+    "YouTube refused this download while its link still had time left, so reopening the page " +
+        "with the same session may not help. Try again later, or tap $RESET_YOUTUBE_LABEL (it " +
+        "signs you out of YouTube in YFT only), then reopen the page. Still refused: Clear " +
+        "browsing data in Settings (it signs you out of every site in YFT)."
+
+internal const val YOUTUBE_RESET_QUESTION =
+    "YFT's browser forgets YouTube's cookies, site data and remembered YouTube lookups, so you " +
+        "are signed out of YouTube in YFT. Other sites, Google's included, keep their sign-ins, " +
+        "and downloads and files stay. Then reopen the video's page and download again."
 
 private const val UNKNOWN = "\u2014"
 private const val BYTES_PER_KB = 1_024L

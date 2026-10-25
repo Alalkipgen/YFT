@@ -1,11 +1,14 @@
 package com.alal.yft.feature.quickdownload
 
+import android.content.ClipboardManager
+import android.content.Context
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
@@ -27,16 +30,22 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.test.core.app.ApplicationProvider
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.settings.QualityPreference
+import com.alal.yft.feature.browser.SiteCheck
 import com.alal.yft.feature.preview.PreviewDownloadStatus
 import com.alal.yft.thumbnail.LocalRemoteThumbnails
 import com.alal.yft.thumbnail.RemoteThumbnails
 import com.alal.yft.thumbnail.testPicture
+import com.alal.yft.ui.LocalQuietRelease
+import com.alal.yft.ui.QuietLines
 import com.alal.yft.ui.components.YFT_THUMBNAIL_IMAGE_TAG
 import com.alal.yft.ui.theme.YftTheme
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -467,6 +476,53 @@ class QuickDownloadScreenTest {
     }
 
     @Test
+    fun aQuietBuildSaysOneLineAndNothingElse() {
+        // Decision 30 (v): no Details, Copy details, Master lines, Try again or reload.
+        var checks = 0
+        var state by mutableStateOf(
+            QuickDownloadUiState(
+                header = SAMPLE_QUICK_DOWNLOAD.header,
+                failure = "Route B trial: main's rows were set aside and Master found none.",
+                failureDetails = listOf("master: route B after VERSION_REJECTED"),
+                canRetry = true,
+                canReload = true,
+            ),
+        )
+        composeRule.setContent {
+            CompositionLocalProvider(LocalQuietRelease provides true) {
+                YftTheme(themeMode = ThemeMode.LIGHT) {
+                    QuickDownloadScreen(
+                        state = state,
+                        onSelect = {},
+                        onDownload = {},
+                        onShowCheck = { checks++ },
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithTag("quick-error").assert(hasText(QuietLines.NOT_FOUND))
+        for (tag in listOf(
+            "quick-retry", "quick-reload-retry", "quick-error-details", "quick-error-copy",
+            "quick-show-check",
+        )) {
+            composeRule.onAllNodesWithTag(tag).assertCountEquals(0)
+        }
+        composeRule.onAllNodesWithText("Master", substring = true).assertCountEquals(0)
+
+        // The capture asks for the video to be played; Download again looks up again.
+        state = state.copy(failure = "Play the video on this page, then tap Try again.")
+        composeRule.onNodeWithTag("quick-error").assert(hasText(QuietLines.PLAY))
+
+        // TikTok's check keeps one Show check (a function: the user answers the check).
+        state = state.copy(failure = SiteCheck.SHEET, siteCheck = true)
+        composeRule.onNodeWithTag("quick-error").assert(hasText(QuietLines.CHECK))
+        composeRule.onNodeWithTag("quick-show-check").performClick()
+        assertEquals(1, checks)
+        composeRule.onAllNodesWithTag("quick-retry").assertCountEquals(0)
+    }
+
+    @Test
     fun aGoneLinkOnTheBrowsersPageOffersReloadPageAndTryAgain() {
         // P37: nothing fresh came from the page: the error offers the browser's reload.
         var reloads = 0
@@ -546,6 +602,78 @@ class QuickDownloadScreenTest {
         // Without Details nothing more is offered.
         state = state.copy(downloadDetails = emptyList())
         composeRule.onAllNodesWithTag("quick-error-details").assertCountEquals(0)
+    }
+
+    @Test
+    fun aLongFailureScrollsTryAgainStaysReachableAndCopyDetailsCopiesItsLines() {
+        // Social plan task 15 (F3, the phone session of 2026-10-23): long Details and Try again
+        // under them were cut off; now the message and the Details scroll, Try again stays pinned
+        // under them, and Copy details copies the lines as shown, each link as its bare host.
+        val details = (1..30).map { step ->
+            "master: fixture ladder step $step: a made-up answer read and judged, rows 0 " +
+                "(NEEDS_PLAYBACK: no post in the answer; the next rung is the tab's own playback)"
+        } + listOf(
+            "fixture page GET 200 from https://www.example.test",
+            "fixture file GET 403 https://media.example.test/v/f.mp4?oe=7A000000",
+        )
+        var retries = 0
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                QuickDownloadScreen(
+                    state = QuickDownloadUiState(
+                        header = SAMPLE_QUICK_DOWNLOAD.header,
+                        failure = "Sign in to the fixture site on this page first, then try again.",
+                        failureDetails = details,
+                    ),
+                    onSelect = {},
+                    onDownload = {},
+                    onRetry = { retries++ },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("quick-retry").assertIsDisplayed()
+        composeRule.onAllNodesWithTag("quick-error-copy").assertCountEquals(0)
+        composeRule.onNodeWithTag("quick-error-details").performClick()
+        composeRule.onNodeWithTag("quick-error-detail-text").assert(hasText(details.joinToString("\n")))
+        // The Details are longer than the sheet: they scroll, and Try again stays on the screen.
+        val scroll = composeRule.onNodeWithTag("quick-error-scroll")
+        val range = scroll.fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange]
+        assertTrue(range.maxValue() > 0f)
+        composeRule.onNodeWithTag("quick-retry").assertIsDisplayed()
+        // Scrolled to the end: the Details' last line is within the sheet, Try again still under it.
+        scroll.performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, 100_000f) }
+        composeRule.waitForIdle()
+        assertEquals(range.maxValue(), range.value())
+        val shown = scroll.getBoundsInRoot()
+        val text = composeRule.onNodeWithTag("quick-error-detail-text").getBoundsInRoot()
+        assertTrue("$text within $shown", text.bottom <= shown.bottom)
+        val retry = composeRule.onNodeWithTag("quick-retry").assertIsDisplayed().getBoundsInRoot()
+        assertTrue("$retry under $shown", retry.top >= shown.bottom)
+        composeRule.onNodeWithTag("quick-retry").performClick()
+        assertEquals(1, retries)
+
+        // Copy details: the shown lines, one per line, words only (each link as its bare host).
+        composeRule.onNodeWithTag("quick-error-copy").performScrollTo().performClick()
+        val copied = ApplicationProvider.getApplicationContext<Context>()
+            .getSystemService(ClipboardManager::class.java)
+            .primaryClip!!
+            .getItemAt(0)
+            .text
+            .toString()
+        val expected = details.dropLast(2) + listOf(
+            "fixture page GET 200 from www.example.test",
+            "fixture file GET 403 media.example.test",
+        )
+        assertEquals(expected.joinToString("\n"), copied)
+        assertEquals(expected.joinToString("\n"), copiedDetails(details))
+        for (leak in listOf("://", "/v/f.mp4", "oe=")) assertFalse("$leak must not be copied", leak in copied)
+
+        // Hide details hides the lines and Copy details with them.
+        composeRule.onNodeWithTag("quick-error-details").performClick()
+        composeRule.onAllNodesWithTag("quick-error-detail-text").assertCountEquals(0)
+        composeRule.onAllNodesWithTag("quick-error-copy").assertCountEquals(0)
+        composeRule.onNodeWithTag("quick-retry").assertIsDisplayed()
     }
 
     @Test

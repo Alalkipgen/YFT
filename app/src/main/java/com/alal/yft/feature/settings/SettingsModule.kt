@@ -35,4 +35,10 @@ object SettingsModule {
     @Provides
     @Singleton
     fun provideDownloadHistory(queue: DownloadQueue): DownloadHistory = QueueDownloadHistory(queue)
+
+    /** Item 7 Track B3: YouTube's cookies, site storage and remembered lookups only. */
+    @Provides
+    @Singleton
+    fun provideYouTubeSessionReset(lookups: SiteLookupCache): YouTubeSessionReset =
+        CookieYouTubeSessionReset(WebViewSiteCookieJar, WebViewSiteStorage, lookups)
 }

@@ -1,6 +1,7 @@
 package com.alal.yft.feature.downloads
 
 import com.alal.yft.core.model.download.DownloadFailureReason
+import com.alal.yft.core.model.download.FileNames
 import com.alal.yft.core.model.download.Mp3Encoding
 import com.alal.yft.core.model.download.WholeFileTrack
 import com.alal.yft.core.model.media.AudioFromVideo
@@ -119,13 +120,102 @@ class DownloadPlanFactoryTest {
     }
 
     @Test
+    fun `D1 an HLS video is planned as an MP4 never as its playlist`() {
+        // Pornhub names its playlist's type, a JAV site its container.
+        val named = variant(
+            url = "https://media.example.test/hls/720p/index.m3u8",
+            kind = MediaKind.HLS,
+            label = "720p",
+            container = "m3u8",
+            mimeType = "application/x-mpegURL",
+        )
+        val contained = variant(
+            kind = MediaKind.HLS,
+            container = "HLS",
+            mimeType = "application/vnd.apple.mpegurl",
+        )
+        val bare = variant(kind = MediaKind.HLS, container = null, mimeType = "video/mp2t")
+
+        listOf(named, contained, bare).forEach { hls ->
+            val request = (factory(hls) as DownloadPlanResult.Ready).request
+                as DownloadRequest.Hls
+            assertTrue(request.fileName, request.fileName.endsWith(".mp4"))
+            assertEquals("video/mp4", request.mimeType)
+            assertEquals("video/mp4", request.plan.mimeType)
+            assertEquals(request.fileName, request.plan.suggestedFileName)
+            assertTrue(request.plan.remuxToMp4)
+        }
+        val request = (factory(named) as DownloadPlanResult.Ready).request
+        assertEquals("Fixture 720p.mp4", request.fileName)
+    }
+
+    @Test
+    fun `D1 an HLS sound alone is planned as an M4A`() {
+        val sound = variant(
+            kind = MediaKind.HLS,
+            trackType = MediaTrackType.AUDIO,
+            container = "m3u8",
+            mimeType = "audio/mpegurl",
+        )
+
+        val request = (factory(sound) as DownloadPlanResult.Ready).request as DownloadRequest.Hls
+
+        assertEquals("Fixture.m4a", request.fileName)
+        assertEquals("audio/mp4", request.mimeType)
+        assertEquals("audio/mp4", request.plan.mimeType)
+        assertTrue(request.plan.remuxToMp4)
+    }
+
+    @Test
+    fun `D1 a playlist container is never an extension and MP4 and WebM are unchanged`() {
+        fun extension(variant: MediaVariant) = DownloadPlanFactory.extensionFor(variant)
+
+        assertEquals(
+            "mp4",
+            extension(variant(kind = MediaKind.DASH, container = "mpd", mimeType = "video/mp4")),
+        )
+        assertEquals(
+            "m4a",
+            extension(
+                variant(
+                    kind = MediaKind.DASH,
+                    trackType = MediaTrackType.AUDIO,
+                    container = "DASH",
+                    mimeType = "audio/mp4",
+                ),
+            ),
+        )
+        assertEquals("mp4", extension(variant(container = ".m3u", mimeType = null)))
+        assertEquals(
+            "mp4",
+            extension(variant(container = "m3u8", mimeType = "application/dash+xml")),
+        )
+        // MPEG-TS downloaded whole stays MPEG-TS, never an MP4 by name only.
+        assertEquals("ts", extension(variant(container = null, mimeType = "video/mp2t")))
+        assertEquals("mp4", extension(variant(container = "mp4", mimeType = "video/mp4")))
+        assertEquals("webm", extension(variant(container = "webm", mimeType = "video/webm")))
+        assertEquals(
+            "webm",
+            extension(variant(container = null, mimeType = "video/webm; codecs=\"vp9\"")),
+        )
+        assertEquals(
+            "mp3",
+            extension(variant(container = null, mimeType = "audio/mpeg; charset=binary")),
+        )
+    }
+
+    @Test
     fun `video with companion audio becomes a merge of two whole-file tracks`() {
         val merged = variant(
             url = "https://rr3---sn-a.googlevideo.com/videoplayback?itag=136&sig=private",
             label = "720p",
             container = "mp4",
             expiresAt = 9_000L,
-        ).copy(codecs = listOf("avc1.4d401f"), audioCompanion = companion(expiresAt = 5_000L))
+        ).copy(
+            codecs = listOf("avc1.4d401f"),
+            audioCompanion = companion(expiresAt = 5_000L),
+            durationMillis = 10_103_000L,
+        )
 
         val request = (factory(merged) as DownloadPlanResult.Ready).request as DownloadRequest.Mux
 
@@ -140,6 +230,9 @@ class DownloadPlanFactoryTest {
         assertEquals(companion().mediaUrl, plan.audio.manifestUrl)
         assertEquals(MediaTrackType.AUDIO, plan.audio.trackType)
         assertEquals(listOf("mp4a.40.2"), plan.audio.codecs)
+        // The page's length, for a live stream's pieces (run 4f).
+        assertEquals(10_103_000L, plan.video.expectedDurationMillis)
+        assertEquals(10_103_000L, plan.audio.expectedDurationMillis)
         // YouTube states the sound's length, so its download needs no length request (P41).
         assertEquals(WholeFileTrack(totalBytes = 1_024), plan.audio.wholeFile)
         assertEquals(5_000L, plan.expiresAtEpochMs)
@@ -388,6 +481,70 @@ class DownloadPlanFactoryTest {
 
         assertEquals("clip gnp exe.mp4", name)
         assertTrue(name.all { it.code in 0x20..0x7E })
+    }
+
+    @Test
+    fun `D3 Myanmar Thai and Hindi titles keep their marks`() {
+        listOf(
+            "အချစ်ရူး",
+            "ထွဏ်းထွဏ်း",
+            "ဒါဟာအချစ်လား",
+            "ဇော်ပိုင် ချောစုခင်",
+            "สวัสดีครับ",
+            "नमस्ते दुनिया",
+        ).forEach { title ->
+            val name = DownloadPlanFactory.fileName(asset(title), variant(label = null))
+            assertEquals(title, "$title.mp4", name)
+        }
+    }
+
+    @Test
+    fun `D3 a long Myanmar title is cut at a grapheme within the byte limit`() {
+        // သတ္တဝါ: never cut after ္ or before ါ; 219 bytes before ".mp4" are 73 code points.
+        val word = "\u101E\u1010\u1039\u1010\u101D\u102B"
+
+        val name = DownloadPlanFactory.fileName(asset(word.repeat(30)), variant(label = null))
+
+        assertEquals(word.repeat(12) + "\u101E.mp4", name)
+        assertEquals(FileNames.MAX_NAME_BYTES, FileNames.utf8Bytes(name))
+        assertTrue(name.length <= DownloadPlanFactory.MAX_FILE_NAME_LENGTH)
+    }
+
+    @Test
+    fun `D3 a long Latin title is cut at 96 characters as before`() {
+        val name = DownloadPlanFactory.fileName(asset("Holiday ".repeat(30)), variant(label = null))
+
+        assertEquals("Holiday ".repeat(11) + "Holi.mp4", name)
+        assertEquals(DownloadPlanFactory.MAX_FILE_NAME_LENGTH, name.length)
+    }
+
+    @Test
+    fun `D3 an emoji with VS16 leaves no U+FE0F behind`() {
+        val name = DownloadPlanFactory.fileName(
+            asset("I \u2764\uFE0F Yangon"),
+            variant(label = null),
+        )
+
+        assertEquals("I Yangon.mp4", name)
+        assertFalse(name.contains('\uFE0F'))
+    }
+
+    @Test
+    fun `D3 the reserved characters still become spaces`() {
+        val name = DownloadPlanFactory.fileName(
+            asset("a\\b/c:d*e?f\"g<h>i|j"),
+            variant(label = null),
+        )
+
+        assertEquals("a b c d e f g h i j.mp4", name)
+    }
+
+    @Test
+    fun `D3 a name the cut leaves empty falls back instead of a hidden file`() {
+        assertEquals(
+            "yft-download.mp4",
+            DownloadPlanFactory.fileName(asset("___"), variant(label = null)),
+        )
     }
 
     @Test

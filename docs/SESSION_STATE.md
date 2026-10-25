@@ -2,6 +2,302 @@
 
 Update this file before every checkpoint push. Keep it factual so another chat can resume.
 
+## Master backup prototype — `spike/master-extractor-backup`
+
+- Owner-approved isolated code spike, not a Phase 14/15 task or a merge candidate.
+- Base: stable `origin/main` `a9eea7ba8d9f3d67442ffc3a51f2ad9e00c4a6a9`; Phase 1 R1 merged
+  `origin/main` `34a4189002b7c9aaf6085ae4adab27b343ca28dc` into the spike (true merge; main
+  itself untouched). R1/R2 records: `PROGRESS.md`.
+- Workspace: `/data/YFT-Master`; original `/data/YFT` and TikTok work remain untouched.
+- Status: ANDROID FOUR-FIXTURE GATE PASSED; nine-site public preflight recorded.
+  Live app/engine validation remains incomplete; NOT APPROVED FOR MERGE.
+  Owner explicitly approved continuing Android Play & Capture connection after the JVM backup.
+  New `:extractor-master-android` producer and browser-only build-opt-in caller.
+  `yft.masterCapture` defaults false; debug/preview may opt in, release remains false.
+  Existing site-extractor modules, download engine and CI workflows remain unchanged.
+- Baseline: `:core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test`
+  passed: 360 tests, zero failures/errors/skips.
+- Branch-name exception: the owner explicitly approved `spike/master-extractor-backup`.
+  `scripts/checkpoint.sh` only accepts `work/phase-*`; this spike uses equivalent manual
+  staged-file/secret/diff/test checks and a direct push, without changing that script.
+- Initial remote checkpoint: `f8e7451804c5d297dc4b9b2672d5493793de980d` (56 module tests),
+  pushed by SSH. The sandbox later reset; recovered that exact checkpoint by HTTPS and
+  verified it with the GitHub MCP. Further pushes use the connected GitHub MCP, no new SSH key.
+- Hardened code checkpoint: `35213502d29690903e9cbd0dc3d68bf3aaab989d`, pushed and verified
+  through GitHub MCP. The final checkpoint changes only this section and the module README.
+- Hardened validation with a real browser snapshot: `:extractor-master:test :core-model:test
+  :extractor-api:test :extractor-generic:test :extractor-sites:test` passed: 437 tests,
+  zero failures/errors/skips (Master 77, unchanged baseline 360).
+- Hardening: independent companion probes/cache within the shared budget, preview veto,
+  private/regional payload gates, monotonic navigation generations, bounded request context,
+  safe debug wrappers, preserved grouping IDs, origin-only cross-origin referers, live-stream
+  refusal and stricter Content-Range validation. Existing adapters remain unchanged.
+- Real smoke: MDN neutral CC0 flower video played; 960 x 540, duration 5.055 s, two successful
+  HTTP 206 video/mp4 requests. Actual capture -> Master fallback -> real HTTPS prefix probe
+  passed. This is not Instagram/X, Android WebView or full download/mux validation.
+- Regression proof: the compatible pre-hardening engine failed five targeted tests; a
+  file-signature bypass failed the intended false-MIME test. Both are deliberate negative
+  checks, not unresolved hardened-code failures. Both source files were restored byte-for-byte.
+- Final restored-code offline validation: 436 passed, zero failures/errors, one intentional
+  optional live-smoke skip (Master 76 passed + one skip; unchanged baseline 360 passed).
+  Repository script tests: 30 passed. Diff, scope and sensitive-file checks passed.
+- CI: `spike/**` is not an automatic CI trigger; local JVM evidence only. No preview APK.
+- Android pre-edit baseline: Master 76 passed + optional skip; core-browser 138 passed;
+  app 807 cases, zero failures/errors, 66 existing skips; Android test Kotlin compiled.
+- Android module milestone: 15 unit tests passed, zero failures/errors/skips; lint no issues.
+  Native request context + bounded top-frame JS/API data, navigation generations, two-sample
+  playback evidence, DRM refusal and main-thread WebView boundary. App wiring not yet present.
+- Module checkpoint: `22d1ff6c94a4a69c8608e02342feb5b9b4ae5ee0`. A later sandbox reset
+  discarded unpushed wiring; the exact authored patches were recovered from session events.
+- App wiring checkpoint: `eddfa48b73655a28610430b62cb9f8b6ccedc89e`.
+  Initial full app-wiring validation passed: Android module 18 tests; app 826 cases, zero
+  failures/errors, 66 existing skips; both lints passed; four Android test methods compiled.
+  Opt-in debug/test flags true, release flag false. Command used `-Pyft.masterCapture=true`
+  and the Android module/app unit tests, lint, Android test compile and release BuildConfig.
+- Follow-on hardening: production focus-probe identity guard, GET-only observed media replay,
+  known VAST preview-veto forwarding. Code checkpoint `1e15d0f4f30b327ff9d2cd7ee3ed69e58c4374b4`.
+  Final offline run: 1,422 cases, zero failures/errors, 67 existing/optional skips; Android module
+  21, app 826. JS 11 and repository script 30 tests passed. Both lints have zero errors; app lint
+  has 96 dependency/API/vector warnings. Debug/test opt-in true, release false.
+- Internal x86_64 debug/test APKs built. First actual API 29 software-emulator run: paused
+  preload, navigation/disposal and DRM refusal passed; playback success returned NeedsPlayback.
+  Test-only change waits for read-only evidence that the actual user tap started playback,
+  rather than a fixed 500 ms delay, and asserts collector installation. Repeat run pending.
+  Production capture budgets and authorization rules unchanged.
+- Readiness-only device retest: 2/4 passed; DRM waited unnecessarily for playback; positive
+  playback reached readiness but capture still returned NeedsPlayback. Current follow-on uses
+  a 10-second neutral fixture, taps its actual visible control, and binds the collector once
+  per lookup. DRM must refuse probing even without playback. The 2.5-second capture deadline
+  and two-sample authorization remain unchanged. Build/device validation pending.
+- Optimization/fixture checkpoint: `b07bd5d2c05ebc2660f3c9431bd13e648e82ce50`.
+  Android module 21 tests passed; debug APK assembled. The combined build stopped because
+  app unit-test lint's Kotlin FIR resolver crashed on unchanged AppIdentityTest.kt (RAW_FIR
+  to TYPES), not a reported app lint violation. Test APK/final app-unit execution unfinished.
+  Next attempt separates compile/test assembly from lint and uses one Gradle worker, with
+  every lint check still enabled.
+- Serial retry passed without disabling checks: app unit tests 826 cases, zero failures/errors,
+  66 existing skips; Android module 21 passed. Internal app/test APKs rebuilt. Fresh module/app
+  lint passed with zero errors/fatal issues, zero module warnings and 96 app dependency/API/vector
+  warnings. Debug opt-in true and release false. Code under validation remains `b07bd5d`.
+- Current rebuilt-code device run: 3/4 passed (paused preload, navigation/disposal, DRM refusal).
+  Positive playback stopped before capture because WebView 74 did not expose the fixture button
+  through UiSelector text. No green positive-capture claim. Test now measures its known visible
+  DOM button rectangle and injects a real screen tap; no JavaScript play/seek/evidence forgery.
+  Production code remains `b07bd5d`; only test code/docs changed. Rebuild/retest pending.
+- Recovery retest after another sandbox restore: recovered exact branch `57a0654`, plus the
+  matching internal app/test APK session backups. Restored API 29 x86_64 / WebView 74.0.3729.185.
+  The unchanged full class again passed 3/4 and failed before capture at user-playback readiness;
+  the positive case alone passed `OK (1 test)`. Full-class logcat records SystemUI/input-channel
+  failure and an ANR window during the positive test. This is observed interference, not proof
+  that test ordering is the sole cause. JS transport 11/11 and repository scripts 30/30 passed.
+- Current test-only repair explicitly removes the fixture composition and verifies WebView/
+  capture-scope disposal before activity teardown. It waits for visible native window focus
+  before the one actual screen tap, and separately checks that a trusted click reached the
+  fixture. That receipt is not playback authorization. Production files, 2.5-second capture
+  deadline, two-progress-sample requirement, DRM refusal and navigation guards are unchanged.
+  Harness checkpoint `0a3416746232e5f48ac3e8913c3064727519f422` compiled successfully:
+  module 21/21 passed, internal x86_64 app/test APKs assembled, debug/test capture flags true,
+  release false. The guarded full class passed 3/4 and refused the tap because native window
+  focus never arrived; the same guarded positive case alone also refused while the dialog
+  remained. WindowManager and a screenshot directly confirmed the foreground window was
+  "Application Not Responding: com.android.systemui", not the fixture. Native Wait cleared it.
+  A subsequent repeat stopped before instrumentation because API 29 logcat could not clear
+  its main buffer; that diagnostic-only action is now bounded/best-effort, not a pass criterion.
+  After focus was restored, the unchanged full class reached trusted user playback but the
+  positive case returned NeedsPlayback (capture elapsed 2,949 ms); 3/4 passed. The identical
+  positive case alone then passed. Decoder creation and skipped frames are recorded in logcat;
+  emulator load/test readiness remain under investigation, not an established production fix.
+  Reduced-load repeats (480x854, density 240, identical APKs) produced `OK (4 tests)` once;
+  the next full class passed 3/4 with NeedsPlayback (capture elapsed 3,660 ms). Logs/metadata:
+  `lowres-1` and `lowres-2` under `/data/tmp/master-android/`. This is one aggregate pass, not
+  two consecutive passes and not a stable device-green claim.
+- Current follow-on is test readiness only: after the actual trusted tap, wait for at least
+  0.5 seconds of naturally observed video progress with future decoded data, handling the real
+  fixture loop. It never plays/seeks by instrumentation JS, changes currentTime, or feeds those
+  reads into session.accept. Production capture must still independently collect two fresh
+  progress samples within its unchanged 2.5-second timeout. Harness checkpoint `3acfd4f8`
+  compiled successfully. Before the following sandbox reset, the fresh full offline suite
+  passed 1,422 cases with zero failures/errors and 67 skips; JS 11/11 and repository scripts
+  30/30 passed. Both lints had zero errors/fatal issues, zero module warnings, 96 app warnings.
+  Debug/test capture was true and release false. These are verified previous-run results,
+  not a claim that restored tools reran the suite.
+  A subsequent device attempt stopped before tests: SystemUI ANR owned focus after boot and
+  the test APK update timed out. Temporary `wm size` did not persist on reboot. The next
+  attempt uses permanent 480x854/density 240 AVD hardware and 1,536 MiB guest RAM instead of
+  1,024 MiB, without Gradle/emulator overlap or changes to production security.
+  Another restore discarded the local workspace/tools; source was recovered at `3acfd4f8`
+  and the already-built internal app/test APK session backups were restored and SHA-256 checked.
+  App APK SHA-256: fa421fad73f356a770d1143044346189c01773ffe522d8f628738b9f796d417d.
+  Test APK SHA-256: 7e5f0e3e8d2dc9204bbecbe4e50167e6050e49b759ca4f62b76dea4488d1d39d.
+  Aggregate repeats remain PENDING; do not finalize on the earlier single 4/4 pass.
+- Latest restore (2026-10-09): old-session APK/runner attachments were unavailable in this
+  new chat. Cloned and verified `23f0c7e`; only the two documentation files differ from
+  `3acfd4f8`, and production remains byte-identical to `b07bd5d2`. Rebuilt the x86_64 debug/test
+  pair with `-Pyft.masterCapture=true`, Java 17 and SDK 35. Gradle build succeeded; APK archival
+  uses the signed package-task outputs under `app/build/intermediates/apk/`. Fresh module unit
+  tests 21/21, JS transport 11/11 and repository scripts 30/30 passed. Debug capture is true;
+  release is false. The earlier 1,422-case/lint totals remain previous-run evidence.
+  New app SHA-256: 1ba2334f1c4d7bff4c3118d08e2485540115f22275a5d666d39beca46373c90c.
+  New test SHA-256: bb27795923ebb6148476dd583268e8418d267923f39618fc8961677608fb4ce4.
+  Matching debug certificate SHA-256: 369d93b78f43a8252d45de7200e1173748bc55339cb88f3a3947cb4d0156b172.
+  Restored the strict local runner: explicit APK paths, installed-byte SHA comparison before
+  skipping reinstall, native ANR/focus rejection and exact `OK (4 tests)` aggregate criteria.
+  Targeted GitHub secret scanning was unavailable (Advanced Security is not enabled); the
+  equivalent local sensitive-path/added-line secret checks passed. No security setting changed.
+  Permanent AVD hardware is 480x854/density 240, RAM 1,536 MiB, two cores; cold boot is pending
+  preflight completion, without Gradle/emulator overlap. No restored device test has started.
+- Additional owner request: read-only P40 review at main `69bf022`. Latest TikTok branch
+  `1c4206e` is already included there; CI runs 37886371700, 37886371675 and 37886371676 were
+  queried directly and all report success for `ce04711`. P40 collects TikTok page/API data,
+  not the Master's native-Play/two-progress-sample proof. No TikTok or main code was changed.
+- Android finalization (2026-10-09): after the following reset, the same chat's saved APKs,
+  manifest and strict runner were recovered without rebuilding. Both APK SHA-256 values and
+  shared certificate matched the new-chat rebuild above; source stayed at `dbeee695`, with the
+  unchanged `3acfd4f8` harness. Fresh JS transport 11/11 and repo scripts 30/30 passed again.
+  API 29 x86_64 / WebView 74.0.3729.185 booted at 480x854, density 240, RAM 1,536 MiB, two
+  software-emulated cores. Device-side screencap/pull produced a valid 122,310-byte PNG of the
+  SystemUI ANR; the inspected native Wait action restored Launcher focus, confirmed by
+  WindowManager and a valid 191,958-byte screenshot. The focus guard was not weakened.
+  The exact same signed APK pair then passed two consecutive complete four-test classes:
+  `restored-pair1-1`: `OK (4 tests)`, JUnit 103.893 s (instrumentation wall 127 s);
+  `restored-pair1-2`: `OK (4 tests)`, JUnit 78.278 s (instrumentation wall 94 s).
+  Before/after installed APK bytes matched; the second run skipped reinstall only after its
+  hashes matched. Both metadata files identify the same source, harness, APKs and signer.
+  The positive fixture used its actual native tap, trusted-click receipt and sustained natural
+  playback; production collected its own fresh progress samples. No JS play/seek invocation
+  by instrumentation or forged playback evidence was added. Paused preload, DRM refusal and
+  navigation/disposal-generation cases also passed in both aggregates.
+  Portable APK/runner/setup/gate evidence backups were saved in this session. Production code,
+  the 2.5-second capture budget, independent progress authorization, DRM and navigation guards
+  remain unchanged. This proves the offline Android fixture gate only: no Master CI green,
+  live Instagram/X support, full TLS/download/mux or merge readiness claim.
+- Public live preflight (2026-10-09): owner expanded the read-only matrix to Instagram, X,
+  Facebook, YouTube, TikTok, Reddit, Vimeo, Dailymotion and Threads. All nine public pages
+  were rendered without signing in; no bot/age/DRM restriction was bypassed. This is desktop
+  browser observation, not Android WebView or final Master-engine/download validation.
+  The exact unmodified capture asset (SHA-256
+  13fefa36d643ea2b339d8db5a8c0de6c0f57b2cd3d5a098240831fc4fe0817dc) was exercised:
+  Instagram native player-surface click resumed visible natural playback, 720x1280/readyState 4.
+  Fresh collector samples advanced 0.444536 -> 0.802345 s in 360.7 ms; generation 1, no DRM,
+  60 request observations and eight bounded payload observations. Earlier autoplay was
+  1080x1920; these are adaptive displayed sizes, not a proved downloadable rendition list.
+  The Instagram diagnostic click listener missed the separate overlay ancestor and recorded
+  zero receipts; the actual browser-native click occurred. That zero was not rewritten.
+  X main-video native Play produced one trusted receipt; 720x1280/readyState 4 progressed
+  10.880927 -> 11.232045 s in 352.6 ms, generation 1, no DRM. This resumed buffered playback:
+  zero new request/payload observations. The offscreen 320x568 recommendation was excluded.
+  Both bounded observations fit 2.5 seconds, but neither invoked the full Master engine or
+  its independent HTTPS-prefix validator. Both clips were natively paused and hooks disposed.
+  TikTok's public NASA clip rendered an active visible 720x1280 video (26.166 s); the paused
+  offscreen recommendation was excluded. P40/native-Play Master capture is not yet verified.
+  Facebook rendered a public 20.921-s 1280x720 HTTPS video, explicitly an ISS teaser; it is
+  not full-length/4K/main-video proof. A non-teaser NASA sample was discovered for follow-up.
+  YouTube required sign-in to confirm the browser was not a bot; Reddit showed Prove your
+  humanity. These are access limitations in this environment, not universal incompatibility.
+  Vimeo rendered a video placeholder with readyState 0; Dailymotion exposed an iframe player;
+  Threads rendered the public caption without a top-frame video. Those playback/capture paths
+  remain unverified, rather than being declared supported or unsupported.
+  Sanitized summaries retain only page URLs, dimensions, states, counts and media hosts;
+  no cookies, signed CDN URLs or raw API response bodies were exported.
+- Multi-resolution feasibility: delivered progressive/HLS/DASH variants can be collected;
+  absent 240p/360p/480p/720p/1080p variants cannot be invented from one MP4. Existing readers
+  cover Instagram versions, X variants, YouTube formats, Facebook DASH and TikTok bitrateInfo.
+  TikTok nested PlayAddr Width/Height still needs reviewed dimension mapping/tests before
+  precise rendition labels; portrait sizes must not be mislabeled from height alone.
+  No production quality mapping/transcoding/download change was made under the frozen scope.
+- Stdin-only live harness milestone (2026-10-09): recompiled 46 unchanged pure production
+  sources, including CaptureFrameReader, MasterBrowserSession, MasterFallbackEngine and the
+  real OkHttpMediaValidator, with repo Kotlin 2.0.21 / Java 17. All 46 files were byte-compared
+  to b07bd5d2 and matched. Thirteen Maven artifacts were checked against published hashes.
+  A missing compiler-host annotation dependency was fixed only in the sandbox classpath.
+  No Gradle/app/production/CI file changed. This is an internal diagnostic, not a new APK
+  or full Android WebView caller test. Its recoverable RESPONSE_CHANGED input is test-only.
+  Raw collector packets and original monotonic sample times pass over stdin to the unchanged
+  production frame reader/session. No manual store.playing authorization, JS play/seek,
+  altered frame time, fake playing address or persisted packet/body/cookie is used.
+  Native Pause -> Play and read-only natural readiness precede a fresh <=2.5-second capture;
+  readiness reads are not submitted to session.accept. Visible optional login-teaser Close
+  is dismissed natively, never by bypassing an overlay or signing in.
+  Instagram repeated native resume produced one trusted receipt and 1080x1920/readyState 4.
+  Fresh samples advanced 1.609261 -> 1.966620 s in 359.8 ms, generation 1, no DRM.
+  Real production session accepted two raw frames: authorizedPlayback=true, 68 bounded
+  requests and eight payloads. Real Master ran for 111 ms and returned NEEDS_SELECTION with
+  the diagnostic's requested public shortcode Dcwk7e1yHaY. It refused to guess: zero probes,
+  validated candidates, TLS handshakes or body bytes. This proves live capture/session
+  authorization and engine selection refusal, NOT extraction success, HTTPS prefix,
+  Android caller integration or full download. Inspect actual caller expected-ID/focus
+  mapping before interpreting this refusal; do not delete an expected ID or weaken selection.
+  TikTok native main-surface Pause was observed at 720x1280/readyState 4. The first diagnostic
+  stopped at native_resume_not_observed; after test-only tap spacing/actual-resume waiting,
+  another attempt timed out before capture at decoded-player readiness (25 s). Neither
+  supplied live frames to the engine. P40/live Master Play-and-Capture proof remains pending.
+  Facebook's second non-teaser-caption NASA sample (1414737229683186) rendered 640x360,
+  duration metadata 83.283 s, readyState 4. Native Pause selection stopped the diagnostic.
+  Inspection found a visible role-button named Play video, not Pause. Activate it natively
+  and inspect the resulting controls before retrying; this is not full-play/download proof.
+  Compiled classes, verified runtime, driver, source hashes and sanitized failures were
+  backed up as session files. The passed same-APK two-run Android gate remains unchanged.
+- Caller-faithful live diagnosis (2026-10-09): the actual app factory registers TikTok,
+  Facebook, Vimeo and YouTube only. Their four unchanged URL helpers were compiled with the
+  existing harness (50 unchanged production files). Runtime probes returned no registry
+  match/expected ID for Instagram or X, TikTok ID 7670337149526379789 and Facebook ID
+  1414737229683186. This parameter now comes from those production delegates, not removal
+  of a requested ID to force success. Runtime flags/full Android caller remain unverified.
+
+  Instagram generic mode: actual native Pause/Play, one trusted receipt, decoded 1080x1920,
+  readyState 4. Fresh samples 2.277588 -> 2.633725 s in 357.9 ms. Session authorized playback
+  with 71 requests/eight payloads. Unchanged reader discovered 71 candidates, zero MAIN-role
+  candidates/groups and no secure playing address (blob). Real Master returned NEEDS_SELECTION
+  in 59 ms. Zero probes, TLS handshakes, body bytes or validated candidates. The measured
+  limitation is focused-address/main-role correlation, not absent or fabricated playback.
+  No playing address or MAIN role was invented; no Instagram extraction/download pass.
+  The earlier manual-shortcode result remains a separate diagnostic, not actual caller policy.
+
+  Facebook screenshot and accessibility confirmed the optional See more on Facebook login
+  teaser over the public video. The apparent Play video was aria-hidden fallback, correctly
+  not clicked. The real Close is dismissible natively. Subsequent native Pause actionability
+  still timed out; no FB live packets/engine proof. No sign-in or force-click was attempted.
+  Source/compiled runtime, caller probe and sanitized results are backed up. Production,
+  existing extractors, downloads, CI and security guards remain unchanged. TLS/full download,
+  mux, all resolutions, Android live caller, Master CI green and merge readiness are unverified.
+- Native public-player diagnostic checkpoint (2026-10-09): test-only native mouse hover
+  resolved Facebook's hidden playback controls after the optional login teaser was closed
+  normally. No force-click, login, JS play/seek, fabricated MAIN role or fake playing URL.
+  The observer now forwards every actually observed native GET response, without a media-MIME
+  prefilter; unchanged production MasterBrowserSession performs its own URL classification.
+
+  Facebook NASA 1414737229683186: actual native Pause/Play, one trusted receipt, 640x360,
+  readyState 4, sourceObjectType=MediaSourceHandle, no currentSrc/src address. Fresh samples
+  2.871860 -> 3.225809 s in 355.4 ms, generation 1, protected=false. Production authorized
+  playback and accepted eight payloads but zero media requests/candidates. Real Master returned
+  NEEDS_PLAYBACK in 30 ms; zero probes/TLS/body bytes. Here the result does NOT mean playback
+  was absent: no usable media address reached this page-level producer. Worker/opaque-handle
+  coverage remains unverified; do not invent a URL or declare universal FB incompatibility.
+
+  TikTok NASA 7670337149526379789: native Pause/Play, one trusted receipt, 720x1280/readyState 4,
+  blob source. Fresh samples 3.766892 -> 4.196915 s in 434.6 ms, generation 1, protected=false.
+  Production authorized playback, accepted three media requests/eight payloads and discovered
+  three candidates, zero MAIN-role candidates/groups, no secure playing address. Real Master
+  returned NEEDS_SELECTION in 38 ms; zero probes/TLS/body bytes. This is genuine live capture
+  and a safe selection refusal, not a Master extraction pass or a latest-P40 app/phone proof.
+
+  X's fresh caller-faithful repeat reached native Play selection but stopped before capture
+  when actual unpaused/decoded readiness did not arrive within ten seconds. Its earlier
+  native-click/two-progress desktop collector proof remains valid; no new live-engine pass.
+  YouTube/Reddit public access gates and Vimeo/Dailymotion/Threads unverified player paths
+  remain as recorded in the nine-site preflight. No supported/unsupported blanket claim.
+  The untouched producer's focus/address/MAIN-role limitations are recorded, not bypassed.
+  Production changes to address those limits are outside the frozen scope. The same-APK
+  Android two-pass gate remains passed. Default/release capture, 2.5-s bound, separate progress,
+  DRM and generation checks, existing extractors, downloads and CI remain unchanged. No TLS
+  media-prefix, full download/mux, all-quality, Master CI-green or merge-readiness claim.
+- Next: complete native-play observation for the remaining accessible public players, then
+  continue the recovered test-only harness through focus selection/HTTPS-prefix checks.
+  Keep bot/login/private/DRM failures terminal and distinguish teaser/iframe/MSE limitations.
+  TLS/full download/mux, all-resolution coverage, Master CI green and merge readiness remain
+  unverified. Run builds and emulator separately. Main/Phase 15/TikTok code remains untouched.
+  No merge, tag, release or owner-phone APK handout approval.
+
 Phase 15 runs three agents at the same time. **Each agent edits only its own section below**
 (`## Agent A …`, `## Agent B …`, `## Agent C …`); `## Overview` belongs to the plan and to P44.
 Keep at least the heading and one blank line between sections, so Git merges them cleanly.
@@ -482,3 +778,528 @@ Keep at least the heading and one blank line between sections, so Git merges the
   `BrowserViewModel` calls `vastAds.onAnswer(observation, contentType, bodyStart)` where the
   page's answers are read (e.g. `MediaMetadataProbe`'s non-media XML answers), so a VAST/VMAP
   body starts an ad break when the request's address says nothing.
+
+## Download fixes agent — `work/phase-download-fixes` (D1–D4)
+
+- Task (the owner, 2026-10-24): four fixes, one commit per item with its JVM tests, in order —
+  D1 HLS never saved as `.m3u8`; D2 audio rows (YouTube 4, every other site 2); D3 Myanmar titles
+  keep their marks; D4 Instagram and X icons beside the other sites'. No PR until the owner says
+  (after PR #2's merge: main merged in with a merge commit, no rebase).
+- Base: `8dc46ff404436703f9b588eeee193b2a084f15c1` (`spike/master-extractor-backup`'s head).
+- Rules: commits on this branch only (never main, `spike/master-extractor-backup` or another
+  work branch); `recipes` untouched, master-recipes-publish never run; PROGRESS.md, CHANGELOG.md
+  and docs/*MATRIX*.md not edited; no APK on the owner's phone before he says S5's run 3 is
+  counted, then only with his OK.
+- State: D1 committed; D1 follow-up (`f5effc1`) red on Emulator smoke (its type rule wrong); D1
+  follow-up 2 (`d1bd432`, either MPEG-TS type) green on CI, the bytes check included; D2
+  (`835af64`), D3 (`cfa39c7`) and D4 (`abac20e`) green on CI. The owner's phone test of
+  `abac20e`'s preview (2026-10-25): D1–D4 pass, one D1 bug (two sizes for a remuxed HLS
+  download); D1 follow-up 3 (`0e4a59b`) green on CI and accepted; D1 follow-up 4 (every
+  completed download shows its saved file's size) committed (this checkpoint). Next: its CI green
+  by 2026-10-26 24:00 MMT (else it is dropped to v1.0.1), then a short Burmese report; no merge,
+  no PR, no phone APK (the owner checks it at #12).
+
+### D1 — HLS saved as `.m3u8` (Pornhub, JAV)
+
+- Cause: `DownloadPlanFactory.extensionFor` took the variant's container (`m3u8`, `hls`) as the
+  file's extension and its type (`application/vnd.apple.mpegurl`) as the file's; the engine then
+  joined the MPEG-TS pieces into that file, so a TS file was saved as `.m3u8`.
+- Fix: a playlist container (m3u8, m3u, mpd, hls, dash) is never an extension (the media type
+  says it; `video/mp2t` → `ts`, no longer `mp4`). An HLS download is planned as `.mp4`
+  (`video/mp4`), `.m4a` (`audio/mp4`) for sound alone, with `HlsDownloadPlan.remuxToMp4`. The
+  engine sniffs the pieces (`HlsMediaSniffer`): MPEG-TS (H.264 + AAC) and packed AAC are remuxed
+  on the phone by `TsMp4Remuxer` (plain Kotlin, no re-encode; samples straight into the file,
+  `moov` from P35's `StreamCopyMoov`, edit list like ffmpeg's for the first frame's delay);
+  fragmented MP4 is joined as before. When the remux is not possible (another codec, broken
+  data) the pieces are joined and published in their own format through the new
+  `DownloadDestination.renameExtension` (`.ts` `video/mp2t`, `.aac`, `.mp3`: app storage a free
+  "name (n).ext", MediaStore's pending row DISPLAY_NAME + MIME_TYPE in one update, SAF at
+  commit); the queue shows that name (`HlsTransferResult.Completed.publishedAs`). A TS file is
+  never named `.mp4`. MP4, WebM and merged downloads unchanged.
+- Tests: `DownloadPlanFactoryTest` (an HLS `.m3u8` variant → `.mp4` `video/mp4`; HLS sound alone
+  → `.m4a`; playlist containers never an extension, MP4/WebM unchanged), `TsMp4RemuxerTest`
+  (real ffmpeg-made TS pieces in `core-download/src/test/resources/hls/*.b64`: an MP4 whose H.264
+  and AAC samples equal the source's, golden MD5s; sound alone → M4A; packed AAC; times that
+  start again; image prefix; MPEG-2 not remuxed), `HlsMediaSnifferTest`, `HlsTransferEngineTest`
+  (7 D1 tests: TS → real MP4, sound → M4A, kept `.ts` never under the MP4's name, a remux failing
+  halfway leaves exactly the TS bytes, storage error fails, fMP4/plain joins unchanged, MP3 kept
+  `.mp3`), `PublicDownloadDestinationTest` (3), `StreamDownloadQueueTest` (1); instrumented
+  `HlsRemuxInstrumentedTest` (emulator smoke: MediaStore row is an MP4 that MediaExtractor
+  reads; MPEG-2 pieces → a `.ts` row, its type MediaStore's: see D1 follow-up 2).
+- Offline proof (scratch, not committed): the remuxed MP4 decodes frame for frame like the
+  source (ffmpeg framemd5), AAC sample bytes equal ffmpeg's own remux, `elst` equal ffmpeg's.
+- Backlog (not in D1's scope): a site's container `matroska`/`quicktime` still taken as an
+  extension; a direct (non-HLS) `.ts` link stays `.ts` (no remux); a task's total bytes after a
+  remux stay the pieces' bytes (fixed by D1 follow-up 3); HEVC or MP3 inside TS → kept `.ts`;
+  packed MP3 pieces keep their inner ID3 tags (as before); a crash between rename and commit may
+  resume a renamed `.ts` row under the planned name.
+- D1 validation (local, 2026-10-24): `:core-model:test :core-download:testDebugUnitTest` →
+  core-download 265 tests, 0 failures after one D1 test's expectation was corrected (packed MP3
+  pieces are joined whole); `:app:testDebugUnitTest :app:compileDebugAndroidTestKotlin` → 1118
+  tests (1115 before + 3), 0 failures, 66 skipped; `lintDebug` → 0 errors (no warning in a D1
+  file); no new line over 100 characters; the checkpoint runs `testDebugUnitTest`. CI
+  (`b7edd6b`): checkpoint validation run 40083006744 and Preview APK run 40083006431 green;
+  Emulator smoke run 40083006457 red, 1 of 56 tests (3 skipped, no crash): see D1 follow-up.
+
+### D1 follow-up — the emulator test's `.ts` type (`f5effc1`, wrong rule)
+
+- Cause (the test's expectation, not the app): `HlsRemuxInstrumentedTest`'s
+  `piecesThatCannotBeRemuxedAreKeptAsATsRowOfTypeMp2t` expected the row's MIME_TYPE
+  `video/mp2t`; the API 34 emulator stored `video/mp2ts`. The name (`.ts`), the published (not
+  pending) row and the app's own record (`publishedAs`, `.ts` `video/mp2t`) were right; the
+  bytes check after the type check never ran.
+- Fix tried (the owner's choice A, 2026-10-24: a separate commit, the test and this section
+  only): expect the given type when `MimeTypeMap.hasMimeType`, else the extension's. Wrong:
+  publishing (IS_PENDING 0) makes MediaProvider scan the file and set the type itself (API 34:
+  `.ts` → `video/mp2ts`), whatever the app gave.
+- CI: checkpoint validation run 40087033078 and Preview APK run 40087033092 green; Emulator
+  smoke run 40087033113 red, the same 1 of 56 (3 skipped, no crash), the bytes check not run.
+
+### D1 follow-up 2 — the emulator test accepts either MPEG-TS type
+
+- Fix (the owner, 2026-10-24: MediaStore's type is not the app's to control and differs across
+  Android versions; the test and this section only, no app code): the row's type must be
+  `video/mp2t` or `video/mp2ts`, MediaProvider's rule not re-implemented. Order: Completed, the
+  bytes check, the app's own record (`.ts` `video/mp2t`), the row's name (`.ts`), published.
+- Tests: the instrumented test only (Emulator smoke); no JVM test changes.
+- Validation (local, 2026-10-24): `:app:compileDebugAndroidTestKotlin` → BUILD SUCCESSFUL (JDK
+  17); the checkpoint runs it; no new line over 100 characters. CI (`d1bd432`): checkpoint
+  validation run 40090783594, Preview APK run 40090783622 and Emulator smoke run 40090783588
+  green (56 tests, 0 failures, the same 3 skipped: this test ran whole, its bytes check
+  passed); D2 pushed after it.
+- Backlog: the app records a kept `.ts` as `video/mp2t` (queue, library) while MediaStore says
+  `video/mp2ts`; players match `video/*`, so no change.
+
+### D2 — audio rows (YouTube 4, every other site 2)
+
+- Cause: `QuickDownloadChoices.audioRows` offered the M4A and an MP3 at every
+  `Mp3Variants.BITRATES_KBPS` (320, 192, 128) on every site, `Mp3Variants.addTo` (Preview) added
+  the three too, and `compact` (P9's short view) picked the MP3 at exactly 128 kbps.
+- Fix: `Mp3Variants.bitratesFor(pageUrl)`: all three when `SiteBrand.of(pageUrl)` is YouTube
+  (youtube.com and its subdomains, youtu.be, youtube-nocookie.com), else only 192
+  (`OTHER_SITE_KBPS`). The rule is "not YouTube", so Facebook, Instagram, X, TikTok, VK and the
+  web get it with no VK code. `QuickDownloadChoices.of` passes the group's `pageUrl`, `addTo`
+  the asset's `sourcePageUrl`; `compact` keeps the M4A and the lowest MP3 offered (128 on
+  YouTube, 192 elsewhere). A chosen row is still rebuilt from its own bitrate
+  (`QuickDownloadViewModel` unchanged).
+- Tests: `QuickDownloadChoicesTest` (YouTube www, m, music, youtu.be → M4A + MP3 320/192/128,
+  short view M4A + 128; Facebook (facebook.com, fb.watch), Instagram, X (x.com, twitter.com),
+  TikTok, VK (vk.com, vkvideo.ru) and a generic site → M4A + MP3 192, the short view the same),
+  `Mp3VariantsTest` (`bitratesFor` per site, youtube-nocookie.com too; `addTo` adds only 192 on
+  the other sites), `PreviewViewModelTest` (a Facebook page's M4A offered as MP3 192 only); the
+  expectations of tests on `OTHER_PAGE` or a Facebook page updated (`QuickDownloadChoicesTest`,
+  `QuickDownloadViewModelTest`, `PreviewViewModelTest`; fixture `youtubeOn(page)`).
+- Validation (local, 2026-10-24): `lintDebug` → 0 errors, no issue in a D2 file;
+  `testDebugUnitTest -x :app:testDebugUnitTest` (core-model 127, core-download 265, core-data 33,
+  core-media 39, extractor-api 36, extractor-generic 21, extractor-sites 293 tests) and
+  `:app:testDebugUnitTest` (1120 tests: 1118 + 2, 66 skipped) → 0 failures; `:app:assembleDebug
+  :app:assembleRelease` → BUILD SUCCESSFUL; no new line over 100 characters. CI (`835af64`):
+  checkpoint validation run 40093269320, Preview APK run 40093269382 and Emulator smoke run
+  40093269421 green.
+- Backlog: none in D2's scope. The rule reads the page address the sheet shows as its source
+  (Preview: the asset's `sourcePageUrl`), not the media file's own host.
+
+### D3 — Myanmar titles keep their marks
+
+- Cause: `DownloadPlanFactory.sanitizeForFileSystem` kept only `Char.isLetterOrDigit()` and
+  "-_()[] ", so every mark (`\p{M}`: Myanmar ါ ာ ိ ု ေ ် ျ း, Thai and Hindi vowel signs) became
+  a space; `fileName` cut with `take()` at 96 UTF-16 units: about 288 bytes in Myanmar, over the
+  255-byte limit, and it could split a stacked consonant after ္. core-download's
+  `sanitizePublicFileName` and `DirectRangeProbe.sanitizeFileName` (Content-Disposition names)
+  cut with `take(180)`: graphemes split, no byte limit, the extension could be cut off.
+- Fix: one shared object, core-model `download/FileNames.kt`. `keepWords(title, allowed)`: NFC;
+  letters, digits, the allowed punctuation and the marks after a kept letter or digit; a mark
+  with no kept base is dropped (at the start, U+FE0F left by a removed emoji), so a Latin title
+  with emoji gains no invisible character; everything else a space, runs of spaces collapsed,
+  ends trimmed. `cut(text, maxChars, maxBytes)`: only at a grapheme boundary (never before a
+  mark, ZWJ/ZWNJ, an emoji modifier or a tag character; never after ZWJ, or after a stacking
+  virama when a letter follows: Myanmar U+1039, Khmer U+17D2, Tai Tham U+1A60, Indic U+094D,
+  09CD, 0ACD, 0B4D, 0C4D, 0D4D; regional-indicator pairs and Hangul jamo together); a cut
+  between code points only when not even the first grapheme fits (Zalgo). `fit(name, maxChars,
+  maxBytes)` keeps a short extension (≤ 10 ASCII letters and digits). Byte budget: the whole
+  name, extension included, at most 255 − 32 = 223 UTF-8 bytes (`FileNames.MAX_NAME_BYTES`);
+  the 32 leave room for app storage's `<name>.<id ≤16>.part` and " (n)", and for MediaStore's
+  pending `.pending-<10 digits>-<name>` (Android 11+), which MediaProvider would otherwise
+  shorten in the middle with "...". `DownloadPlanFactory`: `keepWords`, then `cut` at 96
+  characters (Latin titles as before) and 223 bytes; `sanitizePublicFileName` and
+  `DirectRangeProbe`: `fit` at 180 characters and 223 bytes; `Id3v2Tag.clean`: `cut` (its
+  surrogate check folded in). Saved files are not renamed; no migration.
+- For the owner: two choices of mine. (1) Myanmar's word signs ၌ ၍ ၎ ၏ (U+104C–104F, Po) are
+  kept like letters (၊ and ။ still become spaces). (2) A spacing mark (Mc) with no base is kept,
+  not dropped: Zawgyi text types ေ and ျ before their consonant, so dropping them would change
+  the word; Mc marks are visible, so no invisible character comes from it (U+FE0F is Mn and is
+  dropped). Also: a title the cut leaves empty (e.g. "___") is now `yft-download.<ext>`, no
+  longer the hidden file `.mp4`.
+- Tests: `FileNamesTest` (11: the four titles အချစ်ရူး, ထွဏ်းထွဏ်း, ဒါဟာအချစ်လား,
+  ဇော်ပိုင် ချောစုခင် and Thai สวัสดีครับ, Hindi नमस्ते दुनिया come back exactly; word signs;
+  marks with no base, VS16 and a skin tone leave nothing; Zawgyi; the reserved \ / : * ? " < > |
+  and invisible or direction-changing characters; သတ္တဝါ cut at every length, never after ္ or
+  before ါ, and स्ते kept whole; a long Myanmar title cut at a grapheme within 219 bytes; flags,
+  skin tones, a ZWJ family, a tag flag and Hangul jamo whole; the Zalgo fallback; `fit`; the
+  byte counts), `DownloadPlanFactoryTest` (6: the six titles → `<title>.mp4`; a long Myanmar
+  title → 12 × သတ္တဝါ + သ + `.mp4`, exactly 223 bytes; a long Latin title → 96 characters as
+  before; ❤️ leaves no U+FE0F; reserved characters → spaces; "___" → `yft-download.mp4`),
+  `PublicDownloadDestinationTest` (1: a long Myanmar display name keeps `.mp4` within 223
+  bytes), `DirectRangeProbeTest` (1: the same through `filename*=UTF-8''`), `Id3v2TagTest` (1:
+  ကျ kept whole or not at all). The existing "invisible and direction-changing characters cannot
+  disguise the extension" still gives "clip gnp exe.mp4".
+- Validation (local, 2026-10-24): `lintDebug` → 0 errors, no issue in a D3 file;
+  `testDebugUnitTest -x :app:testDebugUnitTest` (core-model 138 = 127 + 11, core-download 268 =
+  265 + 3, the other modules as in D2) and `:app:testDebugUnitTest` (1126 = 1120 + 6, 66
+  skipped) → 0 failures; `:app:assembleDebug :app:assembleRelease` → BUILD SUCCESSFUL; no new
+  line over 100 characters. CI (`cfa39c7`): checkpoint validation run 40098830060, Preview APK
+  run 40098830721 and Emulator smoke run 40098830051 green.
+- Backlog: a ZWJ or ZWNJ inside a word (some Indic and Persian spellings) still becomes a space,
+  as the rule says (everything else a space); Thai ำ and Lao ຳ (letters, not marks) can be cut
+  from their consonant at the very end of a long title; Zawgyi text is kept as typed, not
+  converted; `DirectRangeProbe` keeps its own unsafe-character rule (only its cut changed).
+
+### D4 — Instagram and X icons beside the other sites'
+
+- Cause: the logos were there (`ic_site_instagram.xml`, `ic_site_x.xml`, `SiteBrand.INSTAGRAM`
+  and `X`, Browser's View sites), but Home's "Your sites" defaults (`HomeSites.DEFAULTS`,
+  version 2) were YouTube, Facebook and TikTok only, and a stored list never got a new default.
+- Fix: `DEFAULTS` + Instagram (`https://www.instagram.com`) and X (`https://x.com`),
+  `DEFAULTS_VERSION = 3`, `ADDED_IN_VERSION_3` (the two). `migrateDefaults(stored,
+  storedVersion)`: a version 1 list is moved as before (its old defaults replaced by the five,
+  in order, a site of the same brand taking its default's place; a list without an old default
+  stays as it is); a version 2 list gets Instagram and X at its end, each only when no site of
+  its brand is there (twitter.com counts as X) and while there is room under `MAX_SITES` (12);
+  an empty list stays empty; with no stored list the five defaults are shown.
+  `DataStoreHomeSitesRepository.migrateDefaultsOnce` passes the stored version (none = 1) and
+  stores 3, so it runs once: a site the user removes later stays removed. Home's tile already
+  says the site's name ("Instagram", "X") as its description; the logo is decorative
+  (`site-logo-instagram`, `site-logo-x`). No VK code: the owner's VK is his own site, with its
+  letter.
+- Logos checked: both paths are identical to Simple Icons 16.34.0's `instagram.svg` and `x.svg`
+  (and to 16.35.0, the latest), which take Instagram's from Meta's brand resources and X's from
+  x.com (the current X mark); the colours (FF0069, 000000) are Simple Icons'.
+  `docs/THIRD_PARTY_NOTICES.md` already lists both (Simple Icons 16.34.0, CC0-1.0); no logo or
+  notice change.
+- Tests: `HomeSitesMigrationTest` (the five defaults and version 3; version 1 cases now with the
+  five; version 2: the owner's list with VK → + Instagram, X; a site of the same brand already
+  there (twitter.com, m.instagram.com); a full list (12: none; 11: Instagram only; 10: both); an
+  empty list; a current list unchanged; a second run changes nothing), `HomeSitesTest`
+  (initials Y F T I X), `DataStoreHomeSitesRepositoryTest` (a version 2 list gets both once and
+  X removed afterwards stays removed; an empty version 2 list stays empty, version 3 stored; the
+  version 1 move with the five), `HomeScreenTest` (the five logos by tag and each tile's
+  description, "Instagram" and "X", scrolled into view; a site without a brand shows its letter).
+- Validation (local, 2026-10-24): `lintDebug` → 0 errors, no issue in a D4 file;
+  `testDebugUnitTest -x :app:testDebugUnitTest` (core-model 142 = 138 + 4, core-data 35 =
+  33 + 2, the other modules as in D3) and `:app:testDebugUnitTest` (1126, the HomeScreen logo
+  test widened, 66 skipped) → 0 failures; `:app:assembleDebug :app:assembleRelease` → BUILD
+  SUCCESSFUL; no new line over 100 characters. CI (`abac20e`): checkpoint validation run
+  40100415386, Preview APK run 40100415355 and Emulator smoke run 40100415357 green.
+- Backlog: Home shows four tiles and scrolls sideways for the rest, so on the owner's phone
+  (YouTube, Facebook, TikTok, VK) Instagram and X come fifth and sixth, after a sideways swipe;
+  a version 1 list the user made without an old default is moved as before (not at all), so it
+  gets neither.
+
+### D1 follow-up 3 — one size for a remuxed HLS download
+
+- Found (the owner's phone test of `abac20e`'s preview, 2026-10-25: D1–D4 pass, one D1 bug): an
+  HLS download remuxed to MP4 showed two sizes for the same file, the Downloads card "480p ·
+  223 MB" (the downloaded TS pieces) and Home's Recent card "480p · 213 MB" (the saved MP4); it
+  was in D1's backlog ("a task's total bytes after a remux stay the pieces' bytes").
+- Cause: `DownloadQueue.completeTask` set `totalBytes` to `(current.totalBytes ?: bytesWritten)
+  .coerceAtLeast(checkpoint.downloadedBytes)` and `downloadedBytes` to the checkpoint's, so the
+  pieces' size won over the published file's; Recent and Library read the saved file itself.
+- Fix: a completed HLS task's size is the file it published (`bytesWritten`: the MP4 or M4A
+  made from its pieces, or the kept `.ts`, `.aac` or `.mp3`), as both its total and its
+  downloaded bytes (downloaded ≤ total kept), so every screen that shows the task (the
+  Downloads card and details, the notifications) says what Home and Library say; its checkpoint
+  keeps the pieces' bytes. `StoredDownloadTask` accepts that for a completed HLS task only
+  (`showsPublishedBytes`; every other task still shows exactly its checkpoint's bytes) and
+  `RoomDownloadTaskStore` keeps it across a restart (a completed HLS row whose stored downloaded
+  bytes equal its total). Pieces that are only joined (fragmented MP4) write their own bytes, so
+  they show the same as before; DIRECT, DASH and merged downloads unchanged.
+- Tests: `StreamDownloadQueueTest` (+3: a remux, pieces 10 and MP4 8 → total and downloaded 8,
+  the checkpoint 10, the store the same; a kept `.ts` of 9 → 9 and 9; DASH and merged downloads
+  unchanged), `RoomDownloadTaskStoreTest` (+3: a completed HLS task keeps 8 after a restart; a
+  row that is not a completed HLS one shows its checkpoint's bytes; a completed HLS row saved
+  before keeps its size). Without the fix four of them fail (the two HLS queue tests and the
+  first two store tests).
+- Validation (local, 2026-10-25): `lintDebug` → 0 errors, no issue in a changed file;
+  `testDebugUnitTest -x :app:testDebugUnitTest` (core-download 274 = 268 + 6, the other modules
+  as in D4) and `:app:testDebugUnitTest` (1126, 66 skipped) → 0 failures; `:app:assembleDebug
+  :app:assembleRelease` → BUILD SUCCESSFUL; no new line over 100 characters. CI (`0e4a59b`):
+  checkpoint validation run 40124048608, Preview APK run 40124048654 and Emulator smoke run
+  40124048689 green (56 tests, 0 failures, 3 skipped).
+- Backlog: a converted MP3 or a sound-only M4A (DIRECT, T18 and P3) showed its downloaded
+  source's size and a merged download its tracks' bytes, not the saved file's (fixed by D1
+  follow-up 4); a completed HLS task saved before this fix keeps the pieces' size it showed (no
+  migration).
+
+### D1 follow-up 4 — every completed download shows its saved file's size
+
+- Found (the owner, 2026-10-25, from follow-up 3's backlog): a converted MP3 or a sound-only M4A
+  made from a DIRECT download showed its source's size (for an M4A the whole MP4's), a merged
+  download its tracks' bytes and no total, a live DASH file its pieces' bytes; Home's Recent card
+  and Library read the saved file itself, so the sizes differed.
+- Cause: `DownloadQueue.completeTask` took the published size (`bytesWritten`) for HLS only;
+  every other plan type kept `(current.totalBytes ?: bytesWritten).coerceAtLeast(checkpoint
+  bytes)` as its total (null for a merged one) and the checkpoint's bytes as its downloaded.
+- Fix: a completed task's total and downloaded bytes are the file it published (`bytesWritten`)
+  for every plan type: the MP3 or M4A made from a direct download, the merged video, the DASH
+  file, the HLS MP4 (downloaded ≤ total kept); its checkpoint keeps what was downloaded. A plain
+  direct download publishes exactly its checkpoint's bytes, so it shows the same as before.
+  `showsPublishedBytes` is now the completed status, whatever the plan type; a completed DASH or
+  merged task keeps those bytes when it is saved and shown (`withCheckpointBytes` only resets a
+  stopped one). `RoomDownloadTaskStore` keeps them across a restart (a completed row whose stored
+  downloaded bytes equal its total); a completed DIRECT row's checkpoint total, which shares the
+  row's total column, comes back as its segments' bytes (what the finished download verified),
+  so the checkpoint is the same too. Rows saved before keep what they showed (they saved their
+  checkpoint's bytes; no migration).
+- Tests: `Mp3ConvertingTransferDispatcherTest` (+3, through a download queue: an MP3 of 14 bytes
+  from a 4,096-byte AAC → total and downloaded 14, the checkpoint 4,096, the store the same; the
+  M4A of a video → 14 and 14; a plain direct download → 4,096 as before),
+  `StreamDownloadQueueTest` (+1 net: a merged video of 8 from tracks of 10 → 8 and 8, the
+  checkpoint 10; a DASH file of 12 from pieces of 10 → 12 and 12; follow-up 3's "DASH and merged
+  downloads unchanged" test replaced), `RoomDownloadTaskStoreTest` (+3: an MP3 of 7 or 25 from a
+  source of 10 keeps its size and its checkpoint after a restart; a merged video of 8 and a DASH
+  file of 12 the same; completed direct and merged rows saved before keep their sizes). Without
+  the fix six of them fail (all but the plain direct download and the rows saved before).
+- Validation (local, 2026-10-25): `lintDebug` → 0 errors, no issue in a changed file;
+  `testDebugUnitTest -x :app:testDebugUnitTest` (core-download 281 = 274 + 7, the other modules
+  as in D4) and `:app:testDebugUnitTest` (1126, 66 skipped) → 0 failures; `:app:assembleDebug
+  :app:assembleRelease` → BUILD SUCCESSFUL; no new line over 100 characters. CI: after the push.
+- Backlog: a direct source of unknown size whose MP3 or M4A conversion was cut by the app's end
+  and finished after a refresh keeps a checkpoint without a total until the next restart, which
+  gives it the source's bytes (a completed task's checkpoint is not read again).
+
+## VK agent — `work/phase-vk-extractor` (VK0–VK4), `work/phase-vk-path-d` (VK5)
+
+- Plan: `docs/VK_PLAN.md` (the owner's request, 2026-10-24). Branch made from PR #2's head
+  `8dc46ff` (`spike/master-extractor-backup`); it never merges into PR #2; after PR #2's merge,
+  `main` is merged into it (VK4).
+- State (2026-10-25): **VK5 built** on `work/phase-vk-path-d` (made from the VK3 record commit
+  `8bd64d0c`): path D for public 18+ videos (`docs/VK_PLAN.md` §13; below). Next: CI green (by
+  2026-10-26 24:00 MMT, else STOP — D moves to v1.0.1 and v1.0.0 keeps `f2433a1`'s code), then the
+  owner's phone check (§13.6). **VK3 PASS** (below): `work/phase-vk-extractor`'s code (`f2433a1`)
+  stays the fallback, nothing more on that branch. VK4 is now only a merge, at the owner's word,
+  into `spike/master-extractor-backup` after `work/phase-download-fixes` and before
+  `work/phase-in-app-update` — no `main` merge, no Preview #13, no PR (§13.1).
+- VK0 (done): results in `docs/VK_PLAN.md` §11, sanitized fixtures in
+  `extractor-sites/src/test/resources/fixtures/vk/` (README there). Found: the page (A) carries no
+  player data (VK's login redirect + SPA shell); the embed `video_ext.php` (B) works without a
+  hash for every public video tried (up to 2160p), data in `window.cur` → `apiPrefetchCache` (not
+  `playerParams`); B2 = `vk.ru` (not `vkvideo.ru`); embeds are windows-1251.
+- **The owner's VK0 answers** (2026-10-24): (a) drop A, v1 = the embed on vk.ru/vk.com; (b) one
+  shared charset fix; (c) no `PlayerFileFallback` in v1; (d) no `al_video`; (e) Master's debug
+  unchanged. Recorded in `docs/VK_PLAN.md` §12; the design as built is §4.
+- VK1, commit 1 `a176667a` (the owner's OK, its own commit): the shared client's charset fix in
+  `OkHttpExtractorClient` + `OkHttpExtractorClientTest` — text read with `readUtf8()` as before;
+  only when that yields U+FFFD, the bytes are not UTF-8 and the response names another known
+  charset (VK: windows-1251) are the same bytes read in that charset. Size, timeout and Cancel
+  unchanged.
+- VK1 + VK2, commit 2: the adapter in `extractor-sites/.../sites/vk/` — `VkUrls` (links, video
+  ids, the embed URLs), `VkEmbedParser` (`apiPrefetchCache` → the item with the link's id → key
+  table, else shape scan), `VkJudge` (a manifest: video, audio-only or not judged; read only
+  when there is no MP4), `VkExtractor` (B on `vk.ru` for a `*.vk.ru` page with its cookie, else
+  `vk.com` with a `*.vk.com` page's cookie only; the same host once more on an SPA shell; then
+  B2 on the other host, never with a cookie; at most 3 embed requests, one 15 s deadline, Cancel
+  stops the request); 52 VK tests on the fixtures (no network) incl. a fixture-hygiene test; the
+  fixtures' URL keys; the registration line in `SiteAdapterModule.kt`. Plan: §4 as built, §5.3
+  the tests, §12 the owner's answers.
+- The owner's sign-in links (VK messenger channel posts, the plan's §5.1): only on his phone at VK3.
+- **VK3 (2026-10-25 MMT): PASS** — the owner's phone, `f2433a1`'s preview (Preview APK run #81).
+  - Public, signed out: links 1–5 found, Russian titles correct — `video-50883936_456244102` up
+    to 2160p; `video-18403220_456239696` 1080p/720p/480p; `clip30014565_456240946`
+    1080p/720p/480p; `video-140332_456239111` 720p MP4 + 480p HLS, no thumbnail;
+    `vkvideo.ru/video-18403220_456239696` the same as on `vk.com`.
+  - Downloads on the clip: 1080p, 480p and an Audio row play with sound. No other downloads (rows
+    0.5–3.5 GB on mobile data); no HLS download (this preview lacks the D1 fix on
+    `work/phase-download-fixes`; checked at #12).
+  - Sign-in part, with his own links instead of cmid=2/3: the VHS Video channel page
+    (`m.vk.ru/mail/channels/…`) has no video id, not claimed (§8); the generic finder shows
+    "Messenger · MP3 104 KB". Its video on `m.vkvideo.ru/video-5…`: VK's own page shows "Video
+    unavailable"; YFT `NO_MEDIA_FOUND` (B `vk.com` 200 not found, B2 `vk.ru` 200 not found), the
+    "isn't available" message and Try again — correct.
+  - 18+ videos (`video-215889201_456243439` and others): public, they play signed out on
+    `vkvideo.ru`, but the embed answers "may contain adult content … can't be viewed on external
+    sites"; YFT `NO_MEDIA_FOUND`, "isn't available". Expected for v1; VK5 (path D) handles them.
+  - TikTok, Facebook, Instagram, X: one lookup each, video rows as before; 4 Audio rows on each
+    (M4A + MP3 320/192/128), expected without D2 on `work/phase-download-fixes` (after the merge:
+    M4A + MP3 192).
+  - Later (no fix now): the finished live's thumbnail; the Messenger page's MP3 row.
+- **VK5 (2026-10-25, the owner; `docs/VK_PLAN.md` §13), on `work/phase-vk-path-d`:**
+  - Recon (live, signed out, metadata and 1-byte checks only): the embed answers "may contain
+    adult content … can't be viewed on external sites" (error callback 9) on `vk.com` and `vk.ru`,
+    with and without `list`. vkvideo.ru's signed-out flow works for all three examples: an
+    anonymous token from `login.vk.ru` (the web client's id and public secret; no cookie; 24 h),
+    then `video.get` on `api.vkvideo.ru` (v5.289, `Authorization: Bearer`) — `…_456243446` MP4
+    144p–720p, `…_456243466` and `…_456243439` 144p–1080p, each with `hls`, `hls_fmp4` and
+    `dash_sep`, files on `vk{N}-{N}.vkuser.net` (bound to the IP and the user agent).
+  - Code (one commit; no shared-code change — `postJson` already exists): `VkWebClientProfile`
+    (the web client's identifiers, one file), `VkApiToken` (the token in memory only, until 60 s
+    before VK's expiry), `VkUrls` (`vkuser.net` for D only), `VkEmbedParser` (the adult answer;
+    `video.get`'s item), `VkExtractor` (D only after B/B2's adult answer; only `login.vk.ru` and
+    `api.vkvideo.ru`, never a cookie; v1's 15 s deadline, Cancel and message). 4 sanitized
+    fixtures (README there); 73 VK tests (21 new: `VkPathDParserTest` 9, `VkPathDTest` 12).
+  - Phone check after CI (§13.6): the three examples (rows; one small row plays with sound);
+    VK3's `video-18403220_456239696` and the clip unchanged; no other site needed.
+- Rules: the plan's §2 (no push to `main` or PR #2, no label, no `recipes` branch; VK5: no merge,
+  no PR, no shared docs).
+- Validation: `./gradlew --no-daemon :extractor-sites:test` (VK only:
+  `--tests 'com.alal.yft.extractor.sites.vk.*'`); before a push the CI set: `lintDebug
+  testDebugUnitTest :core-model:test :extractor-api:test :extractor-generic:test
+  :extractor-sites:test :app:assembleDebug :app:assembleRelease`.
+
+## In-app update agent — `work/phase-in-app-update` (U0–U3)
+
+- Plan: `docs/IN_APP_UPDATE_PLAN.md` (the owner's request, 2026-10-24: the in-app update ships in
+  v1.0.0, the first stable release, with A and VK; revised after his review the same day). Branch
+  made from PR #2's head `8dc46ff` (`spike/master-extractor-backup`).
+- State (2026-10-25 MMT): **U1 green** — the U1 cut `e615a96` (CI all success: checkpoint validation
+  40123514346, Emulator smoke 40123514304, Preview APK 40123514313). **U2 green** — `d5f36f8`
+  (`checkpoint(phase-in-app-update): U2: wait for Android's installer through Compose`, on U2's
+  `6883e4d`; CI all success: checkpoint validation 40133089357, Emulator smoke 40133089369 (59
+  tests, 0 failures), Preview APK 40133089364): Download APK to update runs in YFT
+  (`UpdateInstallFlow`, one for the process): allowed to install? → free space → the release's
+  `SHA256SUMS` line → the APK into the cache (check 1, the checksum) → check 2, the signature →
+  check 3, the package and version → Android's installer, where the user confirms (YFT never
+  installs by itself); Cancel; every failure says which step, "Nothing was installed." and Download
+  in browser; Reinstall this build (test) in debug and preview only. The manifest:
+  `REQUEST_INSTALL_PACKAGES` and the unexported `InstallStatusReceiver`. **U3 PASS** on the owner's
+  phone (the preview of `d5f36f8`, 2026-10-25 10:39–10:53 MMT): every step of plan §5.4; recorded in
+  plan §12 (the release commit puts it in `docs/PHONE_TEST_NOTES.md`). **U3 fixes** — checkpoint
+  `checkpoint(phase-in-app-update): U3 fixes: the button's two lines, the notes as plain text` (its
+  SHA and CI in plan §12's next entry): **Download APK to update** wraps to two lines at large text
+  sizes instead of being cut (`YftPrimaryButton`'s optional `maxLines`, default 1), and the notes
+  drop Markdown's marks (`ReleaseNotes`). The reinstall test's "Update cancelled." without Download
+  in browser is by design (that link is the found release's APK; the test is no release). Beside the
+  plan's letter: plan §12's U2 and U3 entries. Next: CI green, then STOP with a short Burmese
+  report; no new phone test — the owner checks both fixes in his #12. Time box: CI green by
+  2026-10-26 24:00 MMT.
+- The owner's review: no Home card, no About change, no dialog; the Version row's version on its
+  second line; every text a true claim (U1 never says "verified").
+- Merge (the owner's order, only when he says): A → VK → this branch into
+  `spike/master-extractor-backup` with merge commits, then the release commit (`1.0.0` / `1000000`,
+  the shared docs) on top. No U4: `main` is never merged into this branch, no pull request. Expected
+  conflict: this file only (every section kept). U2 late → `work/phase-in-app-update-u1` (the U1
+  cut) instead.
+- Phone (U3): PASS on 2026-10-25, every step (plan §5.4, §12); the U3 fixes are checked in the
+  owner's #12.
+- Found at U0: every release made by `release-draft.yml` carries `SHA256SUMS` (`release-prep.sh` →
+  `verify-release-apk.sh`; uploaded on create and refresh), so no workflow change. Published today:
+  only `v1.0.0-beta.1` (prerelease, versionCode 1); beta.2 and beta.3 are drafts.
+- Version code rule (plan §4.2): from the tag, with or without `v`, `X.Y.Z` → X·1000000 + Y·10000 +
+  Z·100 (v1.0.0 = 1000000); the release commit sets it, a JVM test guards it.
+- For the release commit (plan §11): About's first privacy line
+  ("YFT only contacts the sites you open…") must name the update check.
+- Rules: the plan's §2 (no push to `main` or the spike except the merge the owner calls, no pull
+  request or label, no `recipes` branch, no release or tag, no APK on the owner's phone before S5's
+  run 3 is counted).
+- Validation: `./gradlew --no-daemon :app:testDebugUnitTest --tests 'com.alal.yft.update.*'`; before
+  a push, CI's set (plan §7); U2 also the Emulator smoke (`UpdateInstallInstrumentedTest`, plan
+  §6.2: GitHub played by an in-test interceptor; Android's installer always cancelled).
+
+## Release agent — `work/phase-release-v1` (the v1.0.0 release commit, #12)
+
+- Task (the owner, 2026-10-25): the v1.0.0 release commit per decision 30 (iv)
+  (`MASTER_KEY_SOCIAL_PLAN.md` §8) and its two #12 preview APKs, then STOP with a short Burmese
+  report. Branch made from `origin/spike/master-extractor-backup` `038c1cd4` (PR #2's branch after
+  the download-fixes, VK and in-app-update merges; its CI green: Work-branch checkpoint
+  validation 40171179191, Master opt-in debug APK 40171175629). One commit or a few, the release
+  commit last; the owner (2026-10-25): push a checkpoint as soon as a part is green.
+- Built (checkpoint 1, this commit):
+  - `gradle.properties`: `1.0.0` / `1000000` (the version code rule, `VersionCodeRuleTest`).
+  - `app/build.gradle.kts`: `releaseMaster(key, url, trials)` — the release, #12 normal
+    (`preview`) and #12 trial (`previewTrial`) never read a `-Pyft.*` switch: Master on (route B:
+    the own solver, the client ladder; the four sites' ladders with L3; the capture; R9 with the
+    committed key `extractor-master/recipes/master-recipes.pub.hex` and the `recipes` branch's
+    URL), never the test hooks, the own solver's next ladder or Instagram's tab-fetch rung; the
+    trials only in `previewTrial` (`.trial`, "YFT Trial", `-trial.<run>`, the test key); quiet
+    (`QUIET_RELEASE`) in the release and `preview` only.
+  - (i) **Backup finder** (`detection/master/BackupFinder.kt`, on by default, app-private prefs):
+    off → no lookup asks Master (`SiteAdapterModule`'s registry and recovery, the browser's
+    fallback and capture, YouTube's own solver via `BackupFinderPlayerScripts`) and Master's
+    client refuses every request before it is sent (GitHub raw: R9, the version tables);
+    Settings row `settings-backup-finder`.
+  - (ii) About › Privacy's first line names GitHub (raw.githubusercontent.com for the backup
+    finder, api.github.com for Check automatically).
+  - (v) The quiet release (`ui/QuietRelease.kt`: `LocalQuietRelease`, `ShowDetails`, `QuietLines`):
+    the browser's lookup notice and Try again hidden (the focus notices stay; a failed one says
+    the quiet line); the sheet's one line ("Couldn't get this video.", TikTok's check with Show
+    check, "Play the video, then tap Download again."; Download again looks up again); Home's
+    sheet the same, Home's Copy details and Downloads' failure details hidden; a failed
+    download's retry stays; About's version line tapped 7 times turns Show details on or off.
+  - (iii) `.github/workflows/preview-apk.yml`: one run builds `:app:assemblePreview
+    :app:assemblePreviewTrial`, verifies both (`com.alal.yft.preview`, `com.alal.yft.trial`) and
+    uploads `yft-preview-apk` and `yft-preview-trial-apk`.
+  - Tests: `BackupFinderTest` (4), `QuietReleaseTest`, and new cases in `BrowserViewModelTest`,
+    `BrowserScreenTest`, `QuickDownloadScreenTest`, `AboutScreenTest`, `SettingsScreenTest`,
+    `SettingsViewModelTest`, `DownloadsScreenTest`; `MasterParityLiveTest` passes the switch.
+  - Docs so far: `CHANGELOG.md` `## [1.0.0]` (the Unreleased section becomes 1.0.0; the header's
+    version code rule), `docs/release/1.0.0.md`.
+- Local validation (2026-10-25): `testDebugUnitTest` → app 1278 (66 skipped), core-browser 150,
+  core-data 35, core-download 281, core-media 39, extractor-master-android 70: 0 failures;
+  `:app:compileDebugAndroidTestKotlin` OK.
+- Checkpoint 1 `1244f80b`: CI green (Work-branch checkpoint validation #540 40184741769,
+  Android emulator smoke #134 40184741829, Preview APK (test key) #101 40184741778 with
+  `yft-preview-apk` 12596296561 and `yft-preview-trial-apk` 12596046940). Local: `lintDebug`,
+  `:app:assembleRelease` (R8), `:app:assemblePreview`, `:app:assemblePreviewTrial`,
+  `:extractor-master:test`, `:core-model:test :extractor-api:test :extractor-generic:test
+  :extractor-sites:test`: all green.
+- R8 (the owner, 2026-10-25: "decide by running the minified build … not by compiling alone —
+  YouTube route B, one social ladder and the capture must work in it"): this agent's computer has
+  no KVM, so checkpoint 2 adds `.github/workflows/minified-check.yml` (pushes to
+  `work/phase-release-*` only): it builds #12 normal and #12 trial as Preview APK does (R8, a fresh
+  test key), runs both on the emulator smoke's API 34 emulator and drives them through their
+  screens (`scripts/ci-minified-check.sh`, the opt-in `MinifiedBuildCheckTest`, `-e yft.minified
+  <package>`; the smoke skips it): YouTube (route B's notice in the trial), X then Facebook (the
+  ladder's notice), Facebook's video with the capture's "Play the video…" answered by a tap on the
+  video. Each answer is an annotation; a crash or a run that cannot finish fails the job. Static
+  review so far: no reflection, ServiceLoader or serialization in Master; `@JavascriptInterface`
+  kept (the own solver's bridge); the capture talks by `evaluateJavascript` and `org.json`; assets
+  by name; only details lines carry a class name (`ClientLadder`'s `L: <outcome>`, the trial
+  check's failure), shown renamed in a shrunk build.
+- Checkpoint 2 `29fd1ba9`: Preview APK (test key) #102 40187305143 green — the #12 links the
+  owner asked for: `yft-preview-apk` 12596686333 (#12 normal), `yft-preview-trial-apk`
+  12596591356 (#12 trial). Minified build check #1 40187305152 and Android emulator smoke #135
+  40187305135 red for one cause, the new test class: `fun youtubeRouteB() = check(…)` returned a
+  `Boolean`, so JUnit refused the whole class (`initializationError`; the smoke runs every
+  androidTest class, and the opt-in check skips itself only inside a test). Fixed in checkpoint 3:
+  every `@Test` a block body returning `Unit` (javap: all `public void`); route B's page waits for
+  the browser ("Close browser") before it types the address. Work-branch checkpoint validation
+  #541 40187305159: green.
+- rc.1 (the owner, 2026-10-25): the release-key update test (`IN_APP_UPDATE_PLAN.md` §5.5) WILL
+  run in P8 with `1.0.0-rc.1`. This agent prepares the docs only (checkpoint 3): `CHANGELOG.md`
+  `## [1.0.0-rc.1]`, `docs/release/1.0.0-rc.1.md`, `docs/RELEASE.md` (the identity table, the
+  version code rule, the preview table, the Release draft facts, the test's five steps). What rc.1
+  still needs and this agent does not make (a build-config change, the owner's): a commit whose
+  `gradle.properties` says `yft.versionName=1.0.0-rc.1` / `yft.versionCode=999901`
+  (`VersionCodeRuleTest` accepts it) — the Release draft workflow has no version input, it reads
+  the run's commit. No tag, no Release draft run, no publish.
+- Also fixed in checkpoint 3: CHANGELOG's "Check automatically is off until you turn it on" — in
+  the release it is on by default (`defaultAutoCheck` is the release mode; off in the test mode
+  and the previews); `docs/release/1.0.0.md`'s privacy line says the same.
+- Checkpoint 3 `b90c955d` (rc.1's docs, the wording fix, the check's test): all green —
+  Work-branch checkpoint validation #544 40188796317, Android emulator smoke #138 40188796316,
+  Preview APK #105 40188796270, Minified build check #2 40188796284.
+- **R8, decided by the run:** the shrunk builds ran through their screens with no crash and no
+  R8-type error. #12 normal: X rows, Facebook rows, YouTube's quiet line "Play the video, then tap
+  Download again.". #12 trial: `master: x ladder after RESPONSE_CHANGED; main's answer replayed,
+  no new ask; trial: Master's rows 3, main's 3; the same item: yes; duration within 1 s: yes` (one
+  social ladder works shrunk); Facebook rows; YouTube `master: route B not run: BOT_CHECK is final`
+  (YouTube's bot check on CI's address; final by design, so route B cannot be reached there); the
+  capture not asked (Facebook gave rows in both builds). No keep rule added (the existing rules
+  keep the own solver's `@JavascriptInterface` bridge; no reflection, ServiceLoader or
+  serialization in Master). Route B and the capture in the shrunk builds: #12 on the owner's
+  phone; a failure there that the debug APK does not show is an R8 fix before the merge.
+- Checkpoint 4 (this one, docs only): the release commit's shared docs — `PROGRESS.md`,
+  `docs/TEST_MATRIX.md` (S5's run 3, VK1–VK3, VK5, D1–D4, U1–U3, the release commit),
+  `docs/PHONE_TEST_NOTES.md` (S5's run 3, VK3, VK5, D1–D4, U3, the U3 fixes),
+  `docs/SUPPORT_MATRIX.md` (VK, the ladders in the release, the backup finder, the in-app
+  update), README (1.0.0, the install notes, `yft-preview-trial-apk`), the status lines of
+  `MASTER_KEY_SOCIAL_PLAN.md`, `docs/IN_APP_UPDATE_PLAN.md` (§0, §5.5, §12) and
+  `docs/VK_PLAN.md`.
+- The #12 APKs (the owner asked for `29fd1ba9`'s; later commits changed only the check's test and
+  docs, so the app is the same): Preview APK #102 40187305143 — `yft-preview-apk` 12596686333
+  (#12 normal), `yft-preview-trial-apk` 12596591356 (#12 trial).
+- Next: STOP and report (Burmese, short); then the owner's #12, PR #2's merge, R9's first Run
+  workflow, P8 with rc.1's update test.
+- Rules: no site pack, engine or main lookup change; rc.1 docs only (no version change, tag,
+  Release draft run or publish); never `main`, the spike, PR #2, a label,
+  `master-recipes-publish`, `release-draft`, signing, the `recipes` branch, a tag or a release,
+  `work/phase-vk-master*`; no APK on the owner's phone.

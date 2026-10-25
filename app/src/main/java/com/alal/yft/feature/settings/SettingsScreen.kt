@@ -39,11 +39,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
@@ -73,7 +75,11 @@ import com.alal.yft.ui.components.YftStepper
 import com.alal.yft.ui.components.YftSwitch
 import com.alal.yft.ui.components.YftTextButton
 import com.alal.yft.ui.theme.YftIcons
+import com.alal.yft.ui.theme.YftShapes
 import com.alal.yft.ui.theme.YftTheme
+import com.alal.yft.update.UpdatesRow
+import com.alal.yft.update.UpdatesViewModel
+import com.alal.yft.update.settingsRow
 
 @Composable
 fun SettingsRoute(
@@ -81,9 +87,12 @@ fun SettingsRoute(
     onThemeModeChanged: (ThemeMode) -> Unit,
     onOpenAbout: () -> Unit = {},
     onOpenLicenses: () -> Unit = {},
+    onOpenUpdates: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
+    updatesViewModel: UpdatesViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val updates by updatesViewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val systemStatus = remember(context) { AndroidBackgroundSystemStatus(context) }
     var background by remember { mutableStateOf(systemStatus.read()) }
@@ -97,6 +106,8 @@ fun SettingsRoute(
         onThemeModeChanged = onThemeModeChanged,
         onOpenAbout = onOpenAbout,
         onOpenLicenses = onOpenLicenses,
+        updates = updates.settingsRow(),
+        onOpenUpdates = onOpenUpdates,
         background = background,
         onAllowBackground = { BackgroundSettingsIntents.allowUnrestricted(context) },
         onOpenAppSettings = { BackgroundSettingsIntents.appDetails(context) },
@@ -125,6 +136,8 @@ fun SettingsScreen(
     background: BackgroundSystemState? = null,
     onAllowBackground: () -> Unit = {},
     onOpenAppSettings: () -> Unit = {},
+    updates: UpdatesRow? = null,
+    onOpenUpdates: () -> Unit = {},
 ) {
     val colors = YftTheme.colors
     val snackbar = remember { SnackbarHostState() }
@@ -176,15 +189,28 @@ fun SettingsScreen(
                     PrivacyRows(state = state, onAction = onAction)
                 }
                 SettingsGroup(title = "About") {
+                    // The version on the second line, so a long name never breaks in the middle.
                     ValueRow(
                         icon = YftIcons.Info,
                         title = "Version",
-                        value = versionName,
+                        supporting = versionName,
                         tag = "settings-open-about",
                         onClickLabel = "Open About",
                         onClick = onOpenAbout,
                     )
                     RowDivider()
+                    if (updates != null) {
+                        ValueRow(
+                            icon = YftIcons.Refresh,
+                            title = "Updates",
+                            supporting = updates.supporting,
+                            badge = if (updates.isNew) "New" else null,
+                            tag = "settings-open-updates",
+                            onClickLabel = "Open Updates",
+                            onClick = onOpenUpdates,
+                        )
+                        RowDivider()
+                    }
                     ValueRow(
                         icon = YftIcons.Document,
                         title = "Licenses",
@@ -397,8 +423,8 @@ private fun DownloadRows(
 }
 
 /**
- * Settings › Browser: the engine typed words search with (P30), the history (P31) and the
- * pop-up blocking (P32).
+ * Settings › Browser: the engine typed words search with (P30), the history (P31), the
+ * pop-up blocking (P32) and, in a build with Master, the Backup finder (decision 30 (i)).
  */
 @Composable
 private fun BrowserRows(
@@ -439,7 +465,24 @@ private fun BrowserRows(
         supporting = "Pages can't open new windows or send you to another site you didn't tap.",
         onToggle = { onAction(SettingsAction.SetBlockPopups(it)) },
     )
+    // Decision 30 (i): only in a build with Master; on by default.
+    state.backupFinder?.let { on ->
+        RowDivider()
+        SwitchRow(
+            icon = YftIcons.Stacks,
+            title = "Backup finder",
+            checked = on,
+            tag = "settings-backup-finder",
+            supporting = BACKUP_FINDER_SUPPORTING,
+            onToggle = { onAction(SettingsAction.SetBackupFinder(it)) },
+        )
+    }
 }
+
+/** Decision 30 (i): what the Backup finder does, and that it reads from GitHub. */
+internal const val BACKUP_FINDER_SUPPORTING =
+    "When a site's usual lookup finds no video, YFT tries other ways and may read its site " +
+        "data from GitHub."
 
 @Composable
 private fun PrivacyRows(state: SettingsUiState, onAction: (SettingsAction) -> Unit) {
@@ -481,6 +524,7 @@ private fun SettingsRow(
     enabled: Boolean = true,
     supporting: String? = null,
     endPadding: Dp = ROW_PADDING,
+    badge: String? = null,
     trailing: @Composable RowScope.() -> Unit = {},
 ) {
     val colors = YftTheme.colors
@@ -509,7 +553,19 @@ private fun SettingsRow(
                 color = colors.textPrimary.copy(alpha = alpha),
                 style = MaterialTheme.typography.bodyMedium,
             )
-            if (supporting != null) {
+            if (badge != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    RowBadge(text = badge)
+                    if (supporting != null) {
+                        Text(
+                            text = supporting,
+                            modifier = Modifier.padding(start = 6.dp),
+                            color = colors.textSecondary,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            } else if (supporting != null) {
                 Text(
                     text = supporting,
                     color = colors.textSecondary,
@@ -532,6 +588,7 @@ private fun ValueRow(
     enabled: Boolean = true,
     supporting: String? = null,
     onClickLabel: String? = null,
+    badge: String? = null,
 ) {
     val colors = YftTheme.colors
     val alpha = if (enabled) 1f else DISABLED_ALPHA
@@ -551,6 +608,7 @@ private fun ValueRow(
         // The chevron glyph sits inside its box, so a smaller end padding lines it up with the
         // switches.
         endPadding = ROW_PADDING - 6.dp,
+        badge = badge,
     ) {
         if (value != null) {
             Text(
@@ -597,6 +655,26 @@ private fun SwitchRow(
         supporting = supporting,
     ) {
         YftSwitch(checked = checked, onCheckedChange = null, enabled = enabled)
+    }
+}
+
+/** A red pill such as Updates' "New", drawn like the bottom bar's count badge. */
+@Composable
+private fun RowBadge(text: String) {
+    val colors = YftTheme.colors
+    Box(
+        modifier = Modifier
+            .clip(YftShapes.pill)
+            .background(colors.coral)
+            .padding(horizontal = 6.dp, vertical = 1.dp)
+            .testTag("settings-row-badge"),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            color = colors.onCoral,
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+        )
     }
 }
 

@@ -8,6 +8,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- P34: YFT is handed out on GitHub, so it may ask to run without battery limits. -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- U2: the in-app update hands its checked APK to Android's installer; the user confirms. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
@@ -41,5 +43,9 @@
             android:exported="false"
             android:foregroundServiceType="dataSync|mediaProcessing"
             android:stopWithTask="false" />
+        <!-- U2: Android's answer about an update session; only its PendingIntent reaches it. -->
+        <receiver
+            android:name=".update.InstallStatusReceiver"
+            android:exported="false" />
     </application>
 </manifest>

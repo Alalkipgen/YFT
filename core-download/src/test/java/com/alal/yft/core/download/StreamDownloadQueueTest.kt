@@ -10,6 +10,7 @@ import com.alal.yft.core.model.download.DownloadProgress
 import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.download.HlsDownloadPlan
 import com.alal.yft.core.model.download.HlsTransferCheckpoint
+import com.alal.yft.core.model.download.PublishedFile
 import com.alal.yft.core.model.download.RemoteFileMetadata
 import com.alal.yft.core.model.download.StreamChunkCheckpoint
 import com.alal.yft.core.model.download.TransferCheckpoint
@@ -75,6 +76,136 @@ class StreamDownloadQueueTest {
         assertEquals(DownloadPlanType.HLS, completed.planType)
         assertEquals(10L, completed.downloadedBytes)
         assertEquals(10L, completed.totalBytes)
+    }
+
+    @Test
+    fun `D1 an HLS download kept in its own format shows the name it was published as`() =
+        runTest {
+            val dispatcher = ControlledDispatcher(
+                publishedAs = PublishedFile("hls.ts", "video/mp2t"),
+            )
+            val store = InMemoryStore()
+            val queue = DownloadQueue(
+                store = store,
+                transferDispatcher = dispatcher,
+                scope = backgroundScope,
+                maxConcurrentDownloads = 1,
+            )
+
+            queue.enqueue(hlsPlan("hls"), RecordingDestination())
+            runCurrent()
+            assertEquals("video/mp4", queue.tasks.value.single().mimeType)
+            dispatcher.complete("hls")
+            runCurrent()
+
+            val completed = queue.tasks.value.single()
+            assertEquals(DownloadTaskStatus.COMPLETED, completed.status)
+            assertEquals("hls.ts", completed.displayName)
+            assertEquals("video/mp2t", completed.mimeType)
+            assertEquals(completed.displayName, store.loadAll().single().displayName)
+            assertEquals("video/mp2t", store.loadAll().single().mimeType)
+        }
+
+    @Test
+    fun `D1 follow-up 3 an HLS download remuxed to MP4 shows the MP4 size not the pieces`() =
+        runTest {
+            // The pieces are 10 bytes, the MP4 made from them 8 (the owner's 223 MB and 213 MB).
+            val dispatcher = ControlledDispatcher(bytesWritten = 8)
+            val store = InMemoryStore()
+            val queue = DownloadQueue(
+                store = store,
+                transferDispatcher = dispatcher,
+                scope = backgroundScope,
+                maxConcurrentDownloads = 1,
+            )
+
+            queue.enqueue(hlsPlan("remuxed"), RecordingDestination())
+            runCurrent()
+            dispatcher.complete("remuxed")
+            runCurrent()
+
+            val completed = queue.tasks.value.single()
+            assertEquals(DownloadTaskStatus.COMPLETED, completed.status)
+            assertEquals(8L, completed.totalBytes)
+            assertEquals(8L, completed.downloadedBytes)
+            assertEquals(10L, completed.checkpoint.downloadedBytes)
+            assertEquals(completed, store.loadAll().single())
+        }
+
+    @Test
+    fun `D1 follow-up 3 an HLS download kept as TS shows the size of the kept file`() =
+        runTest {
+            val dispatcher = ControlledDispatcher(
+                publishedAs = PublishedFile("kept.ts", "video/mp2t"),
+                bytesWritten = 9,
+            )
+            val queue = DownloadQueue(
+                store = InMemoryStore(),
+                transferDispatcher = dispatcher,
+                scope = backgroundScope,
+                maxConcurrentDownloads = 1,
+            )
+
+            queue.enqueue(hlsPlan("kept"), RecordingDestination())
+            runCurrent()
+            dispatcher.complete("kept")
+            runCurrent()
+
+            val completed = queue.tasks.value.single()
+            assertEquals("kept.ts", completed.displayName)
+            assertEquals(9L, completed.totalBytes)
+            assertEquals(9L, completed.downloadedBytes)
+        }
+
+    @Test
+    fun `D1 follow-up 4 a merged download shows the merged file's size not its tracks'`() =
+        runTest {
+            // The tracks are 5 + 5 bytes, the video merged from them 8.
+            val dispatcher = ControlledDispatcher(bytesWritten = 8)
+            val store = InMemoryStore()
+            val queue = DownloadQueue(
+                store = store,
+                transferDispatcher = dispatcher,
+                scope = backgroundScope,
+                maxConcurrentDownloads = 1,
+            )
+
+            queue.enqueue(muxPlan("mux"), RecordingDestination())
+            runCurrent()
+            dispatcher.complete("mux")
+            runCurrent()
+
+            val completed = queue.tasks.value.single()
+            assertEquals(DownloadTaskStatus.COMPLETED, completed.status)
+            assertEquals(8L, completed.totalBytes)
+            assertEquals(8L, completed.downloadedBytes)
+            assertEquals(10L, completed.checkpoint.downloadedBytes)
+            assertEquals(completed, store.loadAll().single())
+        }
+
+    @Test
+    fun `D1 follow-up 4 a DASH download shows the size of the file it published`() = runTest {
+        // A live DASH file is assembled from its 10 downloaded bytes into 12.
+        val dispatcher = ControlledDispatcher(bytesWritten = 12)
+        val store = InMemoryStore()
+        val queue = DownloadQueue(
+            store = store,
+            transferDispatcher = dispatcher,
+            scope = backgroundScope,
+            maxConcurrentDownloads = 1,
+        )
+
+        queue.enqueue(dashPlan("dash", MediaTrackType.VIDEO), RecordingDestination())
+        runCurrent()
+        dispatcher.complete("dash")
+        runCurrent()
+
+        val completed = queue.tasks.value.single()
+        assertEquals(DownloadTaskStatus.COMPLETED, completed.status)
+        assertEquals(12L, completed.totalBytes)
+        assertEquals(12L, completed.downloadedBytes)
+        assertEquals(10L, completed.checkpoint.downloadedBytes)
+        assertEquals(completed, store.loadAll().single())
     }
 
     @Test
@@ -266,6 +397,10 @@ class StreamDownloadQueueTest {
         private val progressTotal: Long? = null,
         /** Bytes the transfer reports as written after its first checkpoint (P41). */
         private val progressBytes: Long? = null,
+        /** D1: the name and type a completed transfer reports it was published as. */
+        private val publishedAs: PublishedFile? = null,
+        /** D1 follow-ups 3 and 4: the bytes of the file a completed transfer published. */
+        private val bytesWritten: Long = 10,
     ) : DownloadTransferDispatcher {
         val active = AtomicInteger()
         val resumeCheckpoints = ConcurrentHashMap<String, TransferCheckpoint>()
@@ -290,7 +425,11 @@ class StreamDownloadQueueTest {
                 completions.computeIfAbsent(plan.taskId) { CompletableDeferred() }.await()
                 val completed = checkpoint(plan, bytes = 10, complete = true)
                 onCheckpoint(completed)
-                QueueTransferResult.Completed(bytesWritten = 10, checkpoint = completed)
+                QueueTransferResult.Completed(
+                    bytesWritten = bytesWritten,
+                    checkpoint = completed,
+                    publishedAs = publishedAs,
+                )
             } finally {
                 active.decrementAndGet()
             }

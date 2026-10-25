@@ -115,16 +115,20 @@ import com.alal.yft.core.browser.webview.BrowserObservationSink
 import com.alal.yft.core.browser.webview.BrowserPageUrl
 import com.alal.yft.core.browser.webview.SecureBrowserChromeClient
 import com.alal.yft.core.browser.webview.SecureBrowserWebViewClient
+import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
 import com.alal.yft.core.data.history.BrowserHistoryEntry
 import com.alal.yft.core.model.media.MediaGroup
 import com.alal.yft.core.model.media.MediaGroups
 import com.alal.yft.core.model.media.PageVideoList
 import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.core.model.settings.SearchEngine
+import com.alal.yft.detection.reads.InstagramProbeScript
 import com.alal.yft.detection.tiktok.TikTokApiCapture
 import com.alal.yft.detection.tiktok.TikTokPageScript
 import com.alal.yft.feature.home.HomeLinks
 import com.alal.yft.feature.home.rememberCopiedLinkHint
+import com.alal.yft.ui.LocalQuietRelease
+import com.alal.yft.ui.QuietLines
 import com.alal.yft.ui.components.FoundMediaDividerInset
 import com.alal.yft.ui.components.SHEET_SCRIM_ALPHA
 import com.alal.yft.ui.components.YftAllowedMediaNote
@@ -159,6 +163,8 @@ fun BrowserRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val preferences by browserSettings.preferences.collectAsStateWithLifecycle()
     val historyState by history.uiState.collectAsStateWithLifecycle()
+    // Decision 30 (v): a quiet build's sheet has no Try again; Download again looks up again.
+    val quiet = LocalQuietRelease.current
     var historyOpen by rememberSaveable { mutableStateOf(false) }
     // P30: typed words (the view model asks BrowserSearch) search with the chosen engine.
     SideEffect { BrowserSearch.engine = preferences.searchEngine }
@@ -258,6 +264,26 @@ fun BrowserRoute(
             }
         }
     }
+    // Social plan S2d (decisions 19 and 24, debug only): Instagram's tab-fetch rung, run in the
+    // tab only while it is on the post's page and signed out (task 13: the tab's own cookies for
+    // Instagram's web host name no session); a social-ladder build with the rung's own switch on
+    // asks it, every other build asks none. One at a time.
+    LaunchedEffect(webView, viewModel) {
+        val browser = webView ?: return@LaunchedEffect
+        viewModel.instagramProbes.collect { request ->
+            if (!request.isWaiting) return@collect
+            request.answer(
+                InstagramProbeScript.run(
+                    request = request.probe,
+                    tabUrl = browser.url,
+                    evaluate = { script, reply -> browser.evaluateJavascript(script) { reply(it) } },
+                    tabCookie = {
+                        runCatching { CookieManager.getInstance().getCookie(InstagramProbeScript.COOKIE_PAGE) }.getOrNull()
+                    },
+                ),
+            )
+        }
+    }
     // P37: the sheet's "Reload page and try again" reloads the tab once without its cache; the
     // cache comes back once that load finished.
     var shownReload by rememberSaveable { mutableIntStateOf(uiState.reloadRequest) }
@@ -317,7 +343,7 @@ fun BrowserRoute(
             },
             onDownloadPage = {
                 // P12: this page's video, or its sheet waiting for the page's own lookup.
-                if (viewModel.openPageVideo()) onOpenQuickDownload()
+                if (viewModel.openPageVideo(retryFailed = quiet)) onOpenQuickDownload()
             },
             onDownloadMain = {
                 // P12: the page says which video plays; the view model opens the main one.
@@ -378,6 +404,8 @@ fun BrowserRoute(
                     pageUrlState = pageUrlState,
                     fullscreenHandler = fullscreenHandler,
                     guard = guard,
+                    masterCapture = viewModel.masterCapture,
+                    attachCapture = { viewModel.capturesNewTabs },
                     onWebViewReady = {
                         webView = it
                         refreshHistoryState()
@@ -523,6 +551,7 @@ fun BrowserScreen(
     browserSurface: @Composable (Modifier) -> Unit,
 ) {
     val colors = YftTheme.colors
+    val quiet = LocalQuietRelease.current
     val savable = remember(uiState.candidates) { uiState.candidates.filter { it.isSavable } }
     val hiddenCount = uiState.candidates.size - savable.size
     // One row, one count and one sheet per video: its qualities and audio are inside (P3).
@@ -600,7 +629,8 @@ fun BrowserScreen(
                 modifier = Modifier.testTag("browser-error"),
             )
         }
-        uiState.siteNotice?.let { notice ->
+        // Decision 30 (v): a quiet build shows no lookup notice (the sheet says its one line).
+        uiState.siteNotice?.takeUnless { quiet }?.let { notice ->
             BrowserBanner(
                 text = notice,
                 icon = YftIcons.Info,
@@ -747,12 +777,17 @@ fun BrowserScreen(
                 ) {
                     focusNotice?.let { notice ->
                         BrowserBanner(
-                            text = notice,
+                            // Decision 30 (v): a quiet build's failure is its one line.
+                            text = if (quiet && uiState.focusFailed) {
+                                QuietLines.of(notice)
+                            } else {
+                                notice
+                            },
                             icon = YftIcons.Info,
                             container = colors.chip,
                             content = colors.textPrimary,
                             modifier = Modifier.testTag("browser-focus-notice"),
-                            action = if (uiState.canRetryFocusedLookup) {
+                            action = if (uiState.canRetryFocusedLookup && !quiet) {
                                 {
                                     YftTextButton(
                                         text = "Retry",
@@ -1306,6 +1341,9 @@ private fun BrowserWebView(
     pageUrlState: BrowserPageUrl,
     fullscreenHandler: SecureBrowserChromeClient.FullscreenHandler,
     guard: BrowserNavigationGuard,
+    masterCapture: WebViewPlaybackCapture?,
+    // Decision 30 (i): whether this new tab gets the capture (Backup finder on), asked once.
+    attachCapture: () -> Boolean,
     onWebViewReady: (WebView) -> Unit,
 ) {
     AndroidView(
@@ -1321,12 +1359,16 @@ private fun BrowserWebView(
             SecureWebViewPolicy.apply(browser)
             val cookieManager = CookieManager.getInstance()
             val cachedUserAgent = browser.settings.userAgentString
+            // The capture's sink only on a tab it attached to: it passes on nothing for another.
+            val capture = masterCapture?.takeIf { attachCapture() }
+            capture?.attach(browser)
+            val observingSink = capture?.decorate(sink, browser) ?: sink
             // P40 step 3: TikTok's pages keep a copy of TikTok's own API answers (document start;
             // without that feature, when a TikTok page starts).
             val tikTokStore = TikTokPageScript.source(context).text()?.let(TikTokPageScript::store)
             val storeAtStart = tikTokStore != null && TikTokApiCapture.install(browser, tikTokStore)
             browser.webViewClient = SecureBrowserWebViewClient(
-                sink = sink,
+                sink = observingSink,
                 cookieProvider = cookieManager::getCookie,
                 userAgentProvider = { cachedUserAgent },
                 pageUrlState = pageUrlState,
@@ -1335,18 +1377,20 @@ private fun BrowserWebView(
                     tikTokStore?.takeIf { !storeAtStart && TikTokPageScript.isScriptOrigin(url) }
                 },
             )
-            browser.webChromeClient = SecureBrowserChromeClient(sink, fullscreenHandler, guard)
+            browser.webChromeClient =
+                SecureBrowserChromeClient(observingSink, fullscreenHandler, guard)
             browser.setDownloadListener(
                 BrowserDownloadListener(
                     pageUrlProvider = pageUrlState::get,
                     cookieProvider = cookieManager::getCookie,
-                    sink = sink,
+                    sink = observingSink,
                 ),
             )
             onWebViewReady(browser)
             browser
         },
         onRelease = { browser ->
+            masterCapture?.detach(browser)
             pageUrlState.update(null)
             browser.stopLoading()
             browser.setDownloadListener(null)

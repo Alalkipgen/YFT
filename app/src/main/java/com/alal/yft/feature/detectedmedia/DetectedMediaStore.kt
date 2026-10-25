@@ -74,6 +74,11 @@ data class PageVideoLookup(
      * shown as the sheet's Details. Hosts only, never an address, query value or cookie.
      */
     val details: List<String> = emptyList(),
+    /**
+     * Decision 30 (v): the site asked for a check (TikTok's "not a bot" page), which the
+     * browser shows: the quiet sheet's Show check opens it.
+     */
+    val siteCheck: Boolean = false,
 ) {
     val running: Boolean get() = failure == null
 
@@ -259,6 +264,18 @@ class DetectedMediaStore @Inject constructor() {
     /** P37: asks the browser to reload; false when no browser listens (the sheet stays). */
     fun reloadPage(request: PageReload): Boolean =
         reloadRequests.subscriptionCount.value > 0 && reloadRequests.tryEmit(request)
+
+    private val siteCheckRequests = MutableSharedFlow<String>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+
+    /** Decision 30 (v): the quiet sheet's Show check, by page address; the browser shows it. */
+    val siteChecks: SharedFlow<String> = siteCheckRequests.asSharedFlow()
+
+    /** Decision 30 (v): asks the browser to show [pageUrl]'s check; false when none listens. */
+    fun requestSiteCheck(pageUrl: String): Boolean =
+        siteCheckRequests.subscriptionCount.value > 0 && siteCheckRequests.tryEmit(pageUrl)
 
     fun clear() {
         mutablePage.value = null

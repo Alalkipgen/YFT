@@ -42,8 +42,12 @@ class Mp3VariantsTest {
         height = 720,
     )
 
-    private fun asset(vararg variants: MediaVariant, duration: Long? = null) = MediaAsset(
-        sourcePageUrl = "https://example.test/watch",
+    private fun asset(
+        vararg variants: MediaVariant,
+        duration: Long? = null,
+        page: String = YOUTUBE_PAGES.first(),
+    ) = MediaAsset(
+        sourcePageUrl = page,
         title = "Song",
         thumbnailUrl = null,
         durationMillis = duration,
@@ -89,6 +93,37 @@ class Mp3VariantsTest {
     }
 
     @Test
+    fun youTubeOffersEveryBitrateAndEverySiteThatIsNotYouTubeOnly192() {
+        // D2 (the owner): the rule is "not YouTube", so VK gets it with no VK code.
+        YOUTUBE_PAGES.forEach { page ->
+            assertEquals(page, listOf(320, 192, 128), Mp3Variants.bitratesFor(page))
+        }
+        OTHER_PAGES.forEach { page ->
+            assertEquals(page, listOf(192), Mp3Variants.bitratesFor(page))
+        }
+        // Neither a look-alike host nor an unreadable address is YouTube.
+        listOf(
+            "https://notyoutube.com/watch?v=1",
+            "https://youtube.com.example.test/watch?v=1",
+            "not a page",
+        ).forEach { assertEquals(it, listOf(192), Mp3Variants.bitratesFor(it)) }
+        // A chosen row is still made at its own bitrate, whatever its page.
+        Mp3Variants.BITRATES_KBPS.forEach {
+            assertEquals(it, Mp3Variants.of(audio(), it)?.mp3?.bitrateKbps)
+        }
+    }
+
+    @Test
+    fun addToPutsOnly192AfterTheBestAacFileOnEverySiteThatIsNotYouTube() {
+        val best = audio(id = "best", kbps = 128)
+        OTHER_PAGES.forEach { page ->
+            val added = Mp3Variants.addTo(asset(video(), best, page = page))
+            assertEquals(page, listOf("720p", "best", "best-mp3-192"), added.variants.map { it.id })
+            assertSame(page, added, Mp3Variants.addTo(added))
+        }
+    }
+
+    @Test
     fun addToPutsEveryBitrateAfterTheBestAacFile() {
         val low = audio(id = "low", kbps = 48)
         val best = audio(id = "best", kbps = 128)
@@ -120,5 +155,26 @@ class Mp3VariantsTest {
         }
         assertThrows(IllegalArgumentException::class.java) { Mp3Conversion(160, "m4a") }
         assertFalse(Mp3Variants.of(audio(), 128).toString().contains("secret"))
+    }
+
+    private companion object {
+        val YOUTUBE_PAGES = listOf(
+            "https://m.youtube.com/watch?v=fixture0001",
+            "https://www.youtube.com/watch?v=fixture0001",
+            "https://music.youtube.com/watch?v=fixture0001",
+            "https://youtu.be/fixture0001",
+            "https://www.youtube-nocookie.com/embed/fixture0001",
+        )
+        val OTHER_PAGES = listOf(
+            "https://www.facebook.com/watch/?v=25",
+            "https://fb.watch/fixture25/",
+            "https://www.instagram.com/reel/fixture25/",
+            "https://x.com/someone/status/25",
+            "https://twitter.com/someone/status/25",
+            "https://www.tiktok.com/@someone/video/25",
+            "https://vk.com/video-25_25",
+            "https://vkvideo.ru/video-25_25",
+            "https://example.test/watch",
+        )
     }
 }

@@ -525,7 +525,7 @@ private fun TestNavHost(
             )
         },
         playerContent = { onClose -> Placeholder(YftDestination.PLAYER, onClose) },
-        settingsContent = { onOpenAbout, onOpenLicenses ->
+        settingsContent = { onOpenAbout, onOpenLicenses, _ ->
             SettingsScreen(
                 state = SettingsUiState(),
                 themeMode = themeMode,

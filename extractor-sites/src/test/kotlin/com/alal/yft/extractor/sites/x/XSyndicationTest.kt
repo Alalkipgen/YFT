@@ -66,6 +66,63 @@ class XSyndicationTest {
     }
 
     @Test
+    fun `a post without media of its own has its card's videos, in the card's own order`() {
+        val single = (XSyndication.parse(Fixtures.read("x/tweet_card_video.json"))
+            as XParseResult.Success).post
+        assertTrue(single.card)
+        assertFalse(single.quoted)
+        val video = single.videos.single()
+        assertEquals(1, video.position)
+        assertEquals(XMediaType.VIDEO, video.type)
+        assertEquals(15_015L, video.durationMillis)
+        assertEquals(listOf(720, 360, 270), video.variants.map { it.height })
+        assertTrue(video.playlistUrl!!.endsWith(".m3u8?tag=14"))
+
+        // The carousel's media list names 91 before 92; its media_entities hold them the other
+        // way round. The second video's file off X's video host is dropped.
+        val carousel = Fixtures.read("x/tweet_card_carousel.json")
+        val withoutList = carousel.replace("""\"components\":[\"swipeable_media_1\"],""", "")
+        assertTrue(withoutList.length < carousel.length)
+        listOf(carousel, withoutList).forEach { body ->
+            val post = (XSyndication.parse(body) as XParseResult.Success).post
+            assertTrue(post.card)
+            assertEquals(listOf(1, 2), post.videos.map { it.position })
+            assertEquals(listOf(720, 1280), post.videos.map { it.height })
+            assertEquals(listOf(720, 360), post.videos[0].variants.map { it.height })
+            assertEquals(listOf(1280, 568), post.videos[1].variants.map { it.height })
+            assertTrue(post.videos.flatMap { it.variants }.all { XSyndication.isMediaUrl(it.url) })
+        }
+    }
+
+    @Test
+    fun `the post's own media come before its card, and its card before the quoted post`() {
+        val cardPost = Fixtures.read("x/tweet_card_video.json").trim()
+        val card = cardPost.substringAfter("\"card\":").dropLast(1)
+        val ownAndCard = Fixtures.read("x/tweet_video.json").trim().dropLast(1) +
+            ",\"card\":$card}"
+        val cardAndQuoted = cardPost.dropLast(1) +
+            ",\"quoted_tweet\":${Fixtures.read("x/tweet_video.json").trim()}}"
+
+        val own = (XSyndication.parse(ownAndCard) as XParseResult.Success).post
+        assertFalse(own.card)
+        assertEquals(listOf(1280, 852, 568), own.videos.single().variants.map { it.height })
+        val fromCard = (XSyndication.parse(cardAndQuoted) as XParseResult.Success).post
+        assertTrue(fromCard.card)
+        assertFalse(fromCard.quoted)
+        assertEquals(listOf(720, 360, 270), fromCard.videos.single().variants.map { it.height })
+    }
+
+    @Test
+    fun `a card without a video, a card off X's video host and a quoted post's card are not read`() {
+        listOf("tweet_card_no_video", "tweet_card_off_host", "tweet_quoted_card").forEach { name ->
+            val failure = XSyndication.parse(Fixtures.read("x/$name.json")) as XParseResult.Failure
+            assertEquals(name, "answer: no video", failure.detail)
+            assertFalse(name, failure.unavailable)
+            assertFalse(name, failure.photos)
+        }
+    }
+
+    @Test
     fun `tombstones, photo posts and broken answers fail`() {
         val tombstone = XSyndication.parse(Fixtures.read("x/tweet_tombstone.json"))
         assertTrue((tombstone as XParseResult.Failure).unavailable)

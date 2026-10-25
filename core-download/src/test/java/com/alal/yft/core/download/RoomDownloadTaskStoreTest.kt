@@ -4,12 +4,18 @@ import com.alal.yft.core.data.db.DownloadRecordDao
 import com.alal.yft.core.data.db.DownloadRecordEntity
 import com.alal.yft.core.data.db.DownloadRecordWithSegments
 import com.alal.yft.core.data.db.DownloadSegmentEntity
+import com.alal.yft.core.model.download.AudioVideoMuxCheckpoint
+import com.alal.yft.core.model.download.AudioVideoMuxStage
+import com.alal.yft.core.model.download.DashTransferCheckpoint
 import com.alal.yft.core.model.download.DirectTransferCheckpoint
 import com.alal.yft.core.model.download.DownloadFailure
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.DownloadFailureStage
 import com.alal.yft.core.model.download.DownloadSegment
 import com.alal.yft.core.model.download.DownloadTaskStatus
+import com.alal.yft.core.model.download.HlsTransferCheckpoint
+import com.alal.yft.core.model.download.StreamChunkCheckpoint
+import com.alal.yft.core.model.download.TransferCheckpoint
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
@@ -66,6 +72,174 @@ class RoomDownloadTaskStoreTest {
         assertEquals(DownloadFailureReason.EXPIRED_URL, restored.failureReason)
         assertNull(restored.failure)
     }
+
+    /** D1 follow-up 3: a remuxed HLS download keeps its MP4's size after a restart. */
+    @Test
+    fun aCompletedHlsTaskKeepsThePublishedFileSizeAfterARestart() = runBlocking {
+        val task = hlsTask(DownloadTaskStatus.COMPLETED, shownBytes = 8)
+
+        RoomDownloadTaskStore(dao).save(task)
+
+        assertEquals(8L, dao.records.getValue(ID).totalBytes)
+        assertEquals(8L, dao.records.getValue(ID).downloadedBytes)
+        val restored = RoomDownloadTaskStore(dao).loadAll().single()
+        assertEquals(task, restored)
+        assertEquals(10L, restored.checkpoint.downloadedBytes)
+    }
+
+    /** D1 follow-ups 3 and 4: a task that is not completed shows its checkpoint's bytes. */
+    @Test
+    fun anUnfinishedHlsTaskStillShowsItsCheckpointBytesAfterARestart() = runBlocking {
+        RoomDownloadTaskStore(dao).save(hlsTask(DownloadTaskStatus.COMPLETED, shownBytes = 8))
+        dao.upsert(dao.records.getValue(ID).copy(status = DownloadTaskStatus.FAILED.name))
+
+        val restored = RoomDownloadTaskStore(dao).loadAll().single()
+
+        assertEquals(DownloadTaskStatus.FAILED, restored.status)
+        assertEquals(10L, restored.downloadedBytes)
+        assertNull(restored.totalBytes)
+    }
+
+    /** D1 follow-up 3: a completed HLS task saved before keeps the pieces' size it showed. */
+    @Test
+    fun aCompletedHlsTaskSavedBeforeKeepsItsSize() = runBlocking {
+        RoomDownloadTaskStore(dao).save(hlsTask(DownloadTaskStatus.COMPLETED, shownBytes = 10))
+
+        val restored = RoomDownloadTaskStore(dao).loadAll().single()
+
+        assertEquals(10L, restored.downloadedBytes)
+        assertEquals(10L, restored.totalBytes)
+    }
+
+    /**
+     * D1 follow-up 4: an MP3 or M4A made from a direct download keeps its own size after a
+     * restart, smaller or larger than its source, and its checkpoint keeps the source's bytes.
+     */
+    @Test
+    fun aCompletedConvertedDirectTaskKeepsItsSizeAndCheckpointAfterARestart() = runBlocking {
+        listOf(7L, 25L).forEach { publishedBytes ->
+            val task = completedTask(directCheckpoint(), publishedBytes)
+
+            RoomDownloadTaskStore(dao).save(task)
+
+            assertEquals(publishedBytes, dao.records.getValue(ID).totalBytes)
+            assertEquals(publishedBytes, dao.records.getValue(ID).downloadedBytes)
+            val restored = RoomDownloadTaskStore(dao).loadAll().single()
+            assertEquals(task, restored)
+            assertEquals(directCheckpoint(), restored.checkpoint)
+        }
+    }
+
+    /** D1 follow-up 4: a merged or DASH download keeps its published file's size. */
+    @Test
+    fun aCompletedMergedOrDashTaskKeepsThePublishedFileSizeAfterARestart() = runBlocking {
+        listOf(
+            completedTask(merged(), publishedBytes = 8, DownloadPlanType.AUDIO_VIDEO_MUX),
+            completedTask(dashCheckpoint("c"), publishedBytes = 12, DownloadPlanType.DASH),
+        ).forEach { task ->
+            RoomDownloadTaskStore(dao).save(task)
+
+            assertEquals(task.totalBytes, dao.records.getValue(ID).totalBytes)
+            assertEquals(task.downloadedBytes, dao.records.getValue(ID).downloadedBytes)
+            val restored = RoomDownloadTaskStore(dao).loadAll().single()
+            assertEquals(task, restored)
+            assertEquals(task.checkpoint, restored.checkpoint)
+        }
+    }
+
+    /** D1 follow-up 4: completed direct and merged rows saved before show what they showed. */
+    @Test
+    fun completedDirectAndMergedRowsSavedBeforeKeepTheirSizes() = runBlocking {
+        // An MP3 saved its source's 10 bytes (its own 25 as the total when the source's size was
+        // not known); a merged video its tracks' 20 bytes and no total.
+        listOf(
+            completedTask(directCheckpoint(), publishedBytes = 10),
+            completedTask(directCheckpoint().copy(totalBytes = 25), publishedBytes = 10)
+                .copy(totalBytes = 25),
+            completedTask(merged(), publishedBytes = 20, DownloadPlanType.AUDIO_VIDEO_MUX)
+                .copy(totalBytes = null),
+        ).forEach { saved ->
+            RoomDownloadTaskStore(dao).save(saved)
+
+            assertEquals(saved, RoomDownloadTaskStore(dao).loadAll().single())
+        }
+    }
+
+    /** Two finished tracks of 10 bytes each. */
+    private fun merged() = AudioVideoMuxCheckpoint(
+        video = dashCheckpoint("c"),
+        audio = dashCheckpoint("d"),
+        videoReady = true,
+        audioReady = true,
+        stage = AudioVideoMuxStage.COMPLETED,
+    )
+
+    /** A finished source of 10 bytes in two segments. */
+    private fun directCheckpoint() = DirectTransferCheckpoint(
+        totalBytes = 10,
+        entityTag = "\"source\"",
+        lastModified = "Sat, 24 Oct 2026 10:00:00 GMT",
+        segments = listOf(
+            DownloadSegment(0, 0, 5, downloadedBytes = 6),
+            DownloadSegment(1, 6, 9, downloadedBytes = 4),
+        ),
+    )
+
+    /** A finished track of 10 bytes. */
+    private fun dashCheckpoint(fingerprint: String) = DashTransferCheckpoint(
+        manifestFingerprint = fingerprint.repeat(64),
+        chunks = listOf(
+            StreamChunkCheckpoint(0, 6, completed = true),
+            StreamChunkCheckpoint(1, 4, completed = true),
+        ),
+    )
+
+    private fun completedTask(
+        checkpoint: TransferCheckpoint,
+        publishedBytes: Long,
+        planType: DownloadPlanType = DownloadPlanType.DIRECT,
+    ) = StoredDownloadTask(
+        id = ID,
+        displayName = "song.mp3",
+        status = DownloadTaskStatus.COMPLETED,
+        planType = planType,
+        totalBytes = publishedBytes,
+        downloadedBytes = publishedBytes,
+        mimeType = "audio/mpeg",
+        destinationKind = DownloadDestinationKind.MEDIA_STORE,
+        destinationUri = "content://media/external/audio/media/1",
+        preferredSegmentCount = 2,
+        requiresLinkRefresh = false,
+        failureReason = null,
+        checkpoint = checkpoint,
+        createdAtEpochMs = 1,
+        updatedAtEpochMs = 2,
+    )
+
+    private fun hlsTask(status: DownloadTaskStatus, shownBytes: Long) = StoredDownloadTask(
+        id = ID,
+        displayName = "clip.mp4",
+        status = status,
+        planType = DownloadPlanType.HLS,
+        totalBytes = shownBytes,
+        downloadedBytes = shownBytes,
+        mimeType = "video/mp4",
+        destinationKind = DownloadDestinationKind.MEDIA_STORE,
+        destinationUri = "content://media/external/video/media/1",
+        preferredSegmentCount = 1,
+        requiresLinkRefresh = false,
+        failureReason = null,
+        // The pieces: 10 bytes.
+        checkpoint = HlsTransferCheckpoint(
+            manifestFingerprint = "a".repeat(64),
+            chunks = listOf(
+                StreamChunkCheckpoint(0, 6, completed = true),
+                StreamChunkCheckpoint(1, 4, completed = true),
+            ),
+        ),
+        createdAtEpochMs = 1,
+        updatedAtEpochMs = 2,
+    )
 
     private fun task(
         failureReason: DownloadFailureReason?,

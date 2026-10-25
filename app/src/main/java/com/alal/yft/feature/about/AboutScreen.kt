@@ -2,6 +2,7 @@ package com.alal.yft.feature.about
 
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -27,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -60,9 +62,16 @@ fun AboutScreen(
     onCopyCrash: () -> Unit = {},
     onShareCrash: () -> Unit = {},
     onDeleteCrash: () -> Unit = {},
+    /**
+     * Decision 30 (v): the hidden Show details of a quiet build (on or off); null in every other
+     * build, whose version line does nothing on a tap.
+     */
+    showDetails: Boolean? = null,
+    onToggleShowDetails: () -> Unit = {},
 ) {
     val colors = YftTheme.colors
     var viewingCrash by remember { mutableStateOf(false) }
+    val taps = remember { SevenTaps() }
     Scaffold(
         topBar = {
             YftTopBar(
@@ -81,7 +90,16 @@ fun AboutScreen(
                 .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp)
                 .testTag("about-content"),
         ) {
-            Identity(versionName = versionName, versionCode = versionCode)
+            Identity(
+                versionName = versionName,
+                versionCode = versionCode,
+                showDetails = showDetails,
+                onVersionTap = if (showDetails != null) {
+                    { if (taps.tap()) onToggleShowDetails() }
+                } else {
+                    null
+                },
+            )
             if (!crashReport.isNullOrBlank()) {
                 CrashReportCard(
                     onView = { viewingCrash = true },
@@ -130,7 +148,12 @@ fun AboutScreen(
 }
 
 @Composable
-private fun Identity(versionName: String, versionCode: Int) {
+private fun Identity(
+    versionName: String,
+    versionCode: Int,
+    showDetails: Boolean?,
+    onVersionTap: (() -> Unit)?,
+) {
     val colors = YftTheme.colors
     YftCard(modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -152,9 +175,28 @@ private fun Identity(versionName: String, versionCode: Int) {
                 CrashTestTrigger { trigger ->
                     Text(
                         text = "Version $versionName ($versionCode)",
-                        modifier = trigger.testTag("about-version"),
+                        // Decision 30 (v): taps only, no click role: nothing announces it.
+                        modifier = trigger
+                            .then(
+                                if (onVersionTap != null) {
+                                    Modifier.pointerInput(onVersionTap) {
+                                        detectTapGestures(onTap = { onVersionTap() })
+                                    }
+                                } else {
+                                    Modifier
+                                },
+                            )
+                            .testTag("about-version"),
                         color = colors.textSecondary,
                         style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+                if (showDetails == true) {
+                    Text(
+                        text = SHOW_DETAILS_ON,
+                        modifier = Modifier.testTag("about-show-details"),
+                        color = colors.textSecondary,
+                        style = MaterialTheme.typography.bodySmall,
                     )
                 }
             }
@@ -304,8 +346,46 @@ private val DOES_NOT = listOf(
     "Show ads, use analytics, require an account or send crash reports automatically.",
 )
 
+/** Decision 30 (v): under the version line while the hidden Show details is on. */
+internal const val SHOW_DETAILS_ON = "Show details on"
+
+/**
+ * Decision 30 (v): the version line tapped [TAPS] times, each within [WINDOW_MS] of the one
+ * before, turns Show details on or off ([tap] says when).
+ */
+internal class SevenTaps(private val now: () -> Long = System::currentTimeMillis) {
+    private var count = 0
+    private var last = 0L
+
+    /** True on the tap that completes the run (the count starts again). */
+    fun tap(): Boolean {
+        val time = now()
+        count = if (count > 0 && time - last in 0..WINDOW_MS) count + 1 else 1
+        last = time
+        if (count < TAPS) return false
+        count = 0
+        return true
+    }
+
+    companion object {
+        const val TAPS = 7
+        const val WINDOW_MS = 1_500L
+    }
+}
+
+/**
+ * The first Privacy line. Decision 30 (ii): it names GitHub raw (the Backup finder's site data);
+ * the in-app update plan's section 11: and api.github.com (Check automatically).
+ */
+internal const val PRIVACY_CONTACTS =
+    "YFT only contacts the sites you open, the media servers they point to and GitHub. With " +
+        "Backup finder on, a lookup the site doesn't answer may read YFT's site data from " +
+        "GitHub (raw.githubusercontent.com). With Check automatically on, YFT also asks GitHub " +
+        "(api.github.com) about its newest release once a day. Nothing about you or your " +
+        "downloads is sent."
+
 private val PRIVACY = listOf(
-    "YFT only contacts the sites you open and the media servers they point to.",
+    PRIVACY_CONTACTS,
     "Cookies and site data stay in the in-app browser until you clear them in Settings.",
     "Detected media and the preview selection live in memory and are never saved.",
     "Logs never contain cookies, tokens or signed links.",

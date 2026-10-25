@@ -11,6 +11,7 @@ import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.core.model.settings.SearchEngine
+import com.alal.yft.detection.master.BackupFinder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -41,6 +43,11 @@ data class SettingsUiState(
     val checkCopiedLinks: Boolean = true,
     /** Settings › Browser (P30). */
     val browser: BrowserPreferences = BrowserPreferences(),
+    /**
+     * Settings › Browser › Backup finder (decision 30 (i), on by default); null in a build
+     * without Master, which has no such row.
+     */
+    val backupFinder: Boolean? = null,
 )
 
 sealed interface SettingsAction {
@@ -53,6 +60,7 @@ sealed interface SettingsAction {
     data class SetSearchEngine(val engine: SearchEngine) : SettingsAction
     data class SetSaveHistory(val enabled: Boolean) : SettingsAction
     data class SetBlockPopups(val enabled: Boolean) : SettingsAction
+    data class SetBackupFinder(val enabled: Boolean) : SettingsAction
     data class Request(val confirmation: SettingsConfirmation) : SettingsAction
     data object Confirm : SettingsAction
     data object Dismiss : SettingsAction
@@ -73,8 +81,11 @@ class SettingsViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val browser: BrowserPreferencesRepository,
     private val browserHistory: BrowserHistoryRepository,
+    // Decision 30 (i): the Backup finder switch; shown only when the build has Master.
+    backupFinder: BackupFinder? = null,
 ) : ViewModel() {
     private val transient = MutableStateFlow(Transient())
+    private val backupFinder = backupFinder?.takeIf { it.available }
 
     val uiState: StateFlow<SettingsUiState> = combine(
         preferences.preferences,
@@ -92,6 +103,8 @@ class SettingsViewModel @Inject constructor(
             checkCopiedLinks = checkCopiedLinks,
             browser = browserPreferences,
         )
+    }.combine(this.backupFinder?.on ?: flowOf(null)) { state, backupFinder ->
+        state.copy(backupFinder = backupFinder)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), SettingsUiState())
 
     fun onAction(action: SettingsAction) {
@@ -123,6 +136,8 @@ class SettingsViewModel @Inject constructor(
             is SettingsAction.SetBlockPopups -> viewModelScope.launch {
                 browser.update { it.copy(blockPopups = action.enabled) }
             }
+
+            is SettingsAction.SetBackupFinder -> backupFinder?.set(action.enabled)
 
             is SettingsAction.Request -> transient.update {
                 if (it.working) it else it.copy(confirmation = action.confirmation)

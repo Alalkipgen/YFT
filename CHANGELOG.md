@@ -2,12 +2,70 @@
 
 All notable changes to Video Downloader (YFT) are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow
-[Semantic Versioning](https://semver.org/). `yft.versionCode` in `gradle.properties` rises by one
-for every APK given to users, because Android refuses to install a lower one.
+[Semantic Versioning](https://semver.org/). `yft.versionCode` in `gradle.properties` follows the
+version code rule (`docs/IN_APP_UPDATE_PLAN.md` §4.2), which the in-app update computes from a
+release's tag: a stable X.Y.Z is X·1000000 + Y·10000 + Z·100 (1.0.0 = 1000000, 1.0.1 = 1000100),
+a prerelease just below its version's (1.0.0-rc.1 = 999901). Android refuses to install a lower
+one.
 
-## [Unreleased]
+## [1.0.0]
+
+The first stable release, for the owner's friends (the social plan's decision 30). Not dated yet:
+the owner dates this section when he publishes it (`docs/RELEASE.md` §5). Everything since
+`1.0.0-beta.3`: Phases 11–15 and P39–P50, the backup finder (Master), VK, the in-app update and
+the download fixes D1–D4.
 
 ### Added
+
+- Backup finder (decision 30): when a site's own lookup finds no video, YFT tries other ways —
+  for YouTube its own player-script solver and more of YouTube's clients (when YouTube rejects a
+  client's version, the newest one is read from GitHub raw, at most once a day); for Facebook,
+  TikTok, Instagram and X each site's own ladder (the site's player or embed page, the lookup's
+  own answers read again, then the video the visible tab plays). Its site data can be updated
+  through GitHub raw by a config signed with the key the app carries (applied only when valid,
+  newer and unexpired; each step has its own off switch). It acts only after the site's own
+  lookup failed, so a video that lookup finds is found as before. **Settings → Backup finder**,
+  on by default: off, no lookup asks it and nothing goes to GitHub raw.
+- VK videos and clips (vk.com, vk.ru, vkvideo.ru; VK1–VK3): public videos and clips through VK's
+  embed player, signed out and without a hash, up to 2160p with HLS and DASH; Russian titles
+  read in the embed's own charset. Public 18+ VK videos that VK's embed refuses are found through
+  vkvideo.ru's own signed-out API (VK5).
+- In-app update (U1–U3): YFT tells you when a new version is out (Settings → About → Updates),
+  with its release notes, and installs it after checking its checksum and signature, with
+  Android's confirmation. Check automatically is on (turn it off in Updates): once a day, when
+  YFT opens, it asks GitHub (api.github.com) about its newest release.
+- Home's first-run sites add Instagram and X beside YouTube, Facebook and TikTok (D4); a list
+  kept from an older version gets each once, at its end, unless it has that site already.
+- Show details (decision 30 (v)): the release keeps a lookup's Details and Copy details hidden;
+  tapping About's version line 7 times turns them on or off ("Show details on" under it), for
+  when the owner asks for a failure's details.
+
+### Changed
+
+- The quiet release (decision 30 (v)): the browser shows no lookup notice and no Try again (a
+  page that does not load says so). The download sheet, opened by Download, says one line and
+  nothing else: "Couldn't get this video." when nothing is found; TikTok's check: its line and
+  **Show check**; the backup finder's capture: "Play the video, then tap Download again." —
+  Download again looks up again, as Try again did. Home's lookup sheet says the same one line;
+  Home's link box keeps its message, without Copy details. A failed download keeps its retry.
+  The browser's notices for the video on screen ("Finding the video on screen…", "No video on
+  screen…") stay. Sign-in, private and DRM messages read "Couldn't get this video." in the sheet
+  too; with Show details on, the sheet shows them, Details and Copy details as before.
+- About › Privacy's first line names GitHub: "YFT only contacts the sites you open, the media
+  servers they point to and GitHub." (GitHub raw for the backup finder's site data,
+  api.github.com for the update check; nothing about you or your downloads is sent).
+- Audio rows (D2): YouTube keeps M4A and MP3 320/192/128; every other site M4A and MP3 192.
+- Version code: 1.0.0 is versionCode 1000000 (the version code rule above), above every beta.
+
+### Fixed
+
+- HLS downloads (D1) are saved as `.mp4` (`.m4a` for sound alone): MPEG-TS pieces are remuxed
+  on the phone without re-encoding, or kept as `.ts` when that is not possible; never `.m3u8`.
+  Every completed download shows the size of the file it saved (D1 follow-ups 3 and 4).
+- Myanmar titles keep their marks in file names (D3): one rule for every title (NFC, a mark kept
+  with its letter, a cut only between whole letters).
+
+### Added (P47–P50)
 
 - X (Twitter) posts (P48): Home and the browser list every MP4 quality of a post's video, each
   with sound (X's public embed answer; no sign-in, no cookie); `/video/2` picks a post's second
@@ -24,8 +82,18 @@ for every APK given to users, because Android refuses to install a lower one.
   desktop page's files of other heights are joined, so a video can list 720p and 480p; the
   desktop page is also asked when one height comes in two codecs.
 
+### Changed
+
+- TikTok no longer asks a third-party download service (`tikwm.com`; the owner's decision 22,
+  2026-10-22, reversing P46's choice): YFT reads TikTok's own pages, the tab's data and its
+  hidden page only. A public post that only the service could give now ends with TikTok's own
+  reason, and Details say why.
+
 ### Fixed
 
+- The download sheet's failure scrolls (the owner's phone session of 2026-10-23): long Details no
+  longer push Try again off the sheet, as it stays under them; shown Details offer Copy details
+  (the lines as shown, each link as its site's host only, so the copy holds words, never a link).
 - Download as names a phone video after its short side (P47): 720 × 1280 is "720p · HD", not
   "1280p · Full HD".
 
@@ -432,6 +500,20 @@ for every APK given to users, because Android refuses to install a lower one.
   links keep the page, and a video's full-screen button works (Back leaves full screen).
 - Facebook in the browser: the lookup asks Facebook for its desktop page, so a reel opened in the
   browser no longer shows "Facebook changed its page format" and finds the video's qualities.
+
+## [1.0.0-rc.1]
+
+The release-key test build of 1.0.0 for the update test in P8 (`docs/IN_APP_UPDATE_PLAN.md` §5.5;
+the owner's decision of 2026-10-25). Not for friends and never published: the Release draft
+workflow makes it a draft prerelease, the owner installs its APK on his phone, publishes 1.0.0, and
+the rc then finds 1.0.0, checks its checksum and signature and installs it with Android's
+confirmation. The draft is deleted after the test. Not dated: it is never released.
+
+- The same code as 1.0.0 (above): the release commit with `yft.versionName=1.0.0-rc.1` and
+  `yft.versionCode=999901` in `gradle.properties` — the version code rule's prerelease code, below
+  1.0.0's 1000000 and above every beta, so 1.0.0 installs over it and it installs over a beta.
+- Signed with the release key, so it runs as the release does (Check automatically on, only
+  published stable releases offered); its notes are `docs/release/1.0.0-rc.1.md`.
 
 ## [1.0.0-beta.3] - 2026-10-04
 

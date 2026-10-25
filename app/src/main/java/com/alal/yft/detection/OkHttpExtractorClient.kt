@@ -9,6 +9,8 @@ import java.io.IOException
 import java.net.ProtocolException
 import java.net.SocketTimeoutException
 import java.net.URI
+import java.nio.charset.CharacterCodingException
+import java.nio.charset.CodingErrorAction
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import java.security.cert.CertificateException
@@ -33,7 +35,8 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import okio.BufferedSource
+import okhttp3.ResponseBody
+import okio.ByteString
 
 /**
  * Bounded HTTPS client for site adapters.
@@ -363,7 +366,7 @@ class OkHttpExtractorClient(
                                 response.code,
                             )
                         }
-                        val text = body.source().readBounded(maxBodyBytes)
+                        val text = body.readBounded(maxBodyBytes)
                             ?: return ExtractorHttpResult.Failure(
                                 SiteExtractionFailure.RESPONSE_TOO_LARGE,
                                 response.code,
@@ -413,9 +416,35 @@ class OkHttpExtractorClient(
     private fun totalBytesOf(contentRange: String?): Long? =
         contentRange?.substringAfterLast('/', "")?.trim()?.toLongOrNull()?.takeIf { it >= 0 }
 
-    /** Reads at most [maxBodyBytes]; a longer body returns null so the caller can fail cleanly. */
-    private fun BufferedSource.readBounded(maxBodyBytes: Long): String? =
-        if (request(maxBodyBytes + 1)) null else readUtf8()
+    /**
+     * Reads at most [maxBodyBytes]; a longer body returns null so the caller can fail cleanly.
+     *
+     * The text is read with readUtf8(), as it always was. Only when that yields U+FFFD, the bytes
+     * are not valid UTF-8 and the response names another charset this runtime knows (VK's pages
+     * are windows-1251) are the same bytes read in that charset; an unnamed, unknown or UTF-8
+     * charset reads exactly as before.
+     */
+    private fun ResponseBody.readBounded(maxBodyBytes: Long): String? {
+        val source = source()
+        if (source.request(maxBodyBytes + 1)) return null
+        // The whole body is buffered now: keep its bytes, then read it as before.
+        val bytes = source.buffer.snapshot()
+        val text = source.readUtf8()
+        if (REPLACEMENT_CHARACTER !in text) return text
+        val named = contentType()?.charset(null) ?: return text
+        if (named == Charsets.UTF_8 || bytes.isWellFormedUtf8()) return text
+        return bytes.string(named)
+    }
+
+    private fun ByteString.isWellFormedUtf8(): Boolean = try {
+        Charsets.UTF_8.newDecoder()
+            .onMalformedInput(CodingErrorAction.REPORT)
+            .onUnmappableCharacter(CodingErrorAction.REPORT)
+            .decode(asByteBuffer())
+        true
+    } catch (_: CharacterCodingException) {
+        false
+    }
 
     /**
      * Keeps the name and value of every cookie [url]'s response set. OkHttp's parser already
@@ -466,6 +495,7 @@ class OkHttpExtractorClient(
         const val MAX_COOKIE_CHARS = 4_096
         val METHOD_PRESERVING_REDIRECTS = setOf(307, 308)
         val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
+        const val REPLACEMENT_CHARACTER = '\uFFFD'
     }
 }
 

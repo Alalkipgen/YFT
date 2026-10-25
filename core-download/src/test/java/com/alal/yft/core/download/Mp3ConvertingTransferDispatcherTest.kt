@@ -10,13 +10,22 @@ import com.alal.yft.core.model.download.DownloadFailureStage.READ_SOURCE
 import com.alal.yft.core.model.download.DownloadPlan
 import com.alal.yft.core.model.download.DownloadProgress
 import com.alal.yft.core.model.download.DownloadSegment
+import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.download.Mp3Encoding
 import com.alal.yft.core.model.download.RemoteFileMetadata
 import com.alal.yft.core.model.download.TransferCheckpoint
 import com.alal.yft.core.model.media.BrowserRequestContext
 import java.io.File
 import java.nio.file.Files
+import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -215,6 +224,64 @@ class Mp3ConvertingTransferDispatcherTest {
         assertEquals(1, delegate.discards)
     }
 
+    /** D1 follow-up 4: an MP3 made from a direct download shows the MP3's size, not the AAC's. */
+    @Test
+    fun aQueuedMp3ShowsTheMp3sSizeAndKeepsTheAacCheckpoint() = runBlocking {
+        val store = MemoryStore()
+
+        val completed = completeInQueue(plan(), store)
+
+        assertEquals(mp3.size.toLong(), completed.totalBytes)
+        assertEquals(mp3.size.toLong(), completed.downloadedBytes)
+        assertEquals(checkpoint(aac.size.toLong()), completed.checkpoint)
+        assertEquals(completed, store.loadAll().single())
+    }
+
+    /** D1 follow-up 4: the M4A kept from a video's sound shows its own size, not the video's. */
+    @Test
+    fun aQueuedAudioOnlyDownloadShowsTheM4asSize() = runBlocking {
+        val video = plan(mp3 = null).copy(audioOnly = true, mimeType = "audio/mp4")
+        val store = MemoryStore()
+
+        val completed = completeInQueue(video, store)
+
+        assertEquals(m4a.size.toLong(), completed.totalBytes)
+        assertEquals(m4a.size.toLong(), completed.downloadedBytes)
+        assertEquals(checkpoint(aac.size.toLong()), completed.checkpoint)
+        assertEquals(completed, store.loadAll().single())
+    }
+
+    /** D1 follow-up 4: a plain direct download still shows the bytes it downloaded. */
+    @Test
+    fun aQueuedPlainDownloadStillShowsTheBytesItDownloaded() = runBlocking {
+        val completed = completeInQueue(plan(mp3 = null), MemoryStore())
+
+        assertEquals(aac.size.toLong(), completed.totalBytes)
+        assertEquals(aac.size.toLong(), completed.downloadedBytes)
+        assertEquals(checkpoint(aac.size.toLong()), completed.checkpoint)
+    }
+
+    /** Runs [plan] in a download queue on [dispatcher] until it stops, which must be done. */
+    private suspend fun completeInQueue(
+        plan: DirectDownloadPlan,
+        store: DownloadTaskStore,
+    ): StoredDownloadTask {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        try {
+            val queue = DownloadQueue(store, dispatcher, scope)
+            queue.enqueue(plan, metadata(), destination)
+            val stopped = withTimeout(10_000) {
+                queue.tasks
+                    .map { tasks -> tasks.single() }
+                    .first { task -> task.status in STOPPED }
+            }
+            assertEquals(DownloadTaskStatus.COMPLETED, stopped.status)
+            return stopped
+        } finally {
+            scope.cancel()
+        }
+    }
+
     private fun workspace() =
         File(workspaces, DownloadWorkspaces.nameFor(DownloadWorkspaces.MP3_PREFIX, "task-1"))
 
@@ -302,6 +369,21 @@ class Mp3ConvertingTransferDispatcherTest {
         }
     }
 
+    /** Keeps a queue's tasks in memory. */
+    private class MemoryStore : DownloadTaskStore {
+        private val tasks = ConcurrentHashMap<String, StoredDownloadTask>()
+
+        override suspend fun loadAll(): List<StoredDownloadTask> = tasks.values.toList()
+
+        override suspend fun save(task: StoredDownloadTask) {
+            tasks[task.id] = task
+        }
+
+        override suspend fun delete(id: String) {
+            tasks.remove(id)
+        }
+    }
+
     private class FakeExtractor(private val output: ByteArray) : LocalAudioExtractor {
         val sources = mutableListOf<ByteArray>()
         var failWith: DownloadFailureReason? = null
@@ -312,5 +394,14 @@ class Mp3ConvertingTransferDispatcherTest {
             output.writeBytes(this.output)
             return Mp3TranscodeResult.Completed(this.output.size.toLong())
         }
+    }
+
+    private companion object {
+        val STOPPED = setOf(
+            DownloadTaskStatus.COMPLETED,
+            DownloadTaskStatus.FAILED,
+            DownloadTaskStatus.NEEDS_REFRESH,
+            DownloadTaskStatus.CANCELLED,
+        )
     }
 }

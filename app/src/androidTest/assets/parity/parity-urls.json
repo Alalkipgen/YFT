@@ -1,0 +1,299 @@
+{
+  "version": 1,
+  "frozen": "2026-10-10",
+  "source": "MASTER_KEY_PLAN.md 4.3",
+  "note": "Public links only. Owner-picked slots stay null here; never commit private links.",
+  "cases": [
+    {
+      "id": "facebook-page-video",
+      "site": "facebook",
+      "url": "https://www.facebook.com/NASA/videos/seeing-earth-as-only-nasa-can/1414737229683186/",
+      "expect": [
+        "video"
+      ],
+      "purpose": "Page video, HD/SD + DASH"
+    },
+    {
+      "id": "facebook-share-link",
+      "site": "facebook",
+      "url": "https://www.facebook.com/share/v/1Q3kAyptrS/",
+      "expect": [
+        "video"
+      ],
+      "purpose": "Share link to resolvedIdentity"
+    },
+    {
+      "id": "facebook-reel",
+      "site": "facebook",
+      "url": null,
+      "expect": [
+        "video"
+      ],
+      "purpose": "Owner picks: public reel; Safari AVC ladder"
+    },
+    {
+      "id": "facebook-fb-watch",
+      "site": "facebook",
+      "url": null,
+      "expect": [
+        "video"
+      ],
+      "purpose": "Owner picks: fb.watch code; redirect"
+    },
+    {
+      "id": "facebook-private",
+      "site": "facebook",
+      "url": null,
+      "expect": [
+        "LOGIN_REQUIRED",
+        "PRIVATE_OR_UNAVAILABLE"
+      ],
+      "purpose": "Owner picks: group-only or private video (negative)"
+    },
+    {
+      "id": "tiktok-nasa",
+      "site": "tiktok",
+      "url": "https://www.tiktok.com/@nasa/video/7670337149526379789",
+      "expect": [
+        "video"
+      ],
+      "purpose": "Main + 0 More (M2)"
+    },
+    {
+      "id": "tiktok-short-link",
+      "site": "tiktok",
+      "url": null,
+      "expect": [
+        "video"
+      ],
+      "purpose": "Owner picks: vm.tiktok.com link of the same post; resolved"
+    },
+    {
+      "id": "tiktok-photo",
+      "site": "tiktok",
+      "url": null,
+      "expect": [
+        "NO_MEDIA_FOUND"
+      ],
+      "purpose": "Owner picks: photo post; not a video"
+    },
+    {
+      "id": "tiktok-private",
+      "site": "tiktok",
+      "url": null,
+      "expect": [
+        "PRIVATE_OR_UNAVAILABLE"
+      ],
+      "purpose": "Owner picks: private post (negative)"
+    },
+    {
+      "id": "instagram-reel",
+      "site": "instagram",
+      "url": "https://www.instagram.com/reel/Dcwk7e1yHaY/",
+      "expect": [
+        "video"
+      ],
+      "purpose": "Reel: video_versions + DASH"
+    },
+    {
+      "id": "instagram-carousel",
+      "site": "instagram",
+      "url": null,
+      "expect": [
+        "video"
+      ],
+      "purpose": "Owner picks: carousel img_index=2; item selection"
+    },
+    {
+      "id": "instagram-private",
+      "site": "instagram",
+      "url": null,
+      "expect": [
+        "LOGIN_REQUIRED",
+        "PRIVATE_OR_UNAVAILABLE"
+      ],
+      "purpose": "Owner picks: private account post (negative)"
+    },
+    {
+      "id": "x-nasa",
+      "site": "x",
+      "url": "https://x.com/NASA/status/2042316964362698815",
+      "expect": [
+        "video"
+      ],
+      "purpose": "MP4 variants"
+    },
+    {
+      "id": "x-multi-video",
+      "site": "x",
+      "url": null,
+      "expect": [
+        "video"
+      ],
+      "purpose": "Owner picks: /video/2 of a multi-video post"
+    },
+    {
+      "id": "x-gif",
+      "site": "x",
+      "url": null,
+      "expect": [
+        "video"
+      ],
+      "purpose": "Owner picks: GIF post; no sound"
+    },
+    {
+      "id": "x-protected",
+      "site": "x",
+      "url": null,
+      "expect": [
+        "PRIVATE_OR_UNAVAILABLE",
+        "LOGIN_REQUIRED"
+      ],
+      "purpose": "Owner picks: protected post (negative)"
+    },
+    {
+      "id": "vimeo-clip",
+      "site": "vimeo",
+      "url": "https://vimeo.com/76979871",
+      "expect": [
+        "video"
+      ],
+      "purpose": "Public clip (yt-dlp test)"
+    },
+    {
+      "id": "vimeo-embed",
+      "site": "vimeo",
+      "url": "https://player.vimeo.com/video/76979871",
+      "expect": [
+        "video"
+      ],
+      "purpose": "Embed form of the same clip"
+    },
+    {
+      "id": "vimeo-unlisted",
+      "site": "vimeo",
+      "url": null,
+      "expect": [
+        "video"
+      ],
+      "purpose": "Owner picks: unlisted id/hash; hash kept"
+    },
+    {
+      "id": "vimeo-ondemand",
+      "site": "vimeo",
+      "url": null,
+      "expect": [
+        "not_handled"
+      ],
+      "purpose": "Owner picks: vimeo.com/ondemand page; not claimed"
+    },
+    {
+      "id": "youtube-first",
+      "site": "youtube",
+      "url": "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+      "expect": [
+        "video"
+      ],
+      "purpose": "Short progressive"
+    },
+    {
+      "id": "youtube-1080",
+      "site": "youtube",
+      "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "expect": [
+        "video"
+      ],
+      "purpose": "1080 ladder"
+    },
+    {
+      "id": "youtube-shorts",
+      "site": "youtube",
+      "url": "https://www.youtube.com/shorts/BGQWPY4IigY",
+      "expect": [
+        "video"
+      ],
+      "purpose": "Shorts"
+    },
+    {
+      "id": "youtube-2160",
+      "site": "youtube",
+      "url": null,
+      "expect": [
+        "video"
+      ],
+      "purpose": "Owner picks: a 2160p video; HIGH_QUALITIES"
+    },
+    {
+      "id": "youtube-age",
+      "site": "youtube",
+      "url": null,
+      "expect": [
+        "LOGIN_REQUIRED"
+      ],
+      "purpose": "Owner picks: age-restricted video; no bypass"
+    },
+    {
+      "id": "youtube-private",
+      "site": "youtube",
+      "url": null,
+      "expect": [
+        "PRIVATE_OR_UNAVAILABLE"
+      ],
+      "purpose": "Owner picks: private or members-only video"
+    },
+    {
+      "id": "generic-html5",
+      "site": "generic",
+      "url": "https://www.w3schools.com/html/html5_video.asp",
+      "expect": [
+        "video"
+      ],
+      "purpose": "Plain video element MP4"
+    },
+    {
+      "id": "generic-hls",
+      "site": "generic",
+      "url": "https://hlsjs.video-dev.org/demo/",
+      "expect": [
+        "video"
+      ],
+      "purpose": "HLS through MSE (capture + manifest)"
+    },
+    {
+      "id": "generic-dash",
+      "site": "generic",
+      "url": "https://reference.dashif.org/dash.js/latest/samples/dash-if-reference-player/index.html",
+      "expect": [
+        "video"
+      ],
+      "purpose": "DASH through MSE (capture + manifest)"
+    },
+    {
+      "id": "generic-ima-preroll",
+      "site": "generic",
+      "url": "https://googleads.github.io/googleads-ima-html5/vsi/",
+      "expect": [
+        "video"
+      ],
+      "purpose": "VAST pre-roll; ad separation"
+    },
+    {
+      "id": "generic-player-setup",
+      "site": "generic",
+      "url": null,
+      "expect": [
+        "video"
+      ],
+      "purpose": "Owner picks: JW Player or Video.js page (PlayerSetupScanner)"
+    },
+    {
+      "id": "generic-json-ld",
+      "site": "generic",
+      "url": null,
+      "expect": [
+        "video"
+      ],
+      "purpose": "Owner picks: news page with JSON-LD VideoObject (PageFactsReader)"
+    }
+  ]
+}

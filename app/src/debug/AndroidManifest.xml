@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug build only. The owner tools' launcher entries are enabled only when the build has
+     yft.masterCapture and yft.ownSolver on (placeholder yftOwnerTools in app/build.gradle.kts;
+     the solver canary also needs yft.ownSolverNext: yftOwnerToolsNext). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name="com.alal.yft.master.StreamCheckMeasureActivity"
+            android:enabled="${yftOwnerTools}"
+            android:exported="true"
+            android:label="YFT stream check"
+            android:taskAffinity="com.alal.yft.ownertools">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <!-- Phase 1.3 D0: the client census and weekly check. It keeps running when the phone
+             turns; nothing runs unless the owner taps, and only while the screen is open. -->
+        <activity
+            android:name="com.alal.yft.master.ClientCensusActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:enabled="${yftOwnerTools}"
+            android:exported="true"
+            android:label="YFT client census"
+            android:taskAffinity="com.alal.yft.ownertools">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <!-- Social plan S0c: the site census (main's lookups, V, Master's way once). It keeps
+             running when the phone turns; nothing runs unless the owner taps, and only while
+             the screen is open. -->
+        <activity
+            android:name="com.alal.yft.master.SiteCensusActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:enabled="${yftOwnerTools}"
+            android:exported="true"
+            android:label="YFT site census"
+            android:taskAffinity="com.alal.yft.ownertools">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <!-- Phase 1.2 N7: the phone solver canary, only when yft.ownSolverNext is on as well
+             (placeholder yftOwnerToolsNext). It keeps running when the phone turns. -->
+        <activity
+            android:name="com.alal.yft.master.SolverCanaryActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:enabled="${yftOwnerToolsNext}"
+            android:exported="true"
+            android:label="YFT solver canary"
+            android:taskAffinity="com.alal.yft.ownertools">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

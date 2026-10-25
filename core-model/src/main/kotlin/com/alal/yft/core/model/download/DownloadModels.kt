@@ -98,6 +98,12 @@ data class HlsDownloadPlan(
     val requestContext: BrowserRequestContext,
     val mimeType: String? = null,
     override val expiresAtEpochMs: Long? = null,
+    /**
+     * D1: a download of its own (not a merge's track) is saved as an MP4, or an M4A for sound
+     * alone: MPEG-TS pieces are remuxed on the phone without re-encoding. When that fails, the
+     * file is kept in its own format under its own extension (`.ts`), never as an `.mp4`.
+     */
+    val remuxToMp4: Boolean = false,
 ) : DownloadPlan {
     init {
         require(taskId.isNotBlank())
@@ -114,7 +120,24 @@ data class HlsDownloadPlan(
         append(mimeType)
         append(", expiresAtEpochMs=")
         append(expiresAtEpochMs)
+        append(", remuxToMp4=")
+        append(remuxToMp4)
         append(')')
+    }
+}
+
+/**
+ * D1: the name and type a finished file was published under when they are not its plan's, for
+ * example an HLS download kept as MPEG-TS (`.ts`, `video/mp2t`) because the phone could not remux
+ * it into an MP4.
+ */
+data class PublishedFile(
+    val displayName: String,
+    val mimeType: String,
+) {
+    init {
+        require(displayName.isNotBlank())
+        require(mimeType.isNotBlank())
     }
 }
 
@@ -139,12 +162,18 @@ data class DashDownloadPlan(
     override val expiresAtEpochMs: Long? = null,
     val wholeFile: WholeFileTrack? = null,
     val hlsPlaylist: Boolean = false,
+    /**
+     * How long the video is, as its page states it (YouTube's `lengthSeconds`); null when not
+     * known. A recently ended live stream's track that comes out shorter is not done (run 4f).
+     */
+    val expectedDurationMillis: Long? = null,
 ) : DownloadPlan {
     init {
         require(taskId.isNotBlank())
         require(manifestUrl.isNotBlank())
         require(representationId.isNotBlank())
         require(!hlsPlaylist || wholeFile == null) { "An HLS track is a playlist, not one file" }
+        require(expectedDurationMillis == null || expectedDurationMillis > 0)
         require(suggestedFileName.isNotBlank())
         require(codecs.none(String::isBlank))
     }
@@ -166,6 +195,8 @@ data class DashDownloadPlan(
         append(wholeFile)
         append(", hlsPlaylist=")
         append(hlsPlaylist)
+        append(", expectedDurationMillis=")
+        append(expectedDurationMillis)
         append(')')
     }
 }
@@ -260,6 +291,20 @@ enum class DownloadFailureReason {
     STORAGE_UNAVAILABLE,
     INSUFFICIENT_STORAGE,
     INTEGRITY_MISMATCH,
+
+    /**
+     * A recently ended live stream that YouTube does not serve whole yet (run 4f): no piece
+     * numbers, a first piece that is not a fragmented MP4 start, or pieces shorter than the video.
+     */
+    LIVE_NOT_READY,
+
+    /**
+     * Item 7 Track B1: YouTube's media host refused the download (HTTP 403 while connecting) while
+     * its link still had time left, so the link did not expire: YouTube refused this session's
+     * download, and reopening the page with the same session may not help (D7 runs 13 / 13b).
+     * The download still needs a fresh link.
+     */
+    YOUTUBE_REFUSED,
 }
 
 data class DownloadFailure(
@@ -489,6 +534,8 @@ sealed interface HlsTransferResult {
     data class Completed(
         val bytesWritten: Long,
         val checkpoint: HlsTransferCheckpoint,
+        /** D1: set when the file was published under another name and type than planned. */
+        val publishedAs: PublishedFile? = null,
     ) : HlsTransferResult
 
     data class Failure(

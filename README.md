@@ -12,12 +12,17 @@ YFT is an ad-free Android application for detecting, previewing and downloading 
   YouTube 480p–1080p with sound plus MP3. Notes and the phone checklist:
   [`docs/release/1.0.0-beta.3.md`](docs/release/1.0.0-beta.3.md); signed draft pre-release
   2026-10-04.
-- In progress: Phase 15 — fixes from the owner's test of Preview #6: TikTok downloads in the
-  browser and on Home taken from TikTok's own page (like YouTube's proof-of-origin token), with
-  every failure explained in Details; YouTube % and speed within seconds of Download; Delete file
-  in Downloads; the page's own video, never the pre-roll ad, on other sites; then Preview #7 and
-  the signed `1.0.0-beta.4`. Plan: [`docs/FIX_ADD_PLAN.md`](docs/FIX_ADD_PLAN.md).
-- On `main`, not yet released: Phases 11–14 — download flow like Snaptube (one short download
+- `1.0.0` (versionCode 1000000), the first stable release, not yet released: the release commit
+  (2026-10-25, `work/phase-release-v1`) on top of PR #2's branch — everything since beta.3, the
+  backup finder (Master; Settings → Backup finder, on by default), VK videos, the download fixes
+  and the in-app update (Settings → About → Updates). Next: the owner's test of the two #12
+  preview APKs, PR #2's merge, then the signed release. Notes:
+  [`docs/release/1.0.0.md`](docs/release/1.0.0.md).
+- Phase 15 (in 1.0.0): TikTok downloads in the browser and on Home taken from TikTok's own page
+  (like YouTube's proof-of-origin token); YouTube % and speed within seconds of Download; Delete
+  file in Downloads; the page's own video, never the pre-roll ad, on other sites. Plan:
+  [`docs/FIX_ADD_PLAN.md`](docs/FIX_ADD_PLAN.md).
+- Phases 11–14 (in 1.0.0) — download flow like Snaptube (one short download
   sheet, all Facebook qualities, 2K/4K, real thumbnails, test-key preview APKs), video files that
   save again, Retry with failure details, every YouTube quality (144p–4K), other sites' main
   video instead of pre-roll ads, merge progress, Google search, browser history and pop-up
@@ -30,11 +35,11 @@ YFT is an ad-free Android application for detecting, previewing and downloading 
   [`docs/YOUTUBE_RISK_REVIEW.md`](docs/YOUTUBE_RISK_REVIEW.md). YFT is distributed through GitHub
   only.
 
-## Install the beta
+## Install
 
-Requires Android 7.0 (API 24) or newer; the app targets Android 15 (API 35). Once the owner publishes a release, download `video-downloader-<version>.apk` and `SHA256SUMS` from the repository's GitHub Releases page, check the file with `sha256sum -c SHA256SUMS` (or `Get-FileHash` on Windows), open the APK on the phone and allow your browser or file manager to install unknown apps when Android asks. Later releases signed with the same key update in place. Details and known issues: [`docs/release/1.0.0-beta.3.md`](docs/release/1.0.0-beta.3.md) and [`CHANGELOG.md`](CHANGELOG.md).
+Requires Android 7.0 (API 24) or newer; the app targets Android 15 (API 35). Once the owner publishes a release, download `video-downloader-<version>.apk` and `SHA256SUMS` from the repository's GitHub Releases page, check the file with `sha256sum -c SHA256SUMS` (or `Get-FileHash` on Windows), open the APK on the phone and allow your browser or file manager to install unknown apps when Android asks. Later releases signed with the same key update in place. Details and known issues: [`docs/release/1.0.0.md`](docs/release/1.0.0.md) and [`CHANGELOG.md`](CHANGELOG.md).
 
-Test builds of the next beta: the **Preview APK (test key)** workflow uploads `yft-preview-apk` — the release build as "YFT Preview" (`com.alal.yft.preview`), which installs next to the release app. It is signed with a throwaway test key, so uninstall an older preview before installing a newer one ([`docs/RELEASE.md`](docs/RELEASE.md#preview-builds-for-the-owners-phone-test-p7)).
+Test builds: the **Preview APK (test key)** workflow uploads `yft-preview-apk` — the release build as "YFT Preview" (`com.alal.yft.preview`; #12 normal) — and `yft-preview-trial-apk` — "YFT Trial" (`com.alal.yft.trial`; #12 trial: the backup finder answers every lookup, every detail shown). Both install next to the release app and each other. They are signed with a throwaway test key, so uninstall an older preview before installing a newer one ([`docs/RELEASE.md`](docs/RELEASE.md#preview-builds-for-the-owners-phone-test-p7)).
 
 ## Current state
 

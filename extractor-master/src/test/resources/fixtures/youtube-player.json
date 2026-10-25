@@ -1,0 +1,13 @@
+{
+  "playabilityStatus": {"status": "OK"},
+  "videoDetails": {"videoId": "yt-fixture", "title": "Neutral fixture", "lengthSeconds": "17"},
+  "streamingData": {
+    "formats": [
+      {"url": "https://cdn.example.test/video-360.mp4", "mimeType": "video/mp4; codecs=\"avc1.4d401e, mp4a.40.2\"", "height": 360}
+    ],
+    "adaptiveFormats": [
+      {"url": "https://cdn.example.test/video-720.mp4", "mimeType": "video/mp4; codecs=\"avc1.64001f\"", "height": 720},
+      {"url": "https://cdn.example.test/sound.m4a", "mimeType": "audio/mp4; codecs=\"mp4a.40.2\"", "bitrate": 128000}
+    ]
+  }
+}

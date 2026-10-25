@@ -1,0 +1,113 @@
+name: Minified build check (release branch)
+# Decision 30 (R8, the release commit): the shrunk builds are run, not only compiled. This job
+# builds the #12 normal preview and the #12 trial exactly as "Preview APK (test key)" does (R8 on,
+# a fresh test key, never a secret), installs them on the emulator smoke's API 34 emulator and
+# drives each through its screens (scripts/ci-minified-check.sh, MinifiedBuildCheckTest): YouTube's
+# route B, one social ladder and the capture. Each check's answer is an annotation; a crash or a
+# run that cannot finish fails the job, a live site's answer to the data centre does not. Its APKs
+# are never uploaded: the #12 artifacts stay Preview APK's.
+on:
+  push:
+    branches: ["work/phase-release-*"]
+    paths:
+      - "app/**"
+      - "core-*/**"
+      - "extractor-*/**"
+      - "gradle/**"
+      - "gradle.properties"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "scripts/ci-minified-check.sh"
+      - ".github/workflows/minified-check.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: minified-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  minified:
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install Android SDK 35, NDK and CMake
+        shell: bash
+        run: |
+          SDKMANAGER="$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}" -path '*/bin/sdkmanager' -type f | head -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" \
+            "ndk;27.3.13750724" "cmake;3.22.1"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Build the shrunk previews with a fresh test key, and the check's test APK
+        shell: bash
+        run: |
+          key_dir="$RUNNER_TEMP/yft-preview-key"
+          trap 'rm -rf "$key_dir"' EXIT
+          umask 077
+          mkdir -p "$key_dir"
+          password="$(openssl rand -hex 24)"
+          echo "::add-mask::$password"
+          export YFT_PREVIEW_STORE_FILE="$key_dir/preview.p12"
+          export YFT_PREVIEW_STORE_PASSWORD="$password"
+          export YFT_PREVIEW_KEY_ALIAS="yft-preview"
+          export YFT_PREVIEW_KEY_PASSWORD="$password"
+          keytool -genkeypair -noprompt -keystore "$YFT_PREVIEW_STORE_FILE" -storetype PKCS12 \
+            -alias "$YFT_PREVIEW_KEY_ALIAS" -keyalg RSA -keysize 3072 -validity 3650 \
+            -dname "CN=YFT Preview Test Key, OU=Test builds only, O=YFT" \
+            -storepass:env YFT_PREVIEW_STORE_PASSWORD -keypass:env YFT_PREVIEW_KEY_PASSWORD
+          ./gradlew --no-daemon :app:assemblePreview :app:assemblePreviewTrial \
+            :app:assembleDebug :app:assembleDebugAndroidTest "-Pyft.previewBuild=$GITHUB_RUN_NUMBER"
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Restore the emulator smoke's clean AVD
+        id: avd-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.android/avd/*
+          key: avd-google-apis-34-x86-64-v1
+      - name: Generate AVD snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: >-
+            -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+            -camera-back none -camera-front none
+          script: echo "Generated a clean AVD snapshot"
+      - name: Run the shrunk builds through their screens
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: >-
+            -no-window -gpu swiftshader_indirect -no-snapshot-save -noaudio
+            -no-boot-anim -camera-back none -camera-front none
+          script: bash scripts/ci-minified-check.sh
+      - name: Upload the check's screenshots and summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yft-minified-check
+          path: ${{ runner.temp }}/yft-minified/
+          retention-days: 14
+          if-no-files-found: warn
