@@ -28,9 +28,10 @@ import kotlinx.coroutines.withTimeoutOrNull
  *
  * - **V1, main's answers re-read (no request):** the answers main's VK adapter got in this lookup —
  *   its embed pages (B, B again, B2) and its `video.get` answers ([MainPages]: the page, or the
- *   refused GET), and its token asks by their status and mark ([LookupRecord]) — read by Master's
- *   own reader ([VkReader]: VK's key table, then the shape scan, bound to the link's `owner_id` +
- *   video id, never the trailer or the poster) and judged ([VkAnswerJudge]). Rows (`video.get`'s
+ *   refused GET), and its token asks by their status and mark ([LookupRecord]; in a record
+ *   labelled with [VkLabels], any ask of the token's way, main's other values too) — read by
+ *   Master's own reader ([VkReader]: VK's key table, then the shape scan, bound to the link's
+ *   `owner_id` + video id, never the trailer or the poster) and judged ([VkAnswerJudge]). Rows (`video.get`'s
  *   first, then the embed's) go to the engine's media checks (V) as one video's answer read with
  *   VK's recipe; VK's deleted icon on a video VK does not play is the lookup's final answer; a 429
  *   or a bot check stops the site (its host cools); anything else leaves nothing to read.
@@ -150,7 +151,9 @@ class VkLadder(
     /**
      * V1's read of main's answers for [link] (no request): the embed pages and `video.get`'s in
      * [pages] (their bodies, as kept; a refused GET by its status), main's token asks in [record]
-     * (their status and mark: the answer is not read here).
+     * (their status and mark: the answer is not read here) — the ask of the bundled values, or in a
+     * record labelled with [VkLabels] any ask of the token's way ([VkLabels.TOKEN]), whose mark
+     * (a token, VK's captcha, none) decides it.
      */
     private fun mainAnswers(record: LookupRecord, pages: MainPages?, link: VkClient.Link): Main {
         val kept = pages?.pages().orEmpty()
@@ -191,9 +194,12 @@ class VkLadder(
                 VkClient.API_HOST,
             )
         }
+        // Main's token asks: the bundled values' ask, or (a labelled record) any ask VK's labels
+        // name the token's way, so main's other values are read too.
         val tokenHash = LookupAsk(LookupAsk.POST, VkClient.TOKEN_URL, VkClient.BUNDLED.tokenBody).hash
         val tokens = record.asks().filter {
-            it.asker == LookupRecord.Asker.MAIN && it.method == LookupAsk.POST && it.hash == tokenHash
+            it.asker == LookupRecord.Asker.MAIN && it.method == LookupAsk.POST &&
+                (it.hash == tokenHash || it.way == VkLabels.TOKEN)
         }
         val token = tokens.lastOrNull()?.let { tokenJudged(it, apis.isNotEmpty()) }
         // The deciding answer of each kind: rows first, then (video.get) VK's final answer, then a
@@ -461,8 +467,8 @@ class VkLadder(
                 (videos == link.contentId || videos.startsWith("${link.contentId}_"))
         }
 
-        /** [url]'s query values when its path is [path], else null. */
-        private fun queryOf(url: String, path: String): Map<String, String>? {
+        /** [url]'s query values (decoded; a repeated name: its last) when its path is [path], else null. */
+        internal fun queryOf(url: String, path: String): Map<String, String>? {
             val uri = runCatching { URI(url.trim()) }.getOrNull() ?: return null
             if (uri.rawPath != path) return null
             return uri.rawQuery.orEmpty().split('&').filter(String::isNotEmpty).associate { entry ->

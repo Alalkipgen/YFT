@@ -19,11 +19,10 @@ import com.alal.yft.extractor.master.contract.SiteContracts
 import com.alal.yft.extractor.master.contract.contractRequest
 import com.alal.yft.extractor.master.contract.mainRequest
 import com.alal.yft.extractor.master.fixture
+import com.alal.yft.extractor.master.lookup.AnswerMark
 import com.alal.yft.extractor.master.lookup.LookupRecord
 import com.alal.yft.extractor.master.lookup.LookupRecorder
 import com.alal.yft.extractor.master.modules.youtube.testing.FakeExtractorHttpClient
-import com.alal.yft.extractor.master.recipes.ContractMedia
-import com.alal.yft.extractor.master.recipes.ContractRecipe
 import com.alal.yft.extractor.master.recipes.ContractRecipes
 import com.alal.yft.extractor.sites.vk.VkExtractor
 import java.net.URI
@@ -46,8 +45,10 @@ import org.junit.Test
  * token held in memory and one `video.get`, with the lookup's user agent and no cookie, within VK's
  * budget and the lookup's time, under route B's rules (main's identical token answer replayed,
  * main's `video.get` never asked again). Rungs off by the config; claims and guards; every line
- * short labels that the sanitizer keeps whole. JVM only, no network; VK's recipe is the test's own
- * until step 4's.
+ * short labels that the sanitizer keeps whole. Step 4: in a record labelled with VK's labels
+ * ([VkLabels]) main's token ask is read by its mark — VK's captcha stops VK and cools login.vk.ru,
+ * an answer without a value is a refused value (V2) — also when main asks with other values. JVM
+ * only, no network; VK's recipe is step 4's ([VkRecipe]).
  */
 class VkLadderTest {
     @Test
@@ -442,6 +443,93 @@ class VkLadderTest {
     }
 
     @Test
+    fun `in a labelled record main's token ask is read by its mark - VK's captcha stops VK and cools the token host, main's other values too`() = runTest {
+        val master = vk()
+        val captcha: (String) -> ExtractorHttpResult = { json(fixture("vk-pack/token_captcha.json"), VkClient.TOKEN_URL) }
+        val cooldown = SocialCooldown()
+        val labelled = lookup(vk(token = captcha), ladder(master, cooldown = cooldown), record = LookupRecord(labels = VkLabels()))
+
+        assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, labelled.mainFailure)
+        assertTrue(labelled.result.toString(), labelled.result is MasterResult.NeedsPlayback)
+        assertEquals(listOf(LADDER_LINE, ADULT, TOKEN_CAPTCHA), labelled.lines)
+        assertEquals(listOf(VkClient.TOKEN_HOST), labelled.record.stopHosts())
+        assertTrue(cooldown.cooling(VkClient.TOKEN_HOST))
+        assertFalse(cooldown.cooling(VkClient.API_HOST))
+
+        // Main's other values (another token body): the token's way still finds main's ask.
+        val otherCooldown = SocialCooldown()
+        val other = lookup(
+            vk(token = captcha),
+            ladder(master, cooldown = otherCooldown),
+            record = LookupRecord(labels = VkLabels()),
+            wrap = ::OtherValues,
+        )
+        assertEquals(listOf(LADDER_LINE, ADULT, TOKEN_CAPTCHA), other.lines)
+        assertTrue(otherCooldown.cooling(VkClient.TOKEN_HOST))
+
+        // Unlabelled: main's own values by their ask, the 2xx answer not read; other values not found.
+        val plain = lookup(vk(token = captcha), ladder(master))
+        assertEquals(
+            listOf(LADDER_LINE, ADULT, "$V1 login.vk.ru: TRANSIENT (status 200, the answer not read here); next: NEXT_RUNG"),
+            plain.lines,
+        )
+        val unlabelled = lookup(vk(token = captcha), ladder(master), wrap = ::OtherValues)
+        assertEquals(listOf(LADDER_LINE, ADULT), unlabelled.lines)
+        assertTrue(plain.record.stopHosts().isEmpty())
+        assertNothingAsked(master)
+        listOf(labelled, other, plain, unlabelled).forEach { assertBare(it) }
+    }
+
+    @Test
+    fun `in a labelled record a token answer without a value is a refused value - V2 heals, its own asks labelled`() = runTest {
+        val master = vk()
+        val noValue: (String) -> ExtractorHttpResult = { json(fixture("vk-pack/token_no_value.json"), VkClient.TOKEN_URL) }
+        val lookup = lookup(vk(token = noValue), ladder(master), record = LookupRecord(labels = VkLabels()))
+
+        assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, lookup.mainFailure)
+        val success = lookup.result as MasterResult.Success
+        assertEquals(MasterStage.CONTRACT, success.stage)
+        assertEquals(
+            setOf("$API_FILES/720.mp4", "$API_FILES/360.mp4", "$API_FILES/video.m3u8", "$API_FILES/video.mpd"),
+            success.result.candidates.map { it.mediaUrl.substringBefore('?') }.toSet(),
+        )
+        assertEquals(listOf(VkClient.TOKEN_URL), master.postedUrls)
+        assertEquals(listOf(HEALED.videoGetUrl(LINK)), master.requestedUrls)
+        assertEquals(
+            listOf(
+                LADDER_LINE,
+                ADULT,
+                "$V1 login.vk.ru: VALUE_REJECTED (no value for the web client, by the answer's mark); next: NEXT_RUNG",
+                "$V2 login.vk.ru (debug values of ${VkClient.BUNDLED_DATE}): answered, held in memory for this ask only",
+                "$V2 video.get: DIRECT (rows 4, bound to the video); next: CHECK_ROWS",
+                "$V2 item: MP4 files 2, HLS 1, DASH 1 (VK's key table); title known; length known",
+            ),
+            lookup.lines,
+        )
+        val asks = lookup.record.asks()
+        assertEquals(
+            listOf(VkLabels.EMBED to AnswerMark.NO_POST, VkLabels.TOKEN to AnswerMark.NO_DATA),
+            asks.filter { it.asker == LookupRecord.Asker.MAIN }.map { it.way to it.mark },
+        )
+        assertEquals(
+            listOf(VkLabels.TOKEN to AnswerMark.DATA, VkLabels.VIDEO_GET to AnswerMark.DATA),
+            asks.filter { it.asker == LookupRecord.Asker.MASTER }.map { it.way to it.mark },
+        )
+        assertTrue(asks.none { it.authorized })
+
+        // Unlabelled, the same answer is not read here: no refused value, so no heal.
+        val healer = vk()
+        val plain = lookup(vk(token = noValue), ladder(healer))
+        assertEquals(
+            listOf(LADDER_LINE, ADULT, "$V1 login.vk.ru: TRANSIENT (status 200, the answer not read here); next: NEXT_RUNG"),
+            plain.lines,
+        )
+        assertNothingAsked(healer)
+        assertBare(lookup)
+        assertBare(plain)
+    }
+
+    @Test
     fun `claims only a VK lookup inside its own record, and reads nothing for a sign-in failure, another video or a link without a VK video`() = runTest {
         val master = vk()
         val ladder = ladder(master)
@@ -485,13 +573,15 @@ class VkLadderTest {
         ladder: VkLadder,
         record: LookupRecord = LookupRecord(),
         cookie: String? = null,
+        /** Main's client as main's adapter sees it, above the record (main's other values). */
+        wrap: (ExtractorHttpClient) -> ExtractorHttpClient = { it },
     ): Lookup {
         val identity = identify(PAGE)
         val validator = RecordingValidator()
         val capture = CountingCapture()
         val stage = Recording(ladder)
         return withContext(record + MainPages(site = SITE)) {
-            val answer = VkExtractor(MainPageRecorder(LookupRecorder(main)), clockMillis = { 0L })
+            val answer = VkExtractor(MainPageRecorder(wrap(LookupRecorder(main))), clockMillis = { 0L })
                 .extract(mainRequest(identity, cookie))
             val failure = (answer as SiteExtractionResult.Failure).reason
             val engine = MasterFallbackEngine(
@@ -556,6 +646,16 @@ class VkLadderTest {
         ): ExtractorHttpResult = awaitCancellation()
     }
 
+    /** Main's client as an adapter with other values sends: its token ask with another body. */
+    private class OtherValues(private val http: ExtractorHttpClient) : ExtractorHttpClient by http {
+        override suspend fun postJson(
+            url: String,
+            body: String,
+            headers: Map<String, String>,
+            maxBodyBytes: Long,
+        ): ExtractorHttpResult = http.postJson(url, if (url == VkClient.TOKEN_URL) OTHER.tokenBody else body, headers, maxBodyBytes)
+    }
+
     private class Case(
         val name: String,
         val values: VkClientValues,
@@ -601,6 +701,8 @@ class VkLadderTest {
         const val V3 = "master: vk V3"
         const val ITEM = "master: vk V1 item"
         const val ADULT = "$V1 embed: VIDEO_WITHOUT_FILES (the embed's adult answer (callback 9)); next: NEXT_RUNG"
+        const val LADDER_LINE = "$LADDER after NO_MEDIA_FOUND; main's answers re-read, no new ask"
+        const val TOKEN_CAPTCHA = "$V1 login.vk.ru: BOT_CHECK (a captcha, by the answer's mark); next: STOP_SITE"
         const val TOKEN_REFUSED = "$V1 login.vk.ru: VALUE_REJECTED (status 401, the web client's values refused); next: NEXT_RUNG"
         val LINK = VkClient.Link(-100000001, 400000001)
 
@@ -608,20 +710,11 @@ class VkLadderTest {
         val HEALED: VkClient.Values = VkClient.BUNDLED.copy(clientSecret = SECRET, source = VkClient.Source.DEBUG)
         val HEAL: VkClientValues = VkClientValues.bundled { it.copy(clientSecret = SECRET) }
 
-        /** VK's recipe for V1's and V2's answers (VkReader's JSON); step 4's VkRecipe replaces it. */
-        val TEST_RECIPE = ContractRecipe(
-            site = SITE,
-            endpoint = "https://${VkClient.API_HOST}${VkClient.VIDEO_GET_PATH}?v={version}&videos={id}",
-            answerHosts = setOf(VkClient.API_HOST, VkClient.COM_HOST, VkClient.RU_HOST),
-            idPaths = listOf(listOf("id")),
-            media = listOf(ContractMedia(path = listOf("files", "*"), mimeField = "type")),
-            titlePaths = listOf(listOf("title")),
-            durationSecondsPaths = listOf(listOf("duration")),
-            thumbnailPaths = listOf(listOf("image")),
-            expiryPath = listOf("expires"),
-        )
+        /** Main's other values (a token version of VK's shape that is not the bundled one). */
+        val OTHER: VkClient.Values = VkClient.BUNDLED.copy(tokenVersion = "2")
 
-        fun contracts(http: ExtractorHttpClient) = SiteContracts(http, ContractRecipes.ALL + TEST_RECIPE)
+        /** The engine's recipes with VK's (step 4's [VkRecipe]; agent D adds it to `ContractRecipes.ALL`). */
+        fun contracts(http: ExtractorHttpClient) = SiteContracts(http, ContractRecipes.ALL + VkRecipe.RECIPE)
 
         fun ladder(
             master: ExtractorHttpClient,

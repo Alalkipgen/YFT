@@ -17,6 +17,7 @@ kept.
 | `embed_files.html` | an embed whose `apiPrefetchCache` lists the video's files under VK's keys, its trailer, pictures and another video's files |
 | `token_okay.json` | login.vk.ru's okay answer (a "not-real" value, expiry 1900000000) |
 | `token_captcha.json` | login.vk.ru's captcha answer |
+| `token_no_value.json` | login.vk.ru's answer without a token or a captcha (an error of its own) |
 | `video_get_mp4.json` | `video.get` with the video's files under VK's keys, a failover host, a trailer and pictures |
 | `video_get_renamed.json` | `video.get` with the files under keys of another shape (the shape scan), a preview, a poster, a trailer and another video's file |
 | `video_get_live.json` | a broadcast that is not over (live keys only) |

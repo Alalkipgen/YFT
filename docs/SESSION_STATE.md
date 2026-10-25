@@ -1189,6 +1189,27 @@ Keep at least the heading and one blank line between sections, so Git merges the
     main's real VK adapter, then the engine; VK's recipe is the test's own until step 4), the
     judge's evidence check extended (sanitizer). 28 more pending rows (76, `VkEmbedParser.kt`).
     Local: 1023 tests, 0 failed (2 skipped), 1 min 8 s; drift 177/0; pending 76/0.
+  - Step 4 — `VkRecipe` (VK's contract for `VkReader`'s one-video answer: `id`, `files.*` by
+    `type`, title, length, picture, expiry; its endpoint keeps `{version}`, so R8 never asks VK on
+    its own; answer hosts api.vkvideo.ru, vk.com, vk.ru; no media host list, VK's servers are
+    numbered; **not** in `ContractRecipes.ALL`), `VkLabels` (ways from the method and address
+    alone, never a header's value: the embed page, the anonymous token, `video.get`, main's
+    manifest reads, the file check; readings by Master's reader and judge: rows DATA; the adult
+    answer, VK's message and `can_play` 0 NO_POST; error 14 and the token's captcha BOT_CHECK; a
+    token of VK's shape DATA (checked, dropped); not JSON NOT_JSON; else NO_DATA, VK's rate errors
+    too), `VkSite.SITE` (main's name and ways, Master's way V2's `video.get`; V on VK's video
+    servers only through `VkClient.mediaFile`, never `iv.okcdn.ru`; nine placeholder slots from
+    §10, A finalizes). `VkLadder` also finds main's token asks by the token's way in a labelled
+    record (main's other values). Tests: `VkLabelsTest` (6: main's real adapter in a labelled
+    record), `VkSiteTest` (3), `VkLadderTest` (13: VK's recipe now `VkRecipe.RECIPE`; labelled:
+    the token's captcha stops VK and cools login.vk.ru, an answer without a value → V2); fixture
+    `token_no_value.json`. Local: 1034 tests, 0 failed (2 skipped), 2 min 1 s; drift 177/0;
+    pending 76/0.
+    Finding: V's reads go through `RouteBMediaStartReader` into the record as Master's GET of the
+    file with the row's own headers (the same as main's manifest GET), and the labels see the ask
+    only — so `MANIFEST` goes only to a GET of a VK video-server file whose path ends `.m3u8` or
+    `.mpd` (V never reads a manifest row); a manifest address that hides its kind stays
+    unlabelled, never mislabelled (A/D: confirm VK's real manifest addresses in the recon).
 - Provenance (proposal for the owner, Appendix B step 1): no base bump, no script change. Main's
   VK files came after the base `34a41890`, so their rows wait in `toolkit-provenance.tsv`'s header
   as `# pending<TAB>master<TAB>main<TAB>symbol<TAB>sha256` lines, hashed at `50fb8d0f` with the
@@ -1196,7 +1217,8 @@ Keep at least the heading and one blank line between sections, so Git merges the
   them, the self-check stays 177/0). Meanwhile `VkClientDriftTest` checks the copies at run time.
   To activate (owner/D): when the base moves past main's VK files, review each copy, drop the
   prefix, `--write`. Option for later: a per-row ref column in the script (a shared-file change).
-- Next: step 4, `VkRecipe` (not in `ContractRecipes.ALL`), `VkLabels`, `VkSite.SITE`.
+- Next: step 5, an engine test with VK's recipe and `VkLadder` as the social stage (if not
+  covered), the last checkpoint, CI, then stop and report.
 - Backlog (out of scope here): wiring (D: `VkRecipe` in `ContractRecipes.ALL`, `VkLadder` in the
   social ladders, `VkSite.SITE` in `SiteWays`, `VkSite.BUDGET` in `SocialStops`, V3 in
   `RungsOff`); the live values source (C: `ValueSource`/`SiteHealth`/`VkClientSource`); R9 schema
@@ -1206,4 +1228,8 @@ Keep at least the heading and one blank line between sections, so Git merges the
   it; route B's rule 4 means values that differ from main's only on the token's side ask nothing
   once main asked `video.get` in the lookup. Keeping a healed value after V passes needs a hook
   from the engine's checks (the ladder does not see V's result: C/D). VK's key table is code in
-  `VkReader`, so an R9 overlay of VK's recipe does not reach it.
+  `VkReader`, so an R9 overlay of VK's recipe does not reach it; a schema-2 overlay must not set
+  VK's endpoint (an overlay may give it known placeholders, `RemoteRecipeConfig.endpoint`).
+  `CandidateFactory` gives a cross-origin `Referer` as the origin, not the full page (§7 wants the
+  vk.com page). Until D adds `VkSite.SITE` to `SiteWays.ALL`, a row check built without it meets a
+  VK lookup with its own site's hosts (the app's: Facebook's) and refuses VK's rows.
