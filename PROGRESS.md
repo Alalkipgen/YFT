@@ -1,5 +1,49 @@
 # YFT Master Extractor backup
 
+## Release commit — v1.0.0 (decision 30 (iv)), #12 normal and #12 trial (2026-10-25)
+
+- **Branch:** `work/phase-release-v1` from `spike/master-extractor-backup` `038c1cd4` (after the
+  download-fixes, VK and in-app-update merges; its CI green: Work-branch checkpoint validation
+  40171179191, Master opt-in debug APK 40171175629). Not merged; PR #2 unchanged.
+- **Built** (`docs/SESSION_STATE.md`'s release section): `1.0.0` / `1000000` (the version code
+  rule); the release carries Master on — YouTube's route B (the own solver, the client ladder),
+  the four sites' ladders with L3, the browser's capture, R9 with the committed key and
+  `rungsOff` — and never the trials, test hooks, census, W, canary, stream check or Instagram's
+  tab-fetch rung; (i) Settings → **Backup finder**, on by default (off: no lookup asks Master,
+  nothing goes to GitHub raw); (ii) About › Privacy's first line names GitHub (raw for the backup
+  finder, api.github.com for the update check); (v) the quiet release (one line in the sheet;
+  Show details by 7 taps on About's version line); (iii) one Preview APK run builds #12 normal
+  (`com.alal.yft.preview`, "YFT Preview") and #12 trial (`com.alal.yft.trial`, "YFT Trial"), side
+  by side. No site pack, engine or main lookup change: S5's count stands.
+- **R8:** decided by running the shrunk builds, not by compiling: `minified-check.yml` (pushes to
+  `work/phase-release-*` only) runs #12 normal and #12 trial on the CI emulator through YouTube's
+  route B, X's then Facebook's ladder and Facebook's capture. `b90c955d`'s run 40188796284
+  green: no crash, no R8-type error; the trial's X ladder `Master's rows 3, main's 3; the same
+  item: yes`; route B not reached on CI (YouTube's bot check on a data centre's address is final:
+  `master: route B not run: BOT_CHECK is final`) and the capture not asked (Facebook gave rows in
+  both builds) — both are checked on the owner's phone at #12. No keep rule added: the existing
+  rules keep the own solver's `@JavascriptInterface` bridge; Master has no reflection,
+  ServiceLoader or serialization.
+- **Recorded** (the owner's results, docs only): S5's run 3 PASS on all four sites (2026-10-24
+  17:49–17:55 UTC) — S5 3 of 3, the gate passed; VK3 PASS and VK5's phone check PASS; D1–D4 PASS
+  (one D1 bug → follow-ups 3 and 4); U3 PASS and the U3 fixes PASS (2026-10-25):
+  `docs/TEST_MATRIX.md`, `docs/PHONE_TEST_NOTES.md`, `docs/SUPPORT_MATRIX.md` (VK, the ladders in
+  the release, the backup finder, the in-app update), README, the plans' status lines.
+- **rc.1:** the owner decided (2026-10-25) to run the release-key update test in P8
+  (`docs/IN_APP_UPDATE_PLAN.md` §5.5): `CHANGELOG.md` `## [1.0.0-rc.1]`,
+  `docs/release/1.0.0-rc.1.md` and `docs/RELEASE.md`'s steps are in the release commit; the rc's
+  own commit (`gradle.properties` `1.0.0-rc.1` / `999901`) and its Release draft run are the
+  owner's. No tag, no Release draft run, nothing published.
+- **CI:** checkpoint 1 `1244f80b` green (checkpoint validation 40184741769, Emulator smoke
+  40184741829, Preview APK 40184741778). Checkpoint 2 `29fd1ba9`: Preview APK #102 40187305143
+  green — **the #12 APKs**, `yft-preview-apk` (artifact 12596686333) and `yft-preview-trial-apk`
+  (12596591356); checkpoint validation 40187305159 green; Emulator smoke 40187305135 and the first
+  Minified build check 40187305152 red on the new test class (a `Boolean` `@Test`), fixed in
+  checkpoint 3 `b90c955d`: checkpoint validation 40188796317, Emulator
+  smoke 40188796316, Preview APK 40188796270 and Minified build check 40188796284 all green.
+- **Next:** #12 normal and #12 trial on the owner's phone (side by side, about 1–1.5 h); PR #2's
+  merge (a merge commit); R9's first Run workflow (decision 30 (vi)); P8 with rc.1's update test.
+
 ## Social plan — decision 30 (vi): R9 after PR #2's merge, the owner's Run workflow (2026-10-24)
 
 - **Decision 30 (vi)** (the owner, 2026-10-24, in chat after S5's run 2; plan §8): until PR #2's

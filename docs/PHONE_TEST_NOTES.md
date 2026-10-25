@@ -1,4 +1,4 @@
-# Phone test notes: the social plan (S1a phone proof; §7.4 A, B and C; the retests of tasks 12–14 and 15–16), 2026-10-21 to 2026-10-24
+# Phone test notes: the social plan (S1a phone proof; §7.4 A, B and C; the retests of tasks 12–14 and 15–16; S5), 2026-10-21 to 2026-10-24; VK, the download fixes and the in-app update, 2026-10-25
 
 The owner's phone sessions, logged while they ran and pushed as docs only. The test posts' links,
 post IDs and post words stay on the phone and are left out here.
@@ -804,3 +804,64 @@ on the phone. 7 h 47–48 min after run 1; mobile data; signed out; the VPN for 
 - S5: runs 1 and 2 of 3 on every site; run 3 per site from 2026-10-24 17:27–17:31 UTC (24 h after
   run 1). Before RUN TIKTOK, the census screen's line should read `recipes: remote version 7,
   signed`.
+
+## 2026-10-24 — S5's run 3 on `social-trial` ac0dd2c (run 39981426179)
+Recorded by the release commit (2026-10-25) from the owner's word; the phone's own notes, links
+and posts stay on the phone.
+
+### S5's run 3 — the census, every site — PASS, counted
+- TikTok, Facebook, Instagram and X, 2026-10-24 17:49–17:55 UTC: PASS on all four sites — more
+  than 24 h after run 1 and 6 h after run 2, on `ac0dd2c`'s APK, no code change since.
+
+### Verdict of S5's run 3
+- S5: 3 of 3 on every site, each site promoted; the gate (`MASTER_KEY_SOCIAL_PLAN.md` §7.3)
+  passed. Next: the release commit (decision 30 (iv)), then #12 normal and #12 trial.
+
+## 2026-10-25 — VK, the download fixes and the in-app update (their branches' previews)
+Recorded by the release commit from the agents' records (`docs/VK_PLAN.md` §10 and §13.6,
+`docs/SESSION_STATE.md`'s download-fixes and VK sections, `docs/IN_APP_UPDATE_PLAN.md` §12).
+Phone times are MMT (UTC+6:30). VK's test links and video ids are left out here (public ones:
+`docs/VK_PLAN.md`).
+
+### VK3 — `f2433a1`'s preview (Preview APK run #81) — PASS
+- Public, signed out: links 1–5 found, Russian titles correct — one up to 2160p; a video and a
+  clip 1080p/720p/480p; one 720p MP4 + 480p HLS without a thumbnail; the same video on
+  `vkvideo.ru` as on `vk.com`. The clip's 1080p, 480p and Audio rows downloaded and play with
+  sound.
+- The owner's sign-in links: the channel page has no video id, not claimed (the generic finder
+  answers); its video, "Video unavailable" on VK's own page, gives "isn't available" with Try
+  again — correct.
+- 18+ videos: VK's embed refuses them ("can't be viewed on external sites"); "isn't available",
+  as expected before VK5.
+- TikTok, Facebook, Instagram, X: one lookup each, video rows as before.
+- Later (no fix now): the finished live's thumbnail; the Messenger page's MP3 row.
+
+### VK5 — path D — PASS
+- §13.6: the three public 18+ examples found through vkvideo.ru's signed-out API (rows; a small
+  row plays with sound); VK3's 1080p video and the clip unchanged.
+
+### D1–D4 — `abac20e`'s preview — PASS, one D1 bug
+- D1 HLS downloads saved as MP4 (never `.m3u8`), D2's audio rows, D3's Myanmar titles in file
+  names and D4's Instagram and X icons: PASS.
+- The D1 bug: one remuxed HLS download showed two sizes (Downloads "480p · 223 MB", Home's Recent
+  "480p · 213 MB") → D1 follow-up 3 (`0e4a59b`, accepted), then follow-up 4 (`770e6932`: every
+  completed download shows its saved file's size), checked at #12.
+
+### U3 — the in-app update, `d5f36f8`'s preview (HyperOS; 10:39–10:53) — PASS
+1. About: Version on its second line, Updates "Not checked yet"; the screen as planned, Check
+   automatically off (a preview).
+2. Airplane mode → Check now → "No connection." (the app's data cleared first: a found update hides
+   Check now, as designed).
+3. Check automatically on → YFT opened again → the screen opened by itself, "New version
+   v1.0.0-beta.1 (test)"; About: New; the next open did not open it again.
+4. "Allow YFT to install updates…" → Open settings → allowed → "Downloading… 93%" with Cancel →
+   "Signature doesn't match your YFT. Nothing was installed." with Download in browser (beta.1 has
+   the release key, the preview the test key).
+5. Reinstall this build (test): "Test: this build's own APK, signature matches" → Android's "Do you
+   want to update this app?" → Cancel → "Update cancelled. Nothing was installed." → again → Update
+   → installed; YFT opened again with its data kept.
+
+### U3 fixes (`3cda6484`) — PASS
+- **Download APK to update** wraps to two lines at a large text size; the release notes show as
+  plain text (no Markdown marks). The reinstall test's "Update cancelled." without Download in
+  browser is by design.

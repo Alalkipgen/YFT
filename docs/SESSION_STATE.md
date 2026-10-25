@@ -1274,10 +1274,31 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - Also fixed in checkpoint 3: CHANGELOG's "Check automatically is off until you turn it on" — in
   the release it is on by default (`defaultAutoCheck` is the release mode; off in the test mode
   and the previews); `docs/release/1.0.0.md`'s privacy line says the same.
-- Next: checkpoint 3's four runs (checkpoint validation, Emulator smoke, Preview APK, Minified
-  build check); the check's answers decide R8; the rest of the shared docs (`PROGRESS.md`,
-  `docs/TEST_MATRIX.md`, `docs/PHONE_TEST_NOTES.md`, `docs/SUPPORT_MATRIX.md`, README, the plans'
-  status lines) in the release commit; STOP and report.
+- Checkpoint 3 `b90c955d` (rc.1's docs, the wording fix, the check's test): all green —
+  Work-branch checkpoint validation #544 40188796317, Android emulator smoke #138 40188796316,
+  Preview APK #105 40188796270, Minified build check #2 40188796284.
+- **R8, decided by the run:** the shrunk builds ran through their screens with no crash and no
+  R8-type error. #12 normal: X rows, Facebook rows, YouTube's quiet line "Play the video, then tap
+  Download again.". #12 trial: `master: x ladder after RESPONSE_CHANGED; main's answer replayed,
+  no new ask; trial: Master's rows 3, main's 3; the same item: yes; duration within 1 s: yes` (one
+  social ladder works shrunk); Facebook rows; YouTube `master: route B not run: BOT_CHECK is final`
+  (YouTube's bot check on CI's address; final by design, so route B cannot be reached there); the
+  capture not asked (Facebook gave rows in both builds). No keep rule added (the existing rules
+  keep the own solver's `@JavascriptInterface` bridge; no reflection, ServiceLoader or
+  serialization in Master). Route B and the capture in the shrunk builds: #12 on the owner's
+  phone; a failure there that the debug APK does not show is an R8 fix before the merge.
+- Checkpoint 4 (this one, docs only): the release commit's shared docs — `PROGRESS.md`,
+  `docs/TEST_MATRIX.md` (S5's run 3, VK1–VK3, VK5, D1–D4, U1–U3, the release commit),
+  `docs/PHONE_TEST_NOTES.md` (S5's run 3, VK3, VK5, D1–D4, U3, the U3 fixes),
+  `docs/SUPPORT_MATRIX.md` (VK, the ladders in the release, the backup finder, the in-app
+  update), README (1.0.0, the install notes, `yft-preview-trial-apk`), the status lines of
+  `MASTER_KEY_SOCIAL_PLAN.md`, `docs/IN_APP_UPDATE_PLAN.md` (§0, §5.5, §12) and
+  `docs/VK_PLAN.md`.
+- The #12 APKs (the owner asked for `29fd1ba9`'s; later commits changed only the check's test and
+  docs, so the app is the same): Preview APK #102 40187305143 — `yft-preview-apk` 12596686333
+  (#12 normal), `yft-preview-trial-apk` 12596591356 (#12 trial).
+- Next: STOP and report (Burmese, short); then the owner's #12, PR #2's merge, R9's first Run
+  workflow, P8 with rc.1's update test.
 - Rules: no site pack, engine or main lookup change; rc.1 docs only (no version change, tag,
   Release draft run or publish); never `main`, the spike, PR #2, a label,
   `master-recipes-publish`, `release-draft`, signing, the `recipes` branch, a tag or a release,

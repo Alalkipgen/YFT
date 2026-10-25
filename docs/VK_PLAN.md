@@ -1,7 +1,8 @@
 # VK adapter — plan (VK0–VK5)
 
-Status: **VK5 built** (path D for public 18+ videos, §13) on `work/phase-vk-path-d` — next: CI
-green, then the owner's phone check (§13.6). VK3 **PASS** (2026-10-25, `f2433a1`'s preview). VK4 is
+Status: **done for v1.0.0** — VK5 (path D for public 18+ videos, §13) green on CI and its phone
+check (§13.6) PASS; merged into the spike (`25fd952a`), in the release commit (2026-10-25). VK3
+**PASS** (2026-10-25, `f2433a1`'s preview). VK4 is
 now only a merge, at the owner's word (§13.1). The owner's requests: 2026-10-24 (VK0–VK4) and
 2026-10-25 (VK5), in chat. Branches: `work/phase-vk-extractor`, made from PR #2's head `8dc46ff`
 (`spike/master-extractor-backup`) — its code `f2433a1` passed VK3 and stays the fallback — and
@@ -432,6 +433,11 @@ stay. A test fails if a fixture holds a real-looking signature or cookie.
 - 2026-10-25: VK5 — recon (§13.2): D works for all three examples, so on without waiting; the code
   on `work/phase-vk-path-d` (§13.3) with 73 VK tests (§13.4). Next: CI green, then the owner's
   phone check (§13.6).
+- 2026-10-25: VK5 `8dd71054` green on CI (runs 40161794401, 40161794455, 40161794400); the owner's
+  phone check (§13.6): PASS. VK4: `work/phase-vk-path-d` merged into `spike/master-extractor-backup`
+  (`25fd952a`, a merge commit) after the download fixes and before the in-app update. §9's lines:
+  in the release commit (`work/phase-release-v1`, 2026-10-25) — `CHANGELOG.md` [1.0.0],
+  `docs/SUPPORT_MATRIX.md`'s VK row, `docs/TEST_MATRIX.md`'s VK rows, `PROGRESS.md`.
 
 ## 11. VK0 results (2026-10-24)
 

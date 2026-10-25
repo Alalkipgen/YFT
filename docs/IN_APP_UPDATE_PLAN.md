@@ -53,8 +53,9 @@ floor; U2 joins on time (§8), else v1.0.1.
   PASS** (step ၅ ခုလုံး၊ §12)။ ပြင်ချက် ၂ ခု — ခလုတ်စာ line ၂ ကြောင်း၊ notes plain text — ပိုင်ရှင့်
   #12 မှာ စစ်။ Reinstall test ရဲ့ "Update cancelled." မှာ Download in browser မပါတာ design အတိုင်း
   (link က တွေ့တဲ့ release ရဲ့ APK; test က release မဟုတ်)။
-- **rc.1 release-key test:** release ချိန်မှာ ပိုင်ရှင် ရွေး (§5.5); မလုပ်ရင် ပထမ အမှန် test က
-  v1.0.0 → v1.0.1။
+- **rc.1 release-key test:** ပိုင်ရှင် ဆုံးဖြတ်ပြီ (2026-10-25): P8 မှာ လုပ်မယ် (§5.5)။ docs
+  (`CHANGELOG.md` `## [1.0.0-rc.1]`၊ `docs/release/1.0.0-rc.1.md`၊ `docs/RELEASE.md`) release commit
+  မှာ ပါပြီ; version ပြောင်းတဲ့ rc commit (`gradle.properties`) နဲ့ Release draft run က ပိုင်ရှင့်အလုပ်။
 - **About privacy (release commit အတွက်):** About ရဲ့ ပထမ line
   "YFT only contacts the sites you open…" က update check ကြောင့် မမှန်တော့။ ဒီ branch က About
   မပြင်လို့ release commit မှာ update check ကို ထည့်ရေးဖို့ (§11)။
@@ -453,6 +454,13 @@ installed, settings kept. Cost: one draft run and two doc lines; it can be P8's 
 Without it, the first real update is v1.0.0 → v1.0.1 (free, but after the friends have v1.0.0; the
 link stays the fallback).
 
+*Decided (the owner, 2026-10-25): run it in P8.* The release commit carries its docs
+(`CHANGELOG.md` `## [1.0.0-rc.1]`, `docs/release/1.0.0-rc.1.md`, `docs/RELEASE.md`'s steps). The
+Release draft workflow has no version input — it reads `gradle.properties` at the run's commit —
+so "the name changed" is a commit of its own on a branch from the release commit
+(`yft.versionName=1.0.0-rc.1`, `yft.versionCode=999901`), the owner's step, not in the release
+commit.
+
 ### 5.6 The merge — only when the owner says
 
 1. The owner's order: A (`work/phase-download-fixes`), then VK (`work/phase-vk-extractor`), then
@@ -707,6 +715,15 @@ link stays the fallback).
   U3 fixes: the button's two lines, the notes as plain text` (its SHA and CI in the next entry). No
   new phone test: the owner checks both fixes in his #12. Next: CI green, then STOP with a short
   Burmese report.
+- 2026-10-25 (MMT): the U3 fixes checkpoint `3cda6484` green on CI (runs 40165131267,
+  40165131262, 40165131273); the owner's phone: **PASS**. Merged into `spike/master-extractor-backup`
+  after A and VK (`038c1cd4`). The release commit (`work/phase-release-v1`) carries §11's lines:
+  `1.0.0` / `1000000` by §4.2's rule (`VersionCodeRuleTest`), About › Privacy's first line (GitHub
+  raw and api.github.com), `CHANGELOG.md` [1.0.0] and `docs/release/1.0.0.md` (Check
+  automatically on in the release), `docs/RELEASE.md` (the rule, every release from Release
+  draft with its `SHA256SUMS`, the update test), `PROGRESS.md`, `docs/TEST_MATRIX.md`,
+  `docs/PHONE_TEST_NOTES.md` (U3). **rc.1:** the owner decided to run §5.5 in P8; its docs are in
+  the release commit (§5.5's note).
 
 ## Appendix — the agent's prompt
 
