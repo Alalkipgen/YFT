@@ -11,7 +11,9 @@
 # The signed file goes to the address in yft.masterRecipeUrl (default: master-recipes.json on the
 # branch "recipes", raw.githubusercontent.com). Raise "version" for every new config. Social plan
 # S4: the master-recipes-publish workflow signs and publishes the committed configs
-# (extractor-master/recipes/configs/) with the repository's key; this script is its signer.
+# (extractor-master/recipes/configs/) with the repository's key; this script is its signer. VK
+# Master plan section 9: it signs both payloads of one config with the same key, schema 1
+# (master-recipes.json) and schema 2 (master-recipes-2.json, master-recipes-2.schema.json).
 set -euo pipefail
 
 pubkey_hex() {
@@ -41,7 +43,7 @@ config = json.loads(text)
 assert isinstance(config, dict), "config must be an object"
 extra = set(config) - {"schema", "version", "expires", "sites", "rungsOff"}
 assert not extra, f"unknown keys {sorted(extra)}"
-assert config.get("schema") == 1, "schema must be 1"
+assert type(config.get("schema")) is int and config["schema"] in (1, 2), "schema must be 1 or 2"
 assert isinstance(config.get("version"), int) and config["version"] >= 1, "version must be >= 1"
 assert re.fullmatch(r"2[0-9]{3}-[0-9]{2}-[0-9]{2}", str(config.get("expires"))), "expires: YYYY-MM-DD"
 assert isinstance(config.get("sites"), dict), "sites must be an object"
@@ -58,7 +60,7 @@ with open(sys.argv[3], "w", encoding="utf-8") as out:
     echo "signed $config -> $out" >&2
     ;;
   *)
-    sed -n '2,14p' "$0"
+    sed -n '2,16p' "$0"
     exit 2
     ;;
 esac

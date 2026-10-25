@@ -219,7 +219,10 @@ class RemoteRecipesS4Test {
             assertTrue("$name: $keys", keys.containsAll(setOf("schema", "sites")))
             assertTrue("$name: version and expires are the workflow's", (keys - setOf("schema", "sites", "rungsOff")).isEmpty())
             val composed = text.trim().removeSuffix("}").trimEnd() + ""","version":1,"expires":"2027-12-31"}"""
-            val result = RemoteRecipeConfig.parse(composed, ContractRecipes.ALL)
+            // VK Master plan §9: a committed config is schema 2; v1.0.0's file is its schema-1 projection.
+            val schema1 = checkNotNull(RemoteRecipeConfig2.schema1(composed)) { "$name is not a schema-2 config" }
+            val result = RemoteRecipeConfig.parse(schema1, ContractRecipes.ALL)
+            assertEquals(name, result, RemoteRecipeConfig2.parse(composed, ContractRecipes.ALL))
             assertTrue("$name: $result", result is RemoteRecipeConfig.Parsed.Valid)
             result as RemoteRecipeConfig.Parsed.Valid
         }

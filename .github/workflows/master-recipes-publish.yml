@@ -14,6 +14,13 @@ name: Master recipes publish (spike)
 # label can publish again. Any other label or event, another repository's pull request or another
 # person's label: skipped. Runs never overlap. The private key is written only to the runner's
 # temporary directory (owner-only) and shredded at the step's end; it is never printed.
+#
+# VK Master plan section 9 (R9 schema 2): a committed config is schema 2 (schema 1 plus site vk
+# and rungs V1-V3), and each run publishes two files from it with one version: master-recipes.json
+# (schema 1, vk and V1-V3 left out, the four-site file v1.0.0 reads) and master-recipes-2.json
+# (schema 2, all five sites, for v1.0.1; its copy published/v<N>-<name>.schema2.json). The next
+# version is the higher live one plus one; both payloads are checked (each against its schema),
+# signed with the same key, verified, and checked to be one config (the helper's pair).
 on:
   pull_request:
     types: [labeled]
@@ -75,6 +82,7 @@ jobs:
             exit 1
           fi
           live=0
+          live2=0
           parent=""
           found=0
           git ls-remote --exit-code --heads origin recipes >/dev/null || found=$?
@@ -83,9 +91,17 @@ jobs:
             parent="$(git rev-parse FETCH_HEAD)"
             git show "$parent:master-recipes.json" > "$RUNNER_TEMP/live.json"
             live="$(python scripts/master-recipes-publish.py live-version "$RUNNER_TEMP/live.json")"
+            # Schema 2's file is new: until its first run there is none (version 0).
+            if git cat-file -e "$parent:master-recipes-2.json" 2>/dev/null; then
+              git show "$parent:master-recipes-2.json" > "$RUNNER_TEMP/live-2.json"
+              live2="$(python scripts/master-recipes-publish.py live-version "$RUNNER_TEMP/live-2.json")"
+            fi
           elif [[ "$found" -ne 2 ]]; then
             echo "::error title=Recipes::the recipes branch could not be read"
             exit 1
+          fi
+          if (( live2 > live )); then
+            live="$live2"
           fi
           {
             echo "name=$name"
@@ -95,7 +111,7 @@ jobs:
             echo "version=$((live + 1))"
             echo "expires=$(date -u -d '+365 days' +%F)"
           } >> "$GITHUB_OUTPUT"
-      - name: Compose and check the payload
+      - name: Compose and check the payloads (schema 1 and schema 2)
         shell: bash
         env:
           CONFIG: ${{ steps.plan.outputs.config }}
@@ -105,9 +121,11 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/recipes"
           python scripts/master-recipes-publish.py compose "$CONFIG" --version "$VERSION" --expires "$EXPIRES" \
-            --out "$RUNNER_TEMP/recipes/payload.json"
+            --out "$RUNNER_TEMP/recipes/payload.json" --out2 "$RUNNER_TEMP/recipes/payload-2.json"
           python scripts/master-recipes-publish.py check "$RUNNER_TEMP/recipes/payload.json" \
             --schema extractor-master/recipes/master-recipes.schema.json
+          python scripts/master-recipes-publish.py check "$RUNNER_TEMP/recipes/payload-2.json" \
+            --schema extractor-master/recipes/master-recipes-2.schema.json
       - name: Sign with the repository's recipe key
         shell: bash
         env:
@@ -129,11 +147,18 @@ jobs:
           fi
           bash scripts/master-recipe-sign.sh sign "$key" "$RUNNER_TEMP/recipes/payload.json" \
             "$RUNNER_TEMP/recipes/master-recipes.json"
-      - name: Verify the envelope with the committed public key
+          bash scripts/master-recipe-sign.sh sign "$key" "$RUNNER_TEMP/recipes/payload-2.json" \
+            "$RUNNER_TEMP/recipes/master-recipes-2.json"
+      - name: Verify both envelopes with the committed public key
         shell: bash
         run: |
+          set -euo pipefail
           python scripts/master-recipes-publish.py verify "$RUNNER_TEMP/recipes/master-recipes.json" \
             --key extractor-master/recipes/master-recipes.pub.hex --payload "$RUNNER_TEMP/recipes/payload.json"
+          python scripts/master-recipes-publish.py verify "$RUNNER_TEMP/recipes/master-recipes-2.json" \
+            --key extractor-master/recipes/master-recipes.pub.hex --payload "$RUNNER_TEMP/recipes/payload-2.json"
+          python scripts/master-recipes-publish.py pair "$RUNNER_TEMP/recipes/master-recipes.json" \
+            "$RUNNER_TEMP/recipes/master-recipes-2.json" --key extractor-master/recipes/master-recipes.pub.hex
       - name: Publish on the recipes branch (one new commit, never forced)
         shell: bash
         env:
@@ -159,6 +184,8 @@ jobs:
           add() { git update-index --add --cacheinfo "100644,$(git hash-object -w "$1"),$2"; }
           add "$out/master-recipes.json" master-recipes.json
           add "$out/master-recipes.json" "published/v$VERSION-$NAME.json"
+          add "$out/master-recipes-2.json" master-recipes-2.json
+          add "$out/master-recipes-2.json" "published/v$VERSION-$NAME.schema2.json"
           add "$out/history.tsv" history.tsv
           tree="$(git write-tree)"
           export GIT_AUTHOR_NAME="github-actions[bot]"
@@ -176,7 +203,8 @@ jobs:
             echo ""
             echo "- config: \`$NAME\` (from \`${SOURCE_SHA:0:12}\`)"
             echo "- expires: $EXPIRES (UTC)"
-            echo "- address: https://raw.githubusercontent.com/$GITHUB_REPOSITORY/recipes/master-recipes.json (cached up to 5 minutes)"
+            echo "- address: https://raw.githubusercontent.com/$GITHUB_REPOSITORY/recipes/master-recipes.json (schema 1, v1.0.0; cached up to 5 minutes)"
+            echo "- address: https://raw.githubusercontent.com/$GITHUB_REPOSITORY/recipes/master-recipes-2.json (schema 2 with vk, v1.0.1; cached up to 5 minutes)"
             echo "- a social-ladder build applies it at its next ask: the census screen on open, else within 6 hours"
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Take the label off (the same label can publish again)
