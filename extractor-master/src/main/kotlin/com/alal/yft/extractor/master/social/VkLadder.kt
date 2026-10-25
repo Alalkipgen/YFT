@@ -466,7 +466,9 @@ class VkLadder(
             val healed = withTimeoutOrNull(wait.coerceAtLeast(VkClient.MIN_REQUEST_MS)) {
                 withContext(pass) { source.heal(kind, agent) }
             } ?: run {
-                details += "$V2 $name: no answer in time"
+                // The read was cut by the lookup's time: ValueSource gave the day's read back (≤ 3 a day).
+                val back = if (source.mayRead(kind)) "; the day's read given back" else ""
+                details += "$V2 $name: no answer in time$back"
                 return null
             }
             val candidate = healed.candidate ?: run {

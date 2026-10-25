@@ -817,6 +817,26 @@ class VkLadderTest {
     }
 
     @Test
+    fun `D's heal - a read the lookup's time cut gives the day's read back, so the next lookup reads and heals`() = runTest {
+        val file = MemoryFile()
+        val site = SlowSite(vkvideo())
+        val healing = healing(site, file)
+        val late = lookup(vk(token = rotated), ladder(vk(token = rotated), healing))
+        assertEquals("$V2 client_id: no answer in time; the day's read given back", late.lines.last())
+        assertTrue(late.result.toString(), late.result is MasterResult.NeedsPlayback)
+        assertTrue(SiteHealth(file) { NOW }.mayRead(SiteHealth.VK, "clientId"))
+
+        // Try again (the same process) with the page answering: one read, healed, kept after V.
+        site.slow = false
+        val next = lookup(vk(token = rotated), ladder(vk(token = rotated), healing))
+        assertTrue(next.result.toString(), next.result is MasterResult.Success)
+        assertEquals("$V2 client_id: healed from vkvideo-script (the page and its common script: 2 asks, $KIT_READ bytes)", next.lines[3])
+        assertEquals(NEW_CLIENT_ID, SiteHealth(file) { NOW }.learned(SiteHealth.VK, "clientId")?.value)
+        assertBare(late)
+        assertBare(next)
+    }
+
+    @Test
     fun `D's heal - nothing kept when V rejects the rows, a value VK refuses again is dropped for the day, no read without a refusal`() = runTest {
         val file = MemoryFile()
         val site = vkvideo()
@@ -956,6 +976,12 @@ class VkLadderTest {
             headers: Map<String, String>,
             maxBodyBytes: Long,
         ): ExtractorHttpResult = awaitCancellation()
+    }
+
+    /** D: vkvideo.ru that never answers while [slow] (the lookup's time cuts the read), else [answers]. */
+    private class SlowSite(private val answers: FakeExtractorHttpClient, var slow: Boolean = true) : ExtractorHttpClient by answers {
+        override suspend fun get(url: String, headers: Map<String, String>, maxBodyBytes: Long): ExtractorHttpResult =
+            if (slow) awaitCancellation() else answers.get(url, headers, maxBodyBytes)
     }
 
     /** Main's client as an adapter with other values sends: its token ask with another body. */

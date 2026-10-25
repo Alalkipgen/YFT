@@ -2,6 +2,7 @@ package com.alal.yft.extractor.master.social
 
 import com.alal.yft.extractor.api.ExtractorHttpResult
 import com.alal.yft.extractor.api.SiteExtractionFailure
+import kotlinx.coroutines.CancellationException
 
 /**
  * VK Master plan §8 (`docs/VK_MASTER_PLAN.md`; `MASTER_KEY_SOCIAL_PLAN.md` §3.2, guardrail S5):
@@ -20,8 +21,10 @@ import com.alal.yft.extractor.api.SiteExtractionFailure
  *    read by [ValueKind.valueOf]: group 1 unless the kind says otherwise; the whole value matching
  *    [ValueKind.pattern]) from a [ValueReader] (VK: [VkClientSource],
  *    the source agent A proved); at most once a day per value (the health's clock, claimed before
- *    the read), not while the site is stopped (a bot check or 429, which a read also starts), at
- *    most [ValueKind.maxBytes];
+ *    the read; a read cut short before its answer — a cancel such as a closed page, the lookup's
+ *    deadline, no network — gives the day's read back, at most [MAX_GIVEN_BACK] times a day per
+ *    value, so the next lookup may read), not while the site is stopped (a bot check or 429, which
+ *    a read also starts), at most [ValueKind.maxBytes];
  * 6. ≤ [MAX_ALTERNATES] **bundled alternates** ([ValueAlternate]: each with its source and date).
  *
  * Never code (a value is [VALUE]-shaped: letters, digits and `._,%=+-`, never a quote, a space,
@@ -64,6 +67,9 @@ internal class ValueSource(
     /** The values rejected today per kind (memory only): never sent again that day. */
     private val rejectedToday = HashMap<String, LinkedHashMap<String, Long>>()
 
+    /** When a read of each kind was given back (memory only): at most [MAX_GIVEN_BACK] a day. */
+    private val givenBack = HashMap<String, MutableList<Long>>()
+
     /** The value to send now: signed, healed today, learned, else [bundled]; null when all were rejected today. */
     fun value(kind: ValueKind, bundled: String?): Candidate? =
         listOfNotNull(
@@ -85,7 +91,9 @@ internal class ValueSource(
     /**
      * One self-heal read of [kind] (S5), only after a value of it was rejected today: the value
      * healed today again, else one read of the source with the user's own [userAgent] — exactly
-     * one pattern-matched value, not one rejected today.
+     * one pattern-matched value, not one rejected today. A read cut short before its answer (a
+     * cancel, the caller's deadline: the exception goes on; no network: "given back") gives the
+     * day's read back ([giveBack]); an answer of the site to the read (a status, a page) spends it.
      */
     suspend fun heal(kind: ValueKind, userAgent: String?): Read {
         healedToday(kind)?.let { return Read(it, "read today") }
@@ -95,12 +103,21 @@ internal class ValueSource(
         if (!anyRejected(kind)) return Read(null, "not read (no value rejected today)")
         if (health.stopped(kind.site)) return Read(null, "not read (bot check or 429)")
         if (!health.claimRead(kind.site, kind.name)) return Read(null, "not read (read in the last day)")
-        val text = when (val got = reader.read(kind, userAgent?.takeIf(String::isNotBlank), kind.maxBytes)) {
+        val got = try {
+            reader.read(kind, userAgent?.takeIf(String::isNotBlank), kind.maxBytes)
+        } catch (cut: CancellationException) {
+            // Cut short before an answer (a closed page, the lookup's deadline): not a read.
+            giveBack(kind)
+            throw cut
+        }
+        val text = when (got) {
             is ExtractorHttpResult.Failure -> {
                 if (got.reason in STOPS || got.statusCode == HTTP_TOO_MANY) health.stop(kind.site)
                 val status = got.statusCode?.let { " $it" }.orEmpty()
                 val note = got.details.firstOrNull()?.takeIf(NOTE::matches)?.let { ": $it" }.orEmpty()
-                return Read(null, "read failed (${got.reason.name}$status$note)")
+                // No answer to the read (no network, no status): not a read.
+                val back = got.reason == SiteExtractionFailure.NETWORK && got.statusCode == null && giveBack(kind)
+                return Read(null, "read failed (${got.reason.name}$status$note)" + if (back) "; given back" else "")
             }
             is ExtractorHttpResult.Success -> got.body
         }
@@ -159,6 +176,26 @@ internal class ValueSource(
         }
     }
 
+    /** Whether a read of [kind] may go now: none in the last day, or the last one given back. */
+    fun mayRead(kind: ValueKind): Boolean = health.mayRead(kind.site, kind.name)
+
+    /**
+     * The day's read of [kind] back after a read cut short before its answer, so the next lookup
+     * may read: true when given back; false once [MAX_GIVEN_BACK] were given back in the last day
+     * (the read then stays spent, so a read that never finishes is not tried all day).
+     */
+    private fun giveBack(kind: ValueKind): Boolean {
+        val now = health.now()
+        synchronized(givenBack) {
+            val times = givenBack.getOrPut(key(kind)) { mutableListOf() }
+            times.removeAll { now - it !in 0 until SiteHealth.DAY_MILLIS }
+            if (times.size >= MAX_GIVEN_BACK) return false
+            times += now
+        }
+        health.giveBackRead(kind.site, kind.name)
+        return true
+    }
+
     private fun healedToday(kind: ValueKind): Candidate? = synchronized(healed) {
         val kept = healed[key(kind)] ?: return null
         if (health.now() - kept.at in 0 until SiteHealth.DAY_MILLIS) return kept.candidate
@@ -179,6 +216,9 @@ internal class ValueSource(
 
     companion object {
         const val MAX_ALTERNATES = 2
+
+        /** Reads of one value given back in a day (cut short before their answer), then it stays spent. */
+        const val MAX_GIVEN_BACK = 3
         const val SIGNED = "r9"
         const val LEARNED = "learned"
         const val BUNDLED = "bundled"

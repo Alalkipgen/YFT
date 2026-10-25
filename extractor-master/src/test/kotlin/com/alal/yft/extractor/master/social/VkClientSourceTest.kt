@@ -205,7 +205,6 @@ class VkClientSourceTest {
     fun `a refused page or script gives no value, says why, and spends the day's read`() = runTest {
         val cases = listOf(
             Triple("read failed (HTTP_STATUS 403: the page)", 1, vk(page = failure(SiteExtractionFailure.HTTP_STATUS, 403))),
-            Triple("read failed (NETWORK: the page)", 1, vk(page = failure(SiteExtractionFailure.NETWORK))),
             Triple("read failed (HTTP_STATUS: the page redirected)", 1, vk(page = html(fixture(PAGE_FIXTURE), "https://m.vkvideo.ru/"))),
             Triple("read failed (MALFORMED_RESPONSE: the page is not html)", 1, vk(page = html(fixture(PAGE_FIXTURE), type = "application/json"))),
             Triple("read failed (RESPONSE_TOO_LARGE 200: the page)", 1, vk(page = html("<html>" + "x".repeat(1024 * 1024) + "</html>"))),
@@ -235,6 +234,27 @@ class VkClientSourceTest {
             assertEquals(why, requests, http.calls.size)
             assertFalse(why, health.stopped(VK))
             assertEquals("$why: a bundled alternate or nothing, never a guess", null, source.next(CLIENT_ID, BUNDLED_ID, PHONE_AGENT))
+        }
+    }
+
+    @Test
+    fun `no answer at all - no network on the page or the script - gives the day's read back`() = runTest {
+        listOf(
+            Triple("read failed (NETWORK: the page); given back", 1, vk(page = failure(SiteExtractionFailure.NETWORK))),
+            Triple(
+                "read failed (NETWORK: the common script); given back", 2,
+                vk(script = { _, _ -> failure(SiteExtractionFailure.NETWORK) }),
+            ),
+        ).forEach { (why, requests, http) ->
+            val health = SiteHealth { now }
+            val source = ValueSource(health, VkClientSource(http))
+            source.rejected(bundled(source, CLIENT_ID))
+            assertEquals(why, why, source.heal(CLIENT_ID, PHONE_AGENT).why)
+            assertEquals(why, requests, http.calls.size)
+            assertTrue("$why: the day's read is back", health.mayRead(VK, CLIENT_ID.name))
+            assertEquals(why, why, source.heal(CLIENT_ID, PHONE_AGENT).why)
+            assertEquals("$why: read again", 2 * requests, http.calls.size)
+            assertFalse(why, health.stopped(VK))
         }
     }
 

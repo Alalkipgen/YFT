@@ -3,7 +3,10 @@ package com.alal.yft.extractor.master.social
 import com.alal.yft.extractor.api.ExtractorHttpResult
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.master.solver.OwnSolverTextFile
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -85,7 +88,6 @@ class ValueSourceTest {
             "not the value's pattern" to script("v=6.950"),
             "the rejected value" to script("v=5.900"),
             "over 64 bytes" to script("v=5.950 " + "x".repeat(64)),
-            "read failed (NETWORK)" to ExtractorHttpResult.Failure(SiteExtractionFailure.NETWORK),
             "read failed (HTTP_STATUS 404)" to ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 404),
         )
         val small = ValueKind(VK, API.name, API.pattern, Regex("v=([0-9.]+)"), publicVersion = true, maxBytes = 64)
@@ -105,6 +107,57 @@ class ValueSourceTest {
         assertEquals("no source pattern", ValueSource(health, FakeReader(script("v=5.950"))).heal(ValueKind(VK, "noAnchor", API.pattern), null).why)
         assertEquals("no source reader", ValueSource(health).heal(API, null).why)
         assertEquals("the source has no ID", ValueSource(health, FakeReader(script("v=5.950"), id = "https://vk.example")).heal(API, null).why)
+    }
+
+    @Test
+    fun `a read cut short before any answer - a cancel, the deadline, no network - gives the day's read back, three times a day`() = runTest {
+        val reader = FakeReader(script("v=5.950"))
+        val source = ValueSource(health, reader)
+        source.rejected(checkNotNull(source.value(API, "5.900")))
+
+        // A cancel while reading (the page closed): the exception goes on, the read is given back.
+        reader.cut = true
+        assertTrue(runCatching { source.heal(API, USER_AGENT) }.exceptionOrNull() is CancellationException)
+        assertTrue(source.mayRead(API))
+        assertTrue("given back in the file too", SiteHealth(file) { now }.mayRead(VK, API.name))
+
+        // The lookup's deadline over a read that never answers: given back.
+        reader.cut = false
+        reader.hang = true
+        assertNull(withTimeoutOrNull(1_000) { source.heal(API, USER_AGENT) })
+        assertTrue(source.mayRead(API))
+
+        // No network (no status, the site said nothing): given back, and the line says so.
+        reader.hang = false
+        reader.answer = ExtractorHttpResult.Failure(SiteExtractionFailure.NETWORK, details = listOf("timeout"))
+        assertEquals("read failed (NETWORK: timeout); given back", source.heal(API, USER_AGENT).why)
+        assertTrue(source.mayRead(API))
+        assertEquals(3, reader.reads)
+
+        // The fourth the same day stays spent: a read that never finishes is not tried all day.
+        reader.answer = ExtractorHttpResult.Failure(SiteExtractionFailure.NETWORK)
+        assertEquals("read failed (NETWORK)", source.heal(API, USER_AGENT).why)
+        assertFalse(source.mayRead(API))
+        assertEquals("not read (read in the last day)", source.heal(API, USER_AGENT).why)
+        assertEquals(4, reader.reads)
+        assertFalse(health.stopped(VK))
+
+        // A day later: an answer of the site (a status) spends the read as before.
+        now += SiteHealth.DAY_MILLIS
+        source.rejected(checkNotNull(source.value(API, "5.900")))
+        reader.answer = ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 403)
+        assertEquals("read failed (HTTP_STATUS 403)", source.heal(API, USER_AGENT).why)
+        assertEquals("not read (read in the last day)", source.heal(API, USER_AGENT).why)
+
+        // Another day: three again, and a read that answers heals.
+        now += SiteHealth.DAY_MILLIS
+        source.rejected(checkNotNull(source.value(API, "5.900")))
+        reader.cut = true
+        assertTrue(runCatching { source.heal(API, USER_AGENT) }.exceptionOrNull() is CancellationException)
+        reader.cut = false
+        reader.answer = script("v=5.950")
+        assertEquals(listOf(ValueSource.Origin.HEALED, "5.950", "vk-script"), describe(source.heal(API, USER_AGENT).candidate))
+        assertEquals(7, reader.reads)
     }
 
     @Test
@@ -220,10 +273,18 @@ class ValueSourceTest {
         var userAgent: String? = null
         var maxBytes = 0L
 
+        /** A cancel while reading (a closed page). */
+        var cut = false
+
+        /** A read that never answers (the caller's deadline cuts it). */
+        var hang = false
+
         override suspend fun read(kind: ValueKind, userAgent: String?, maxBytes: Long): ExtractorHttpResult {
             reads += 1
             this.userAgent = userAgent
             this.maxBytes = maxBytes
+            if (cut) throw CancellationException("made-up: the page closed")
+            if (hang) awaitCancellation()
             return answer
         }
     }

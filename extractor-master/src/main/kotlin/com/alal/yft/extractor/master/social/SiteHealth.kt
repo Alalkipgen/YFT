@@ -157,6 +157,7 @@ internal class SiteHealth(
     /**
      * A self-heal read of [site]'s value [name] (S5): true — and the day's read spent — when it may
      * read now; false when it read in the last day, the site is stopped, or the name is not a name.
+     * [giveBackRead] returns it after a read cut short before its answer ([ValueSource]).
      */
     @Synchronized
     fun claimRead(site: String, name: String): Boolean {
@@ -167,6 +168,12 @@ internal class SiteHealth(
         while (reads.size > MAX_NAMES) reads.remove(reads.keys.first())
         save()
         return true
+    }
+
+    /** The day's read of [site]'s value [name] given back: no answer came ([ValueSource.heal]). */
+    @Synchronized
+    fun giveBackRead(site: String, name: String) {
+        if (load().sites[site]?.reads?.remove(name) != null) save()
     }
 
     /**
