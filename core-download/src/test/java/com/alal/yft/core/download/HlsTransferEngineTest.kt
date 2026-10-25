@@ -3,10 +3,13 @@ package com.alal.yft.core.download
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.HlsDownloadPlan
 import com.alal.yft.core.model.download.HlsTransferResult
+import com.alal.yft.core.model.download.PublishedFile
 import com.alal.yft.core.model.media.BrowserReadAnswer
 import com.alal.yft.core.model.media.BrowserReadRequest
+import com.alal.yft.core.model.media.BrowserReads
 import com.alal.yft.core.model.media.BrowserRequestContext
 import java.io.File
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.test.runTest
@@ -20,6 +23,7 @@ import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -340,6 +344,217 @@ class HlsTransferEngineTest {
         assertEquals((piece.size * 2).toLong(), result.bytesWritten)
     }
 
+    @Test
+    fun `D1 MPEG-TS pieces planned as an MP4 are remuxed into a real MP4`() = runTest {
+        serve("/av.m3u8", "av-0.ts", "av-1.ts")
+        val files = files("clip.mp4")
+
+        val result = engine.transfer(
+            plan = plan(server.url("/av.m3u8").toString(), "clip", remuxToMp4 = true),
+            destination = files.destination,
+        ) as HlsTransferResult.Completed
+
+        assertNull(result.publishedAs)
+        val bytes = files.completed.readBytes()
+        assertEquals(bytes.size.toLong(), result.bytesWritten)
+        assertEquals(listOf("ftyp", "mdat", "moov"), Mp4Dump(bytes).top.map { it.type })
+        assertEquals(listOf("vide", "soun"), Mp4Dump(bytes).tracks.map { it.handler })
+        assertEquals(2, result.checkpoint.completedChunkCount)
+        assertFalse(files.partial.exists())
+        assertTrue(workspaceRoot.listFiles().orEmpty().isEmpty())
+    }
+
+    @Test
+    fun `D1 the sound alone of an HLS download is remuxed into an M4A`() = runTest {
+        serve("/sound.m3u8", "audio-0.ts", "audio-1.ts")
+        val files = files("sound.m4a")
+
+        val result = engine.transfer(
+            plan = plan(
+                server.url("/sound.m3u8").toString(),
+                "sound",
+                remuxToMp4 = true,
+                mimeType = "audio/mp4",
+            ),
+            destination = files.destination,
+        ) as HlsTransferResult.Completed
+
+        assertNull(result.publishedAs)
+        val bytes = files.completed.readBytes()
+        assertEquals("M4A ", String(bytes, 8, 4, Charsets.ISO_8859_1))
+        assertEquals(listOf("soun"), Mp4Dump(bytes).tracks.map { it.handler })
+    }
+
+    @Test
+    fun `D1 MPEG-TS that cannot be remuxed is kept as ts never under the MP4's name`() = runTest {
+        serve("/old.m3u8", "mpeg2.ts")
+        val files = files("clip.mp4")
+
+        val result = engine.transfer(
+            plan = plan(server.url("/old.m3u8").toString(), "clip", remuxToMp4 = true),
+            destination = files.destination,
+        ) as HlsTransferResult.Completed
+
+        assertEquals(PublishedFile("clip.ts", "video/mp2t"), result.publishedAs)
+        val kept = File(files.completed.parentFile, "clip.ts")
+        assertArrayEquals(HlsFixtures.bytes("mpeg2.ts"), kept.readBytes())
+        assertEquals(kept.length(), result.bytesWritten)
+        assertFalse(files.completed.exists())
+        assertFalse(files.partial.exists())
+    }
+
+    @Test
+    fun `D1 a remux that fails halfway leaves exactly the MPEG-TS bytes`() = runTest {
+        serve("/av.m3u8", "av-0.ts", "av-1.ts")
+        val files = files("clip.mp4")
+        val halfway = object : HlsRemuxer {
+            override suspend fun remux(
+                pieces: List<HlsPiece>,
+                kind: HlsMediaKind,
+                audioOnly: Boolean,
+                output: SeekableDownloadOutput,
+            ): Long {
+                output.write(0, ByteArray(60_000) { 0x55 }, 0, 60_000)
+                throw StreamCopyUnsupported("fixture")
+            }
+        }
+
+        val result = engine(remuxer = halfway).transfer(
+            plan = plan(server.url("/av.m3u8").toString(), "clip", remuxToMp4 = true),
+            destination = files.destination,
+        ) as HlsTransferResult.Completed
+
+        assertEquals(PublishedFile("clip.ts", "video/mp2t"), result.publishedAs)
+        val joined = HlsFixtures.bytes("av-0.ts") + HlsFixtures.bytes("av-1.ts")
+        assertArrayEquals(joined, File(files.completed.parentFile, "clip.ts").readBytes())
+    }
+
+    @Test
+    fun `D1 a storage error while remuxing fails the download and publishes nothing`() = runTest {
+        serve("/av.m3u8", "av-0.ts", "av-1.ts")
+        val files = files("clip.mp4")
+        val full = object : HlsRemuxer {
+            override suspend fun remux(
+                pieces: List<HlsPiece>,
+                kind: HlsMediaKind,
+                audioOnly: Boolean,
+                output: SeekableDownloadOutput,
+            ): Long = throw IOException("No space left on device")
+        }
+
+        val result = engine(remuxer = full).transfer(
+            plan = plan(server.url("/av.m3u8").toString(), "clip", remuxToMp4 = true),
+            destination = files.destination,
+        )
+
+        assertTrue(result.toString(), result is HlsTransferResult.Failure)
+        assertFalse(files.completed.exists())
+        assertFalse(File(files.completed.parentFile, "clip.ts").exists())
+    }
+
+    @Test
+    fun `D1 fragmented MP4 and plain joins are not remuxed`() = runTest {
+        val fragmented = Mp4TestFiles.fragmented(Mp4TestFiles.video(fragments = 2))
+        val transport = HlsFixtures.bytes("av-0.ts")
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when (request.path) {
+                "/fmp4.m3u8" -> manifestResponse(vodManifest("whole.mp4"))
+                "/ts.m3u8" -> manifestResponse(vodManifest("one.ts"))
+                "/whole.mp4" -> bytesResponse(fragmented)
+                "/one.ts" -> bytesResponse(transport)
+                else -> MockResponse().setResponseCode(404)
+            }
+        }
+        val never = object : HlsRemuxer {
+            override suspend fun remux(
+                pieces: List<HlsPiece>,
+                kind: HlsMediaKind,
+                audioOnly: Boolean,
+                output: SeekableDownloadOutput,
+            ): Long = error("Not remuxed")
+        }
+        val mp4 = files("whole.mp4")
+        val plain = files("plain.ts")
+
+        val first = engine(remuxer = never).transfer(
+            plan = plan(server.url("/fmp4.m3u8").toString(), "whole", remuxToMp4 = true),
+            destination = mp4.destination,
+        ) as HlsTransferResult.Completed
+        // Without remuxToMp4 (a merge's track, an older plan) MPEG-TS is joined as before.
+        val second = engine(remuxer = never).transfer(
+            plan = plan(server.url("/ts.m3u8").toString(), "plain"),
+            destination = plain.destination,
+        ) as HlsTransferResult.Completed
+
+        assertNull(first.publishedAs)
+        assertArrayEquals(fragmented, mp4.completed.readBytes())
+        assertNull(second.publishedAs)
+        assertArrayEquals(transport, plain.completed.readBytes())
+    }
+
+    @Test
+    fun `D1 packed MP3 sound is kept as mp3 and packed AAC remuxed into an M4A`() = runTest {
+        val mp3 = byteArrayOf(0xFF.toByte(), 0xFB.toByte(), 0x90.toByte(), 0x64) + ByteArray(413)
+        // MP3 pieces are joined whole, as before D1: only ID3 tags before ADTS are dropped.
+        val mp3Piece = id3Tag(major = 4, body = 20) + mp3
+        val aac = Mp4TestFiles.adts(Mp4TestFiles.audio(fragments = 1, perFragment = 8))
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when (request.path) {
+                "/mp3.m3u8" -> manifestResponse(vodManifest("one.mp3", "two.mp3"))
+                "/aac.m3u8" -> manifestResponse(vodManifest("one.aac"))
+                "/one.mp3", "/two.mp3" -> bytesResponse(mp3Piece)
+                "/one.aac" -> bytesResponse(id3Tag(major = 4, body = 20) + aac)
+                else -> MockResponse().setResponseCode(404)
+            }
+        }
+        val song = files("song.m4a")
+        val sound = files("sound.m4a")
+
+        val kept = engine.transfer(
+            plan = plan(
+                server.url("/mp3.m3u8").toString(),
+                "song",
+                remuxToMp4 = true,
+                mimeType = "audio/mp4",
+            ),
+            destination = song.destination,
+        ) as HlsTransferResult.Completed
+        val remuxed = engine.transfer(
+            plan = plan(
+                server.url("/aac.m3u8").toString(),
+                "sound",
+                remuxToMp4 = true,
+                mimeType = "audio/mp4",
+            ),
+            destination = sound.destination,
+        ) as HlsTransferResult.Completed
+
+        assertEquals(PublishedFile("song.mp3", "audio/mpeg"), kept.publishedAs)
+        assertArrayEquals(
+            mp3Piece + mp3Piece,
+            File(song.completed.parentFile, "song.mp3").readBytes(),
+        )
+        assertNull(remuxed.publishedAs)
+        val bytes = sound.completed.readBytes()
+        assertEquals("M4A ", String(bytes, 8, 4, Charsets.ISO_8859_1))
+        assertEquals(8, Mp4Dump(bytes).tracks.single().samples.size)
+    }
+
+    /** D1: a VOD playlist at [path] of the [pieces] ([HlsFixtures]), served by name. */
+    private fun serve(path: String, vararg pieces: String) {
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                if (request.path == path) return manifestResponse(vodManifest(*pieces))
+                val name = request.path?.removePrefix("/")
+                return if (name in pieces) {
+                    bytesResponse(HlsFixtures.bytes(requireNotNull(name)))
+                } else {
+                    MockResponse().setResponseCode(404)
+                }
+            }
+        }
+    }
+
     private fun engine(
         maxAttempts: Int = 3,
         maxConcurrentChunks: Int = 2,
@@ -355,21 +570,34 @@ class HlsTransferEngineTest {
         clock = { 100 },
     )
 
+    /** D1: an engine whose remux is [remuxer]. */
+    private fun engine(remuxer: HlsRemuxer): HlsTransferEngine = HlsTransferEngine(
+        client = OkHttpClient(),
+        workspaceRoot = workspaceRoot,
+        policy = HlsTransferEngine.Policy(initialRetryDelayMillis = 0, bufferBytes = 1_024),
+        clock = { 100 },
+        browserReads = BrowserReads.None,
+        remuxer = remuxer,
+    )
+
     private fun plan(
         url: String,
         id: String,
         expiresAtEpochMs: Long? = null,
+        remuxToMp4: Boolean = false,
+        mimeType: String = if (remuxToMp4) "video/mp4" else "video/mp2t",
     ): HlsDownloadPlan = HlsDownloadPlan(
         taskId = "hls-$id",
         playlistUrl = url,
-        suggestedFileName = "$id.ts",
+        suggestedFileName = if (remuxToMp4) "$id.mp4" else "$id.ts",
         requestContext = BrowserRequestContext(
             pageUrl = "https://page.example.test/watch",
             userAgent = "YFT HLS fixture",
             cookie = "session=fixture",
         ),
-        mimeType = "video/mp2t",
+        mimeType = mimeType,
         expiresAtEpochMs = expiresAtEpochMs,
+        remuxToMp4 = remuxToMp4,
     )
 
     private fun files(name: String): DestinationFiles {

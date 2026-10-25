@@ -51,7 +51,32 @@ interface DownloadDestination {
      * cannot be opened.
      */
     fun openFileDescriptorOutput(): FileDescriptorOutput? = null
+
+    /**
+     * D1: gives the file [commit] publishes the extension [extension] and the type [mimeType],
+     * for a download kept in another format than its name says (an HLS download that cannot be
+     * remuxed into an MP4 stays MPEG-TS). Call after the bytes are verified, before [commit].
+     *
+     * Returns the new file name, or null (the default) when this destination cannot be renamed;
+     * the caller then publishes nothing. Throws when the rename fails.
+     */
+    fun renameExtension(extension: String, mimeType: String): String? = null
 }
+
+/**
+ * D1: [name] with its extension, a short run of letters and digits after its last dot, replaced
+ * by [extension], or with [extension] added when it has none.
+ */
+internal fun withExtension(name: String, extension: String): String {
+    val dot = name.lastIndexOf('.')
+    val current = if (dot > 0) name.substring(dot + 1) else ""
+    val isExtension = current.length in 1..MAX_EXTENSION_CHARS &&
+        current.all { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' }
+    val stem = if (isExtension) name.substring(0, dot) else name
+    return "$stem.$extension"
+}
+
+private const val MAX_EXTENSION_CHARS = 8
 
 /** A destination's file open for reading and writing at any position (P27). */
 interface FileDescriptorOutput : Closeable {
@@ -76,6 +101,10 @@ class FileDownloadDestination(
     private val partialFile: File,
     private val completedFile: File,
 ) : DownloadDestination {
+    /** Where [commit] publishes: [completedFile], or the sibling [renameExtension] chose (D1). */
+    @Volatile
+    private var publishedFile: File = completedFile
+
     init {
         require(partialFile.absoluteFile != completedFile.absoluteFile)
         require(partialFile.absoluteFile.parentFile == completedFile.absoluteFile.parentFile) {
@@ -102,12 +131,41 @@ class FileDownloadDestination(
     override fun open(): SeekableDownloadOutput = FileSeekableDownloadOutput(partialFile)
 
     override fun commit() {
+        val target = publishedFile
         if (!partialFile.isFile) throw IOException("Partial download is missing")
-        if (completedFile.exists()) throw IOException("Completed destination already exists")
-        if (!partialFile.renameTo(completedFile)) {
+        if (target.exists()) throw IOException("Completed destination already exists")
+        if (!partialFile.renameTo(target)) {
             throw IOException("Cannot publish completed download")
         }
     }
+
+    /**
+     * D1: the completed file's name with [extension], made unique the way the app picks names
+     * (a published file or another download's `.part` reservation takes it): "name (n).ext".
+     * [mimeType] is not stored; the extension says it.
+     */
+    @Synchronized
+    override fun renameExtension(extension: String, mimeType: String): String {
+        require(extension.isNotBlank() && extension.none { it == '/' || it == '\\' })
+        val parent = completedFile.absoluteFile.parentFile
+            ?: throw IOException("Download destination has no parent directory")
+        val wanted = withExtension(completedFile.name, extension)
+        if (wanted == completedFile.name) {
+            publishedFile = completedFile
+            return wanted
+        }
+        val existing = parent.list().orEmpty().toSet()
+        val stem = wanted.substring(0, wanted.length - extension.length - 1)
+        val name = sequenceOf(wanted)
+            .plus((1..MAX_NAME_SUFFIX).asSequence().map { "$stem ($it).$extension" })
+            .firstOrNull { candidate -> !existing.taken(candidate) }
+            ?: throw IOException("Too many downloads share this name")
+        publishedFile = File(parent, name)
+        return name
+    }
+
+    private fun Set<String>.taken(name: String): Boolean =
+        name in this || any { it.startsWith("$name.") && it.endsWith(".part") }
 
     override fun discard() {
         if (partialFile.exists() && !partialFile.delete()) {
@@ -141,6 +199,8 @@ class FileDownloadDestination(
         }
     }
 }
+
+private const val MAX_NAME_SUFFIX = 999
 
 class FileSeekableDownloadOutput(file: File) : SeekableDownloadOutput {
     private val output = RandomAccessFile(file, "rw")

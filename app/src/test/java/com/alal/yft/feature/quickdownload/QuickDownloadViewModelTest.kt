@@ -226,10 +226,8 @@ class QuickDownloadViewModelTest {
         assertEquals(listOf("720p · HD", "360p"), choices.video.map { it.title })
         assertEquals(stated.options.map { it.id }, choices.options.map { it.id })
         assertEquals(listOf("25 MB", "9 MB"), choices.video.map { it.size })
-        assertEquals(
-            listOf("M4A", "MP3 · 320 kbps", "MP3 · 192 kbps", "MP3 · 128 kbps"),
-            choices.audio.map { it.title },
-        )
+        // D2: Facebook is not YouTube, so M4A and MP3 192 only.
+        assertEquals(listOf("M4A", "MP3 · 192 kbps"), choices.audio.map { it.title })
         assertEquals(stated.video.first().id, state.selectedId)
         assertEquals(files.toSet(), resolver.requested.toSet())
     }

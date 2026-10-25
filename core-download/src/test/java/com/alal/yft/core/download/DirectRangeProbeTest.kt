@@ -4,6 +4,7 @@ import com.alal.yft.core.model.download.DirectDownloadPlan
 import com.alal.yft.core.model.download.DirectProbeResult
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.media.BrowserRequestContext
+import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
@@ -289,6 +290,25 @@ class DirectRangeProbeTest {
             as DirectProbeResult.Success
 
         assertEquals("my movie_final.mp4", result.metadata.suggestedFileName)
+    }
+
+    @Test
+    fun `D3 a long Myanmar disposition name is cut within the byte limit`() = runTest {
+        // သတ္တဝါ ×40: cut at a grapheme, 219 bytes and ".mp4", never after ္.
+        val word = "\u101E\u1010\u1039\u1010\u101D\u102B"
+        val encoded = URLEncoder.encode(word.repeat(40), "UTF-8")
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Accept-Ranges", "bytes")
+                .setHeader("Content-Length", "12")
+                .setHeader("Content-Disposition", "attachment; filename*=UTF-8''$encoded.mp4"),
+        )
+
+        val result = probe.probe(plan(server.url("/opaque").toString()))
+            as DirectProbeResult.Success
+
+        assertEquals(word.repeat(12) + "\u101E.mp4", result.metadata.suggestedFileName)
     }
 
     @Test

@@ -54,7 +54,28 @@ class DataStoreHomeSitesRepositoryTest {
             sites.filterNot { "facebook" in it.url }
         }
         assertEquals(
-            listOf(own, HomeSites.DEFAULTS[2]),
+            listOf(own) + HomeSites.DEFAULTS.drop(2),
+            DataStoreHomeSitesRepository(store).sites.first(),
+        )
+    }
+
+    @Test
+    fun `D4 a version 2 list gets Instagram and X once`() = runTest {
+        val store = store(backgroundScope)
+        val stored = HomeSites.DEFAULTS.take(3) + HomeSite("VK", "https://vk.com")
+        store.edit {
+            it[SITES] = HomeSites.encode(stored)
+            it[VERSION] = 2
+        }
+
+        val migrated = DataStoreHomeSitesRepository(store).sites.first()
+        assertEquals(stored + HomeSites.ADDED_IN_VERSION_3, migrated)
+        assertEquals(HomeSites.DEFAULTS_VERSION, store.data.first()[VERSION])
+
+        // The user removes X; a later start must not bring it back.
+        DataStoreHomeSitesRepository(store).update { sites -> sites.filterNot { it.name == "X" } }
+        assertEquals(
+            stored + HomeSites.ADDED_IN_VERSION_3.first(),
             DataStoreHomeSitesRepository(store).sites.first(),
         )
     }
@@ -76,6 +97,18 @@ class DataStoreHomeSitesRepositoryTest {
         store.edit { it[SITES] = HomeSites.encode(emptyList()) }
 
         assertEquals(emptyList<HomeSite>(), DataStoreHomeSitesRepository(store).sites.first())
+    }
+
+    @Test
+    fun `D4 an empty version 2 list stays empty`() = runTest {
+        val store = store(backgroundScope)
+        store.edit {
+            it[SITES] = HomeSites.encode(emptyList())
+            it[VERSION] = 2
+        }
+
+        assertEquals(emptyList<HomeSite>(), DataStoreHomeSitesRepository(store).sites.first())
+        assertEquals(HomeSites.DEFAULTS_VERSION, store.data.first()[VERSION])
     }
 
     private fun store(scope: CoroutineScope): DataStore<Preferences> =

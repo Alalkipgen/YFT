@@ -1,5 +1,6 @@
 package com.alal.yft.core.download
 
+import com.alal.yft.core.model.download.FileNames
 import java.io.ByteArrayOutputStream
 
 /** The ID3v2.3 tag YFT writes before the first MP3 frame: the title only (T18). */
@@ -42,10 +43,8 @@ object Id3v2Tag {
             .joinToString("")
             .trim()
         if (spaced.isEmpty()) return null
-        var cut = spaced.take(MAX_TITLE_CHARS)
-        // Never end on half of a surrogate pair.
-        if (cut.length < spaced.length && cut.last().isHighSurrogate()) cut = cut.dropLast(1)
-        return cut.trimEnd().takeIf(String::isNotEmpty)
+        // D3: cut at a grapheme boundary: never half a surrogate pair, never a letter's mark.
+        return FileNames.cut(spaced, MAX_TITLE_CHARS).trimEnd().takeIf(String::isNotEmpty)
     }
 
     private fun bigEndian(value: Int) = byteArrayOf(

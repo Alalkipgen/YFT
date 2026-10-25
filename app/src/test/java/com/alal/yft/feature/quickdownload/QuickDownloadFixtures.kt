@@ -56,8 +56,9 @@ internal object QuickDownloadFixtures {
         bytes: Long? = null,
         mimeType: String = "audio/mp4",
         videoId: String? = VIDEO_ID,
+        page: String = PAGE,
     ) = MediaCandidate(
-        pageUrl = PAGE,
+        pageUrl = page,
         mediaUrl = "https://media.example.test/audio-$kbps.m4a",
         sources = setOf(CandidateSource.PASTED_URL),
         kind = MediaKind.DIRECT,
@@ -88,6 +89,9 @@ internal object QuickDownloadFixtures {
         audio(48, 2 * MIB),
     )
 
+    /** D2: [youtube]'s lookup as if [page] had given it, to compare the sites' audio rows. */
+    fun youtubeOn(page: String): List<MediaCandidate> = youtube().map { it.copy(pageUrl = page) }
+
     /** P25: YouTube's full ladder, 4K to 144p merged with M4A, the 360p file and two M4As. */
     fun youtubeLadder(): List<MediaCandidate> =
         listOf(2160, 1440, 1080, 720, 480, 240, 144).map { height ->
@@ -96,20 +100,24 @@ internal object QuickDownloadFixtures {
 
     const val FACEBOOK_ID = "facebook:fixture25"
 
+    /** D2: Facebook's own page, so its rows follow the rule of a site that is not YouTube. */
+    const val FACEBOOK_PAGE = "https://www.facebook.com/reel/fixture25"
+
     /**
      * P25: Facebook's HD and SD files as its page lists them: no height, no codecs, no size,
      * named only by the site's word.
      */
     fun facebookFiles(): List<MediaCandidate> = listOf("HD" to 1, "SD" to 2).map { (word, at) ->
-        video(null, label = word, videoId = FACEBOOK_ID, index = at).copy(codecs = emptyList())
+        video(null, label = word, videoId = FACEBOOK_ID, index = at, page = FACEBOOK_PAGE)
+            .copy(codecs = emptyList())
     }
 
     /** P25: Facebook's DASH tracks (1080p to 360p, merged with its M4A track) and HD/SD. */
     fun facebookDash(): List<MediaCandidate> =
         listOf(1080, 720, 480, 360).map { height ->
-            video(height, merged = true, videoId = FACEBOOK_ID)
+            video(height, merged = true, videoId = FACEBOOK_ID, page = FACEBOOK_PAGE)
                 .copy(bitrateBitsPerSecond = height * 2_000L)
-        } + facebookFiles() + audio(96, videoId = FACEBOOK_ID)
+        } + facebookFiles() + audio(96, videoId = FACEBOOK_ID, page = FACEBOOK_PAGE)
 
     const val OTHER_PAGE = "https://videos.example.test/watch/sunrise"
 

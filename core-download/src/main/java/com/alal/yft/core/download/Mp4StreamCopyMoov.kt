@@ -195,13 +195,17 @@ internal class StreamCopyWriter(private val buffer: ByteBuffer) {
  * `stsz` and `stco` (`co64` past 4 GiB).
  */
 internal object StreamCopyMoov {
-    fun build(layout: StreamCopyLayout): OutBox {
-        val duration = maxOf(layout.video.movieDuration, layout.audio.movieDuration)
-        val video = trak(layout.video, VIDEO_TRACK)
-        return ContainerBox("moov", listOf(mvhd(duration), video, trak(layout.audio, AUDIO_TRACK)))
+    fun build(layout: StreamCopyLayout): OutBox = build(listOf(layout.video, layout.audio))
+
+    /** D1: the `moov` of [tracks] (one or two), numbered 1, 2, … in this order. */
+    fun build(tracks: List<StreamCopyTrackLayout>): OutBox {
+        require(tracks.isNotEmpty())
+        val duration = tracks.maxOf { it.movieDuration }
+        val traks = tracks.mapIndexed { index, track -> trak(track, index + 1) }
+        return ContainerBox("moov", listOf(mvhd(duration, tracks.size + 1L)) + traks)
     }
 
-    private fun mvhd(duration: Long): OutBox {
+    private fun mvhd(duration: Long, nextTrackId: Long): OutBox {
         val wide = duration > UINT32
         return LeafBox("mvhd", if (wide) 112L else 100L) { sink ->
             sink.u32(if (wide) VERSION_1 else 0L)
@@ -211,7 +215,7 @@ internal object StreamCopyMoov {
             sink.zeros(10)
             sink.bytes(IDENTITY_MATRIX)
             sink.zeros(24)
-            sink.u32(3L)
+            sink.u32(nextTrackId)
         }
     }
 
@@ -442,8 +446,6 @@ internal object StreamCopyMoov {
         }
     }
 
-    private const val VIDEO_TRACK = 1
-    private const val AUDIO_TRACK = 2
     private const val VERSION_1 = 0x01000000L
     private const val TRACK_ENABLED_IN_MOVIE = 0x3L
     private const val FIXED_ONE = 0x00010000L

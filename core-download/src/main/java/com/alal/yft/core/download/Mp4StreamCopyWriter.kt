@@ -43,11 +43,18 @@ internal class StreamCopyTrackLayout(
     val chunkSamples: IntArray,
     val chunkDecodeTimes: LongArray,
     val chunkCount: Int,
+    /**
+     * D1: the composition time of the track's first presented sample, in ticks, when the edit
+     * list should start there: a track presented after the start then waits in an empty edit,
+     * which every player reads the same way (FFmpeg moves a sample presented after an edit's
+     * media time back to that time). Null for the P35 merge, whose edits are as they were.
+     */
+    private val firstComposition: Long? = null,
 ) {
     val chunkOffsets = LongArray(chunkCount)
 
     /** The edit list in movie ticks ([MOVIE_TIMESCALE]): segment duration to media time. */
-    val edits: List<Pair<Long, Long>> = when {
+    val edits: List<Pair<Long, Long>> = firstComposition?.let(::editsFrom) ?: when {
         editOffset > 0 -> {
             val delay = rescale(editOffset, track.timescale, MOVIE_TIMESCALE, round = true)
             val presented = rescale(compositionEnd, track.timescale, MOVIE_TIMESCALE)
@@ -59,6 +66,24 @@ internal class StreamCopyTrackLayout(
             listOf(rescale(presented, track.timescale, MOVIE_TIMESCALE) to -editOffset)
         }
         else -> emptyList()
+    }
+
+    /**
+     * D1: an empty edit while the track is not yet presented, then the media from [first] on (or
+     * from where the start is, for a track presented before it).
+     */
+    private fun editsFrom(first: Long): List<Pair<Long, Long>> {
+        val delay = editOffset + first
+        val mediaTime = if (delay >= 0) first else -editOffset
+        val presented = compositionEnd - mediaTime
+        if (presented <= 0) unsupported("edit list")
+        val shown = rescale(presented, track.timescale, MOVIE_TIMESCALE)
+        val wait = if (delay > 0) rescale(delay, track.timescale, MOVIE_TIMESCALE, true) else 0L
+        return when {
+            wait > 0 -> listOf(wait to -1L, shown to mediaTime)
+            mediaTime > 0 -> listOf(shown to mediaTime)
+            else -> emptyList()
+        }
     }
 
     /** The track's length in movie ticks, for `tkhd` and `mvhd`. */
@@ -172,6 +197,47 @@ internal class StreamCopyLayout(
             return StreamCopyLayout(layouts[0], layouts[1])
         }
 
+        /**
+         * D1 (the HLS remux): the layouts of [tracks] whose samples are already in the file,
+         * chunk by chunk ([PlacedChunks]), timed as [of] times them: each keeps its own times
+         * and the one presented first starts at 0; each edit list starts at the track's first
+         * presented sample.
+         */
+        fun placed(tracks: List<Pair<Mp4Track, PlacedChunks>>): List<StreamCopyTrackLayout> {
+            require(tracks.isNotEmpty())
+            val timings = tracks.map { (track, _) -> Timing(track) }
+            val startUs = timings.minOf { it.startUs }
+            return tracks.mapIndexed { index, (track, chunks) ->
+                val timing = timings[index]
+                val startTicks = microsToTicks(startUs, track.timescale)
+                val editOffset =
+                    track.firstDecodeTime - timing.shift + track.editShift - startTicks
+                val times = LongArray(chunks.count)
+                var sample = 0
+                var time = 0L
+                for (chunk in 0 until chunks.count) {
+                    while (sample < chunks.firstSample[chunk]) {
+                        time += track.durations[sample]
+                        sample += 1
+                    }
+                    times[chunk] = time
+                }
+                StreamCopyTrackLayout(
+                    track = track,
+                    compositionShift = timing.shift,
+                    editOffset = editOffset,
+                    compositionEnd = timing.compositionEnd,
+                    chunkFirstSample = chunks.firstSample.copyOf(chunks.count),
+                    chunkSamples = chunks.samples.copyOf(chunks.count),
+                    chunkDecodeTimes = times,
+                    chunkCount = chunks.count,
+                    firstComposition = timing.firstComposition,
+                ).also { layout ->
+                    chunks.offsets.copyInto(layout.chunkOffsets, 0, 0, chunks.count)
+                }
+            }
+        }
+
         private fun chunked(
             track: Mp4Track,
             timing: Timing,
@@ -233,6 +299,9 @@ internal class StreamCopyLayout(
             val compositionEnd: Long
             val startUs: Long
 
+            /** D1: the first presented sample's composition time, in ticks, with [shift]. */
+            val firstComposition: Long
+
             init {
                 var minOffset = 0L
                 var earliest = Long.MAX_VALUE
@@ -250,12 +319,29 @@ internal class StreamCopyLayout(
                 if (maxOffset + shift > Int.MAX_VALUE) unsupported("composition offsets")
                 this.shift = shift.toInt()
                 compositionEnd = latestEnd + shift
+                firstComposition = earliest + shift
                 val presented = track.firstDecodeTime + earliest + track.editShift
                 startUs = ticksToMicros(presented.coerceAtLeast(0L), track.timescale)
             }
         }
 
         const val MAX_CHUNK_BYTES = 8L * 1_024 * 1_024
+    }
+}
+
+/**
+ * D1: a track's chunks as they were written: the first sample, the sample count and the file
+ * offset of each of the first [count] chunks.
+ */
+internal class PlacedChunks(
+    val firstSample: IntArray,
+    val samples: IntArray,
+    val offsets: LongArray,
+    val count: Int,
+) {
+    init {
+        require(count >= 0 && firstSample.size >= count && samples.size >= count)
+        require(offsets.size >= count)
     }
 }
 

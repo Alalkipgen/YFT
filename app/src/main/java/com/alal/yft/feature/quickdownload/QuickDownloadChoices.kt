@@ -84,8 +84,9 @@ data class QuickChoices(
  * cases is unit-tested.
  *
  * Audio offers the best M4A file, else the sound of an MP4 kept as M4A (P25: also when its
- * codecs are not stated), and that AAC converted to MP3 at every [Mp3Variants.BITRATES_KBPS];
- * another audio file only when there is no M4A. P25: every row has a one-line description and a
+ * codecs are not stated), and that AAC converted to MP3 at the bitrates its page offers (D2:
+ * [Mp3Variants.bitratesFor], 320, 192 and 128 kbps on YouTube, 192 on any other site); another
+ * audio file only when there is no M4A. P25: every row has a one-line description and a
  * size, an estimate ("~") or "Size unknown"; rows are named the same on every site.
  * Video offers one row per standard resolution (240p, 360p, 480p, 720p, 1080p and higher):
  * a row is named after the nearest standard height of the picture's short side, so 848 × 478 is
@@ -128,7 +129,7 @@ object QuickDownloadChoices {
                 }
         }
         val videos = videoRows(video)
-        val audios = audioRows(audio, video)
+        val audios = audioRows(audio, video, Mp3Variants.bitratesFor(group.pageUrl))
         if (videos.isEmpty() && audios.isEmpty()) return null
         val durationMillis = group.durationMillis
             ?: sources.firstNotNullOfOrNull { it.asset?.durationMillis?.takeIf { d -> d > 0 } }
@@ -197,6 +198,8 @@ object QuickDownloadChoices {
      * P9: two audio and two video rows. The full choices and their IDs stay untouched, so
      * expanding/collapsing never changes the selection or lists an option twice.
      * If no lower video exists, the nearest higher one is the second choice.
+     * D2: the audio rows are the first one (M4A) and the lowest MP3 offered: 128 kbps on
+     * YouTube, 192 on any other site.
      */
     fun compact(choices: QuickChoices, quality: QualityPreference): QuickChoices {
         val measured = choices.video.filter { it.variant.height != null }
@@ -211,7 +214,8 @@ object QuickDownloadChoices {
         return choices.copy(
             audio = listOfNotNull(
                 choices.audio.firstOrNull(),
-                choices.audio.firstOrNull { it.variant.mp3?.bitrateKbps == 128 },
+                choices.audio.filter { it.variant.mp3 != null }
+                    .minByOrNull { it.variant.mp3?.bitrateKbps ?: Int.MAX_VALUE },
             ).distinctBy(SheetOption::id),
             video = listOfNotNull(preferred, next).distinctBy(SheetOption::id),
         )
@@ -322,15 +326,19 @@ object QuickDownloadChoices {
 
     /**
      * The best M4A file, else the video's own sound kept as M4A, then MP3 made from it at every
-     * bitrate; with no AAC at all the best other audio file alone.
+     * bitrate in [mp3Kbps] (D2: its page's); with no AAC at all the best other audio file alone.
      */
-    private fun audioRows(audio: List<SheetOption>, video: List<SheetOption>): List<SheetOption> {
+    private fun audioRows(
+        audio: List<SheetOption>,
+        video: List<SheetOption>,
+        mp3Kbps: List<Int>,
+    ): List<SheetOption> {
         val files = audio.sortedWith(AUDIO_ORDER)
         val m4a = files.firstOrNull {
             it.variant.kind == MediaKind.DIRECT && Mp3Variants.isAacSource(it.variant)
         } ?: soundOf(video)
         if (m4a == null) return listOfNotNull(files.firstOrNull())
-        return listOf(m4a) + mp3Options(m4a)
+        return listOf(m4a) + mp3Options(m4a, mp3Kbps)
     }
 
     private fun videoOption(
@@ -460,8 +468,8 @@ object QuickDownloadChoices {
         return audioOption(sourceIndexOf(best), best.source, m4a)
     }
 
-    private fun mp3Options(aac: SheetOption): List<SheetOption> =
-        Mp3Variants.BITRATES_KBPS.mapNotNull { kbps ->
+    private fun mp3Options(aac: SheetOption, mp3Kbps: List<Int>): List<SheetOption> =
+        mp3Kbps.mapNotNull { kbps ->
             Mp3Variants.of(aac.variant, kbps, aac.source.asset?.durationMillis)
         }.map { audioOption(sourceIndexOf(aac), aac.source, it) }
 

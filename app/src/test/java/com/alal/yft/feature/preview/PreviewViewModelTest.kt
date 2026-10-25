@@ -77,22 +77,16 @@ class PreviewViewModelTest {
     @Test
     fun anM4aFileIsAlsoOfferedAsMp3ButTheOriginalStaysTheDefault() = runTest {
         val store = PreviewSelectionStore().apply { select(candidate()) }
-        val m4a = variant("m4a", MediaTrackType.AUDIO).copy(
-            playbackUrl = "https://media.example.test/audio.m4a",
-            kind = MediaKind.DIRECT,
-            mimeType = "audio/mp4",
-            codecs = listOf("mp4a.40.2"),
-            bitrateBitsPerSecond = 128_000,
-        )
         val starter = FakeDownloadStarter()
-        val resolver = FakeResolver(VariantResolutionResult.Success(asset(listOf(m4a))))
+        val asset = asset(listOf(m4a())).copy(sourcePageUrl = YOUTUBE_PAGE)
+        val resolver = FakeResolver(VariantResolutionResult.Success(asset))
         val viewModel = viewModel(resolver, store, starter)
 
         runCurrent()
 
         val ready = viewModel.uiState.value as PreviewUiState.Ready
         assertEquals(
-            // P3: 320 kbps joins 192 and 128.
+            // P3: 320 kbps joins 192 and 128 (D2: on YouTube only).
             listOf("m4a", "m4a-mp3-320", "m4a-mp3-192", "m4a-mp3-128"),
             ready.asset.variants.map(MediaVariant::id),
         )
@@ -105,6 +99,35 @@ class PreviewViewModelTest {
 
         assertEquals(listOf("m4a-mp3-128"), starter.requested)
     }
+
+    @Test
+    fun onASiteThatIsNotYouTubeTheM4aIsOfferedAsMp3At192Only() = runTest {
+        // D2: Facebook, Instagram, X, TikTok, VK and the web: M4A and MP3 192.
+        val store = PreviewSelectionStore().apply { select(candidate()) }
+        val starter = FakeDownloadStarter()
+        val resolver = FakeResolver(VariantResolutionResult.Success(asset(listOf(m4a()))))
+        val viewModel = viewModel(resolver, store, starter)
+
+        runCurrent()
+
+        val ready = viewModel.uiState.value as PreviewUiState.Ready
+        assertEquals(listOf("m4a", "m4a-mp3-192"), ready.asset.variants.map(MediaVariant::id))
+        assertEquals("m4a", ready.selectedVariantId)
+
+        viewModel.selectVariant("m4a-mp3-192")
+        viewModel.download()
+        runCurrent()
+
+        assertEquals(listOf("m4a-mp3-192"), starter.requested)
+    }
+
+    private fun m4a() = variant("m4a", MediaTrackType.AUDIO).copy(
+        playbackUrl = "https://media.example.test/audio.m4a",
+        kind = MediaKind.DIRECT,
+        mimeType = "audio/mp4",
+        codecs = listOf("mp4a.40.2"),
+        bitrateBitsPerSecond = 128_000,
+    )
 
     @Test
     fun networkFailureIsRetryableAndRetryUsesCurrentInMemorySelection() = runTest {
@@ -475,5 +498,6 @@ class PreviewViewModelTest {
     private companion object {
         val WIFI = NetworkSnapshot(connected = true, validated = true, unmetered = true)
         val MOBILE_DATA = NetworkSnapshot(connected = true, validated = true, unmetered = false)
+        const val YOUTUBE_PAGE = "https://m.youtube.com/watch?v=fixture0001"
     }
 }

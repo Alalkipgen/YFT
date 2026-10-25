@@ -778,3 +778,291 @@ Keep at least the heading and one blank line between sections, so Git merges the
   `BrowserViewModel` calls `vastAds.onAnswer(observation, contentType, bodyStart)` where the
   page's answers are read (e.g. `MediaMetadataProbe`'s non-media XML answers), so a VAST/VMAP
   body starts an ad break when the request's address says nothing.
+
+## Download fixes agent — `work/phase-download-fixes` (D1–D4)
+
+- Task (the owner, 2026-10-24): four fixes, one commit per item with its JVM tests, in order —
+  D1 HLS never saved as `.m3u8`; D2 audio rows (YouTube 4, every other site 2); D3 Myanmar titles
+  keep their marks; D4 Instagram and X icons beside the other sites'. No PR until the owner says
+  (after PR #2's merge: main merged in with a merge commit, no rebase).
+- Base: `8dc46ff404436703f9b588eeee193b2a084f15c1` (`spike/master-extractor-backup`'s head).
+- Rules: commits on this branch only (never main, `spike/master-extractor-backup` or another
+  work branch); `recipes` untouched, master-recipes-publish never run; PROGRESS.md, CHANGELOG.md
+  and docs/*MATRIX*.md not edited; no APK on the owner's phone before he says S5's run 3 is
+  counted, then only with his OK.
+- State: D1 committed; D1 follow-up (`f5effc1`) red on Emulator smoke (its type rule wrong); D1
+  follow-up 2 (`d1bd432`, either MPEG-TS type) green on CI, the bytes check included; D2
+  (`835af64`), D3 (`cfa39c7`) and D4 (`abac20e`) green on CI. The owner's phone test of
+  `abac20e`'s preview (2026-10-25): D1–D4 pass, one D1 bug (two sizes for a remuxed HLS
+  download); D1 follow-up 3 (`0e4a59b`) green on CI and accepted; D1 follow-up 4 (every
+  completed download shows its saved file's size) committed (this checkpoint). Next: its CI green
+  by 2026-10-26 24:00 MMT (else it is dropped to v1.0.1), then a short Burmese report; no merge,
+  no PR, no phone APK (the owner checks it at #12).
+
+### D1 — HLS saved as `.m3u8` (Pornhub, JAV)
+
+- Cause: `DownloadPlanFactory.extensionFor` took the variant's container (`m3u8`, `hls`) as the
+  file's extension and its type (`application/vnd.apple.mpegurl`) as the file's; the engine then
+  joined the MPEG-TS pieces into that file, so a TS file was saved as `.m3u8`.
+- Fix: a playlist container (m3u8, m3u, mpd, hls, dash) is never an extension (the media type
+  says it; `video/mp2t` → `ts`, no longer `mp4`). An HLS download is planned as `.mp4`
+  (`video/mp4`), `.m4a` (`audio/mp4`) for sound alone, with `HlsDownloadPlan.remuxToMp4`. The
+  engine sniffs the pieces (`HlsMediaSniffer`): MPEG-TS (H.264 + AAC) and packed AAC are remuxed
+  on the phone by `TsMp4Remuxer` (plain Kotlin, no re-encode; samples straight into the file,
+  `moov` from P35's `StreamCopyMoov`, edit list like ffmpeg's for the first frame's delay);
+  fragmented MP4 is joined as before. When the remux is not possible (another codec, broken
+  data) the pieces are joined and published in their own format through the new
+  `DownloadDestination.renameExtension` (`.ts` `video/mp2t`, `.aac`, `.mp3`: app storage a free
+  "name (n).ext", MediaStore's pending row DISPLAY_NAME + MIME_TYPE in one update, SAF at
+  commit); the queue shows that name (`HlsTransferResult.Completed.publishedAs`). A TS file is
+  never named `.mp4`. MP4, WebM and merged downloads unchanged.
+- Tests: `DownloadPlanFactoryTest` (an HLS `.m3u8` variant → `.mp4` `video/mp4`; HLS sound alone
+  → `.m4a`; playlist containers never an extension, MP4/WebM unchanged), `TsMp4RemuxerTest`
+  (real ffmpeg-made TS pieces in `core-download/src/test/resources/hls/*.b64`: an MP4 whose H.264
+  and AAC samples equal the source's, golden MD5s; sound alone → M4A; packed AAC; times that
+  start again; image prefix; MPEG-2 not remuxed), `HlsMediaSnifferTest`, `HlsTransferEngineTest`
+  (7 D1 tests: TS → real MP4, sound → M4A, kept `.ts` never under the MP4's name, a remux failing
+  halfway leaves exactly the TS bytes, storage error fails, fMP4/plain joins unchanged, MP3 kept
+  `.mp3`), `PublicDownloadDestinationTest` (3), `StreamDownloadQueueTest` (1); instrumented
+  `HlsRemuxInstrumentedTest` (emulator smoke: MediaStore row is an MP4 that MediaExtractor
+  reads; MPEG-2 pieces → a `.ts` row, its type MediaStore's: see D1 follow-up 2).
+- Offline proof (scratch, not committed): the remuxed MP4 decodes frame for frame like the
+  source (ffmpeg framemd5), AAC sample bytes equal ffmpeg's own remux, `elst` equal ffmpeg's.
+- Backlog (not in D1's scope): a site's container `matroska`/`quicktime` still taken as an
+  extension; a direct (non-HLS) `.ts` link stays `.ts` (no remux); a task's total bytes after a
+  remux stay the pieces' bytes (fixed by D1 follow-up 3); HEVC or MP3 inside TS → kept `.ts`;
+  packed MP3 pieces keep their inner ID3 tags (as before); a crash between rename and commit may
+  resume a renamed `.ts` row under the planned name.
+- D1 validation (local, 2026-10-24): `:core-model:test :core-download:testDebugUnitTest` →
+  core-download 265 tests, 0 failures after one D1 test's expectation was corrected (packed MP3
+  pieces are joined whole); `:app:testDebugUnitTest :app:compileDebugAndroidTestKotlin` → 1118
+  tests (1115 before + 3), 0 failures, 66 skipped; `lintDebug` → 0 errors (no warning in a D1
+  file); no new line over 100 characters; the checkpoint runs `testDebugUnitTest`. CI
+  (`b7edd6b`): checkpoint validation run 40083006744 and Preview APK run 40083006431 green;
+  Emulator smoke run 40083006457 red, 1 of 56 tests (3 skipped, no crash): see D1 follow-up.
+
+### D1 follow-up — the emulator test's `.ts` type (`f5effc1`, wrong rule)
+
+- Cause (the test's expectation, not the app): `HlsRemuxInstrumentedTest`'s
+  `piecesThatCannotBeRemuxedAreKeptAsATsRowOfTypeMp2t` expected the row's MIME_TYPE
+  `video/mp2t`; the API 34 emulator stored `video/mp2ts`. The name (`.ts`), the published (not
+  pending) row and the app's own record (`publishedAs`, `.ts` `video/mp2t`) were right; the
+  bytes check after the type check never ran.
+- Fix tried (the owner's choice A, 2026-10-24: a separate commit, the test and this section
+  only): expect the given type when `MimeTypeMap.hasMimeType`, else the extension's. Wrong:
+  publishing (IS_PENDING 0) makes MediaProvider scan the file and set the type itself (API 34:
+  `.ts` → `video/mp2ts`), whatever the app gave.
+- CI: checkpoint validation run 40087033078 and Preview APK run 40087033092 green; Emulator
+  smoke run 40087033113 red, the same 1 of 56 (3 skipped, no crash), the bytes check not run.
+
+### D1 follow-up 2 — the emulator test accepts either MPEG-TS type
+
+- Fix (the owner, 2026-10-24: MediaStore's type is not the app's to control and differs across
+  Android versions; the test and this section only, no app code): the row's type must be
+  `video/mp2t` or `video/mp2ts`, MediaProvider's rule not re-implemented. Order: Completed, the
+  bytes check, the app's own record (`.ts` `video/mp2t`), the row's name (`.ts`), published.
+- Tests: the instrumented test only (Emulator smoke); no JVM test changes.
+- Validation (local, 2026-10-24): `:app:compileDebugAndroidTestKotlin` → BUILD SUCCESSFUL (JDK
+  17); the checkpoint runs it; no new line over 100 characters. CI (`d1bd432`): checkpoint
+  validation run 40090783594, Preview APK run 40090783622 and Emulator smoke run 40090783588
+  green (56 tests, 0 failures, the same 3 skipped: this test ran whole, its bytes check
+  passed); D2 pushed after it.
+- Backlog: the app records a kept `.ts` as `video/mp2t` (queue, library) while MediaStore says
+  `video/mp2ts`; players match `video/*`, so no change.
+
+### D2 — audio rows (YouTube 4, every other site 2)
+
+- Cause: `QuickDownloadChoices.audioRows` offered the M4A and an MP3 at every
+  `Mp3Variants.BITRATES_KBPS` (320, 192, 128) on every site, `Mp3Variants.addTo` (Preview) added
+  the three too, and `compact` (P9's short view) picked the MP3 at exactly 128 kbps.
+- Fix: `Mp3Variants.bitratesFor(pageUrl)`: all three when `SiteBrand.of(pageUrl)` is YouTube
+  (youtube.com and its subdomains, youtu.be, youtube-nocookie.com), else only 192
+  (`OTHER_SITE_KBPS`). The rule is "not YouTube", so Facebook, Instagram, X, TikTok, VK and the
+  web get it with no VK code. `QuickDownloadChoices.of` passes the group's `pageUrl`, `addTo`
+  the asset's `sourcePageUrl`; `compact` keeps the M4A and the lowest MP3 offered (128 on
+  YouTube, 192 elsewhere). A chosen row is still rebuilt from its own bitrate
+  (`QuickDownloadViewModel` unchanged).
+- Tests: `QuickDownloadChoicesTest` (YouTube www, m, music, youtu.be → M4A + MP3 320/192/128,
+  short view M4A + 128; Facebook (facebook.com, fb.watch), Instagram, X (x.com, twitter.com),
+  TikTok, VK (vk.com, vkvideo.ru) and a generic site → M4A + MP3 192, the short view the same),
+  `Mp3VariantsTest` (`bitratesFor` per site, youtube-nocookie.com too; `addTo` adds only 192 on
+  the other sites), `PreviewViewModelTest` (a Facebook page's M4A offered as MP3 192 only); the
+  expectations of tests on `OTHER_PAGE` or a Facebook page updated (`QuickDownloadChoicesTest`,
+  `QuickDownloadViewModelTest`, `PreviewViewModelTest`; fixture `youtubeOn(page)`).
+- Validation (local, 2026-10-24): `lintDebug` → 0 errors, no issue in a D2 file;
+  `testDebugUnitTest -x :app:testDebugUnitTest` (core-model 127, core-download 265, core-data 33,
+  core-media 39, extractor-api 36, extractor-generic 21, extractor-sites 293 tests) and
+  `:app:testDebugUnitTest` (1120 tests: 1118 + 2, 66 skipped) → 0 failures; `:app:assembleDebug
+  :app:assembleRelease` → BUILD SUCCESSFUL; no new line over 100 characters. CI (`835af64`):
+  checkpoint validation run 40093269320, Preview APK run 40093269382 and Emulator smoke run
+  40093269421 green.
+- Backlog: none in D2's scope. The rule reads the page address the sheet shows as its source
+  (Preview: the asset's `sourcePageUrl`), not the media file's own host.
+
+### D3 — Myanmar titles keep their marks
+
+- Cause: `DownloadPlanFactory.sanitizeForFileSystem` kept only `Char.isLetterOrDigit()` and
+  "-_()[] ", so every mark (`\p{M}`: Myanmar ါ ာ ိ ု ေ ် ျ း, Thai and Hindi vowel signs) became
+  a space; `fileName` cut with `take()` at 96 UTF-16 units: about 288 bytes in Myanmar, over the
+  255-byte limit, and it could split a stacked consonant after ္. core-download's
+  `sanitizePublicFileName` and `DirectRangeProbe.sanitizeFileName` (Content-Disposition names)
+  cut with `take(180)`: graphemes split, no byte limit, the extension could be cut off.
+- Fix: one shared object, core-model `download/FileNames.kt`. `keepWords(title, allowed)`: NFC;
+  letters, digits, the allowed punctuation and the marks after a kept letter or digit; a mark
+  with no kept base is dropped (at the start, U+FE0F left by a removed emoji), so a Latin title
+  with emoji gains no invisible character; everything else a space, runs of spaces collapsed,
+  ends trimmed. `cut(text, maxChars, maxBytes)`: only at a grapheme boundary (never before a
+  mark, ZWJ/ZWNJ, an emoji modifier or a tag character; never after ZWJ, or after a stacking
+  virama when a letter follows: Myanmar U+1039, Khmer U+17D2, Tai Tham U+1A60, Indic U+094D,
+  09CD, 0ACD, 0B4D, 0C4D, 0D4D; regional-indicator pairs and Hangul jamo together); a cut
+  between code points only when not even the first grapheme fits (Zalgo). `fit(name, maxChars,
+  maxBytes)` keeps a short extension (≤ 10 ASCII letters and digits). Byte budget: the whole
+  name, extension included, at most 255 − 32 = 223 UTF-8 bytes (`FileNames.MAX_NAME_BYTES`);
+  the 32 leave room for app storage's `<name>.<id ≤16>.part` and " (n)", and for MediaStore's
+  pending `.pending-<10 digits>-<name>` (Android 11+), which MediaProvider would otherwise
+  shorten in the middle with "...". `DownloadPlanFactory`: `keepWords`, then `cut` at 96
+  characters (Latin titles as before) and 223 bytes; `sanitizePublicFileName` and
+  `DirectRangeProbe`: `fit` at 180 characters and 223 bytes; `Id3v2Tag.clean`: `cut` (its
+  surrogate check folded in). Saved files are not renamed; no migration.
+- For the owner: two choices of mine. (1) Myanmar's word signs ၌ ၍ ၎ ၏ (U+104C–104F, Po) are
+  kept like letters (၊ and ။ still become spaces). (2) A spacing mark (Mc) with no base is kept,
+  not dropped: Zawgyi text types ေ and ျ before their consonant, so dropping them would change
+  the word; Mc marks are visible, so no invisible character comes from it (U+FE0F is Mn and is
+  dropped). Also: a title the cut leaves empty (e.g. "___") is now `yft-download.<ext>`, no
+  longer the hidden file `.mp4`.
+- Tests: `FileNamesTest` (11: the four titles အချစ်ရူး, ထွဏ်းထွဏ်း, ဒါဟာအချစ်လား,
+  ဇော်ပိုင် ချောစုခင် and Thai สวัสดีครับ, Hindi नमस्ते दुनिया come back exactly; word signs;
+  marks with no base, VS16 and a skin tone leave nothing; Zawgyi; the reserved \ / : * ? " < > |
+  and invisible or direction-changing characters; သတ္တဝါ cut at every length, never after ္ or
+  before ါ, and स्ते kept whole; a long Myanmar title cut at a grapheme within 219 bytes; flags,
+  skin tones, a ZWJ family, a tag flag and Hangul jamo whole; the Zalgo fallback; `fit`; the
+  byte counts), `DownloadPlanFactoryTest` (6: the six titles → `<title>.mp4`; a long Myanmar
+  title → 12 × သတ္တဝါ + သ + `.mp4`, exactly 223 bytes; a long Latin title → 96 characters as
+  before; ❤️ leaves no U+FE0F; reserved characters → spaces; "___" → `yft-download.mp4`),
+  `PublicDownloadDestinationTest` (1: a long Myanmar display name keeps `.mp4` within 223
+  bytes), `DirectRangeProbeTest` (1: the same through `filename*=UTF-8''`), `Id3v2TagTest` (1:
+  ကျ kept whole or not at all). The existing "invisible and direction-changing characters cannot
+  disguise the extension" still gives "clip gnp exe.mp4".
+- Validation (local, 2026-10-24): `lintDebug` → 0 errors, no issue in a D3 file;
+  `testDebugUnitTest -x :app:testDebugUnitTest` (core-model 138 = 127 + 11, core-download 268 =
+  265 + 3, the other modules as in D2) and `:app:testDebugUnitTest` (1126 = 1120 + 6, 66
+  skipped) → 0 failures; `:app:assembleDebug :app:assembleRelease` → BUILD SUCCESSFUL; no new
+  line over 100 characters. CI (`cfa39c7`): checkpoint validation run 40098830060, Preview APK
+  run 40098830721 and Emulator smoke run 40098830051 green.
+- Backlog: a ZWJ or ZWNJ inside a word (some Indic and Persian spellings) still becomes a space,
+  as the rule says (everything else a space); Thai ำ and Lao ຳ (letters, not marks) can be cut
+  from their consonant at the very end of a long title; Zawgyi text is kept as typed, not
+  converted; `DirectRangeProbe` keeps its own unsafe-character rule (only its cut changed).
+
+### D4 — Instagram and X icons beside the other sites'
+
+- Cause: the logos were there (`ic_site_instagram.xml`, `ic_site_x.xml`, `SiteBrand.INSTAGRAM`
+  and `X`, Browser's View sites), but Home's "Your sites" defaults (`HomeSites.DEFAULTS`,
+  version 2) were YouTube, Facebook and TikTok only, and a stored list never got a new default.
+- Fix: `DEFAULTS` + Instagram (`https://www.instagram.com`) and X (`https://x.com`),
+  `DEFAULTS_VERSION = 3`, `ADDED_IN_VERSION_3` (the two). `migrateDefaults(stored,
+  storedVersion)`: a version 1 list is moved as before (its old defaults replaced by the five,
+  in order, a site of the same brand taking its default's place; a list without an old default
+  stays as it is); a version 2 list gets Instagram and X at its end, each only when no site of
+  its brand is there (twitter.com counts as X) and while there is room under `MAX_SITES` (12);
+  an empty list stays empty; with no stored list the five defaults are shown.
+  `DataStoreHomeSitesRepository.migrateDefaultsOnce` passes the stored version (none = 1) and
+  stores 3, so it runs once: a site the user removes later stays removed. Home's tile already
+  says the site's name ("Instagram", "X") as its description; the logo is decorative
+  (`site-logo-instagram`, `site-logo-x`). No VK code: the owner's VK is his own site, with its
+  letter.
+- Logos checked: both paths are identical to Simple Icons 16.34.0's `instagram.svg` and `x.svg`
+  (and to 16.35.0, the latest), which take Instagram's from Meta's brand resources and X's from
+  x.com (the current X mark); the colours (FF0069, 000000) are Simple Icons'.
+  `docs/THIRD_PARTY_NOTICES.md` already lists both (Simple Icons 16.34.0, CC0-1.0); no logo or
+  notice change.
+- Tests: `HomeSitesMigrationTest` (the five defaults and version 3; version 1 cases now with the
+  five; version 2: the owner's list with VK → + Instagram, X; a site of the same brand already
+  there (twitter.com, m.instagram.com); a full list (12: none; 11: Instagram only; 10: both); an
+  empty list; a current list unchanged; a second run changes nothing), `HomeSitesTest`
+  (initials Y F T I X), `DataStoreHomeSitesRepositoryTest` (a version 2 list gets both once and
+  X removed afterwards stays removed; an empty version 2 list stays empty, version 3 stored; the
+  version 1 move with the five), `HomeScreenTest` (the five logos by tag and each tile's
+  description, "Instagram" and "X", scrolled into view; a site without a brand shows its letter).
+- Validation (local, 2026-10-24): `lintDebug` → 0 errors, no issue in a D4 file;
+  `testDebugUnitTest -x :app:testDebugUnitTest` (core-model 142 = 138 + 4, core-data 35 =
+  33 + 2, the other modules as in D3) and `:app:testDebugUnitTest` (1126, the HomeScreen logo
+  test widened, 66 skipped) → 0 failures; `:app:assembleDebug :app:assembleRelease` → BUILD
+  SUCCESSFUL; no new line over 100 characters. CI (`abac20e`): checkpoint validation run
+  40100415386, Preview APK run 40100415355 and Emulator smoke run 40100415357 green.
+- Backlog: Home shows four tiles and scrolls sideways for the rest, so on the owner's phone
+  (YouTube, Facebook, TikTok, VK) Instagram and X come fifth and sixth, after a sideways swipe;
+  a version 1 list the user made without an old default is moved as before (not at all), so it
+  gets neither.
+
+### D1 follow-up 3 — one size for a remuxed HLS download
+
+- Found (the owner's phone test of `abac20e`'s preview, 2026-10-25: D1–D4 pass, one D1 bug): an
+  HLS download remuxed to MP4 showed two sizes for the same file, the Downloads card "480p ·
+  223 MB" (the downloaded TS pieces) and Home's Recent card "480p · 213 MB" (the saved MP4); it
+  was in D1's backlog ("a task's total bytes after a remux stay the pieces' bytes").
+- Cause: `DownloadQueue.completeTask` set `totalBytes` to `(current.totalBytes ?: bytesWritten)
+  .coerceAtLeast(checkpoint.downloadedBytes)` and `downloadedBytes` to the checkpoint's, so the
+  pieces' size won over the published file's; Recent and Library read the saved file itself.
+- Fix: a completed HLS task's size is the file it published (`bytesWritten`: the MP4 or M4A
+  made from its pieces, or the kept `.ts`, `.aac` or `.mp3`), as both its total and its
+  downloaded bytes (downloaded ≤ total kept), so every screen that shows the task (the
+  Downloads card and details, the notifications) says what Home and Library say; its checkpoint
+  keeps the pieces' bytes. `StoredDownloadTask` accepts that for a completed HLS task only
+  (`showsPublishedBytes`; every other task still shows exactly its checkpoint's bytes) and
+  `RoomDownloadTaskStore` keeps it across a restart (a completed HLS row whose stored downloaded
+  bytes equal its total). Pieces that are only joined (fragmented MP4) write their own bytes, so
+  they show the same as before; DIRECT, DASH and merged downloads unchanged.
+- Tests: `StreamDownloadQueueTest` (+3: a remux, pieces 10 and MP4 8 → total and downloaded 8,
+  the checkpoint 10, the store the same; a kept `.ts` of 9 → 9 and 9; DASH and merged downloads
+  unchanged), `RoomDownloadTaskStoreTest` (+3: a completed HLS task keeps 8 after a restart; a
+  row that is not a completed HLS one shows its checkpoint's bytes; a completed HLS row saved
+  before keeps its size). Without the fix four of them fail (the two HLS queue tests and the
+  first two store tests).
+- Validation (local, 2026-10-25): `lintDebug` → 0 errors, no issue in a changed file;
+  `testDebugUnitTest -x :app:testDebugUnitTest` (core-download 274 = 268 + 6, the other modules
+  as in D4) and `:app:testDebugUnitTest` (1126, 66 skipped) → 0 failures; `:app:assembleDebug
+  :app:assembleRelease` → BUILD SUCCESSFUL; no new line over 100 characters. CI (`0e4a59b`):
+  checkpoint validation run 40124048608, Preview APK run 40124048654 and Emulator smoke run
+  40124048689 green (56 tests, 0 failures, 3 skipped).
+- Backlog: a converted MP3 or a sound-only M4A (DIRECT, T18 and P3) showed its downloaded
+  source's size and a merged download its tracks' bytes, not the saved file's (fixed by D1
+  follow-up 4); a completed HLS task saved before this fix keeps the pieces' size it showed (no
+  migration).
+
+### D1 follow-up 4 — every completed download shows its saved file's size
+
+- Found (the owner, 2026-10-25, from follow-up 3's backlog): a converted MP3 or a sound-only M4A
+  made from a DIRECT download showed its source's size (for an M4A the whole MP4's), a merged
+  download its tracks' bytes and no total, a live DASH file its pieces' bytes; Home's Recent card
+  and Library read the saved file itself, so the sizes differed.
+- Cause: `DownloadQueue.completeTask` took the published size (`bytesWritten`) for HLS only;
+  every other plan type kept `(current.totalBytes ?: bytesWritten).coerceAtLeast(checkpoint
+  bytes)` as its total (null for a merged one) and the checkpoint's bytes as its downloaded.
+- Fix: a completed task's total and downloaded bytes are the file it published (`bytesWritten`)
+  for every plan type: the MP3 or M4A made from a direct download, the merged video, the DASH
+  file, the HLS MP4 (downloaded ≤ total kept); its checkpoint keeps what was downloaded. A plain
+  direct download publishes exactly its checkpoint's bytes, so it shows the same as before.
+  `showsPublishedBytes` is now the completed status, whatever the plan type; a completed DASH or
+  merged task keeps those bytes when it is saved and shown (`withCheckpointBytes` only resets a
+  stopped one). `RoomDownloadTaskStore` keeps them across a restart (a completed row whose stored
+  downloaded bytes equal its total); a completed DIRECT row's checkpoint total, which shares the
+  row's total column, comes back as its segments' bytes (what the finished download verified),
+  so the checkpoint is the same too. Rows saved before keep what they showed (they saved their
+  checkpoint's bytes; no migration).
+- Tests: `Mp3ConvertingTransferDispatcherTest` (+3, through a download queue: an MP3 of 14 bytes
+  from a 4,096-byte AAC → total and downloaded 14, the checkpoint 4,096, the store the same; the
+  M4A of a video → 14 and 14; a plain direct download → 4,096 as before),
+  `StreamDownloadQueueTest` (+1 net: a merged video of 8 from tracks of 10 → 8 and 8, the
+  checkpoint 10; a DASH file of 12 from pieces of 10 → 12 and 12; follow-up 3's "DASH and merged
+  downloads unchanged" test replaced), `RoomDownloadTaskStoreTest` (+3: an MP3 of 7 or 25 from a
+  source of 10 keeps its size and its checkpoint after a restart; a merged video of 8 and a DASH
+  file of 12 the same; completed direct and merged rows saved before keep their sizes). Without
+  the fix six of them fail (all but the plain direct download and the rows saved before).
+- Validation (local, 2026-10-25): `lintDebug` → 0 errors, no issue in a changed file;
+  `testDebugUnitTest -x :app:testDebugUnitTest` (core-download 281 = 274 + 7, the other modules
+  as in D4) and `:app:testDebugUnitTest` (1126, 66 skipped) → 0 failures; `:app:assembleDebug
+  :app:assembleRelease` → BUILD SUCCESSFUL; no new line over 100 characters. CI: after the push.
+- Backlog: a direct source of unknown size whose MP3 or M4A conversion was cut by the app's end
+  and finished after a refresh keeps a checkpoint without a total until the next restart, which
+  gives it the source's bytes (a completed task's checkpoint is not read again).
