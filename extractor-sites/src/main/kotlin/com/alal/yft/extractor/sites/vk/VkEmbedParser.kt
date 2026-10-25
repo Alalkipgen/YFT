@@ -7,6 +7,7 @@ import com.alal.yft.extractor.api.json.asArrayOrEmpty
 import com.alal.yft.extractor.api.json.asLongOrNull
 import com.alal.yft.extractor.api.json.asStringOrNull
 import com.alal.yft.extractor.api.json.get
+import java.util.Locale
 
 /** One real rendition of the requested video (VK_PLAN §4.2, the owner's answer 4). */
 internal data class VkRendition(
@@ -36,11 +37,45 @@ internal sealed interface VkEmbed {
     /** `<div id="video_ext_msg">Video not found.</div>`: deleted, private and sign-in alike. */
     data object NotFound : VkEmbed
 
+    /**
+     * VK5: `video_ext_msg` with VK's adult-content text or `embedErrorCallback(9)` — "may contain
+     * adult content … can't be viewed on external sites". VK's own site plays these signed out;
+     * only this answer opens path D.
+     */
+    data object Adult : VkEmbed
+
     /** VK's SPA shell (`spa_root`, `isRedirectChallenge`) without the video: not an answer. */
     data object Shell : VkEmbed
 
     /** Neither data for the video nor a known VK text: the markup changed. */
     data class Changed(val why: String) : VkEmbed
+}
+
+/** Path D's answer from api.vkvideo.ru's `video.get` (VK5). */
+internal sealed interface VkApiAnswer {
+    /** The item for the requested video (its renditions may be empty). */
+    data class Found(val video: VkVideo) : VkApiAnswer
+
+    /** The item says VK does not play it (`restriction.can_play` 0: deleted, blocked, gated). */
+    data object Restricted : VkApiAnswer
+
+    /** VK's API error (`error_code`: 5 the token, 14 a captcha, …). */
+    data class Error(val code: Long?) : VkApiAnswer
+
+    /** Not JSON, or no item for the video. */
+    data class Changed(val why: String) : VkApiAnswer
+}
+
+/**
+ * Which addresses count as media: the embed's (v1: `*.okcdn.ru` in the table, `vkvd{N}.okcdn.ru`
+ * in the shape scan) or path D's (VK5: the same, and `vk{N}-{N}.vkuser.net`).
+ */
+internal enum class VkMediaHosts(
+    val table: (String) -> Boolean,
+    val shape: (String) -> Boolean,
+) {
+    EMBED(VkUrls::isMediaFileUrl, VkUrls::isPlayerMediaUrl),
+    API(VkUrls::isApiMediaFileUrl, VkUrls::isApiPlayerMediaUrl),
 }
 
 /**
@@ -58,6 +93,14 @@ internal object VkEmbedParser {
     private const val MAX_SCAN_DEPTH = 48
     private const val NOT_FOUND_MARKER = "id=\"video_ext_msg\""
     private val SHELL_MARKERS = listOf("spa_root", "isRedirectChallenge")
+
+    /** VK5: the embed's error callback for adult content (VK's "Video not found." calls 7). */
+    private val ADULT_CALLBACK = Regex("embedErrorCallback\\s*(?:\\?\\.)?\\s*\\(\\s*9\\s*\\)")
+
+    /** VK5: VK's adult-content text inside `video_ext_msg`, in English and Russian. */
+    private val ADULT_WORDS = listOf("adult content", "для взрослых")
+    private const val MAX_MESSAGE_CHARS = 2_000
+    private val SPACES = Regex("\\s+")
 
     private const val MP4 = "video/mp4"
     private const val HLS = "application/x-mpegURL"
@@ -90,19 +133,62 @@ internal object VkEmbedParser {
         val caches = prefetchCaches(html)
         val item = caches.firstNotNullOfOrNull { itemOf(it, ownerId, videoId) }
         val video = if (item != null) {
-            byTable(item)
-                ?: byShape(item, ownerId, videoId, item)
+            byTable(item, VkMediaHosts.EMBED)
+                ?: byShape(item, ownerId, videoId, item, VkMediaHosts.EMBED)
                 ?: meta(item, emptyList(), "table")
         } else {
-            caches.firstNotNullOfOrNull { byShape(it, ownerId, videoId, null) }
+            caches.firstNotNullOfOrNull { byShape(it, ownerId, videoId, null, VkMediaHosts.EMBED) }
         }
         if (video != null) return VkEmbed.Found(video)
         return when {
+            isAdult(html) -> VkEmbed.Adult
             NOT_FOUND_MARKER in html -> VkEmbed.NotFound
             SHELL_MARKERS.any { it in html } -> VkEmbed.Shell
             caches.isEmpty() -> VkEmbed.Changed("no player data")
             else -> VkEmbed.Changed("no item for the video")
         }
+    }
+
+    /**
+     * Path D (VK5): api.vkvideo.ru's `video.get` answer — VK's error, or the `response.items[]`
+     * entry naming the link's video (the identity check), read by the embed's key table and shape
+     * scan with path D's hosts. An item VK says it does not play is [VkApiAnswer.Restricted].
+     */
+    fun parseApi(json: String, ownerId: Long, videoId: Long): VkApiAnswer {
+        val root = BoundedJsonParser.parse(json) as? JsonValue.Object
+            ?: return VkApiAnswer.Changed("not JSON")
+        (root["error"] as? JsonValue.Object)?.let { error ->
+            return VkApiAnswer.Error(error["error_code"].asLongOrNull)
+        }
+        val item = itemOf(JsonValue.Array(listOf(root)), ownerId, videoId)
+            ?: return VkApiAnswer.Changed("no item for the video")
+        if (item["restriction"]["can_play"].asLongOrNull == 0L) return VkApiAnswer.Restricted
+        val video = byTable(item, VkMediaHosts.API)
+            ?: byShape(item, ownerId, videoId, item, VkMediaHosts.API)
+            ?: meta(item, emptyList(), "table")
+        return VkApiAnswer.Found(video)
+    }
+
+    /**
+     * VK5: the embed's `video_ext_msg` holds VK's adult-content text, or the page calls
+     * `embedErrorCallback(9)` beside it. Free words elsewhere in the page never count.
+     */
+    private fun isAdult(html: String): Boolean {
+        val message = messageOf(html) ?: return false
+        return ADULT_CALLBACK.containsMatchIn(html) || ADULT_WORDS.any { it in message }
+    }
+
+    /** The text of `<div id="video_ext_msg">`, entities decoded, spaces folded, lower case. */
+    private fun messageOf(html: String): String? {
+        val at = html.indexOf(NOT_FOUND_MARKER).takeIf { it >= 0 } ?: return null
+        val open = html.indexOf('>', at).takeIf { it >= 0 } ?: return null
+        val close = html.indexOf("</div>", open).takeIf { it >= 0 } ?: return null
+        if (close - open > MAX_MESSAGE_CHARS) return null
+        return decodeEntities(html.substring(open + 1, close))
+            .replace('\u00A0', ' ')
+            .replace(SPACES, " ")
+            .trim()
+            .lowercase(Locale.ROOT)
     }
 
     /** Every `"apiPrefetchCache": [ … ]` array in the page that parses as JSON (at most 3). */
@@ -155,14 +241,14 @@ internal object VkEmbedParser {
             .filterIsInstance<JsonValue.Object>()
             .firstOrNull { namedVideo(it) == ownerId to videoId }
 
-    private fun byTable(item: JsonValue.Object): VkVideo? {
+    private fun byTable(item: JsonValue.Object, hosts: VkMediaHosts): VkVideo? {
         val files = item["files"] as? JsonValue.Object ?: return null
         val renditions = mutableListOf<VkRendition>()
         var refused = 0
         files.entries.forEach { (key, value) ->
             val url = value.asStringOrNull ?: return@forEach
             val shape = tableShape(key) ?: return@forEach
-            if (!VkUrls.isMediaFileUrl(url)) {
+            if (!hosts.table(url)) {
                 refused++
                 return@forEach
             }
@@ -220,6 +306,7 @@ internal object VkEmbedParser {
         ownerId: Long,
         videoId: Long,
         knownItem: JsonValue.Object?,
+        hosts: VkMediaHosts,
     ): VkVideo? {
         val found = LinkedHashMap<String, VkRendition>()
         var owner: JsonValue.Object? = knownItem
@@ -235,7 +322,7 @@ internal object VkEmbedParser {
                     value.entries.forEach { (key, child) ->
                         if (key in NOT_MEDIA_KEYS) return@forEach
                         val url = (child as? JsonValue.Text)?.value
-                        if (within && url != null && VkUrls.isPlayerMediaUrl(url)) {
+                        if (within && url != null && hosts.shape(url)) {
                             shapeOf(key)?.let { shape ->
                                 found.getOrPut(url) { rendition(key, url, shape) }
                             }

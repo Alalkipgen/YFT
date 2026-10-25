@@ -25,7 +25,13 @@ import kotlinx.coroutines.withTimeoutOrNull
  * host, never with a cookie. VK's SPA shell is not an answer: the same host is asked once more.
  * At most three embed requests, and two manifest reads for an answer without MP4, all inside one
  * 15 s deadline (VK_PLAN §4.3–4.4).
- * No sign-in, no API token, no access-control bypass: VK's "Video not found." stays VK's answer.
+ * No sign-in and no access-control bypass: VK's "Video not found." stays VK's answer.
+ *
+ * VK5 (path D, VK_PLAN §13): only when the embed answers that the video "may contain adult
+ * content … can't be viewed on external sites" (VK's own site plays it signed out), the lookup
+ * asks what vkvideo.ru's own player asks signed out — its anonymous token (login.vk.ru, kept in
+ * memory only) and `video.get` on api.vkvideo.ru — inside the same deadline. It never sends the
+ * page's cookie; when it finds nothing the answer is v1's.
  */
 class VkExtractor(
     private val http: ExtractorHttpClient,
@@ -34,6 +40,9 @@ class VkExtractor(
     override val id: String = VkUrls.SITE_ID
 
     override val displayName: String = "VK"
+
+    /** Path D's anonymous token, in memory only (VK_PLAN §13). */
+    private val tokens = VkApiTokenCache()
 
     override fun identify(pageUrl: String): SitePageIdentity? = VkUrls.identify(pageUrl)
 
@@ -54,6 +63,15 @@ class VkExtractor(
         data object Live : Answer
 
         data object NotFound : Answer
+
+        /** VK5: the embed's adult-content answer; it opens path D. */
+        data object Adult : Answer
+
+        /** VK5: VK's API refused path D's token (error 5). */
+        data object TokenRefused : Answer
+
+        /** VK5: login.vk.ru gave no token, or VK's API another error (14: a captcha, …). */
+        data object ApiRefused : Answer
 
         data object NoMedia : Answer
 
@@ -86,12 +104,127 @@ class VkExtractor(
                 ?.takeIf { it.isNotBlank() && pageSite == primary }
 
             val first = ask("B", primary, cookie)
-            stop(first)?.let { return it }
+            (stop(first) ?: afterAdult(first))?.let { return it }
             // Only VK's SPA shell earns a second ask on the same host (429, 5xx and the rest go
             // straight to the other host); the other host gets one try.
-            if (first == Answer.Shell) stop(ask("B again", primary, cookie))?.let { return it }
-            stop(ask("B2", other, cookie = null))?.let { return it }
+            if (first == Answer.Shell) {
+                val again = ask("B again", primary, cookie)
+                (stop(again) ?: afterAdult(again))?.let { return it }
+            }
+            val second = ask("B2", other, cookie = null)
+            (stop(second) ?: afterAdult(second))?.let { return it }
             return end()
+        }
+
+        /**
+         * VK5: the embed's adult answer, on either host, opens path D; no further embed is asked
+         * (both hosts gave the same answer, with and without `list`, at VK5's recon).
+         */
+        private suspend fun afterAdult(answer: Answer): SiteExtractionResult? =
+            if (answer == Answer.Adult) pathD() else null
+
+        /**
+         * Path D (VK5): the anonymous token (kept in memory, else one new token) and `video.get`.
+         * A token VK refuses (error 5) is dropped; for a kept one, one new token and one more
+         * ask, if time allows. A video or a live video stops as in v1; anything else ends as v1
+         * does ([end]: VK's "isn't available" message, or VK's own audio-only renditions).
+         */
+        private suspend fun pathD(): SiteExtractionResult {
+            val kept = tokens.usable(request.nowEpochMs)
+            val token = kept ?: newToken() ?: return end()
+            var answer = videoGet(token, kept = kept != null)
+            if (answer == Answer.TokenRefused) {
+                tokens.drop(token)
+                if (kept != null) {
+                    val fresh = newToken() ?: return end()
+                    answer = videoGet(fresh, kept = false)
+                    if (answer == Answer.TokenRefused) tokens.drop(fresh)
+                }
+            }
+            return stop(answer) ?: end()
+        }
+
+        /** One `get_anonym_token` request; null when VK gave no token (its line written). */
+        private suspend fun newToken(): VkApiToken? {
+            val sent = timed("vk: D token ${VkWebClientProfile.TOKEN_HOST}") {
+                http.postJson(
+                    VkWebClientProfile.TOKEN_URL,
+                    VkWebClientProfile.tokenBody,
+                    apiHeaders(token = null),
+                    MAX_TOKEN_BYTES,
+                )
+            }
+            if (sent is Sent.Unanswered) {
+                answers += sent.answer
+                return null
+            }
+            val answered = sent as Sent.Answered
+            val token = VkApiTokenParser.parse(answered.page.body, request.nowEpochMs)
+            if (token == null) {
+                details += "${answered.head} · no token"
+                answers += Answer.ApiRefused
+                return null
+            }
+            tokens.keep(token, request.nowEpochMs)
+            details += "${answered.head} · new token"
+            return token
+        }
+
+        /** `video.get` for the link's video with [token] in the `Authorization` header. */
+        private suspend fun videoGet(token: VkApiToken, kept: Boolean): Answer {
+            val label = "vk: D video.get ${VkWebClientProfile.API_HOST}" +
+                if (kept) " (token in memory)" else ""
+            val sent = timed(label) {
+                http.get(VkWebClientProfile.videoGetUrl(link), apiHeaders(token), MAX_API_BYTES)
+            }
+            val answer = when (sent) {
+                is Sent.Unanswered -> sent.answer
+                is Sent.Answered -> readApi(sent.head, sent.page)
+            }
+            answers += answer
+            return answer
+        }
+
+        private suspend fun readApi(head: String, page: ExtractorHttpResult.Success): Answer =
+            when (val api = VkEmbedParser.parseApi(page.body, link.ownerId, link.videoId)) {
+                is VkApiAnswer.Found -> found(head, api.video)
+                VkApiAnswer.Restricted -> Answer.NoMedia.also { details += "$head · restricted" }
+                is VkApiAnswer.Error -> {
+                    details += "$head · API error ${api.code ?: "unknown"}"
+                    if (api.code == TOKEN_ERROR) Answer.TokenRefused else Answer.ApiRefused
+                }
+
+                is VkApiAnswer.Changed -> Answer.Changed.also { details += "$head · ${api.why}" }
+            }
+
+        /** One path D request inside the lookup's time; its line names no address or token. */
+        private suspend fun timed(label: String, call: suspend () -> ExtractorHttpResult): Sent {
+            currentCoroutineContext().ensureActive()
+            val budget = minOf(REQUEST_MS, left())
+            if (budget < MIN_REQUEST_MS) {
+                details += "$label · not asked · out of time"
+                return Sent.Unanswered(Answer.OutOfTime)
+            }
+            val askedAt = clockMillis()
+            val result = withTimeoutOrNull(budget) { call() }
+            val ms = clockMillis() - askedAt
+            return when (result) {
+                null -> {
+                    details += "$label · timeout · $ms ms"
+                    Sent.Unanswered(Answer.OutOfTime)
+                }
+
+                is ExtractorHttpResult.Failure -> {
+                    details += "$label · ${statusOf(result)} · $ms ms · ${result.reason}" +
+                        notesOf(result.details)
+                    Sent.Unanswered(Answer.Refused(result.reason, result.statusCode))
+                }
+
+                is ExtractorHttpResult.Success -> Sent.Answered(
+                    result,
+                    "$label · ${result.statusCode} · $ms ms" + notesOf(result.details),
+                )
+            }
         }
 
         private suspend fun ask(path: String, host: String, cookie: String?): Answer {
@@ -125,6 +258,7 @@ class VkExtractor(
         private suspend fun read(head: String, page: ExtractorHttpResult.Success): Answer =
             when (val embed = VkEmbedParser.parse(page.body, link.ownerId, link.videoId)) {
                 VkEmbed.NotFound -> Answer.NotFound.also { details += "$head · not found" }
+                VkEmbed.Adult -> Answer.Adult.also { details += "$head · adult content (embed)" }
                 VkEmbed.Shell -> Answer.Shell.also { details += "$head · shell" }
                 is VkEmbed.Changed -> Answer.Changed.also { details += "$head · ${embed.why}" }
                 is VkEmbed.Found -> found(head, embed.video)
@@ -225,7 +359,8 @@ class VkExtractor(
                     return success(partial.video)
                 }
             return when {
-                Answer.NotFound in answers -> failure(
+                // VK's text, or (VK5) its adult answer when path D found nothing: v1's message.
+                Answer.NotFound in answers || Answer.Adult in answers -> failure(
                     SiteExtractionFailure.NO_MEDIA_FOUND,
                     message = NOT_FOUND_MESSAGE,
                 )
@@ -285,6 +420,19 @@ class VkExtractor(
             cookie = null,
         )
 
+        /**
+         * Path D's requests (VK5): the browser's user agent (VK binds the files' `srcAg` to it, so
+         * the media requests send the same), VK's web origin; never a cookie.
+         */
+        private fun apiHeaders(token: VkApiToken?): Map<String, String> = buildMap {
+            request.requestContext.userAgent?.takeIf(String::isNotBlank)
+                ?.let { put("User-Agent", it) }
+            put("Accept", "*/*")
+            put("Origin", VkWebClientProfile.ORIGIN)
+            put("Referer", VkWebClientProfile.REFERER)
+            token?.let { put("Authorization", "Bearer ${it.value}") }
+        }
+
         private fun embedHeaders(cookie: String?): Map<String, String> =
             PageNavigationHeaders.withDefaults(
                 buildMap {
@@ -293,6 +441,13 @@ class VkExtractor(
                     cookie?.let { put("Cookie", it) }
                 },
             )
+    }
+
+    /** A path D request's outcome: VK's answer to read, or the answer it already is. */
+    private sealed interface Sent {
+        data class Answered(val page: ExtractorHttpResult.Success, val head: String) : Sent
+
+        data class Unanswered(val answer: Answer) : Sent
     }
 
     private fun statusOf(failure: ExtractorHttpResult.Failure): String =
@@ -330,6 +485,8 @@ class VkExtractor(
         const val MANIFEST_MS: Long = 3_000
         const val MAX_EMBED_BYTES: Long = 1L * 1024 * 1024
         const val MAX_MANIFEST_BYTES: Long = 256L * 1024
+        const val MAX_TOKEN_BYTES: Long = 16L * 1024
+        const val MAX_API_BYTES: Long = 1L * 1024 * 1024
         const val NOT_FOUND_MESSAGE: String =
             "VK says this video isn't available. It may be deleted, private or need sign-in."
         const val LIVE_MESSAGE: String = "VK live streams can't be saved yet."
@@ -337,6 +494,9 @@ class VkExtractor(
         private const val MIN_REQUEST_MS: Long = 250
         private const val MAX_MANIFEST_READS = 2
         private const val MAX_NOTES = 3
+
+        /** VK's API error for a token it does not take ("User authorization failed"). */
+        private const val TOKEN_ERROR = 5L
         private const val NANOS_PER_MILLI = 1_000_000L
     }
 }

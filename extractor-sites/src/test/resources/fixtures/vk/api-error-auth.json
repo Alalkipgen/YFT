@@ -1,0 +1,33 @@
+{
+  "error": {
+    "error_code": 5,
+    "error_msg": "User authorization failed",
+    "descr": "token required",
+    "request_params": [
+      {
+        "key": "method",
+        "value": "video.get"
+      },
+      {
+        "key": "owner_id",
+        "value": "-215889201"
+      },
+      {
+        "key": "videos",
+        "value": "-215889201_456243439"
+      },
+      {
+        "key": "extended",
+        "value": "1"
+      },
+      {
+        "key": "v",
+        "value": "5.289"
+      },
+      {
+        "key": "client_id",
+        "value": "52461373"
+      }
+    ]
+  }
+}

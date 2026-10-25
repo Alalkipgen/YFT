@@ -1,0 +1,169 @@
+{
+  "response": {
+    "count": 1,
+    "groups": [
+      {
+        "id": 215889201,
+        "name": "Asianese",
+        "screen_name": "asianese",
+        "is_closed": 0,
+        "type": "page"
+      }
+    ],
+    "items": [
+      {
+        "can_dislike": 1,
+        "can_download": 1,
+        "can_edit_privacy": 1,
+        "can_like": 1,
+        "can_play_in_background": 1,
+        "can_repost": 1,
+        "can_subscribe": 1,
+        "comments": 1,
+        "date": 1789764133,
+        "download": {
+          "can_download_for_offline_view": true,
+          "can_download_to_device": false
+        },
+        "duration": 118,
+        "first_frame": [
+          {
+            "height": 405,
+            "url": "https://iv.okcdn.ru/getVideoPreview?id=FIXTURE&idx=FIXTURE&type=FIXTURE&tkn=FIXTURE&fn=FIXTURE&scl=FIXTURE",
+            "width": 227
+          },
+          {
+            "height": 270,
+            "url": "https://iv.okcdn.ru/getVideoPreview?id=FIXTURE&idx=FIXTURE&type=FIXTURE&tkn=FIXTURE&fn=FIXTURE&scl=FIXTURE",
+            "width": 151
+          },
+          {
+            "height": 72,
+            "url": "https://iv.okcdn.ru/getVideoPreview?id=FIXTURE&idx=FIXTURE&type=FIXTURE&tkn=FIXTURE&fn=FIXTURE&scl=FIXTURE",
+            "width": 40
+          },
+          {
+            "height": 540,
+            "url": "https://iv.okcdn.ru/getVideoPreview?id=FIXTURE&idx=FIXTURE&type=FIXTURE&tkn=FIXTURE&fn=FIXTURE&scl=FIXTURE",
+            "width": 303
+          },
+          {
+            "height": 720,
+            "url": "https://iv.okcdn.ru/getVideoPreview?id=FIXTURE&idx=FIXTURE&type=FIXTURE&tkn=FIXTURE&fn=FIXTURE&scl=FIXTURE",
+            "width": 404
+          }
+        ],
+        "height": 1920,
+        "id": 456243439,
+        "image": [
+          {
+            "height": 96,
+            "url": "https://iv.okcdn.ru/getVideoPreview/130x96?id=FIXTURE&idx=FIXTURE&type=FIXTURE&tkn=FIXTURE&fn=FIXTURE&scl=FIXTURE",
+            "width": 130,
+            "with_padding": 1
+          },
+          {
+            "height": 120,
+            "url": "https://iv.okcdn.ru/getVideoPreview/160x120?id=FIXTURE&idx=FIXTURE&type=FIXTURE&tkn=FIXTURE&fn=FIXTURE&scl=FIXTURE",
+            "width": 160,
+            "with_padding": 1
+          },
+          {
+            "height": 240,
+            "url": "https://iv.okcdn.ru/getVideoPreview/320x240?id=FIXTURE&idx=FIXTURE&type=FIXTURE&tkn=FIXTURE&fn=FIXTURE&scl=FIXTURE",
+            "width": 320,
+            "with_padding": 1
+          },
+          {
+            "height": 450,
+            "url": "https://iv.okcdn.ru/getVideoPreview/800x450?id=FIXTURE&idx=FIXTURE&type=FIXTURE&tkn=FIXTURE&fn=FIXTURE&scl=FIXTURE",
+            "width": 800,
+            "with_padding": 1
+          },
+          {
+            "height": 720,
+            "url": "https://iv.okcdn.ru/getVideoPreview/404x720?id=FIXTURE&idx=FIXTURE&type=FIXTURE&tkn=FIXTURE&fn=FIXTURE&scl=FIXTURE",
+            "width": 404
+          },
+          {
+            "height": 570,
+            "url": "https://iv.okcdn.ru/getVideoPreview/320x570?id=FIXTURE&idx=FIXTURE&type=FIXTURE&tkn=FIXTURE&fn=FIXTURE&scl=FIXTURE",
+            "width": 320
+          },
+          {
+            "height": 1280,
+            "url": "https://iv.okcdn.ru/getVideoPreview/719x1280?id=FIXTURE&idx=FIXTURE&type=FIXTURE&tkn=FIXTURE&fn=FIXTURE&scl=FIXTURE",
+            "width": 719
+          }
+        ],
+        "is_favorite": false,
+        "likes": {
+          "count": 15,
+          "user_likes": 0
+        },
+        "local_views": 773,
+        "ov_id": "FIXTURE",
+        "ov_provider_id": 40,
+        "owner_id": -215889201,
+        "player": "https://vkvideo.ru/video_ext.php?oid=FIXTURE&id=FIXTURE&hash=FIXTURE&__ref=FIXTURE",
+        "reposts": {
+          "count": 3
+        },
+        "response_type": "full",
+        "title": "Video by Asianese",
+        "type": "video",
+        "views": 773,
+        "wall_post_id": 4088,
+        "width": 1078,
+        "direct_url": "https://vkvideo.ru/video-215889201_456243439",
+        "files": {
+          "dash_sep": "https://vk6-4.vkuser.net/dash_sep/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&pr=FIXTURE&srcAg=FIXTURE&ch=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "failover_host": "vkvd572.okcdn.ru",
+          "hls": "https://vk6-4.vkuser.net/hls/FIXTURE?cmd=FIXTURE&expires=FIXTURE&srcIp=FIXTURE&pr=FIXTURE&srcAg=FIXTURE&ch=FIXTURE&ms=FIXTURE&mid=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "hls_fmp4": "https://vk6-4.vkuser.net/hls_fmp4/FIXTURE?cmd=FIXTURE&expires=FIXTURE&srcIp=FIXTURE&pr=FIXTURE&srcAg=FIXTURE&ch=FIXTURE&ms=FIXTURE&mid=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "mp4_1080": "https://vk6-4.vkuser.net/mp4_1080/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&pr=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "mp4_144": "https://vk6-4.vkuser.net/mp4_144/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&pr=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "mp4_240": "https://vk6-4.vkuser.net/mp4_240/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&pr=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "mp4_360": "https://vk6-4.vkuser.net/mp4_360/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&pr=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "mp4_480": "https://vk6-4.vkuser.net/mp4_480/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&pr=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "mp4_720": "https://vk6-4.vkuser.net/mp4_720/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&pr=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE"
+        },
+        "share_url": "https://vkvideo.ru/video-215889201_456243439",
+        "timeline_thumbs": {
+          "count_per_image": 9,
+          "count_per_row": 3,
+          "count_total": 118,
+          "frame_height": 320,
+          "frame_width": 180,
+          "frequency": 1,
+          "is_uv": true,
+          "links": [
+            "https://iv.okcdn.ru/videoPreview?id=FIXTURE&type=FIXTURE&tkn=FIXTURE&uidx=FIXTURE",
+            "https://iv.okcdn.ru/videoPreview?id=FIXTURE&type=FIXTURE&tkn=FIXTURE&uidx=FIXTURE",
+            "https://iv.okcdn.ru/videoPreview?id=FIXTURE&type=FIXTURE&tkn=FIXTURE&uidx=FIXTURE",
+            "https://iv.okcdn.ru/videoPreview?id=FIXTURE&type=FIXTURE&tkn=FIXTURE&uidx=FIXTURE",
+            "https://iv.okcdn.ru/videoPreview?id=FIXTURE&type=FIXTURE&tkn=FIXTURE&uidx=FIXTURE",
+            "https://iv.okcdn.ru/videoPreview?id=FIXTURE&type=FIXTURE&tkn=FIXTURE&uidx=FIXTURE",
+            "https://iv.okcdn.ru/videoPreview?id=FIXTURE&type=FIXTURE&tkn=FIXTURE&uidx=FIXTURE",
+            "https://iv.okcdn.ru/videoPreview?id=FIXTURE&type=FIXTURE&tkn=FIXTURE&uidx=FIXTURE",
+            "https://iv.okcdn.ru/videoPreview?id=FIXTURE&type=FIXTURE&tkn=FIXTURE&uidx=FIXTURE",
+            "https://iv.okcdn.ru/videoPreview?id=FIXTURE&type=FIXTURE&tkn=FIXTURE&uidx=FIXTURE",
+            "https://iv.okcdn.ru/videoPreview?id=FIXTURE&type=FIXTURE&tkn=FIXTURE&uidx=FIXTURE",
+            "https://iv.okcdn.ru/videoPreview?id=FIXTURE&type=FIXTURE&tkn=FIXTURE&uidx=FIXTURE",
+            "https://iv.okcdn.ru/videoPreview?id=FIXTURE&type=FIXTURE&tkn=FIXTURE&uidx=FIXTURE",
+            "https://iv.okcdn.ru/videoPreview?id=FIXTURE&type=FIXTURE&tkn=FIXTURE&uidx=FIXTURE"
+          ]
+        },
+        "trailer": {
+          "mp4_1080": "https://vk6-4.vkuser.net/trailer_mp4_1080/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "mp4_144": "https://vk6-4.vkuser.net/trailer_mp4_144/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "mp4_240": "https://vk6-4.vkuser.net/trailer_mp4_240/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "mp4_360": "https://vk6-4.vkuser.net/trailer_mp4_360/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "mp4_480": "https://vk6-4.vkuser.net/trailer_mp4_480/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "mp4_720": "https://vk6-4.vkuser.net/trailer_mp4_720/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE"
+        }
+      }
+    ],
+    "max_attached_short_videos": 20
+  }
+}

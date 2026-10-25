@@ -50,6 +50,9 @@ internal object VkUrls {
     /** okcdn.ru's image host (first frames, previews): never media. */
     private val IMAGE_HOSTS = setOf("iv.okcdn.ru")
 
+    /** Path D's video servers (VK5 recon: `vk6-4.vkuser.net`); read in the API's answer only. */
+    private val API_MEDIA_HOST = Regex("^vk[0-9]{1,4}-[0-9]{1,4}\\.vkuser\\.net$")
+
     /** A video or clip link, as far as v1 reads it. */
     data class VkLink(
         val ownerId: Long,
@@ -120,6 +123,21 @@ internal object VkUrls {
     fun isPlayerMediaUrl(url: String): Boolean {
         val host = httpsHostOf(url) ?: return false
         return PLAYER_MEDIA_HOST.matches(host)
+    }
+
+    /**
+     * Path D's key table (VK5): the embed's rule, or HTTPS on `vk{N}-{N}.vkuser.net`, where
+     * api.vkvideo.ru's answer puts the files. The embed (B, B2) and the browser never take it.
+     */
+    fun isApiMediaFileUrl(url: String): Boolean = isMediaFileUrl(url) || isApiMediaHostUrl(url)
+
+    /** Path D's shape scan: `vkvd{N}.okcdn.ru` or `vk{N}-{N}.vkuser.net`. */
+    fun isApiPlayerMediaUrl(url: String): Boolean =
+        isPlayerMediaUrl(url) || isApiMediaHostUrl(url)
+
+    private fun isApiMediaHostUrl(url: String): Boolean {
+        val host = httpsHostOf(url) ?: return false
+        return API_MEDIA_HOST.matches(host)
     }
 
     /**

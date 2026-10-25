@@ -71,7 +71,11 @@ class VkFixtureHygieneTest {
         const val PLACEHOLDER = "FIXTURE"
 
         val FIXTURES = listOf(
+            "api-error-auth.json",
+            "api-video-get-adult.json",
+            "api-video-get-deleted.json",
             "dash-sep-video.mpd",
+            "embed-adult-content.html",
             "embed-clip-public.html",
             "embed-not-found.html",
             "embed-postlive.html",

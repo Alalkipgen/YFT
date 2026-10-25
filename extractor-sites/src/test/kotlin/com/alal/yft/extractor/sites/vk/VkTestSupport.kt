@@ -34,6 +34,24 @@ internal object VkFixtures {
 
     fun desktopPage(): String = Fixtures.read("vk/page-vkvideo-desktop.html")
 
+    /** VK5: the embed's adult-content answer (English), and the same page in Russian. */
+    fun adult(): String = Fixtures.read("vk/embed-adult-content.html")
+
+    fun adultRussian(): String = adult().replace(ADULT_TEXT_EN, ADULT_TEXT_RU)
+
+    /** VK5: api.vkvideo.ru's `video.get` for an adult video, a deleted one, and error 5. */
+    fun apiAdult(): String = Fixtures.read("vk/api-video-get-adult.json").withExpiry()
+
+    fun apiDeleted(): String = Fixtures.read("vk/api-video-get-deleted.json")
+
+    fun apiAuthError(): String = Fixtures.read("vk/api-error-auth.json")
+
+    /** The fixture's message as VK sends it (no-break spaces as at VK5's recon). */
+    const val ADULT_TEXT_EN = "Algorithms determined that the\u00A0video may contain adult " +
+        "content. Such videos can&#39;t be viewed on\u00A0external sites"
+    const val ADULT_TEXT_RU = "Алгоритмы определили, что видео может содержать контент " +
+        "для\u00A0взрослых,\u00A0— такие ролики не получится смотреть на\u00A0внешних сайтах"
+
     private fun String.withExpiry(): String =
         replace("expires=FIXTURE", "expires=$EXPIRES_MS")
             .replace("expires\\/FIXTURE", "expires\\/${EXPIRES_MS / 1_000}")
@@ -75,22 +93,60 @@ internal object VkPages {
     fun fileUrl(key: String): String = "https://vkvd1.okcdn.ru/$key/F?expires=$EXPIRES_MS"
 }
 
+/** VK5: path D's adult video (the API fixture's) and login.vk.ru's token answer. */
+internal const val ADULT_LINK = "https://vkvideo.ru/video-215889201_456243439"
+internal const val ADULT_CANONICAL = "https://vk.com/video-215889201_456243439"
+internal const val ADULT_OWNER = -215889201L
+internal const val ADULT_ID = 456243439L
+internal const val TOKEN_HOST = "login.vk.ru"
+internal const val API_HOST = "api.vkvideo.ru"
+
+/** A token-like test value; it holds FIXTURE so a leak into Details fails the hygiene rule. */
+internal const val TOKEN = "anonym.FIXTURE.token.0123456789"
+internal const val TOKEN_2 = "anonym.FIXTURE.token.9876543210"
+
+internal object VkApiPages {
+    /** login.vk.ru's answer in VK5 recon's shape: both expiries in epoch seconds. */
+    fun token(value: String = TOKEN, expiresAtEpochMs: Long = NOW_MS + 86_400_000L): String =
+        "{\"type\":\"okay\",\"data\":{\"access_token\":\"$value\"," +
+            "\"expires\":${expiresAtEpochMs / 1_000},\"expired_at\":${expiresAtEpochMs / 1_000}}}"
+
+    fun error(code: Int): String =
+        "{\"error\":{\"error_code\":$code,\"error_msg\":\"Synthetic fixture\"}}"
+
+    /** `video.get`'s answer shape around [items] (raw JSON). */
+    fun videoGet(vararg items: String): String =
+        "{\"response\":{\"count\":${items.size},\"items\":[${items.joinToString(",")}]}}"
+}
+
 /**
  * VK's two embed hosts as a test scripts them. Embed requests are answered per host in order
  * (the last answer repeats), manifests by URL; [delayMillis] (virtual time) stands in for a slow
- * server, by the request's 1-based number. Every request is recorded.
+ * server, by the request's 1-based number. Every request is recorded. VK5: [api] answers path D's
+ * hosts (login.vk.ru, api.vkvideo.ru) in order per host, the last answer repeating; a POST to any
+ * other host fails the test.
  */
 internal class ScriptedVkHttp(
     private val embeds: Map<String, List<ExtractorHttpResult>>,
     private val manifests: Map<String, ExtractorHttpResult> = emptyMap(),
     private val delayMillis: (number: Int) -> Long = { 0L },
+    private val api: Map<String, List<ExtractorHttpResult>> = emptyMap(),
 ) : ExtractorHttpClient {
-    data class Request(val url: String, val headers: Map<String, String>, val maxBodyBytes: Long) {
+    data class Request(
+        val url: String,
+        val headers: Map<String, String>,
+        val maxBodyBytes: Long,
+        val method: String = "GET",
+        val body: String? = null,
+    ) {
         val host: String
             get() = URI(url).host
 
         val isEmbed: Boolean
             get() = URI(url).path == "/video_ext.php"
+
+        val isApi: Boolean
+            get() = host == TOKEN_HOST || host == API_HOST
     }
 
     val requests = mutableListOf<Request>()
@@ -98,6 +154,9 @@ internal class ScriptedVkHttp(
 
     val embedRequests: List<Request>
         get() = requests.filter(Request::isEmbed)
+
+    val apiRequests: List<Request>
+        get() = requests.filter(Request::isApi)
 
     override suspend fun get(
         url: String,
@@ -108,6 +167,7 @@ internal class ScriptedVkHttp(
         requests += request
         val wait = delayMillis(requests.size)
         if (wait > 0) delay(wait)
+        if (request.isApi) return apiAnswer(request)
         if (!request.isEmbed) return manifests[url] ?: status(404)
         val attempt = asked.getOrDefault(request.host, 0)
         asked[request.host] = attempt + 1
@@ -120,7 +180,21 @@ internal class ScriptedVkHttp(
         body: String,
         headers: Map<String, String>,
         maxBodyBytes: Long,
-    ): ExtractorHttpResult = error("VK v1 never posts")
+    ): ExtractorHttpResult {
+        val request = Request(url, headers, maxBodyBytes, method = "POST", body = body)
+        check(request.host == TOKEN_HOST) { "VK posts only path D's token request" }
+        requests += request
+        val wait = delayMillis(requests.size)
+        if (wait > 0) delay(wait)
+        return apiAnswer(request)
+    }
+
+    private fun apiAnswer(request: Request): ExtractorHttpResult {
+        val attempt = asked.getOrDefault(request.host, 0)
+        asked[request.host] = attempt + 1
+        val script = api[request.host] ?: error("No script for ${request.host}")
+        return script[minOf(attempt, script.lastIndex)]
+    }
 
     companion object {
         fun page(body: String): ExtractorHttpResult.Success = ExtractorHttpResult.Success(
@@ -128,6 +202,13 @@ internal class ScriptedVkHttp(
             body = body,
             finalUrl = "https://vk.com/video_ext.php",
             contentType = "text/html; charset=windows-1251",
+        )
+
+        fun json(body: String): ExtractorHttpResult.Success = ExtractorHttpResult.Success(
+            statusCode = 200,
+            body = body,
+            finalUrl = "https://api.vkvideo.ru/method/video.get",
+            contentType = "application/json; charset=utf-8",
         )
 
         fun text(body: String): ExtractorHttpResult.Success = ExtractorHttpResult.Success(

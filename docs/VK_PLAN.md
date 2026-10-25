@@ -1,9 +1,12 @@
-# VK adapter — plan (VK0–VK4)
+# VK adapter — plan (VK0–VK5)
 
-Status: **VK1 + VK2 done** (the embed adapter, §4; the owner's VK0 answers, §12) — STOP after
-CI; VK3 (the phone) only with the owner's OK. The owner's request: 2026-10-24, in chat. Branch
-`work/phase-vk-extractor`, made from PR #2's head `8dc46ff` (`spike/master-extractor-backup`).
-VK goes to **beta.5** by default; beta.4 only by the owner's word (§7).
+Status: **VK5 built** (path D for public 18+ videos, §13) on `work/phase-vk-path-d` — next: CI
+green, then the owner's phone check (§13.6). VK3 **PASS** (2026-10-25, `f2433a1`'s preview). VK4 is
+now only a merge, at the owner's word (§13.1). The owner's requests: 2026-10-24 (VK0–VK4) and
+2026-10-25 (VK5), in chat. Branches: `work/phase-vk-extractor`, made from PR #2's head `8dc46ff`
+(`spike/master-extractor-backup`) — its code `f2433a1` passed VK3 and stays the fallback — and
+`work/phase-vk-path-d`, made from its VK3 record commit `8bd64d0c`. Release: D in v1.0.0 if CI is
+green by 2026-10-26 24:00 MMT, else D in v1.0.1 (§13.1; the earlier placement: §7).
 
 ## 0. အကျဉ်းချုပ် (ပိုင်ရှင်အတွက်)
 
@@ -39,6 +42,17 @@ VK goes to **beta.5** by default; beta.4 only by the owner's word (§7).
 - **VK1 + VK2 (2026-10-24):** adapter (`VkUrls`, `VkEmbedParser`, `VkJudge`, `VkExtractor`)၊
   register line၊ VK test ၅၂ ခု + client test ၂ ခု။ CI အစိမ်းရင် STOP၊ VK3 (ဖုန်း) က ပိုင်ရှင် OK
   ပြီးမှ။
+- **VK3 (2026-10-25): PASS** — ပိုင်ရှင့်ဖုန်း၊ `f2433a1` ရဲ့ preview။ 18+ video တွေကိုတော့ embed က
+  "adult content … external sites" လို့ ဖြေလို့ "isn't available" — v1 အတွက် မျှော်လင့်ထားတဲ့အတိုင်း။
+- **VK5 (2026-10-25၊ §13): path D** — B/B2 က adult message ဖြေမှသာ vkvideo.ru ကိုယ်တိုင် sign in
+  မဝင်ဘဲ မေးတဲ့နည်းနဲ့ မေးမယ်: `login.vk.ru` ရဲ့ anonymous token (cookie မလို၊ ၂၄ နာရီ၊ memory ထဲမှာပဲ)
+  → `api.vkvideo.ru` ရဲ့ `video.get`။ ဥပမာ ၃ ခုလုံး ရ (MP4 144p–720p / 144p–1080p + HLS/DASH)။
+  Sign-in မလုပ်၊ user ဆီက ဘာမှ မယူ၊ D မရရင် v1 ရဲ့ message။ Shared code မပြင်။ Branch
+  `work/phase-vk-path-d`။
+- **VK4 က အခု merge တစ်ခုပဲ (§13.1):** ပိုင်ရှင် ပြောမှ pass ဖြစ်တဲ့ branch ကို
+  `spike/master-extractor-backup` (PR #2 ရဲ့ branch) ထဲ `work/phase-download-fixes` ပြီးနောက်၊
+  `work/phase-in-app-update` မတိုင်မီ merge မယ်။ Main merge၊ Preview #13၊ PR မရှိ။ §9 ရဲ့ line တွေ
+  release commit ထဲ ဝင်မယ်။ 2026-10-26 24:00 MMT မှာ CI မစိမ်းရင် D က v1.0.1၊ v1.0.0 က `f2433a1`။
 
 ## 1. Goal and scope
 
@@ -55,10 +69,13 @@ player gets; it never signs in and never bypasses an access rule.
   page's own host only; Home's lookups carry no session, so there public only).
 - Candidates: progressive MP4 by height; HLS and DASH manifests the app already resolves (DASH
   MP4 before WebM).
+- VK5 (§13): public 18+ videos that play signed out on vkvideo.ru but that the embed refuses
+  ("may contain adult content … can't be viewed on external sites") — path D.
 
 **Not in v1** (§8): live streams, whole playlists or albums, subtitles, VK's API (`api.vk.com`,
-tokens), short links (`vk.cc`), messenger channel posts (`/im/channels/`), VK's in-tab page data (VK-T), remote recipes or a kill switch,
-Master's ladders.
+tokens) — except path D (§13: `api.vkvideo.ru` with vkvideo.ru's anonymous web token, only after
+the embed's adult answer), short links (`vk.cc`), messenger channel posts (`/im/channels/`), VK's
+in-tab page data (VK-T), remote recipes or a kill switch, Master's ladders.
 
 **Why two paths and one judge:** VK changes often — in 2026 alone yt-dlp's VK extractor broke when
 the embed page stopped carrying `playerParams` (yt-dlp #16070), on vkvideo.ru (#16530) and with a
@@ -66,10 +83,11 @@ wrong "followers only" error (#17608). Two ways in, one strict reader, and an au
 
 ## 2. Hard rules
 
-1. **Branch** `work/phase-vk-extractor` only. Never push to `main` or
-   `spike/master-extractor-backup`; open no pull request before VK4; add no label to any pull
-   request; never run `master-recipes-publish` and never touch the `recipes` branch (S5's run 3
-   reads recipes version 7; decision 30 (vi)).
+1. **Branch** `work/phase-vk-extractor` only (VK0–VK3); VK5: `work/phase-vk-path-d` only, nothing
+   more on `work/phase-vk-extractor` (§13.1). Never push to `main` or
+   `spike/master-extractor-backup`; open no pull request (VK4 is now only a merge at the owner's
+   word, §13.1); add no label to any pull request; never run `master-recipes-publish` and never
+   touch the `recipes` branch (S5's run 3 reads recipes version 7; decision 30 (vi)).
 2. **Files:** new files under `extractor-sites/src/main/kotlin/com/alal/yft/extractor/sites/vk/`,
    `extractor-sites/src/test/kotlin/com/alal/yft/extractor/sites/vk/` and
    `extractor-sites/src/test/resources/fixtures/vk/`; one line in
@@ -84,7 +102,10 @@ wrong "followers only" error (#17608). Two ways in, one strict reader, and an au
 4. **Main only:** no `extractor-master` import; no Master, R9, census, W or Backup finder
    dependency.
 5. **ADR-006:** no sign-in by the adapter; no DRM, paid, private-content, followers-only or
-   age-gate bypass; no API tokens.
+   age-gate bypass; no API tokens. **VK5 overrides "no API tokens" for path D only** (the owner,
+   2026-10-25, under ADR-006 decision 1: a site's guest API and client identities for public
+   videos): vkvideo.ru's anonymous web token, in memory only (§13). Decision 3's limits stay: if VK
+   asks signed-out viewers to sign in or to confirm their age, D stops with v1's message (§13.5).
 6. **Security (AGENTS.md):** never commit, print or report cookies, tokens, signed media addresses
    or response bodies. Fixtures are sanitized (§5.5). Reports: status, host, path, markers only.
 7. **The phone:** no VK APK on the owner's phone before S5's run 3 is counted (the owner's run
@@ -339,6 +360,10 @@ stay. A test fails if a fixture holds a real-looking signature or cookie.
 
 ### 5.6 VK4 — after PR #2's merge
 
+**Replaced by §13.1** (the owner, 2026-10-25): VK4 is now only a merge into
+`spike/master-extractor-backup`, at his word — no `main` merge, no Preview #13, no pull request;
+§9's lines go into the release commit. The old steps, for the record:
+
 1. Merge `main` into `work/phase-vk-extractor` (a merge commit, no rebase; PR #2 is merged with a
    merge commit, decision 30 (iv)). Conflicts are not expected (VK's files are new); resolve only
    in VK's own files.
@@ -361,6 +386,9 @@ stay. A test fails if a fixture holds a real-looking signature or cookie.
   commit → #12 → PR #2's merge → R9's first Run workflow → P8) does not wait for VK.
 - beta.4 only if VK3 and #13 pass before P8 and the owner says so; S5's count then stands by his
   word (VK adds one site and changes no other site's adapter, the engine or main's other lookups).
+- 2026-10-25 (the owner, VK5): D goes into v1.0.0 if its CI is green by 2026-10-26 24:00 MMT;
+  otherwise D moves to v1.0.1 and v1.0.0 keeps `work/phase-vk-extractor` (`f2433a1`'s code); the
+  passing branch reaches the release through VK4's merge (§13.1).
 
 ## 8. Backlog (after v1)
 
@@ -377,12 +405,15 @@ stay. A test fails if a fixture holds a real-looking signature or cookie.
 - Remote recipes or a kill switch for VK (GitHub raw requests: the privacy line and the Backup
   finder switch are affected — an owner decision).
 
-## 9. Lines for the shared docs (written at VK4)
+## 9. Lines for the shared docs (they go into the release commit, §13.1)
 
 - `docs/SUPPORT_MATRIX.md`: a row "VK videos and clips (vk.com, vk.ru, vkvideo.ru)" — its status,
-  phase and notes from VK3 and #13.
-- `docs/TEST_MATRIX.md`: one row per VK step with commits and results.
-- `PROGRESS.md`, `CHANGELOG.md`: one entry each.
+  phase and notes from VK3 (and VK5's phone check; there is no #13 now); with D: public 18+ videos
+  through vkvideo.ru's signed-out API (path D).
+- `docs/TEST_MATRIX.md`: one row per VK step with commits and results (VK3 PASS 2026-10-25 on
+  `f2433a1`; VK5 on `work/phase-vk-path-d`).
+- `PROGRESS.md`, `CHANGELOG.md`: one entry each (with D: "public 18+ VK videos that VK's embed
+  refuses are found through vkvideo.ru's own signed-out API").
 
 ## 10. Status
 
@@ -395,6 +426,12 @@ stay. A test fails if a fixture holds a real-looking signature or cookie.
 - 2026-10-24: VK1 + VK2 done in two commits: `a176667a` the shared client's charset fix
   (§12 (b)), then the adapter (§4), its 52 tests, the fixtures' keys and the registration line.
   STOP after CI: VK3 only with the owner's OK.
+- 2026-10-25: VK3 PASS (the owner's phone, `f2433a1`'s preview, Preview APK run #81), recorded in
+  `docs/SESSION_STATE.md` by the docs-only commit `8bd64d0c` on `work/phase-vk-extractor`. The
+  owner's VK5 (path D) and the new VK4 (§13.1).
+- 2026-10-25: VK5 — recon (§13.2): D works for all three examples, so on without waiting; the code
+  on `work/phase-vk-path-d` (§13.3) with 73 VK tests (§13.4). Next: CI green, then the owner's
+  phone check (§13.6).
 
 ## 11. VK0 results (2026-10-24)
 
@@ -598,6 +635,149 @@ Stop: VK1 + VK2 → `bash scripts/checkpoint.sh "…"` → CI green → STOP wit
 (commits, tests, CI). No VK APK on the owner's phone before S5's run 3 is counted; VK3 only with
 his OK. There, per link: the top row, one lower row and an Audio row download, play and have
 sound.
+
+## 13. VK5 — path D for public 18+ videos (2026-10-25)
+
+### 13.1 The owner's decision (2026-10-25)
+
+- **Path D for public 18+ VK videos**, in v1.0.0 if it is ready in time. These videos are
+  public: they play signed out on vkvideo.ru, but v1's embed (B `vk.com`, B2 `vk.ru`) answers
+  "Algorithms determined that the video may contain adult content. Such videos can't be viewed
+  on external sites", so YFT shows "isn't available" (VK3). His examples:
+  `vkvideo.ru/video-215889201_456243446?list=96724186cd29efdc64`,
+  `vkvideo.ru/video-215889201_456243466?list=99b3406341a6d7011c`,
+  `vkvideo.ru/video-215889201_456243439`.
+- ADR-006 decision 1 allows a site's guest API and client identities for public videos: for D
+  only, this overrides §1's "VK's API" and §2 rule 5's "no API tokens". Decision 3's limits stay.
+- His conditions: D runs only after B/B2 give that adult message, so other videos are unchanged;
+  no sign-in, nothing from the user; the token in memory only; the web client's identifiers in one
+  profile file; requests only to the hosts VK's own player uses; v1's one deadline and Cancel;
+  v1's message when D fails; JVM tests with fixtures (no live network in CI); no shared-code change
+  if possible (one would be its own commit, reported).
+- Branch `work/phase-vk-path-d`, made from the VK3 record commit `8bd64d0c`; nothing more on
+  `work/phase-vk-extractor` (its code `f2433a1` passed VK3 and stays the fallback).
+- Time box: CI green by 2026-10-26 24:00 MMT; else STOP — D moves to v1.0.1 and v1.0.0 keeps
+  `work/phase-vk-extractor` (`f2433a1`'s code).
+- **VK4 is now only a merge:** at the owner's word, the passing branch merges into
+  `spike/master-extractor-backup` (PR #2's branch) after `work/phase-download-fixes` and before
+  `work/phase-in-app-update`. No `main` merge, no Preview #13, no pull request; §9's lines go into
+  the release commit. This replaces §5.6. Now: no merge, no pull request, no shared docs.
+
+### 13.2 Recon (2026-10-25; live public pages, signed out; metadata and 1-byte checks only)
+
+- **The embed** (B and B2) for all three: `vk.com` and `vk.ru`, with and without `list`, the
+  same page — `<div id="video_ext_msg">` with the adult text, `window.embedErrorCallback?.(9)`
+  (VK's "not found" is `7`) and `"apiPrefetchCache":[]`: no player data
+  (`fixtures/vk/embed-adult-content.html`).
+- **What vkvideo.ru does signed out** (its public JavaScript):
+  1. `POST https://login.vk.ru/?act=get_anonym_token` with the web client's `client_id`,
+     `client_secret`, `app_id`, `scopes` (`audio_anonymous,video_anonymous,photos_anonymous,`
+     `profile_anonymous`) and `version=1`. No cookie and no user value; `Origin` optional; a form,
+     JSON or GET all work. Answer `{"type":"okay","data":{"access_token":…,"expires":…}}`: one
+     token (~324 characters) that lives 24 h (`expires` in epoch seconds, 86 400 s ahead).
+  2. `GET https://api.vkvideo.ru/method/video.get?v=5.289&client_id=…&owner_id=…&videos={oid}_{id}[_{list}]&extended=1`
+     with `Authorization: Bearer …` (the query's `access_token=` also works; D uses the header).
+     No token: error 5 "User authorization failed". A video id that does not exist: an item with
+     `restriction.can_play=0` ("Video deleted") and no files.
+- **Files** (each answer ~400 ms; the same with and without `list`):
+
+| Example | MP4 (by VK's key) | Manifests (their heights) | Files on | Top MP4 · 144p |
+|---|---|---|---|---|
+| `video-215889201_456243446` (± `list`) | 144p–720p (portrait) | `hls`, `hls_fmp4` (+5 audio), `dash_sep` (256–1280) | `vk6-3.vkuser.net` | 18.7 MB · 2.3 MB |
+| `video-215889201_456243466` (± `list`) | 144p–1080p | the same three (192–1440) | `vk6-15.vkuser.net` | 58.6 MB · 5.7 MB |
+| `video-215889201_456243439` | 144p–1080p (1078×1920) | the same three (256–1920) | `vk6-4.vkuser.net` | 38.7 MB · 3.3 MB |
+
+  `failover_host` is `vkvd{N}.okcdn.ru`; images on `iv.okcdn.ru`; no `ContentProtection`
+  (DASH avc1/mp4a); the files' `expires` is 72–127 h ahead. A 1-byte `Range` answers 206 with the
+  canonical `vk.com` page as `Referer` or none, without a cookie. The files' `srcAg` binds the
+  user agent: a file asked with a desktop agent answers 400 to Home's YFT agent, 206 to the same
+  agent — so D asks with the lookup's own user agent, which the downloads then send.
+
+### 13.3 As built
+
+- **Files** (all in `extractor-sites/.../sites/vk/`): `VkWebClientProfile.kt` (new; the only
+  place for the web client's identifiers — client id `52461373` and its public client secret,
+  app id `6287487`, the scopes, token version `1`, API version `5.289`, the two hosts, the token
+  body and `video.get`'s address); `VkApiToken.kt` (new; the token, whose `toString` hides it;
+  the in-memory cache; the token answer's parser); `VkUrls.kt` (`vk{N}-{N}.vkuser.net` for D
+  only: `isApiMediaFileUrl`, `isApiPlayerMediaUrl`); `VkEmbedParser.kt` (`VkEmbed.Adult`;
+  `parseApi` → `VkApiAnswer`); `VkExtractor.kt` (path D).
+- **When:** B, then B again on a shell, then B2, as in v1. When one of them answers the adult
+  message (the English or the Russian text, or VK's error callback 9 beside its message; checked
+  before "not found" and the shell; a video's own data still wins), D runs at once and no further
+  embed is asked (both hosts gave the same answer at the recon). Any other embed answer never asks
+  D, so every other video is unchanged.
+- **D:** (1) the token in memory while it is usable (until 60 s before VK's expiry, at most
+  24 h), else one `POST login.vk.ru/?act=get_anonym_token` (the JSON body; up to 16 KB read);
+  (2) `GET api.vkvideo.ru/method/video.get` (up to 1 MB) → the item with the link's owner and id
+  → v1's key table, else the shape scan; files on `vkvd{N}.okcdn.ru` or `vk{N}-{N}.vkuser.net`,
+  never the trailer or the images.
+- **Answers:** a video → v1's rows; a live video → v1's live message. Error 5 for a kept token: it
+  is dropped, one new token and one more ask (if time allows); error 5 for a new token: dropped.
+  No token, any other error (14: a captcha), a restriction (`can_play=0`), a timeout or changed
+  JSON → v1's end: VK's audio-only renditions as a partial success, else `NO_MEDIA_FOUND` with
+  v1's "isn't available" message and Try again.
+- **Requests:** only `login.vk.ru` and `api.vkvideo.ru` (then the media hosts), with the lookup's
+  user agent, `Accept: */*`, `Origin`/`Referer` vkvideo.ru and the token only in the
+  `Authorization` header — never in an address, and never a cookie (not the page's, not VK's).
+  The rows' media requests are v1's: the canonical `vk.com` page as `Referer`, no cookie.
+- **Time and Cancel:** D's requests fit v1's one 15 s deadline (each at most 8 s and what is left;
+  under 250 ms left → not asked); Cancel stops the request in flight and no further one is sent.
+- **`details`:** one line per request — `vk: D token login.vk.ru · 200 · N ms · new token`,
+  `vk: D video.get api.vkvideo.ru (token in memory) · 200 · N ms · …` — never an address, the token
+  or a body.
+- **No shared-code change:** the token request uses `ExtractorHttpClient.postJson`, which exists;
+  `extractor-api`, `OkHttpExtractorClient`, the coordinator, the browser, Gradle, workflows and
+  `SiteAdapterModule.kt` are unchanged. The embed and the browser keep v1's host rule
+  (`isMediaFileUrl`, `isPlayerMediaRequest`); `vkuser.net` counts for D alone (§12 answer 2
+  wanted evidence for a new family: these are VK's own API answers).
+
+### 13.4 Tests (JVM, no network)
+
+73 VK tests (52 → 73): `./gradlew --no-daemon :extractor-sites:test --tests
+'com.alal.yft.extractor.sites.vk.*'`.
+
+- `VkPathDParserTest` (9, new): the adult answer before "not found" and the shell (English,
+  Russian, callback 9; a video's own data wins); `video.get`'s item and its `vkuser.net` files,
+  never the trailer; error, restriction and changed answers; `vkuser.net` for D only; the token
+  answer and its life; the cache (kept until 60 s before expiry, dropped only when refused); the
+  profile's requests.
+- `VkPathDTest` (12, new): the adult answer opens D (also after a shell or on the other host);
+  the page's cookie never reaches D; every other embed answer stays v1's and never asks D; a kept
+  token serves later lookups; error 5 on a kept token → one new token and one more ask, on a new
+  one → v1's end, not kept; no token → v1's end without the API; the API's other answers → v1's
+  end; the 15 s deadline (virtual time); Cancel during D; `details` without an address, the token
+  or a body.
+- Fixtures (`fixtures/vk/`, README there): `embed-adult-content.html`, `api-video-get-adult.json`,
+  `api-video-get-deleted.json`, `api-error-auth.json`, sanitized; `VkFixtureHygieneTest` checks
+  them. The token answer is not a fixture: the tests build it with made-up values.
+
+### 13.5 Risks
+
+- VK rotates the web client's id or secret, the token flow or the API version: D fails cleanly
+  (v1's message) and only `VkWebClientProfile.kt` changes, in a new build.
+- A challenge: a captcha (API error 14) or a bot check on `login.vk.ru` → v1's message; no
+  solving.
+- The files are bound to the IP (`srcIp`) and the user agent (`srcAg`): D asks with the lookup's
+  agent so the download matches; a Wi-Fi ↔ mobile switch between the lookup and the download can
+  give 403 (§8's re-extract line). The files expire after 72–127 h.
+- A new media family for D (`vk{N}-{N}.vkuser.net`); if VK moves the files elsewhere, D finds no
+  file and the answer is v1's (a `VkUrls` update).
+- An age gate: today these videos play signed out; if VK asks signed-out viewers to sign in or to
+  confirm their age (a restriction or an API error), D stops with v1's message — ADR-006
+  decision 3, no bypass.
+- VK's terms on automated use of its API; ADR-006 (the owner's decision 1) and GitHub-only
+  distribution (decision 4) cover it.
+- The token lives in memory only: the first 18+ lookup after each app start asks one token
+  (~350 ms) inside the same deadline.
+
+### 13.6 The owner's phone check (after CI is green)
+
+1. The three examples above, signed out, in YFT's browser (or pasted on Home): video rows —
+   `…_456243446` up to 720p, `…_456243466` and `…_456243439` up to 1080p; one small row (144p or
+   240p, ~2–6 MB) downloads and plays with sound.
+2. VK3's `video-18403220_456239696` and `clip30014565_456240946`: unchanged (1080p/720p/480p).
+3. TikTok, Facebook, Instagram and X: not needed — no shared code changed.
 
 ## Appendix — the agent's prompt
 

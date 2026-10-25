@@ -779,15 +779,18 @@ Keep at least the heading and one blank line between sections, so Git merges the
   page's answers are read (e.g. `MediaMetadataProbe`'s non-media XML answers), so a VAST/VMAP
   body starts an ad break when the request's address says nothing.
 
-## VK agent — `work/phase-vk-extractor` (VK0–VK4)
+## VK agent — `work/phase-vk-extractor` (VK0–VK4), `work/phase-vk-path-d` (VK5)
 
 - Plan: `docs/VK_PLAN.md` (the owner's request, 2026-10-24). Branch made from PR #2's head
   `8dc46ff` (`spike/master-extractor-backup`); it never merges into PR #2; after PR #2's merge,
   `main` is merged into it (VK4).
-- State (2026-10-25): **VK3 PASS** (the owner's phone, below). This branch's code (`f2433a1`)
-  passed VK3 and stays the fallback: nothing more on this branch. Next: VK5 (path D, public 18+
-  videos; the owner, 2026-10-25) on `work/phase-vk-path-d`, made from this record commit. VK4 is
-  now only a merge, at the owner's word (VK_PLAN on that branch).
+- State (2026-10-25): **VK5 built** on `work/phase-vk-path-d` (made from the VK3 record commit
+  `8bd64d0c`): path D for public 18+ videos (`docs/VK_PLAN.md` §13; below). Next: CI green (by
+  2026-10-26 24:00 MMT, else STOP — D moves to v1.0.1 and v1.0.0 keeps `f2433a1`'s code), then the
+  owner's phone check (§13.6). **VK3 PASS** (below): `work/phase-vk-extractor`'s code (`f2433a1`)
+  stays the fallback, nothing more on that branch. VK4 is now only a merge, at the owner's word,
+  into `spike/master-extractor-backup` after `work/phase-download-fixes` and before
+  `work/phase-in-app-update` — no `main` merge, no Preview #13, no PR (§13.1).
 - VK0 (done): results in `docs/VK_PLAN.md` §11, sanitized fixtures in
   `extractor-sites/src/test/resources/fixtures/vk/` (README there). Found: the page (A) carries no
   player data (VK's login redirect + SPA shell); the embed `video_ext.php` (B) works without a
@@ -831,8 +834,24 @@ Keep at least the heading and one blank line between sections, so Git merges the
     (M4A + MP3 320/192/128), expected without D2 on `work/phase-download-fixes` (after the merge:
     M4A + MP3 192).
   - Later (no fix now): the finished live's thumbnail; the Messenger page's MP3 row.
-- Rules: the plan's §2 (no push to `main` or PR #2, no label, no `recipes` branch, no VK APK on
-  the owner's phone before S5's run 3 is counted).
+- **VK5 (2026-10-25, the owner; `docs/VK_PLAN.md` §13), on `work/phase-vk-path-d`:**
+  - Recon (live, signed out, metadata and 1-byte checks only): the embed answers "may contain
+    adult content … can't be viewed on external sites" (error callback 9) on `vk.com` and `vk.ru`,
+    with and without `list`. vkvideo.ru's signed-out flow works for all three examples: an
+    anonymous token from `login.vk.ru` (the web client's id and public secret; no cookie; 24 h),
+    then `video.get` on `api.vkvideo.ru` (v5.289, `Authorization: Bearer`) — `…_456243446` MP4
+    144p–720p, `…_456243466` and `…_456243439` 144p–1080p, each with `hls`, `hls_fmp4` and
+    `dash_sep`, files on `vk{N}-{N}.vkuser.net` (bound to the IP and the user agent).
+  - Code (one commit; no shared-code change — `postJson` already exists): `VkWebClientProfile`
+    (the web client's identifiers, one file), `VkApiToken` (the token in memory only, until 60 s
+    before VK's expiry), `VkUrls` (`vkuser.net` for D only), `VkEmbedParser` (the adult answer;
+    `video.get`'s item), `VkExtractor` (D only after B/B2's adult answer; only `login.vk.ru` and
+    `api.vkvideo.ru`, never a cookie; v1's 15 s deadline, Cancel and message). 4 sanitized
+    fixtures (README there); 73 VK tests (21 new: `VkPathDParserTest` 9, `VkPathDTest` 12).
+  - Phone check after CI (§13.6): the three examples (rows; one small row plays with sound);
+    VK3's `video-18403220_456239696` and the clip unchanged; no other site needed.
+- Rules: the plan's §2 (no push to `main` or PR #2, no label, no `recipes` branch; VK5: no merge,
+  no PR, no shared docs).
 - Validation: `./gradlew --no-daemon :extractor-sites:test` (VK only:
   `--tests 'com.alal.yft.extractor.sites.vk.*'`); before a push the CI set: `lintDebug
   testDebugUnitTest :core-model:test :extractor-api:test :extractor-generic:test

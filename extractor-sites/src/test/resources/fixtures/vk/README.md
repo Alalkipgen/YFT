@@ -1,4 +1,4 @@
-# VK fixtures (VK0, 2026-10-24)
+# VK fixtures (VK0, 2026-10-24; VK5, 2026-10-25)
 
 Real anonymous responses to public links, fetched by the VK agent at VK0 (no sign-in, no
 cookies sent except VK's own anonymous redirect cookies on the vkvideo.ru page), then sanitized.
@@ -19,6 +19,20 @@ cookies sent except VK's own anonymous redirect cookies on the vkvideo.ru page),
 No real audio-only *master* was found at VK0; a test that needs one builds it from these files and
 says so (synthetic).
 
+### VK5 (2026-10-25): path D
+
+Fetched by the VK agent at VK5, signed out (no cookie of any kind sent), then sanitized the same way.
+
+| File | Source (public) | Shows |
+|---|---|---|
+| `embed-adult-content.html` | `https://vk.com/video_ext.php?oid=-215889201&id=456243439` (the third of the owner's examples; vk.ru and `?list=` give the same page) | `<div id="video_ext_msg">` "…may contain adult content. Such videos can't be viewed on external sites", `window.embedErrorCallback?.(9)` (not found is `7`), `"apiPrefetchCache":[]` |
+| `api-video-get-adult.json` | `api.vkvideo.ru` `video.get` (v `5.289`, the anonymous web token) for `-215889201_456243439` | one item `type=video`, 1078×1920; `files` with `mp4_144`…`mp4_1080` (6), `hls`, `hls_fmp4`, `dash_sep`, `failover_host` on `vk{N}-{N}.vkuser.net`; `trailer`; `groups` |
+| `api-video-get-deleted.json` | the same call for a video id that does not exist | an item with no `files` and `restriction.can_play=0` ("Video deleted") |
+| `api-error-auth.json` | the same call with no token | `error.error_code=5` ("User authorization failed") |
+
+The token answer of `login.vk.ru` (`act=get_anonym_token`) is **not** a fixture: it is a token. The
+tests build that answer themselves with made-up values (`VkApiPages.token`).
+
 ## Sanitization
 
 - Every query value of a media, image or player address is `FIXTURE` (`expires`, `srcIp`, `srcAg`,
@@ -29,6 +43,12 @@ says so (synthetic).
   `expires=FIXTURE` stays, and a test that reads the expiry puts its own number in.
 - No IP address, cookie, user id of the fetcher, access token or hex/base64 run that looks like a
   secret; sensitive keys (tokens, hashes, user ids) replaced; scripts that are not page data removed.
+- VK5: in `api-video-get-adult.json` each `files` address is `/{key}/FIXTURE` and each `trailer`
+  address `/trailer_{key}/FIXTURE` (the signed path is gone); images are
+  `iv.okcdn.ru/getVideoPreview/{w}x{h}`; `ov_id`, the `player` query and every other query value
+  are `FIXTURE`; `description`, `track_code`, `tracking_info`, `ads` and `stats_pixels` removed;
+  `groups` keep only id, name, screen name, `is_closed` and type. In the embed, the page scripts
+  are removed and only the message, the error callback and the empty prefetch cache stay.
 - Titles stay.
 
 ## Encoding
