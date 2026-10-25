@@ -45,6 +45,7 @@ import com.alal.yft.ui.navigation.YftNavHost
 import com.alal.yft.ui.navigation.navigateToTab
 import com.alal.yft.ui.theme.YftTheme
 import com.alal.yft.ui.theme.isDarkTheme
+import com.alal.yft.update.UpdateAutoOpen
 
 /**
  * The whole app. [playback] is the Library's player, whose mini player sits above the bottom bar
@@ -74,6 +75,7 @@ fun YftApp(
             LocalLibraryPlayback provides playback,
         ) {
             val navController = rememberNavController()
+            UpdateAutoOpen(navController)
             YftAppShell(
                 navController = navController,
                 activeDownloads = uiState.activeDownloads,

@@ -663,7 +663,7 @@ internal fun SettingsShellPreview() {
                     onOpenLibrary = onOpenLibrary,
                 )
             },
-            settingsContent = { _, _ ->
+            settingsContent = { _, _, _ ->
                 SettingsScreen(
                     state = SettingsUiState(
                         download = DownloadPreferences(

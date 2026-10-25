@@ -34,6 +34,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -58,7 +59,10 @@ fun YftIcon(
     )
 }
 
-/** Mint pill with Ink text: Download, Use, View, Preview. [large] is the 52dp sheet action. */
+/**
+ * Mint pill with Ink text: Download, Use, View, Preview. [large] is the 52dp sheet action.
+ * [maxLines] above one lets a long label wrap, centred, instead of being cut at large text sizes.
+ */
 @Composable
 fun YftPrimaryButton(
     text: String,
@@ -68,6 +72,7 @@ fun YftPrimaryButton(
     enabled: Boolean = true,
     large: Boolean = false,
     compact: Boolean = false,
+    maxLines: Int = 1,
 ) {
     val colors = YftTheme.colors
     Button(
@@ -86,7 +91,7 @@ fun YftPrimaryButton(
             vertical = if (compact) 6.dp else 10.dp,
         ),
     ) {
-        ButtonContent(text = text, icon = icon, large = large)
+        ButtonContent(text = text, icon = icon, large = large, maxLines = maxLines)
     }
 }
 
@@ -268,6 +273,7 @@ private fun ButtonContent(
     iconSize: Dp = 20.dp,
     gap: Dp = 8.dp,
     iconTint: Color = LocalContentColor.current,
+    maxLines: Int = 1,
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(gap),
@@ -276,14 +282,15 @@ private fun ButtonContent(
         if (icon != null) {
             YftIcon(icon = icon, contentDescription = null, tint = iconTint, size = iconSize)
         }
+        val style = if (large) {
+            MaterialTheme.typography.titleMedium
+        } else {
+            MaterialTheme.typography.labelLarge.copy(fontWeight = weight)
+        }
         Text(
             text = text,
-            style = if (large) {
-                MaterialTheme.typography.titleMedium
-            } else {
-                MaterialTheme.typography.labelLarge.copy(fontWeight = weight)
-            },
-            maxLines = 1,
+            style = if (maxLines > 1) style.copy(textAlign = TextAlign.Center) else style,
+            maxLines = maxLines,
             overflow = TextOverflow.Ellipsis,
         )
     }
