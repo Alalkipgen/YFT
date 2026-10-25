@@ -127,6 +127,8 @@ import com.alal.yft.detection.tiktok.TikTokApiCapture
 import com.alal.yft.detection.tiktok.TikTokPageScript
 import com.alal.yft.feature.home.HomeLinks
 import com.alal.yft.feature.home.rememberCopiedLinkHint
+import com.alal.yft.ui.LocalQuietRelease
+import com.alal.yft.ui.QuietLines
 import com.alal.yft.ui.components.FoundMediaDividerInset
 import com.alal.yft.ui.components.SHEET_SCRIM_ALPHA
 import com.alal.yft.ui.components.YftAllowedMediaNote
@@ -161,6 +163,8 @@ fun BrowserRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val preferences by browserSettings.preferences.collectAsStateWithLifecycle()
     val historyState by history.uiState.collectAsStateWithLifecycle()
+    // Decision 30 (v): a quiet build's sheet has no Try again; Download again looks up again.
+    val quiet = LocalQuietRelease.current
     var historyOpen by rememberSaveable { mutableStateOf(false) }
     // P30: typed words (the view model asks BrowserSearch) search with the chosen engine.
     SideEffect { BrowserSearch.engine = preferences.searchEngine }
@@ -339,7 +343,7 @@ fun BrowserRoute(
             },
             onDownloadPage = {
                 // P12: this page's video, or its sheet waiting for the page's own lookup.
-                if (viewModel.openPageVideo()) onOpenQuickDownload()
+                if (viewModel.openPageVideo(retryFailed = quiet)) onOpenQuickDownload()
             },
             onDownloadMain = {
                 // P12: the page says which video plays; the view model opens the main one.
@@ -401,6 +405,7 @@ fun BrowserRoute(
                     fullscreenHandler = fullscreenHandler,
                     guard = guard,
                     masterCapture = viewModel.masterCapture,
+                    attachCapture = { viewModel.capturesNewTabs },
                     onWebViewReady = {
                         webView = it
                         refreshHistoryState()
@@ -546,6 +551,7 @@ fun BrowserScreen(
     browserSurface: @Composable (Modifier) -> Unit,
 ) {
     val colors = YftTheme.colors
+    val quiet = LocalQuietRelease.current
     val savable = remember(uiState.candidates) { uiState.candidates.filter { it.isSavable } }
     val hiddenCount = uiState.candidates.size - savable.size
     // One row, one count and one sheet per video: its qualities and audio are inside (P3).
@@ -623,7 +629,8 @@ fun BrowserScreen(
                 modifier = Modifier.testTag("browser-error"),
             )
         }
-        uiState.siteNotice?.let { notice ->
+        // Decision 30 (v): a quiet build shows no lookup notice (the sheet says its one line).
+        uiState.siteNotice?.takeUnless { quiet }?.let { notice ->
             BrowserBanner(
                 text = notice,
                 icon = YftIcons.Info,
@@ -770,12 +777,17 @@ fun BrowserScreen(
                 ) {
                     focusNotice?.let { notice ->
                         BrowserBanner(
-                            text = notice,
+                            // Decision 30 (v): a quiet build's failure is its one line.
+                            text = if (quiet && uiState.focusFailed) {
+                                QuietLines.of(notice)
+                            } else {
+                                notice
+                            },
                             icon = YftIcons.Info,
                             container = colors.chip,
                             content = colors.textPrimary,
                             modifier = Modifier.testTag("browser-focus-notice"),
-                            action = if (uiState.canRetryFocusedLookup) {
+                            action = if (uiState.canRetryFocusedLookup && !quiet) {
                                 {
                                     YftTextButton(
                                         text = "Retry",
@@ -1330,6 +1342,8 @@ private fun BrowserWebView(
     fullscreenHandler: SecureBrowserChromeClient.FullscreenHandler,
     guard: BrowserNavigationGuard,
     masterCapture: WebViewPlaybackCapture?,
+    // Decision 30 (i): whether this new tab gets the capture (Backup finder on), asked once.
+    attachCapture: () -> Boolean,
     onWebViewReady: (WebView) -> Unit,
 ) {
     AndroidView(
@@ -1345,8 +1359,10 @@ private fun BrowserWebView(
             SecureWebViewPolicy.apply(browser)
             val cookieManager = CookieManager.getInstance()
             val cachedUserAgent = browser.settings.userAgentString
-            masterCapture?.attach(browser)
-            val observingSink = masterCapture?.decorate(sink, browser) ?: sink
+            // The capture's sink only on a tab it attached to: it passes on nothing for another.
+            val capture = masterCapture?.takeIf { attachCapture() }
+            capture?.attach(browser)
+            val observingSink = capture?.decorate(sink, browser) ?: sink
             // P40 step 3: TikTok's pages keep a copy of TikTok's own API answers (document start;
             // without that feature, when a TikTok page starts).
             val tikTokStore = TikTokPageScript.source(context).text()?.let(TikTokPageScript::store)

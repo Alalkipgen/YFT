@@ -101,13 +101,15 @@ require(previewBuild == null || Regex("""\d{1,9}""").matches(previewBuild)) {
     "yft.previewBuild must be a build number"
 }
 
-// Backup-branch experiment only; even an opt-in build never enables the release variant.
+// The Master switches below (-Pyft.*) drive debug builds only (the owner's test APKs). The release
+// and both previews never read them: decision 30's fixed flags ([releaseMaster]) — Master on in the
+// release, the trials only in #12 trial. "Release and preview false" below predates decision 30.
 val masterCapture = providers.gradleProperty("yft.masterCapture").orElse("false").get()
 require(masterCapture in setOf("true", "false")) {
     "yft.masterCapture must be true or false"
 }
 // Phase 1.1 S5: Master's own YouTube n/sig solver instead of main's ejs runner. Used only when
-// yft.masterCapture is on too; off by default, and never in the release variant.
+// yft.masterCapture is on too; off by default in debug builds (on in the release: decision 30).
 val ownSolver = providers.gradleProperty("yft.ownSolver").orElse("false").get()
 require(ownSolver in setOf("true", "false")) {
     "yft.ownSolver must be true or false"
@@ -177,15 +179,48 @@ require(socialTrial in setOf("true", "false")) {
 // the master-recipes-publish workflow puts each signed config.
 val masterRecipeKey = providers.gradleProperty("yft.masterRecipeKey").orElse("").get()
 require(Regex("[0-9a-fA-F]*").matches(masterRecipeKey)) { "yft.masterRecipeKey must be hex" }
-val socialRecipeKey = providers.gradleProperty("yft.masterRecipeKey").orElse(
+val committedRecipeKey =
     providers.fileContents(rootProject.layout.projectDirectory.file("extractor-master/recipes/master-recipes.pub.hex"))
-        .asText.map(String::trim),
-)
-val masterRecipeUrl = providers.gradleProperty("yft.masterRecipeUrl").orElse(
-    "https://raw.githubusercontent.com/Alalkipgen/YFT/recipes/master-recipes.json",
-).get()
+        .asText.map(String::trim)
+val socialRecipeKey = providers.gradleProperty("yft.masterRecipeKey").orElse(committedRecipeKey)
+// The recipes branch's config (the master-recipes-publish workflow writes it); the release's only.
+val releaseRecipeUrl = "https://raw.githubusercontent.com/Alalkipgen/YFT/recipes/master-recipes.json"
+val masterRecipeUrl = providers.gradleProperty("yft.masterRecipeUrl").orElse(releaseRecipeUrl).get()
 require(Regex("""https://[A-Za-z0-9./_-]+""").matches(masterRecipeUrl)) {
     "yft.masterRecipeUrl must be an https address"
+}
+
+/**
+ * Decision 30 (`MASTER_KEY_SOCIAL_PLAN.md` section 8): the signed release carries main with every
+ * fix and Master on, fixed here (no -P property reaches a release build type): YouTube's route B
+ * (the own solver, the client ladder and its version lookup on GitHub raw), the four sites'
+ * ladders (L3 included), the browser's capture and R9's signed config with decision 5's committed
+ * key (`extractor-master/recipes/master-recipes.pub.hex`, each social rung's `rungsOff`). Master
+ * acts only after main fails (decision 7) and only while Settings' "Backup finder" is on (30 (i)).
+ * Never: the ladder's test hooks (skip, mutate), the own solver's next ladder (not before N8),
+ * Instagram's tab-fetch rung (decision 28) and the owner tools (src/debug: the census, W, the
+ * canary, the stream check). The trials ([trials]) only in the #12 trial preview ("debug and
+ * preview only; the release never reads them"), which also shows every detail; the release and
+ * #12 normal are quiet (30 (v)).
+ */
+fun com.android.build.api.dsl.ApplicationBuildType.releaseMaster(recipeKey: String, recipeUrl: String, trials: Boolean) {
+    require(recipeKey.isNotEmpty() && Regex("[0-9a-fA-F]+").matches(recipeKey)) {
+        "the release's recipe key (extractor-master/recipes/master-recipes.pub.hex) must be hex"
+    }
+    buildConfigField("boolean", "MASTER_CAPTURE_ENABLED", "true")
+    buildConfigField("boolean", "OWN_SOLVER_ENABLED", "true")
+    buildConfigField("boolean", "OWN_SOLVER_NEXT_ENABLED", "false")
+    buildConfigField("boolean", "CLIENT_LADDER_ENABLED", "true")
+    buildConfigField("String", "LADDER_SKIP", "\"\"")
+    buildConfigField("String", "LADDER_MUTATE", "\"\"")
+    buildConfigField("boolean", "YOUTUBE_ROUTE_B", "true")
+    buildConfigField("boolean", "YOUTUBE_ROUTE_B_TRIAL", trials.toString())
+    buildConfigField("boolean", "SOCIAL_LADDER", "true")
+    buildConfigField("boolean", "SOCIAL_TRIAL", trials.toString())
+    buildConfigField("boolean", "INSTAGRAM_TAB_RUNG", "false")
+    buildConfigField("String", "MASTER_RECIPE_KEY", "\"$recipeKey\"")
+    buildConfigField("String", "MASTER_RECIPE_URL", "\"$recipeUrl\"")
+    buildConfigField("boolean", "QUIET_RELEASE", (!trials).toString())
 }
 
 android {
@@ -214,6 +249,12 @@ android {
         buildConfigField("boolean", "SOCIAL_TRIAL", "false")
         buildConfigField("String", "MASTER_RECIPE_KEY", "\"$masterRecipeKey\"")
         buildConfigField("String", "MASTER_RECIPE_URL", "\"$masterRecipeUrl\"")
+        // Social plan S2d (decision 28): Instagram's tab-fetch rung, a social-ladder debug build's
+        // only; never in the release or a preview.
+        buildConfigField("boolean", "INSTAGRAM_TAB_RUNG", "false")
+        // Decision 30 (v): the quiet release (one line per failure, no Details or Try again until
+        // the hidden Show details); the release and #12 normal only, never debug or #12 trial.
+        buildConfigField("boolean", "QUIET_RELEASE", "false")
     }
 
     signingConfigs {
@@ -280,6 +321,7 @@ android {
                 "boolean", "SOCIAL_TRIAL",
                 (masterCapture == "true" && socialLadder == "true" && socialTrial == "true").toString(),
             )
+            buildConfigField("boolean", "INSTAGRAM_TAB_RUNG", (masterCapture == "true" && socialLadder == "true").toString())
             // Owner tools (src/debug, e.g. the N2 stream check): a launcher entry only when both
             // Master flags are on, so a debug build with the flags off stays as before.
             manifestPlaceholders["yftOwnerTools"] =
@@ -296,9 +338,10 @@ android {
                 "proguard-rules.pro",
             )
             signingConfig = signingConfigs.findByName("release")
+            releaseMaster(committedRecipeKey.get(), releaseRecipeUrl, trials = false)
         }
-        // The owner's test build: release code and shrinking, its own app ID so it installs next
-        // to the release app, and only ever the test key.
+        // The owner's test build (#12 normal): the release exactly (code, shrinking, flags and
+        // look), its own app ID so it installs next to the release app, and only ever the test key.
         create("preview") {
             initWith(getByName("release"))
             applicationIdSuffix = ".preview"
@@ -306,14 +349,28 @@ android {
             isDebuggable = false
             matchingFallbacks += listOf("release")
             signingConfig = signingConfigs.findByName("preview")
-            buildConfigField("boolean", "MASTER_CAPTURE_ENABLED", masterCapture)
-            buildConfigField("boolean", "OWN_SOLVER_ENABLED", ownSolver)
+            releaseMaster(committedRecipeKey.get(), releaseRecipeUrl, trials = false)
+        }
+        // Decision 30 (iii): #12 trial, the same release code with the trials on (route B's for
+        // YouTube, the social one for the four sites: main still asks, its rows are set aside and
+        // compared, so Master answers every lookup on the shrunk build) and every detail shown.
+        // Its own app ID and name, so it installs next to #12 normal; only ever the test key.
+        create("previewTrial") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".trial"
+            versionNameSuffix = "-trial" + previewBuild?.let { ".$it" }.orEmpty()
+            isDebuggable = false
+            matchingFallbacks += listOf("release")
+            signingConfig = signingConfigs.findByName("preview")
+            releaseMaster(committedRecipeKey.get(), releaseRecipeUrl, trials = true)
         }
     }
 
     sourceSets {
-        // The release build's code without debug actions (CrashTestTrigger) serves the preview.
+        // The release build's code without debug actions (CrashTestTrigger) serves the previews;
+        // #12 trial takes the preview's update test mode (src/preview/java) and its own name.
         getByName("preview").java.srcDir("src/release/java")
+        getByName("previewTrial").java.srcDirs("src/release/java", "src/preview/java")
     }
 
     compileOptions {

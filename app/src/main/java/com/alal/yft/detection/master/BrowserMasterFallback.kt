@@ -155,8 +155,14 @@ class AndroidBrowserMasterFallback(
      * lookup's "needs playback" answer in a social-ladder build ([SocialLadder.playbackWords]).
      */
     private val tabVideo: (MasterRequest) -> Boolean = { capture.session.videoShown(it.pageUrl, it.generation) },
+    /**
+     * Decision 30 (i): Settings' "Backup finder" ([BackupFinder.isOn]), read at each lookup; off,
+     * the backup is off exactly as in a build without Master ([enabled] false: main's outcome,
+     * no record, no trial, no capture rows). Always on but in the app.
+     */
+    private val on: () -> Boolean = { true },
 ) : BrowserMasterFallback {
-    override val enabled: Boolean get() = capture.enabled
+    override val enabled: Boolean get() = capture.enabled && on()
 
     /**
      * Item 7 F7: main's rows the route-B trial set aside, by video, until that lookup's [recover]
@@ -175,7 +181,7 @@ class AndroidBrowserMasterFallback(
     private class SetAside(val answer: SiteAdapterOutcome, val rows: List<MediaCandidate>)
 
     override fun mainAndMore(candidates: List<MediaCandidate>): MasterMainPresentation? =
-        capture.mainAndMore(candidates)
+        if (enabled) capture.mainAndMore(candidates) else null
 
     override suspend fun recover(
         lookupUrl: String,
@@ -627,15 +633,19 @@ class AndroidBrowserMasterFallback(
             socialLadder: Boolean = SocialLadder.enabled,
             // Social plan S1a (9): the Facebook trial (D7 `social-trial`, -Pyft.socialTrial, debug only).
             socialTrial: Boolean = SocialLadder.trial,
+            // Decision 30 (i): Settings' Backup finder; off, no lookup asks Master and every one of
+            // Master's requests (GitHub raw's config and version tables included) fails unsent.
+            on: () -> Boolean = { true },
         ): BrowserMasterFallback {
             if (!enabled) return BrowserMasterFallback.None
+            val gated = BackupFinder.gate(client, on)
             val capture = WebViewPlaybackCapture(
                 enabled = true,
                 contentIdOf = { url -> sites.videoKey(url)?.substringAfter(':') },
-                inspect = CapturedMediaMetadata(client)::inspect,
+                inspect = CapturedMediaMetadata(gated)::inspect,
                 codecs = codecSteering(),
             )
-            val http = OkHttpExtractorClient(client)
+            val http = OkHttpExtractorClient(gated)
             return AndroidBrowserMasterFallback(
                 capture,
                 sites,
@@ -643,14 +653,14 @@ class AndroidBrowserMasterFallback(
                     // Item 7 R3: the engine's route-B rule only in a route-B build.
                     // Social plan S1a (6): S6's row check in a ladder's lookup only with -Pyft.socialLadder (debug);
                     // task 9: one check and reader for every site, each read on its own lookup's site's hosts.
-                    SocialLadder.validator(OkHttpMediaValidator(client), client, socialLadder), capture,
+                    SocialLadder.validator(OkHttpMediaValidator(gated), gated, socialLadder), capture,
                     MasterPolicy(enabled = true, youtubeRouteB = youtubeRouteB),
                     captureSelection = capture::selectMain,
                     // R6: YouTube pages are Master's own module's, never capture's.
                     // Phase 1.3 D6: the client ladder only with -Pyft.clientLadder (debug).
                     // Phase 1.4 item 7 R2: route B's wrappers only with -Pyft.youtubeRouteB (debug).
                     modules = listOf(
-                        MasterLadderSwitch.youTube(http, client, playerScripts, filesDir, routeB = youtubeRouteB),
+                        MasterLadderSwitch.youTube(http, gated, playerScripts, filesDir, routeB = youtubeRouteB),
                     ),
                     // R8: Vimeo/X/Facebook/TikTok/Instagram contract endpoints, then capture;
                     // R9: their recipes from a signed config when the build carries its key.
@@ -663,9 +673,10 @@ class AndroidBrowserMasterFallback(
                 youtubeRouteB = youtubeRouteB,
                 routeBTrial = routeBTrial,
                 // Item 7 F7: the trial's one-byte file check (the trial APK only).
-                trialFileCheck = if (routeBTrial && youtubeRouteB) RouteBTrialCheck.OkHttpFileCheck(client) else null,
+                trialFileCheck = if (routeBTrial && youtubeRouteB) RouteBTrialCheck.OkHttpFileCheck(gated) else null,
                 socialLadder = socialLadder,
                 socialTrial = socialTrial,
+                on = on,
             )
         }
     }

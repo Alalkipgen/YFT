@@ -950,6 +950,91 @@ class BrowserViewModelTest {
     }
 
     @Test
+    fun aQuietBuildsDownloadAfterAFailedLookupAsksAgainAsTryAgainDoes() = runTest {
+        // Decision 30 (v): the quiet sheet has no Try again; Download again looks up again.
+        val failing = mutableMapOf("AAAAAAAAAA1" to SiteExtractionFailure.NETWORK)
+        val extractor = FeedVideoExtractor(failing = failing)
+        val store = DetectedMediaStore()
+        val viewModel = BrowserViewModel(OkHttpClient(), adapters(extractor), store)
+        viewModel.onPageStarted(WATCH_A)
+        viewModel.onPageFinished(WATCH_A, "Video A")
+        runCurrent()
+        assertEquals("Couldn't reach YouTube.", store.lookup.value!!.failure)
+        assertEquals(1, extractor.requests.size)
+
+        // The debug build's Download shows the failure, with its Try again, without asking.
+        assertTrue(viewModel.openPageVideo())
+        runCurrent()
+        assertEquals(1, extractor.requests.size)
+
+        failing.clear()
+        assertTrue(viewModel.openPageVideo(retryFailed = true))
+        runCurrent()
+        assertEquals(2, extractor.requests.size)
+        assertEquals(
+            listOf("https://cdn.fixture.test/AAAAAAAAAA1.mp4"),
+            store.selection.value?.candidates?.map { it.mediaUrl },
+        )
+    }
+
+    @Test
+    fun aQuietBuildsDownloadAfterAFinalFailureDoesNotAskAgain() = runTest {
+        val extractor = ScriptedExtractor(
+            SiteExtractionResult.Failure(SiteExtractionFailure.DRM_PROTECTED),
+        )
+        val store = DetectedMediaStore()
+        val viewModel = BrowserViewModel(OkHttpClient(), adapters(extractor), store)
+        viewModel.onPageStarted(FIXTURE_PAGE)
+        viewModel.onPageFinished(FIXTURE_PAGE, "Clip")
+        runCurrent()
+        assertFalse(viewModel.uiState.value.canRetrySiteLookup)
+
+        assertTrue(viewModel.openPageVideo(retryFailed = true))
+        runCurrent()
+        assertEquals(1, extractor.requests.size)
+        assertFalse(store.lookup.value!!.canRetry)
+    }
+
+    @Test
+    fun theQuietSheetsShowCheckOpensTikToksCheckInTheBrowser() = runTest {
+        // Decision 30 (v): the sheet's one Show check; the browser shows no notice to tap.
+        assertFalse(DetectedMediaStore().requestSiteCheck(TIKTOK_POST))
+        val extractor = TikTokCheckExtractor()
+        val store = DetectedMediaStore()
+        val viewModel = BrowserViewModel(OkHttpClient(), adapters(extractor), store)
+        viewModel.onPageStarted(TIKTOK_POST)
+        viewModel.onPageFinished(TIKTOK_POST, "Post")
+        runCurrent()
+
+        val failed = store.lookup.value!!
+        assertTrue(failed.siteCheck)
+        assertEquals(SiteCheck.SHEET, failed.failure)
+        assertNotNull(viewModel.uiState.value.siteCheckUrl)
+        assertFalse(viewModel.uiState.value.siteCheckOpen)
+
+        // Another page's request opens nothing.
+        assertTrue(store.requestSiteCheck("${TIKTOK_PREFIX}7300000000000000002"))
+        runCurrent()
+        assertFalse(viewModel.uiState.value.siteCheckOpen)
+
+        assertTrue(store.requestSiteCheck(failed.pageUrl))
+        runCurrent()
+        assertTrue(viewModel.uiState.value.siteCheckOpen)
+    }
+
+    @Test
+    fun onlyTheFocusedLookupsOwnFailureBecomesAQuietBuildsOneLine() {
+        val failed = BrowserUiState(
+            focusNotice = "Couldn't reach YouTube.",
+            failedFocusNotice = "Couldn't reach YouTube.",
+        )
+        assertTrue(failed.focusFailed)
+        assertFalse(failed.copy(focusNotice = "Finding the video on screen…").focusFailed)
+        assertFalse(failed.copy(focusNotice = null).focusFailed)
+        assertFalse(BrowserUiState(focusNotice = "No video on screen to download.").focusFailed)
+    }
+
+    @Test
     fun aFeedLinkToAVideoThatWasAlreadyFoundTakesThatLookup() = runTest {
         val extractor = FeedVideoExtractor()
         val store = DetectedMediaStore()
@@ -1414,8 +1499,30 @@ class BrowserViewModelTest {
         }
     }
 
+    /** Decision 30 (v): a TikTok post whose lookup ends on TikTok's check. */
+    private class TikTokCheckExtractor : SiteExtractor {
+        override val id: String = "tiktok"
+        override val displayName: String = "TikTok"
+        val requests = mutableListOf<SiteExtractionRequest>()
+
+        override fun identify(pageUrl: String): SitePageIdentity? {
+            if (!pageUrl.startsWith(TIKTOK_PREFIX)) return null
+            val contentId = pageUrl.removePrefix(TIKTOK_PREFIX).substringBefore('?')
+            return SitePageIdentity("tiktok", contentId, "$TIKTOK_PREFIX$contentId")
+        }
+
+        override fun isPlayerMediaRequest(requestUrl: String): Boolean = false
+
+        override suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult {
+            requests += request
+            return SiteExtractionResult.Failure(SiteExtractionFailure.BOT_CHECK)
+        }
+    }
+
     private companion object {
         const val FIXTURE_PREFIX = "https://fixture.test/video/"
+        const val TIKTOK_PREFIX = "https://www.tiktok.com/@fixture/video/"
+        const val TIKTOK_POST = "${TIKTOK_PREFIX}7300000000000000001"
         const val FIXTURE_PAGE = "${FIXTURE_PREFIX}42"
         const val MEDIA_REQUEST = "https://media.fixture.test/stream?part=1"
         const val FEED_PAGE = "https://fixture.test/feed"

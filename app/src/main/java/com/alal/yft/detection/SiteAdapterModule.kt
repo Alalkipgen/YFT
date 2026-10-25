@@ -4,6 +4,8 @@ import android.content.Context
 import android.webkit.WebSettings
 import com.alal.yft.BuildConfig
 import com.alal.yft.core.browser.policy.BrowserUserAgent
+import com.alal.yft.detection.master.BackupFinder
+import com.alal.yft.detection.master.BackupFinderPlayerScripts
 import com.alal.yft.detection.master.SocialLadder
 import com.alal.yft.detection.master.YouTubeRouteB
 import com.alal.yft.detection.potoken.BotGuardPoTokenProvider
@@ -74,6 +76,11 @@ object SiteAdapterModule {
     @Singleton
     fun provideVideoPlaybackSupport(): VideoPlaybackSupport = DeviceVideoPlaybackSupport()
 
+    /** Decision 30 (i): Settings' "Backup finder", one per process. */
+    @Provides
+    @Singleton
+    fun provideBackupFinder(@ApplicationContext context: Context): BackupFinder = BackupFinder.get(context)
+
     @Provides
     @Singleton
     fun provideSiteAdapterFlags(): SiteAdapterFlags = SiteAdapterFlags { adapterId ->
@@ -89,13 +96,16 @@ object SiteAdapterModule {
      * of the bundled ejs solver; otherwise this is main's runner, built exactly as on main. Phase
      * 1.4 item 7 (YouTube routing B): in a route-B build (`-Pyft.youtubeRouteB`, debug only) the
      * player client follows route B's rules in a route-B run and marks a 429 in the lookup's record
-     * (`YouTubeRouteB.scriptClient`); otherwise it is the plain client.
+     * (`YouTubeRouteB.scriptClient`); otherwise it is the plain client. Decision 30 (i): with the
+     * own solver, Settings' Backup finder chooses at each request — on, the own solver; off,
+     * main's runner exactly as on main ([BackupFinderPlayerScripts]).
      */
     @Provides
     @Singleton
     fun providePlayerScriptRunner(
         @ApplicationContext context: Context,
         client: OkHttpClient,
+        backupFinder: BackupFinder,
     ): PlayerScriptRunner {
         val http = YouTubeRouteB.scriptClient(
             OkHttpExtractorClient(
@@ -105,34 +115,41 @@ object SiteAdapterModule {
                 ),
             ),
         )
+        val main = { YouTubePlayerScriptRunner(http = http, engine = WebViewSolverEngine(context)) }
         return OwnSolverSelection.runner(
             ownSolver = BuildConfig.OWN_SOLVER_ENABLED,
             masterCapture = BuildConfig.MASTER_CAPTURE_ENABLED,
             own = {
-                OwnPlayerScriptRunner(
-                    http = http,
-                    engine = WebViewOwnSolverEngine(context),
-                    // Phase 1.2 N5b: the ladder only with -Pyft.ownSolverNext (debug builds). A.4/A.5:
-                    // the locator cache and the V ledger in app-private files (data only; each
-                    // file is found on first use, off this thread).
-                    next = if (BuildConfig.OWN_SOLVER_NEXT_ENABLED) {
-                        OwnPlayerScriptRunner.Next(
-                            page = WebViewPageSolverEngine(context),
-                            // N7: the breaker the debug build's owner canary shares (one per process).
-                            breaker = OwnSolverAppBreaker.get(context),
-                            locators = OwnSolverLocators(
-                                AtomicTextFile { File(context.filesDir, OWN_SOLVER_LOCATORS_FILE) },
-                            ),
-                            ledger = OwnSolverVLedger(
-                                AtomicTextFile { File(context.filesDir, OWN_SOLVER_V_LEDGER_FILE) },
-                            ),
+                BackupFinderPlayerScripts(
+                    on = backupFinder::isOn,
+                    own = {
+                        OwnPlayerScriptRunner(
+                            http = http,
+                            engine = WebViewOwnSolverEngine(context),
+                            // Phase 1.2 N5b: the ladder only with -Pyft.ownSolverNext (debug builds). A.4/A.5:
+                            // the locator cache and the V ledger in app-private files (data only; each
+                            // file is found on first use, off this thread).
+                            next = if (BuildConfig.OWN_SOLVER_NEXT_ENABLED) {
+                                OwnPlayerScriptRunner.Next(
+                                    page = WebViewPageSolverEngine(context),
+                                    // N7: the breaker the debug build's owner canary shares (one per process).
+                                    breaker = OwnSolverAppBreaker.get(context),
+                                    locators = OwnSolverLocators(
+                                        AtomicTextFile { File(context.filesDir, OWN_SOLVER_LOCATORS_FILE) },
+                                    ),
+                                    ledger = OwnSolverVLedger(
+                                        AtomicTextFile { File(context.filesDir, OWN_SOLVER_V_LEDGER_FILE) },
+                                    ),
+                                )
+                            } else {
+                                null
+                            },
                         )
-                    } else {
-                        null
                     },
+                    main = main,
                 )
             },
-            main = { YouTubePlayerScriptRunner(http = http, engine = WebViewSolverEngine(context)) },
+            main = main,
         )
     }
 

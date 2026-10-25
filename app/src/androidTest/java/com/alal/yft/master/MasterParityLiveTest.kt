@@ -129,7 +129,9 @@ class MasterParityLiveTest {
         val context = instrumentation.targetContext
         val extractors = SiteAdapterModule.provideSiteExtractors(
             context, client, SiteAdapterModule.provideExtractorHttpClient(client),
-            SiteAdapterModule.providePlayerScriptRunner(context, client),
+            SiteAdapterModule.providePlayerScriptRunner(
+                context, client, SiteAdapterModule.provideBackupFinder(context),
+            ),
             SiteAdapterModule.providePoTokenProvider(context, client),
         )
         return SiteAdapterCoordinator(

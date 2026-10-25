@@ -57,6 +57,8 @@ import com.alal.yft.feature.preview.PreviewDownloadStatus
 import com.alal.yft.thumbnail.rememberRemoteThumbnail
 import com.alal.yft.ui.components.YftMediaKind
 import com.alal.yft.ui.components.YftMetaChip
+import com.alal.yft.ui.LocalQuietRelease
+import com.alal.yft.ui.QuietLines
 import com.alal.yft.ui.components.YftPrimaryButton
 import com.alal.yft.ui.components.YftRadioMark
 import com.alal.yft.ui.components.YftTextButton
@@ -93,6 +95,8 @@ fun QuickDownloadRoute(
         onReload = { if (viewModel.reloadPage()) onNavigateBack() },
         onOpenDownloads = onOpenDownloads,
         onClose = onNavigateBack,
+        // Decision 30 (v): a quiet build's Show check opens TikTok's check in the browser.
+        onShowCheck = { if (viewModel.showSiteCheck()) onNavigateBack() },
     )
 }
 
@@ -121,7 +125,9 @@ fun QuickDownloadScreen(
     onClose: () -> Unit = {},
     onReload: () -> Unit = {},
     onPickEarly: (OptionSection) -> Unit = {},
+    onShowCheck: () -> Unit = {},
 ) {
+    val quiet = LocalQuietRelease.current
     if (state.downloadStatus == PreviewDownloadStatus.ConfirmMetered) {
         MeteredDownloadDialog(onConfirm = onConfirmMetered, onDismiss = onDismissMetered)
     }
@@ -264,6 +270,11 @@ fun QuickDownloadScreen(
                 onDownload = onDownload,
                 onPickEarly = onPickEarly,
             )
+            // Decision 30 (v): a quiet build says one line (TikTok's check keeps its Show check).
+            quiet -> QuietFailure(
+                line = QuietLines.of(state.failure, state.siteCheck),
+                onShowCheck = onShowCheck.takeIf { state.siteCheck },
+            )
             else -> Failure(
                 message = state.failure,
                 onRetry = onRetry.takeIf { state.canRetry },
@@ -272,6 +283,33 @@ fun QuickDownloadScreen(
             )
         }
     }
+}
+
+/**
+ * Decision 30 (v): the quiet build's failure — one line and nothing else (no Details, Copy
+ * details, Master lines, Try again or reload): Download again looks up again. TikTok's check
+ * keeps one Show check, which opens the check in the browser ([onShowCheck]).
+ */
+@Composable
+private fun ColumnScope.QuietFailure(line: String, onShowCheck: (() -> Unit)?) {
+    Text(
+        text = line,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp)
+            .testTag("quick-error"),
+        color = YftTheme.colors.coralText,
+        style = MaterialTheme.typography.bodyMedium,
+        textAlign = TextAlign.Center,
+    )
+    onShowCheck ?: return
+    YftTonalButton(
+        text = "Show check",
+        onClick = onShowCheck,
+        modifier = Modifier
+            .align(Alignment.CenterHorizontally)
+            .testTag("quick-show-check"),
+    )
 }
 
 @Composable
@@ -741,7 +779,8 @@ private fun ColumnScope.FailureDetails(
     tag: String? = "quick-error-details",
     copyTag: String? = null,
 ) {
-    if (lines.isEmpty()) return
+    // Decision 30 (v): a quiet build shows Details only with the hidden Show details on.
+    if (lines.isEmpty() || LocalQuietRelease.current) return
     var shown by rememberSaveable(lines) { mutableStateOf(false) }
     if (shown && copyTag != null) {
         Row(

@@ -1,5 +1,8 @@
 package com.alal.yft.feature.about
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
@@ -113,6 +116,59 @@ class AboutScreenTest {
         composeRule.onNodeWithText("Cancel").performClick()
         composeRule.onNodeWithText("Crash now?").assertDoesNotExist()
         assertTrue(BuildConfig.DEBUG)
+    }
+
+    @Test
+    fun privacyNamesGitHubFirst() {
+        // Decision 30 (ii): the Backup finder's GitHub raw; the update check's api.github.com.
+        setContent()
+
+        composeRule.onNodeWithText(PRIVACY_CONTACTS).performScrollTo().assertIsDisplayed()
+        assertTrue(PRIVACY_CONTACTS.contains("raw.githubusercontent.com"))
+        assertTrue(PRIVACY_CONTACTS.contains("api.github.com"))
+        composeRule.onAllNodesWithText(
+            "YFT only contacts the sites you open and the media servers they point to.",
+        ).assertCountEquals(0)
+    }
+
+    @Test
+    fun aQuietBuildsVersionLineTappedSevenTimesTurnsShowDetailsOnAndOff() {
+        // Decision 30 (v): hidden, off by default, not in Settings.
+        var on by mutableStateOf(false)
+        var toggles = 0
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                AboutScreen(
+                    onNavigateBack = {},
+                    onOpenLicenses = {},
+                    versionName = "9.8.7",
+                    versionCode = 42,
+                    showDetails = on,
+                    onToggleShowDetails = {
+                        toggles++
+                        on = !on
+                    },
+                )
+            }
+        }
+
+        composeRule.onAllNodesWithTag("about-show-details").assertCountEquals(0)
+        repeat(SevenTaps.TAPS - 1) { composeRule.onNodeWithTag("about-version").performClick() }
+        assertEquals(0, toggles)
+        composeRule.onNodeWithTag("about-version").performClick()
+        assertEquals(1, toggles)
+        composeRule.onNodeWithTag("about-show-details").assert(hasText(SHOW_DETAILS_ON))
+
+        repeat(SevenTaps.TAPS) { composeRule.onNodeWithTag("about-version").performClick() }
+        assertEquals(2, toggles)
+        composeRule.onAllNodesWithTag("about-show-details").assertCountEquals(0)
+    }
+
+    @Test
+    fun anotherBuildsVersionLineHasNoShowDetails() {
+        setContent()
+        repeat(SevenTaps.TAPS) { composeRule.onNodeWithTag("about-version").performClick() }
+        composeRule.onAllNodesWithTag("about-show-details").assertCountEquals(0)
     }
 
     private fun setContent(

@@ -92,6 +92,7 @@ import com.alal.yft.feature.library.LibraryMimeTypes
 import com.alal.yft.feature.library.LocalLibraryPlayback
 import com.alal.yft.feature.library.rememberMediaDetails
 import com.alal.yft.thumbnail.rememberDownloadThumbnail
+import com.alal.yft.ui.LocalQuietRelease
 import com.alal.yft.ui.components.YftCard
 import com.alal.yft.ui.components.YftCircleButton
 import com.alal.yft.ui.components.YftFilterChip
@@ -630,6 +631,7 @@ private fun cardActions(
     onDeleteFile: (String) -> Unit,
     onDetails: () -> Unit,
     onResetYouTube: () -> Unit,
+    showDetails: Boolean = row.showsFailureDetails,
 ): List<CardAction> = buildList {
     if (row.status == DownloadTaskStatus.COMPLETED) {
         add(CardAction("Play", "download-menu-play-${row.id}", YftIcons.Play) { onPlay(row) })
@@ -656,7 +658,7 @@ private fun cardActions(
                 )
             }
         }
-    if (row.showsFailureDetails) {
+    if (showDetails) {
         add(
             CardAction(
                 label = "Failure details",
@@ -701,6 +703,9 @@ private fun DownloadCard(
     val colors = YftTheme.colors
     var menuOpen by remember { mutableStateOf(false) }
     var detailsOpen by remember { mutableStateOf(false) }
+    // Decision 30 (v): a quiet build shows a failure's Details only with Show details on; the
+    // failed download's Retry stays (a function).
+    val showDetails = row.showsFailureDetails && !LocalQuietRelease.current
     val actions = cardActions(
         row = row,
         onAction = onAction,
@@ -709,6 +714,7 @@ private fun DownloadCard(
         onDeleteFile = onDeleteFile,
         onDetails = { detailsOpen = true },
         onResetYouTube = onResetYouTube,
+        showDetails = showDetails,
     )
     Box(modifier = modifier.fillMaxWidth()) {
         YftCard(
@@ -735,6 +741,7 @@ private fun DownloadCard(
                     onAction = onAction,
                     onDetails = { detailsOpen = true },
                     onResetYouTube = onResetYouTube,
+                    showDetails = showDetails,
                 )
             }
         }
@@ -765,7 +772,7 @@ private fun DownloadCard(
             }
         }
     }
-    if (detailsOpen && row.showsFailureDetails) {
+    if (detailsOpen && showDetails) {
         FailureDetailsDialog(row = row, onDismiss = { detailsOpen = false })
     }
 }
@@ -922,6 +929,7 @@ private fun StatusRow(
     onAction: (DownloadAction, String) -> Unit,
     onDetails: () -> Unit,
     onResetYouTube: () -> Unit,
+    showDetails: Boolean = row.showsFailureDetails,
 ) {
     val colors = YftTheme.colors
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -963,7 +971,7 @@ private fun StatusRow(
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
-            if (row.showsFailureDetails) {
+            if (showDetails) {
                 YftTextButton(
                     text = "Details",
                     onClick = onDetails,

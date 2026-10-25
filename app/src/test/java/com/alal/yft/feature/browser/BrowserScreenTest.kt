@@ -46,6 +46,8 @@ import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.PageMediaRole
 import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.core.model.settings.SearchEngine
+import com.alal.yft.ui.LocalQuietRelease
+import com.alal.yft.ui.QuietLines
 import com.alal.yft.ui.components.ALLOWED_MEDIA_NOTE
 import com.alal.yft.ui.theme.YftTheme
 import org.junit.Assert.assertEquals
@@ -796,6 +798,54 @@ class BrowserScreenTest {
         composeRule.onNodeWithTag("browser-focus-notice").assertIsDisplayed()
         composeRule.onNodeWithTag("browser-focus-retry").assertIsDisplayed().performClick()
         assertEquals(1, retries)
+    }
+
+    @Test
+    fun aQuietBuildShowsNoLookupNoticeAndItsFocusFailureIsOneLineWithoutRetry() {
+        // Decision 30 (v): the release and #12 normal, Show details off.
+        var state by mutableStateOf(
+            BrowserUiState(
+                currentUrl = "https://m.youtube.com/",
+                findsFocusedVideo = true,
+                feedPage = true,
+                siteNotice = "YouTube asked to sign in.",
+                canRetrySiteLookup = true,
+                focusNotice = "Couldn't reach YouTube.",
+                failedFocusNotice = "Couldn't reach YouTube.",
+                canRetryFocusedLookup = true,
+            ),
+        )
+        composeRule.setContent {
+            CompositionLocalProvider(LocalQuietRelease provides true) {
+                YftTheme(themeMode = ThemeMode.LIGHT) {
+                    BrowserScreen(
+                        uiState = state,
+                        canGoBack = false,
+                        canGoForward = false,
+                        onAddressChanged = {},
+                        onGo = {},
+                        onBrowserBack = {},
+                        onBrowserForward = {},
+                        onReload = {},
+                        onStop = {},
+                        onDownloadGroup = {},
+                        onNavigateBack = {},
+                        browserSurface = { Box(modifier = it) },
+                    )
+                }
+            }
+        }
+
+        composeRule.onAllNodesWithTag("browser-site-notice").assertCountEquals(0)
+        composeRule.onAllNodesWithTag("browser-site-retry").assertCountEquals(0)
+        composeRule.onNodeWithTag("browser-focus-notice").assertIsDisplayed()
+        composeRule.onNodeWithText(QuietLines.NOT_FOUND).assertIsDisplayed()
+        composeRule.onAllNodesWithText("Couldn't reach YouTube.").assertCountEquals(0)
+        composeRule.onAllNodesWithTag("browser-focus-retry").assertCountEquals(0)
+
+        // The tap's own words are no lookup failure: they stay.
+        state = state.copy(focusNotice = "No video on screen to download.")
+        composeRule.onNodeWithText("No video on screen to download.").assertIsDisplayed()
     }
 
     private fun setScreen(

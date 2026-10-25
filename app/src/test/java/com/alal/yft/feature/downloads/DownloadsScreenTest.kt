@@ -51,6 +51,7 @@ import com.alal.yft.feature.library.MediaDetailsSource
 import com.alal.yft.thumbnail.DownloadThumbnails
 import com.alal.yft.thumbnail.LocalDownloadThumbnails
 import com.alal.yft.thumbnail.testPicture
+import com.alal.yft.ui.LocalQuietRelease
 import com.alal.yft.ui.components.YFT_THUMBNAIL_IMAGE_TAG
 import com.alal.yft.ui.theme.YftTheme
 import org.junit.Assert.assertEquals
@@ -811,6 +812,18 @@ class DownloadsScreenTest {
         pictures("done").assertCountEquals(1)
     }
 
+    /** Decision 30 (v): a quiet build's Details only with Show details; its Retry stays. */
+    @Test
+    fun aQuietBuildHidesAFailuresDetailsAndKeepsItsRetry() {
+        setScreen(DownloadsUiState(listOf(failedRow())), quiet = true)
+
+        composeRule.onAllNodesWithTag("download-failure-details").assertCountEquals(0)
+        composeRule.onNodeWithTag("download-action-retry-f").assertExists()
+        composeRule.onNodeWithTag("download-f").performClick()
+        composeRule.onAllNodesWithTag("download-menu-details-f").assertCountEquals(0)
+        composeRule.onAllNodesWithTag("download-failure-dialog").assertCountEquals(0)
+    }
+
     private fun setScreen(
         uiState: DownloadsUiState,
         onAction: (DownloadAction, String) -> Unit = { _, _ -> },
@@ -822,12 +835,14 @@ class DownloadsScreenTest {
         mediaDetails: MediaDetailsSource = MediaDetailsSource.None,
         thumbnails: DownloadThumbnails = DownloadThumbnails.None,
         onResetYouTubeSession: () -> Unit = {},
+        quiet: Boolean = false,
     ) {
         composeRule.setContent {
             YftTheme(themeMode = ThemeMode.LIGHT) {
                 CompositionLocalProvider(
                     LocalMediaDetailsSource provides mediaDetails,
                     LocalDownloadThumbnails provides thumbnails,
+                    LocalQuietRelease provides quiet,
                 ) {
                     DownloadsScreen(
                         uiState = uiState,

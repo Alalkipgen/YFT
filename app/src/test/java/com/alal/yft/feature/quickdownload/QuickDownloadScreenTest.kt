@@ -34,10 +34,13 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.settings.QualityPreference
+import com.alal.yft.feature.browser.SiteCheck
 import com.alal.yft.feature.preview.PreviewDownloadStatus
 import com.alal.yft.thumbnail.LocalRemoteThumbnails
 import com.alal.yft.thumbnail.RemoteThumbnails
 import com.alal.yft.thumbnail.testPicture
+import com.alal.yft.ui.LocalQuietRelease
+import com.alal.yft.ui.QuietLines
 import com.alal.yft.ui.components.YFT_THUMBNAIL_IMAGE_TAG
 import com.alal.yft.ui.theme.YftTheme
 import kotlinx.coroutines.CompletableDeferred
@@ -470,6 +473,53 @@ class QuickDownloadScreenTest {
         composeRule.onNodeWithTag("quick-fresh-link-detail-text")
             .assert(hasText(details.joinToString("\n")))
         composeRule.onAllNodesWithTag("quick-reload-retry").assertCountEquals(0)
+    }
+
+    @Test
+    fun aQuietBuildSaysOneLineAndNothingElse() {
+        // Decision 30 (v): no Details, Copy details, Master lines, Try again or reload.
+        var checks = 0
+        var state by mutableStateOf(
+            QuickDownloadUiState(
+                header = SAMPLE_QUICK_DOWNLOAD.header,
+                failure = "Route B trial: main's rows were set aside and Master found none.",
+                failureDetails = listOf("master: route B after VERSION_REJECTED"),
+                canRetry = true,
+                canReload = true,
+            ),
+        )
+        composeRule.setContent {
+            CompositionLocalProvider(LocalQuietRelease provides true) {
+                YftTheme(themeMode = ThemeMode.LIGHT) {
+                    QuickDownloadScreen(
+                        state = state,
+                        onSelect = {},
+                        onDownload = {},
+                        onShowCheck = { checks++ },
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithTag("quick-error").assert(hasText(QuietLines.NOT_FOUND))
+        for (tag in listOf(
+            "quick-retry", "quick-reload-retry", "quick-error-details", "quick-error-copy",
+            "quick-show-check",
+        )) {
+            composeRule.onAllNodesWithTag(tag).assertCountEquals(0)
+        }
+        composeRule.onAllNodesWithText("Master", substring = true).assertCountEquals(0)
+
+        // The capture asks for the video to be played; Download again looks up again.
+        state = state.copy(failure = "Play the video on this page, then tap Try again.")
+        composeRule.onNodeWithTag("quick-error").assert(hasText(QuietLines.PLAY))
+
+        // TikTok's check keeps one Show check (a function: the user answers the check).
+        state = state.copy(failure = SiteCheck.SHEET, siteCheck = true)
+        composeRule.onNodeWithTag("quick-error").assert(hasText(QuietLines.CHECK))
+        composeRule.onNodeWithTag("quick-show-check").performClick()
+        assertEquals(1, checks)
+        composeRule.onAllNodesWithTag("quick-retry").assertCountEquals(0)
     }
 
     @Test

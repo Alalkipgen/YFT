@@ -28,6 +28,7 @@ import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.detection.SiteAdapterOutcome
 import com.alal.yft.detection.master.AndroidBrowserMasterFallback
 import com.alal.yft.detection.master.BrowserMasterFallback
+import com.alal.yft.detection.master.BackupFinder
 import com.alal.yft.detection.master.InstagramProbeSwitch
 import com.alal.yft.detection.master.SocialLadder
 import com.alal.yft.detection.master.YouTubeRouteB
@@ -106,6 +107,8 @@ class BrowserViewModel(
         playerScriptRunner: PlayerScriptRunner,
         // Phase 1.3 D7: only for the ladder's health file (app-private, found on first use).
         @ApplicationContext appContext: Context,
+        // Decision 30 (i): Settings' Backup finder; off, no lookup asks Master.
+        backupFinder: BackupFinder,
     ) : this(
         okHttpClient,
         siteAdapters,
@@ -115,12 +118,20 @@ class BrowserViewModel(
         AndroidBrowserMasterFallback.create(
             BuildConfig.MASTER_CAPTURE_ENABLED, okHttpClient, siteAdapters, playerScriptRunner,
             { appContext.filesDir },
+            on = backupFinder::isOn,
         ),
         InstagramProbeSwitch.reader(appContext),
         InstagramProbeSwitch.proofReader(appContext),
     )
 
     val masterCapture: WebViewPlaybackCapture? get() = masterFallback.capture
+
+    /**
+     * Decision 30 (i): whether a new tab gets Master's capture — a build with Master while the
+     * Backup finder is on. A tab made while it was off stays without; [masterCapture] still
+     * detaches every tab (a tab it never attached is left as it is).
+     */
+    val capturesNewTabs: Boolean get() = masterFallback.enabled && masterCapture != null
     private var masterLookup: Job? = null
     private var masterLookupKey: String? = null
 
@@ -345,6 +356,12 @@ class BrowserViewModel(
         viewModelScope.launch {
             // P37: the sheet's "Reload page and try again".
             detectedMediaStore.pageReloads.collect(::reloadForFreshLink)
+        }
+        viewModelScope.launch {
+            // Decision 30 (v): the quiet sheet's Show check opens this page's TikTok check.
+            detectedMediaStore.siteChecks.collect { pageUrl ->
+                if (pageUrl == activePageUrl) showSiteCheck()
+            }
         }
     }
 
@@ -668,7 +685,8 @@ class BrowserViewModel(
                     when {
                         video == null && sheet != null ->
                             showFocusedFailure(sheet, PROTECTED_FOCUSED_VIDEO_NOTICE, false)
-                        video == null -> finishFocusLookup(PROTECTED_FOCUSED_VIDEO_NOTICE)
+                        video == null ->
+                            finishFocusLookup(PROTECTED_FOCUSED_VIDEO_NOTICE, failed = true)
                         else -> {
                             if (mainMore != null) {
                                 mutableUiState.update { it.copy(sitePage = false) }
@@ -701,7 +719,7 @@ class BrowserViewModel(
                             focusedRetryPage = url
                             val network = outcome.reason == SiteExtractionFailure.NETWORK
                             mutableUiState.update { it.copy(canRetryFocusedLookup = network) }
-                            finishFocusLookup(outcome.message)
+                            finishFocusLookup(outcome.message, failed = true)
                         }
                     }
                 }
@@ -767,10 +785,19 @@ class BrowserViewModel(
         return MediaGroups.withPageFacts(video.copy(candidates = fresh), pageFacts)
     }
 
-    /** Ends the focused-video lookup with [notice], which clears itself after a few seconds. */
-    private fun finishFocusLookup(notice: String?) {
+    /**
+     * Ends the focused-video lookup with [notice], which clears itself after a few seconds.
+     * Decision 30 (v): [failed], the notice is the lookup's failure (a quiet build's one line).
+     */
+    private fun finishFocusLookup(notice: String?, failed: Boolean = false) {
         focusNoticeTimer?.cancel()
-        mutableUiState.update { it.copy(findingFocusedVideo = false, focusNotice = notice) }
+        mutableUiState.update {
+            it.copy(
+                findingFocusedVideo = false,
+                focusNotice = notice,
+                failedFocusNotice = notice.takeIf { failed },
+            )
+        }
         if (notice == null || mutableUiState.value.canRetryFocusedLookup) return
         focusNoticeTimer = viewModelScope.launch {
             delay(FOCUS_NOTICE_MS)
@@ -959,6 +986,7 @@ class BrowserViewModel(
                                 },
                                 canRetry = outcome.canRetry,
                                 details = outcome.details,
+                                siteCheck = checkUrl != null,
                             ),
                         )
                     }
@@ -1060,8 +1088,11 @@ class BrowserViewModel(
      * the video when the page's lookup found it; while the lookup runs (it starts now when the
      * page has not asked yet) the sheet waits for that same lookup, and after a failure it shows
      * the message with Try again. Returns whether the sheet opens.
+     *
+     * Decision 30 (v): [retryFailed] (a quiet build, whose sheet has no Try again): after a
+     * failed lookup that asking again can change, Download looks up again, as Try again does.
      */
-    fun openPageVideo(): Boolean {
+    fun openPageVideo(retryFailed: Boolean = false): Boolean {
         val pageUrl = activePageUrl ?: return false
         if (siteAdapters.videoKey(pageUrl) == null) return false
         val savable = mutableUiState.value.candidates.filter { it.isSavable }
@@ -1077,6 +1108,8 @@ class BrowserViewModel(
             !siteLookupStarted -> runSiteAdapters(pageUrl, mutableUiState.value.pageTitle)
             // P40: after a failed lookup a TikTok tap reads the tab's own data again.
             pageLookupFailed && siteAdapters.siteId(pageUrl) == TikTokPageScript.SITE_ID ->
+                retryLookup(pageUrl)
+            pageLookupFailed && retryFailed && mutableUiState.value.canRetrySiteLookup ->
                 retryLookup(pageUrl)
         }
         return true

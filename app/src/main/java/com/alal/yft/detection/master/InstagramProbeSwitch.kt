@@ -1,6 +1,7 @@
 package com.alal.yft.detection.master
 
 import android.content.Context
+import com.alal.yft.BuildConfig
 
 /**
  * Social plan S2d (`MASTER_KEY_SOCIAL_PLAN.md` decisions 19 and 24, debug only): the own switches
@@ -41,17 +42,23 @@ internal object InstagramProbeSwitch {
     }
 
     /**
-     * The rung's switch as the browser's lookups read it, each time the rung would be asked: null
-     * in every build but a social-ladder one (no rung in any lookup).
+     * Decision 30: whether this build has the rung at all — a social-ladder debug build only;
+     * never the release or a preview (decision 28), whose ladders run without it.
      */
-    fun reader(context: Context, social: Boolean = SocialLadder.enabled): (() -> Boolean)? {
+    val built: Boolean get() = SocialLadder.enabled && BuildConfig.INSTAGRAM_TAB_RUNG
+
+    /**
+     * The rung's switch as the browser's lookups read it, each time the rung would be asked: null
+     * in every build but a social-ladder debug one ([built]: no rung in any lookup).
+     */
+    fun reader(context: Context, social: Boolean = built): (() -> Boolean)? {
         if (!social) return null
         val app = context.applicationContext
         return { on(app, social) }
     }
 
     /** The rung's proof as the browser's lookups read it ([reader]'s rule): null but in a social-ladder build. */
-    fun proofReader(context: Context, social: Boolean = SocialLadder.enabled): (() -> Boolean)? {
+    fun proofReader(context: Context, social: Boolean = built): (() -> Boolean)? {
         if (!social) return null
         val app = context.applicationContext
         return { proof(app, social) }

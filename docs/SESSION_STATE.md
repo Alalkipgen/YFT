@@ -1193,3 +1193,53 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - Validation: `./gradlew --no-daemon :app:testDebugUnitTest --tests 'com.alal.yft.update.*'`; before
   a push, CI's set (plan §7); U2 also the Emulator smoke (`UpdateInstallInstrumentedTest`, plan
   §6.2: GitHub played by an in-test interceptor; Android's installer always cancelled).
+
+## Release agent — `work/phase-release-v1` (the v1.0.0 release commit, #12)
+
+- Task (the owner, 2026-10-25): the v1.0.0 release commit per decision 30 (iv)
+  (`MASTER_KEY_SOCIAL_PLAN.md` §8) and its two #12 preview APKs, then STOP with a short Burmese
+  report. Branch made from `origin/spike/master-extractor-backup` `038c1cd4` (PR #2's branch after
+  the download-fixes, VK and in-app-update merges; its CI green: Work-branch checkpoint
+  validation 40171179191, Master opt-in debug APK 40171175629). One commit or a few, the release
+  commit last; the owner (2026-10-25): push a checkpoint as soon as a part is green.
+- Built (checkpoint 1, this commit):
+  - `gradle.properties`: `1.0.0` / `1000000` (the version code rule, `VersionCodeRuleTest`).
+  - `app/build.gradle.kts`: `releaseMaster(key, url, trials)` — the release, #12 normal
+    (`preview`) and #12 trial (`previewTrial`) never read a `-Pyft.*` switch: Master on (route B:
+    the own solver, the client ladder; the four sites' ladders with L3; the capture; R9 with the
+    committed key `extractor-master/recipes/master-recipes.pub.hex` and the `recipes` branch's
+    URL), never the test hooks, the own solver's next ladder or Instagram's tab-fetch rung; the
+    trials only in `previewTrial` (`.trial`, "YFT Trial", `-trial.<run>`, the test key); quiet
+    (`QUIET_RELEASE`) in the release and `preview` only.
+  - (i) **Backup finder** (`detection/master/BackupFinder.kt`, on by default, app-private prefs):
+    off → no lookup asks Master (`SiteAdapterModule`'s registry and recovery, the browser's
+    fallback and capture, YouTube's own solver via `BackupFinderPlayerScripts`) and Master's
+    client refuses every request before it is sent (GitHub raw: R9, the version tables);
+    Settings row `settings-backup-finder`.
+  - (ii) About › Privacy's first line names GitHub (raw.githubusercontent.com for the backup
+    finder, api.github.com for Check automatically).
+  - (v) The quiet release (`ui/QuietRelease.kt`: `LocalQuietRelease`, `ShowDetails`, `QuietLines`):
+    the browser's lookup notice and Try again hidden (the focus notices stay; a failed one says
+    the quiet line); the sheet's one line ("Couldn't get this video.", TikTok's check with Show
+    check, "Play the video, then tap Download again."; Download again looks up again); Home's
+    sheet the same, Home's Copy details and Downloads' failure details hidden; a failed
+    download's retry stays; About's version line tapped 7 times turns Show details on or off.
+  - (iii) `.github/workflows/preview-apk.yml`: one run builds `:app:assemblePreview
+    :app:assemblePreviewTrial`, verifies both (`com.alal.yft.preview`, `com.alal.yft.trial`) and
+    uploads `yft-preview-apk` and `yft-preview-trial-apk`.
+  - Tests: `BackupFinderTest` (4), `QuietReleaseTest`, and new cases in `BrowserViewModelTest`,
+    `BrowserScreenTest`, `QuickDownloadScreenTest`, `AboutScreenTest`, `SettingsScreenTest`,
+    `SettingsViewModelTest`, `DownloadsScreenTest`; `MasterParityLiveTest` passes the switch.
+  - Docs so far: `CHANGELOG.md` `## [1.0.0]` (the Unreleased section becomes 1.0.0; the header's
+    version code rule), `docs/release/1.0.0.md`.
+- Local validation (2026-10-25): `testDebugUnitTest` → app 1278 (66 skipped), core-browser 150,
+  core-data 35, core-download 281, core-media 39, extractor-master-android 70: 0 failures;
+  `:app:compileDebugAndroidTestKotlin` OK.
+- Next: lint, the minified builds (`assembleRelease`, `assemblePreview`, `assemblePreviewTrial`;
+  R8 rules if R8 needs them), `:extractor-master:test` and the JVM modules; the rest of the shared
+  docs (`docs/RELEASE.md`, `PROGRESS.md`, `docs/TEST_MATRIX.md`, `docs/PHONE_TEST_NOTES.md`,
+  `docs/SUPPORT_MATRIX.md`, README, the plans' status lines) in the release commit; CI green
+  (checkpoint validation, Emulator smoke, Preview APK with both #12 APKs); STOP and report.
+- Rules: no site pack, engine or main lookup change; no rc.1; never `main`, the spike, PR #2, a
+  label, `master-recipes-publish`, `release-draft`, signing, the `recipes` branch, a tag or a
+  release, `work/phase-vk-master*`; no APK on the owner's phone.

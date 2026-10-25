@@ -423,8 +423,8 @@ private fun DownloadRows(
 }
 
 /**
- * Settings › Browser: the engine typed words search with (P30), the history (P31) and the
- * pop-up blocking (P32).
+ * Settings › Browser: the engine typed words search with (P30), the history (P31), the
+ * pop-up blocking (P32) and, in a build with Master, the Backup finder (decision 30 (i)).
  */
 @Composable
 private fun BrowserRows(
@@ -465,7 +465,24 @@ private fun BrowserRows(
         supporting = "Pages can't open new windows or send you to another site you didn't tap.",
         onToggle = { onAction(SettingsAction.SetBlockPopups(it)) },
     )
+    // Decision 30 (i): only in a build with Master; on by default.
+    state.backupFinder?.let { on ->
+        RowDivider()
+        SwitchRow(
+            icon = YftIcons.Stacks,
+            title = "Backup finder",
+            checked = on,
+            tag = "settings-backup-finder",
+            supporting = BACKUP_FINDER_SUPPORTING,
+            onToggle = { onAction(SettingsAction.SetBackupFinder(it)) },
+        )
+    }
 }
+
+/** Decision 30 (i): what the Backup finder does, and that it reads from GitHub. */
+internal const val BACKUP_FINDER_SUPPORTING =
+    "When a site's usual lookup finds no video, YFT tries other ways and may read its site " +
+        "data from GitHub."
 
 @Composable
 private fun PrivacyRows(state: SettingsUiState, onAction: (SettingsAction) -> Unit) {

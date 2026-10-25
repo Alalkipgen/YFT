@@ -15,7 +15,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -67,12 +69,17 @@ fun YftApp(
     PauseWhenStopped(playback)
     ReportPlaybackFailures(playback)
 
+    // Decision 30 (v): a quiet build stays quiet until About's hidden Show details is on.
+    val context = LocalContext.current
+    val showDetails by remember(context) { ShowDetails.get(context) }.on.collectAsState()
+
     YftTheme(themeMode = uiState.themeMode) {
         CompositionLocalProvider(
             LocalMediaDetailsSource provides mediaDetails,
             LocalRemoteThumbnails provides remoteThumbnails,
             LocalDownloadThumbnails provides downloadThumbnails,
             LocalLibraryPlayback provides playback,
+            LocalQuietRelease provides (ShowDetails.quietBuild && !showDetails),
         ) {
             val navController = rememberNavController()
             UpdateAutoOpen(navController)

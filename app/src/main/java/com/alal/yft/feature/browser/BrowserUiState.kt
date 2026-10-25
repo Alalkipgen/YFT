@@ -47,6 +47,11 @@ data class BrowserUiState(
     /** P10: a focused lookup failed on the network; Retry repeats that video only. */
     val canRetryFocusedLookup: Boolean = false,
     /**
+     * Decision 30 (v): the [focusNotice] that is the focused lookup's failure (not "Finding the
+     * video on screen…" or "No video on screen…"); a quiet build shows its one line instead.
+     */
+    val failedFocusNotice: String? = null,
+    /**
      * P12: a site adapter reads this page's own video (a watch, shorts, reel, video or post
      * page), so the Download button always means that video.
      */
@@ -66,4 +71,7 @@ data class BrowserUiState(
      * shorter its ad.
      */
     val pageFacts: PageVideoFacts? = null,
-)
+) {
+    /** Decision 30 (v): [focusNotice] is the focused lookup's failure. */
+    val focusFailed: Boolean get() = focusNotice != null && focusNotice == failedFocusNotice
+}

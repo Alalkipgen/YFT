@@ -90,6 +90,11 @@ data class QuickDownloadUiState(
     val downloadDetails: List<String> = emptyList(),
     /** P12: false when Try again cannot help (a protected video); the sheet hides it. */
     val canRetry: Boolean = true,
+    /**
+     * P46, decision 30 (v): the lookup ended on TikTok's check, which the browser can show; a
+     * quiet build's sheet offers its Show check.
+     */
+    val siteCheck: Boolean = false,
     /** P12: the sheet waits for the browser's lookup of the page's video. */
     val findingVideo: Boolean = false,
     /**
@@ -263,6 +268,15 @@ class QuickDownloadViewModel @Inject constructor(
             return
         }
         readPageAgainThenLoad()
+    }
+
+    /**
+     * Decision 30 (v): a quiet build's Show check — the browser shows TikTok's check for the page
+     * whose lookup ended on it. True when the browser took it, so the sheet closes.
+     */
+    fun showSiteCheck(): Boolean {
+        val lookup = pageLookup?.takeIf { it.siteCheck } ?: return false
+        return store.requestSiteCheck(lookup.pageUrl)
     }
 
     /**
@@ -483,6 +497,7 @@ class QuickDownloadViewModel @Inject constructor(
         failure = lookup.failure,
         failureDetails = lookup.details,
         canRetry = lookup.canRetry,
+        siteCheck = lookup.siteCheck,
         findingVideo = lookup.running,
         findingPageVideo = lookup.running && lookup.findingPageVideo,
     )
