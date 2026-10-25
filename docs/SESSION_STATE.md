@@ -1144,3 +1144,44 @@ Keep at least the heading and one blank line between sections, so Git merges the
   `--tests 'com.alal.yft.extractor.sites.vk.*'`); before a push the CI set: `lintDebug
   testDebugUnitTest :core-model:test :extractor-api:test :extractor-generic:test
   :extractor-sites:test :app:assembleDebug :app:assembleRelease`.
+
+## VK-Master kit agent (C) — `work/phase-vk-master-kit`
+
+- Plan: `docs/VK_MASTER_PLAN.md` §8 (self-heal), §9 (R9 schema 2), Appendix C (this agent's
+  prompt). Branch made from `origin/work/phase-vk-master` `50f2e9fb` (the plan's commit). New,
+  additive code only: nothing is wired into the app; `RemoteRecipeConfig.kt` (the schema-1 reader)
+  and `ContractRecipes.ALL` are unchanged.
+- State (2026-10-25): step 1 (the kit) done, this checkpoint. Next: step 2 (R9 schema 2), then
+  step 3 (the scoping question); step 4 (`VkClientSource`, part 2) only after agent A's proof and
+  the owner's go.
+- Step 1 — the kit (`extractor-master/.../master/social/`; YouTube's `ClientHealth` and
+  `VersionSource` stay YouTube's):
+  - `SiteHealth.kt`, data only: per site (`facebook`, `tiktok`, `x`, `instagram`, `vk`) and rung
+    (R9's rung names; VK's V1–V3) the last class and its time, the last pass (rows that passed V),
+    the cooldown end (`VALUE_REJECTED` 1 h, `SHAPE_CHANGED` 24 h; a pass or `clearCooldowns` ends
+    it) and the asked/passed counts; per site the last good rung, a 30 min stop after a bot check
+    or 429 (`SocialCooldown.COOLDOWN_MILLIS`; request-sending rungs and value reads only), the
+    once-a-day read clock per value (`claimRead`, spent before the read) and the last learned
+    value (its name, source ID and date; the value itself only when it is a public version, digits
+    and dots). One JSON text `{"v":1,"sites":{…}}` through an `OwnSolverTextFile` (≤ 64 KiB; every
+    stored string checked against a strict pattern on write and on read; a bad file starts empty).
+    Never a token, cookie, address, ID or secret; `describe()` names no value.
+  - `ValueSource.kt`: the S5 order for one named value (`ValueKind`: site, name, the whole value's
+    strict pattern, the heal anchor, the most bytes a read takes, ≤ 2 bundled `ValueAlternate`s
+    with source and date): R9-signed (`SignedValues`, `NONE` until the owner decides step 3) →
+    healed today (memory only) → learned (public versions only) → bundled → after a rejection one
+    heal read (`ValueReader`; `VkClientSource` is part 2) — once a day, not while the site is
+    stopped, ≤ the kind's bytes, exactly one pattern match, never a value rejected today — → the
+    alternates. `kept()` learns a value only after `DIRECT`/`PARTIAL` with rows that passed V;
+    `rejected()` skips it for the day. Values are `[A-Za-z0-9._,%=+-]{1,256}` only: never code,
+    never invented, counted up or brute-forced; notes name the source, never the value.
+  - Tests: `SiteHealthTest` 9, `ValueSourceTest` 8 (made-up values only).
+- Validation (JDK 17; this sandbox has no Android SDK, so Gradle needs `--configure-on-demand`):
+  `./gradlew --no-daemon :extractor-master:test` → 997 tests, 0 failures, 2 skipped (980 at the
+  base); `python3 -m unittest discover -s scripts/tests -p 'test_master_recipes_publish.py'` →
+  7 tests OK (1 skipped: no `jsonschema` here; unchanged in this step). Work-branch CI does not
+  run these.
+- Rules: Appendix C's "Never" list (no push to `main`, `spike/*` or another agent's branch; no PR;
+  no label; no publish run or `recipes` branch; no change to the schema-1 reader or
+  `ContractRecipes.ALL`; no app wiring, shared app file, engine, census screen, D7 matrix, shared
+  doc or Master YouTube file; no `VkClientSource` before A's proof and the owner's go).
