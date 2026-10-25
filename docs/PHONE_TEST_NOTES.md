@@ -865,3 +865,38 @@ Phone times are MMT (UTC+6:30). VK's test links and video ids are left out here 
 - **Download APK to update** wraps to two lines at a large text size; the release notes show as
   plain text (no Markdown marks). The reinstall test's "Update cancelled." without Download in
   browser is by design.
+
+## 2026-10-26 — P8: 1.0.0-rc.1, 1.0.0's publish and the release-key update test
+`docs/RELEASE.md` §5 ("1.0.0: the release-key update test"), `docs/IN_APP_UPDATE_PLAN.md` §5.5.
+The owner's phone (HyperOS); times MMT (UTC+6:30).
+
+### rc.1 — installed
+- `release/1.0.0-rc.1` `d75e7fa`: `main`'s `d732edcc` with `yft.versionName=1.0.0-rc.1` and
+  `yft.versionCode=999901` only. Release draft with `publish` unticked: green (18 min 38 s), the
+  draft prerelease `v1.0.0-rc.1` with `video-downloader-1.0.0-rc.1.apk` and `SHA256SUMS`; never
+  published.
+- Installed: Settings → About → Updates "YFT 1.0.0-rc.1 Installed", Check automatically on. Before
+  the update: Theme → Dark, the search engine changed, a test MP4 downloaded (Big Buck Bunny 360p,
+  10 s, test-videos.co.uk).
+
+### 1.0.0 — published (02:31)
+- Release draft on `main` (`d732edcc`) with `publish` unticked: the draft `v1.0.0`. Then
+  `ALLOW_RELEASE=true`, Release draft with `publish` ticked, `ALLOW_RELEASE` back to false.
+- v1.0.0 published 2026-10-25 20:01 UTC (release 423607593; tag `v1.0.0` on `d732edcc`; not a
+  prerelease): `video-downloader-1.0.0.apk` (7,125,959 bytes) and `SHA256SUMS`;
+  `sha256sum -c SHA256SUMS` on the published files: OK.
+
+### The update test — rc.1 → 1.0.0 (02:58–02:59) — PASS
+1. The rc: Updates → Check now → "New version v1.0.0" with the release notes.
+2. Download APK to update ("Signed by YFT · checked before install") → "Verified: checksum and
+   signature match" → Android's "Do you want to update this app?" → Update.
+3. "YFT 1.0.0 Installed", "You have the latest version (2:58 AM)"; the Dark theme and the
+   downloaded video kept; About `Version 1.0.0 (1000000)` (03:02).
+
+### A fresh install of 1.0.0 (03:14–03:15) — PASS
+- YFT uninstalled; the APK from the release page installed: About `Version 1.0.0 (1000000)`, the
+  default (light) theme; a 360p download done (Downloads "Video 360p · 968 KB").
+
+### After the test
+- The `v1.0.0-rc.1` draft deleted (no tag had been pushed) and the branch `release/1.0.0-rc.1`
+  deleted. 1.0.0 goes to the friends: https://github.com/Alalkipgen/YFT/releases/tag/v1.0.0
