@@ -116,12 +116,14 @@ class UpdatesScreenTest {
         setContent()
 
         composeRule.onNodeWithTag("updates-new-version").assert(hasText("New version v1.0.1"))
-        // Plain text: Markdown signs stay as they are.
+        // Plain text: Markdown's marks dropped, the link only its text.
+        composeRule.onAllNodesWithText("**", substring = true).assertCountEquals(0)
+        composeRule.onAllNodesWithText("](", substring = true).assertCountEquals(0)
         composeRule.onNodeWithTag("updates-notes")
             .assert(hasScrollAction())
             .assert(
                 hasAnyDescendant(
-                    hasText("- **Fix 1** in [a list](https://example.com)", substring = true),
+                    hasText("• Fix 1 in a list\n• Fix 2 in a list", substring = true),
                 ),
             )
             .performTouchInput { swipeUp() }

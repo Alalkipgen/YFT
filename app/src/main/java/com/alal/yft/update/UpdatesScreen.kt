@@ -212,7 +212,7 @@ private fun Available(
             color = colors.textPrimary,
             style = MaterialTheme.typography.titleMedium,
         )
-        // The release's body as it is: plain text, Markdown signs shown, no link opened.
+        // The release's body as plain text: Markdown's marks dropped, no link opened.
         Box(
             modifier = Modifier
                 .padding(top = 12.dp)
@@ -224,8 +224,9 @@ private fun Available(
                 .padding(12.dp)
                 .testTag("updates-notes"),
         ) {
+            val notes = remember(update.notes) { ReleaseNotes.plain(update.notes) }
             Text(
-                text = update.notes.ifBlank { "No release notes." },
+                text = notes.ifBlank { "No release notes." },
                 color = colors.textPrimary,
                 style = MaterialTheme.typography.bodyMedium,
             )
@@ -251,6 +252,8 @@ private fun Available(
                     icon = YftIcons.Download,
                     enabled = !busy,
                     large = true,
+                    // Large text sizes wrap the label rather than cut it.
+                    maxLines = 2,
                 )
                 SecurityLine(
                     text = "Signed by YFT · checked before install",

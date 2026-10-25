@@ -18,9 +18,10 @@ floor; U2 joins on time (§8), else v1.0.1.
   ကျွန်တော့် ဖြည့်စွက်ချက်: GitHub ဆီက အဖြေမှန် တစ်ခါမှ မရသေးရင် "Not checked yet" (မသိသေးတာကို
   "Up to date" လို့ မပြောအောင်)။
 - **Updates screen (တစ်ခုတည်း):** "YFT 1.0.0" (install ထားတဲ့ version)။ Update ရှိ —
-  "New version v1.0.1"၊ release notes (GitHub release body၊ plain text၊ scroll box)၊ **Download APK
-  to update** ခလုတ်ကြီး + security line။ မရှိ — "You have the latest version"၊ "Last checked …"၊
-  **Check now** (switch off လည်း ရ; "Checking…"၊ "No connection."၊
+  "New version v1.0.1"၊ release notes (GitHub release body ကို plain text — Markdown အမှတ်အသား (`#`၊
+  `**`၊ link) ဖြုတ်ပြီး၊ scroll box)၊ **Download APK to update** ခလုတ်ကြီး (စာလုံးကြီးရင် line ၂
+  ကြောင်း၊ မဖြတ်) + security line။ မရှိ — "You have the latest version"၊ "Last checked …"၊ **Check
+  now** (switch off လည်း ရ; "Checking…"၊ "No connection."၊
   "GitHub is busy. Try again after 22:10.")။ အောက်ဆုံး — switch **Check automatically** (default on;
   test mode မှာ off) + "Once a day when YFT opens. Asks GitHub (api.github.com)."
 - **ကိုယ်တိုင် ပွင့်:** app ဖွင့်ချိန် daily check က version အသစ် တွေ့ရင် version တစ်ခုကို တစ်ခါပဲ —
@@ -48,7 +49,10 @@ floor; U2 joins on time (§8), else v1.0.1.
   Settings/About conflict မရှိ။ မျှော်တဲ့ conflict: `docs/SESSION_STATE.md` ပဲ (section အားလုံး
   ထား)။ U2 နောက်ကျရင် U1 cut ကနေ `work/phase-in-app-update-u1` ကို merge။
 - **ဖုန်း test (U3):** U2 green ပြီးတာနဲ့ (Oct 26–27)၊ A နဲ့ VK ရဲ့ preview test တွေ ပြီးနောက်; step
-  0 — preview အဟောင်း (`com.alal.yft.preview`) ဖြုတ်။ Checklist §5.4 (~30–45 min)။
+  0 — preview အဟောင်း (`com.alal.yft.preview`) ဖြုတ်။ Checklist §5.4 (~30–45 min)။ **2026-10-25
+  PASS** (step ၅ ခုလုံး၊ §12)။ ပြင်ချက် ၂ ခု — ခလုတ်စာ line ၂ ကြောင်း၊ notes plain text — ပိုင်ရှင့်
+  #12 မှာ စစ်။ Reinstall test ရဲ့ "Update cancelled." မှာ Download in browser မပါတာ design အတိုင်း
+  (link က တွေ့တဲ့ release ရဲ့ APK; test က release မဟုတ်)။
 - **rc.1 release-key test:** release ချိန်မှာ ပိုင်ရှင် ရွေး (§5.5); မလုပ်ရင် ပထမ အမှန် test က
   v1.0.0 → v1.0.1။
 - **About privacy (release commit အတွက်):** About ရဲ့ ပထမ line
@@ -58,7 +62,8 @@ floor; U2 joins on time (§8), else v1.0.1.
   row/screen state၊ ကိုယ်တိုင်ပွင့်ပုံ၊ U2 စစ်ချက် ၃ ခုနဲ့ အစဉ်၊ security line။ Emulator — GitHub
   အတု (test ထဲက OkHttp interceptor၊ redirect ပါ)၊ Android installer window ပေါ်တဲ့အထိ → Cancel။
 - **A/VK နဲ့ ထိတဲ့ file:** code file မတူ (A/VK က Settings၊ nav၊ `YftApp.kt`၊ `MainActivity.kt`၊
-  manifest၊ Gradle ကို မထိ; U က Home ကို မထိတော့)။ တူတာ `docs/SESSION_STATE.md` ပဲ။
+  manifest၊ Gradle ကို မထိ; U က Home ကို မထိတော့; U3 ပြင်ချက်ရဲ့ `YftButtons.kt` ကို တခြား branch
+  မထိ — ပိုင်ရှင် စစ်ပြီး)။ တူတာ `docs/SESSION_STATE.md` ပဲ။
 - **အချိန် (MMT):** U1 ≈ 6–8 h (row/screen/ကိုယ်တိုင်ပွင့်ဖို့ +2 h) + CI → Oct 25 ည green → report
   တို၊ U2 ဆက်; U2 ≈ 8–10 h + CI (emulator ပါ) → Oct 26 ညနေ; ဖုန်း Oct 26–27; merge ~30 min ပိုင်ရှင်
   ပြောမှ။ Oct 26 24:00 မှာ U2 မ green ရင် v1.0.0 = U1 cut၊ U2 → v1.0.1။
@@ -85,8 +90,9 @@ silently, never from anywhere but this repository's releases.
   cut, §5.6).
 
 **Not in scope** (§10): a Home card, a dialog or any About change; background checks or
-notifications; silent installs; update ownership; delta or resumable downloads; Markdown in the
-notes; a beta channel for friends; signing-key rotation; any server but GitHub.
+notifications; silent installs; update ownership; delta or resumable downloads; Markdown rendering
+of the notes (U3 drops its marks: plain text); a beta channel for friends; signing-key rotation; any
+server but GitHub.
 
 ## 2. Hard rules
 
@@ -312,9 +318,11 @@ screen.
 **The Updates screen** (`YftDestination.UPDATES`, full screen with Back, as About):
 - Top: "YFT 1.0.0" — the installed version.
 - With an update: "New version v1.0.1" ("(test)" added in test mode); the release notes — the
-  release's body as plain text in a scrollable box (Markdown signs shown as they are; no link in it
-  is opened); the big **Download APK to update** button with its security line under it (the table
-  below).
+  release's body as plain text in a scrollable box (`ReleaseNotes`, a U3 fix: Markdown's heading
+  marks, `**`, `__` and backticks dropped; a link or an image keeps only its text, and nothing in
+  the notes is opened; a `- ` or `* ` item starts with "• "); the big **Download APK to update**
+  button — at large text sizes its label wraps to two lines instead of being cut (U3 fix) — with its
+  security line under it (the table below).
 - Without: "You have the latest version" and "Last checked today, 21:35" after a good answer, or
   "Not checked yet" before one; **Check now** — it works with the switch off; while it runs
   "Checking…", then the result, or "No connection.", "GitHub is busy. Try again after 22:10." (the
@@ -342,7 +350,7 @@ starts Android's confirmation, §4.4 step 7):
 | All three checks passed | — (U1 never says "verified") | "Verified: checksum and signature match" → Android's installer |
 | A check failed | — | which check, "Nothing was installed.", Download in browser |
 | Android's installer cancelled | — | "Update cancelled. Nothing was installed.", Download in browser |
-| Reinstall this build (test) | — | "Test: this build's own APK, signature matches" (no checksum: no release) |
+| Reinstall this build (test) | — | "Test: this build's own APK, signature matches" (no checksum: no release); Android's installer cancelled: "Update cancelled. Nothing was installed.", no Download in browser (its link is the found release's APK, not this build's) |
 
 ### 4.6 Hosts and privacy
 
@@ -369,6 +377,11 @@ starts Android's confirmation, §4.4 step 7):
   Cancel stops the one in flight), `UpdateModule.kt` (the shared environment; the flow),
   `UpdatesViewModel.kt`, `UpdatesScreen.kt` (§4.5's U2 column), `UpdateAutoOpen.kt` (the
   confirmation).
+- **U3 fixes:** new `ReleaseNotes.kt` (the notes as plain text, §4.5). Edited: `UpdatesScreen.kt`
+  (the notes through `ReleaseNotes`; the button's `maxLines = 2`), `GitHubReleases.kt` (KDoc only:
+  the found update keeps the body as written) and `ui/components/YftButtons.kt`
+  (`YftPrimaryButton`'s optional `maxLines`, default 1, so every other button stays as it is; no
+  other branch touches the file, §9).
 - **Edited (small):** `feature/settings/SettingsScreen.kt` (the Version row's version →
   `supporting`; the Updates row; `ValueRow`'s optional badge; `SettingsScreen`'s two new parameters
   with defaults; `SettingsRoute`), `ui/navigation/YftDestination.kt` (`UPDATES`),
@@ -423,9 +436,11 @@ run 3.
      beta.1's checksum passes, but it has the release key and the preview a test key. Download in
      browser is there (don't install from it).
   5. Reinstall this build (test) → "Test: this build's own APK, signature matches" → HyperOS's
-     installer: Cancel → "Update cancelled. Nothing was installed." with the link; again → Install →
+     installer: Cancel → "Update cancelled. Nothing was installed." (no link: the test is no release
+     — Download in browser would open the found release's APK, not this build's); again → Install →
      YFT restarts, its settings kept.
-- The owner's results are recorded by the release commit (`docs/PHONE_TEST_NOTES.md`, §11).
+- The owner's results are recorded by the release commit (`docs/PHONE_TEST_NOTES.md`, §11). Done
+  2026-10-25: PASS, every step (§12).
 
 ### 5.5 The release-key update test (rc.1) — the owner's choice at release time
 
@@ -513,6 +528,13 @@ link stays the fallback).
   `YftNavigationSmokeTest.kt` and `DesignRenderTest.kt` (a third parameter) and
   `YftDestinationTest.kt` (`UPDATES`); `SettingsScreenTest` passes as it is (the About row still has
   "Version" and the version).
+- U3 fixes: `ReleaseNotesTest` (heading marks, `**`, `__` and backticks dropped; a link or an image
+  keeps its text; `- ` and `* ` items start with "• "; numbered items, a rule and a single `*` or
+  `_` stay; the line breaks kept, the edges trimmed; beta.1's notes as plain text);
+  `UpdatesLargeTextTest` (Robolectric with native graphics, a 360dp phone at Android's largest text
+  size, 200%: **Download APK to update** wraps to two lines and is not cut; another
+  `YftPrimaryButton` keeps its one line, cut); `UpdatesScreenTest`'s notes case reads the plain text
+  (no `**`, no `](`).
 
 ### 6.2 Emulator (`connectedDebugAndroidTest`, the Emulator smoke, API 34)
 
@@ -580,6 +602,8 @@ link stays the fallback).
   Home/D4 files) nor `FileNames.kt` (U2 saves under one fixed cache name).
 - **VK** (`work/phase-vk-extractor`, `f2433a1`): none — U uses core-data's `OkHttpClient`, not
   `OkHttpExtractorClient`; `SiteAdapterModule.kt` untouched.
+- **`ui/components/YftButtons.kt`** (U3 fix: `YftPrimaryButton`'s optional `maxLines`, default 1):
+  no other branch touches it (the owner, 2026-10-25).
 - **All three:** `docs/SESSION_STATE.md` — each appends its own section; the only expected conflict
   at the merge (§5.6), every section kept.
 - **The release commit** comes after the three merges, on top of them: nothing to resolve with it.
@@ -587,7 +611,8 @@ link stays the fallback).
 ## 10. Backlog (after v1.0.x)
 
 - A small Home card when an update is found (v1.0.0 has the Settings row and the screen only).
-- The notes with Markdown (headings, lists, links) instead of plain text.
+- Markdown rendering of the notes (headings, bold, lists, links) instead of plain text with the
+  marks dropped (U3).
 - Signing-key rotation: U2 compares the current signers strictly and refuses a rotated key (the link
   remains).
 - A beta channel for friends who opt in; resuming a broken download; a mirror if GitHub is
@@ -653,6 +678,35 @@ link stays the fallback).
   and its status all worked on API 34; steps 1, 3 and 4 passed. The test now waits through Compose
   (`checkpoint(phase-in-app-update): U2: wait for Android's installer through Compose`; its SHA and
   CI in the next entry). No app change.
+- 2026-10-25 (MMT): **U2 green** — `d5f36f8` (`checkpoint(phase-in-app-update): U2: wait for
+  Android's installer through Compose`, on U2's `6883e4d`); its CI all success: Work-branch
+  checkpoint validation 40133089357, Android emulator smoke 40133089369 (59 tests, 0 failures, 3
+  skipped), Preview APK (test key) 40133089364 (artifact `yft-preview-apk`: U3's APK). STOP with a
+  short Burmese report.
+- 2026-10-25 (MMT): **U3 PASS** on the owner's phone (HyperOS; the preview of `d5f36f8`, 10:39–10:53
+  MMT), every step of §5.4: 1. About: Version "1.0.0-beta.3-preview.92" on its second line, Updates
+  "Not checked yet"; the screen as planned, Check automatically off. 2. Airplane mode → Check now →
+  "No connection." (the app's data cleared first: an earlier Check now had found beta.1, and a found
+  update hides Check now — as designed). 3. The switch on → YFT opened again → the screen opened by
+  itself, "New version v1.0.0-beta.1 (test)"; About: New and "v1.0.0-beta.1 available (test)"; the
+  next open did not open it again. 4. "Allow YFT to install updates…" → Open settings → allowed →
+  "Downloading… 93%" with Cancel → "Signature doesn't match your YFT. Nothing was installed." with
+  Download in browser. 5. Reinstall this build (test):
+  "Test: this build's own APK, signature matches" → HyperOS's "Do you want to update this app?" →
+  Cancel → "Update cancelled. Nothing was installed." → again → Update → installed; YFT opened again
+  with its data kept (beta.1 still found). `docs/PHONE_TEST_NOTES.md` untouched: the release commit
+  records it (§11).
+- 2026-10-25 (MMT): **U3 fixes** (the owner's two): **Download APK to update** was cut
+  ("Download APK to upd…") at his large text size → `YftPrimaryButton` gets an optional `maxLines`
+  (default 1, so no other button changes; no other branch touches `YftButtons.kt`) and the Updates
+  screen passes 2; the notes showed Markdown's marks → plain text (`ReleaseNotes`, §4.5). His
+  question — the reinstall test's "Update cancelled." has no Download in browser: by design. That
+  link is the found release's APK (here beta.1, with the release key), while the test installs this
+  build's own APK and is no release, so the link there would mislead; §5.4's step 5 said
+  "with the link" — corrected. Tests: §6.1's U3 fixes. Checkpoint `checkpoint(phase-in-app-update):
+  U3 fixes: the button's two lines, the notes as plain text` (its SHA and CI in the next entry). No
+  new phone test: the owner checks both fixes in his #12. Next: CI green, then STOP with a short
+  Burmese report.
 
 ## Appendix — the agent's prompt
 

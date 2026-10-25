@@ -785,20 +785,26 @@ Keep at least the heading and one blank line between sections, so Git merges the
   v1.0.0, the first stable release, with A and VK; revised after his review the same day). Branch
   made from PR #2's head `8dc46ff` (`spike/master-extractor-backup`).
 - State (2026-10-25 MMT): **U1 green** — the U1 cut `e615a96` (CI all success: checkpoint validation
-  40123514346, Emulator smoke 40123514304, Preview APK 40123514313). **U2 done** — checkpoint
-  `6883e4d` (`checkpoint(phase-in-app-update): U2: the download in YFT, the three checks, Android's
-  installer`): Download APK to update now runs in YFT (`UpdateInstallFlow`, one for the process):
-  allowed to install? → free space → the release's `SHA256SUMS` line → the APK into the cache (check
-  1, the checksum) → check 2, the signature → check 3, the package and version → Android's
-  installer, where the user confirms (YFT never installs by itself); Cancel; every failure says
-  which step, "Nothing was installed." and Download in browser; Reinstall this build (test) in debug
-  and preview only. The manifest: `REQUEST_INSTALL_PACKAGES` and the unexported
-  `InstallStatusReceiver`. Its CI: validation and Preview APK green; the Emulator smoke red in the
-  new test only (it waited for Android's installer outside Compose's test clock; plan §12) → the
-  test fixed in the next checkpoint (no app change; its CI in the next one). Beside the plan's
-  letter: plan §12's U2 entries. Next: CI green (the Emulator smoke runs
-  `UpdateInstallInstrumentedTest`; the Preview APK for U3), then STOP with a short Burmese report.
-  Time box: U2 not green by 2026-10-26 24:00 MMT → a report; v1.0.0 takes the U1 cut.
+  40123514346, Emulator smoke 40123514304, Preview APK 40123514313). **U2 green** — `d5f36f8`
+  (`checkpoint(phase-in-app-update): U2: wait for Android's installer through Compose`, on U2's
+  `6883e4d`; CI all success: checkpoint validation 40133089357, Emulator smoke 40133089369 (59
+  tests, 0 failures), Preview APK 40133089364): Download APK to update runs in YFT
+  (`UpdateInstallFlow`, one for the process): allowed to install? → free space → the release's
+  `SHA256SUMS` line → the APK into the cache (check 1, the checksum) → check 2, the signature →
+  check 3, the package and version → Android's installer, where the user confirms (YFT never
+  installs by itself); Cancel; every failure says which step, "Nothing was installed." and Download
+  in browser; Reinstall this build (test) in debug and preview only. The manifest:
+  `REQUEST_INSTALL_PACKAGES` and the unexported `InstallStatusReceiver`. **U3 PASS** on the owner's
+  phone (the preview of `d5f36f8`, 2026-10-25 10:39–10:53 MMT): every step of plan §5.4; recorded in
+  plan §12 (the release commit puts it in `docs/PHONE_TEST_NOTES.md`). **U3 fixes** — checkpoint
+  `checkpoint(phase-in-app-update): U3 fixes: the button's two lines, the notes as plain text` (its
+  SHA and CI in plan §12's next entry): **Download APK to update** wraps to two lines at large text
+  sizes instead of being cut (`YftPrimaryButton`'s optional `maxLines`, default 1), and the notes
+  drop Markdown's marks (`ReleaseNotes`). The reinstall test's "Update cancelled." without Download
+  in browser is by design (that link is the found release's APK; the test is no release). Beside the
+  plan's letter: plan §12's U2 and U3 entries. Next: CI green, then STOP with a short Burmese
+  report; no new phone test — the owner checks both fixes in his #12. Time box: CI green by
+  2026-10-26 24:00 MMT.
 - The owner's review: no Home card, no About change, no dialog; the Version row's version on its
   second line; every text a true claim (U1 never says "verified").
 - Merge (the owner's order, only when he says): A → VK → this branch into
@@ -806,8 +812,8 @@ Keep at least the heading and one blank line between sections, so Git merges the
   the shared docs) on top. No U4: `main` is never merged into this branch, no pull request. Expected
   conflict: this file only (every section kept). U2 late → `work/phase-in-app-update-u1` (the U1
   cut) instead.
-- Phone (U3): right after U2 is green, after A's and VK's preview tests; the old preview uninstalled
-  first (plan §5.4).
+- Phone (U3): PASS on 2026-10-25, every step (plan §5.4, §12); the U3 fixes are checked in the
+  owner's #12.
 - Found at U0: every release made by `release-draft.yml` carries `SHA256SUMS` (`release-prep.sh` →
   `verify-release-apk.sh`; uploaded on create and refresh), so no workflow change. Published today:
   only `v1.0.0-beta.1` (prerelease, versionCode 1); beta.2 and beta.3 are drafts.

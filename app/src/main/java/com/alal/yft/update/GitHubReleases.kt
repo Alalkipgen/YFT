@@ -19,7 +19,10 @@ data class FoundUpdate(
     val apkSize: Long,
     /** The release's `SHA256SUMS` asset; null when it has none (the in-app install refuses). */
     val sumsUrl: String?,
-    /** The release's body as plain text, at most [GitHubReleases.MAX_NOTES] characters. */
+    /**
+     * The release's body as written (Markdown), at most [GitHubReleases.MAX_NOTES] characters; the
+     * Updates screen shows it as plain text ([ReleaseNotes]).
+     */
     val notes: String,
     /** GitHub's `published_at`, such as "2026-10-25T09:00:00Z"; null when missing. */
     val publishedAt: String?,
@@ -98,7 +101,7 @@ internal object GitHubReleases {
         }
     }
 
-    /** The release's body as plain text: at most [MAX_NOTES] characters, cut at a line end. */
+    /** The body with `\n` line ends: at most [MAX_NOTES] characters, cut at a line end. */
     fun notes(body: String?): String {
         val text = body.orEmpty().replace("\r\n", "\n").replace('\r', '\n').trimEnd()
         if (text.length <= MAX_NOTES) return text
