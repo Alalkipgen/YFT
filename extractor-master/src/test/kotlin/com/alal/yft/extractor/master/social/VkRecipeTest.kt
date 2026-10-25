@@ -12,7 +12,6 @@ import com.alal.yft.extractor.master.RecordingValidator
 import com.alal.yft.extractor.master.contract.CountingCapture
 import com.alal.yft.extractor.master.contract.SiteContracts
 import com.alal.yft.extractor.master.contract.contractRequest
-import com.alal.yft.extractor.master.fixture
 import com.alal.yft.extractor.master.layers.ContractLayer
 import com.alal.yft.extractor.master.modules.youtube.testing.FakeExtractorHttpClient
 import com.alal.yft.extractor.master.recipes.ContractRecipes
@@ -72,7 +71,7 @@ class VkRecipeTest {
 
     @Test
     fun `VK's recipe reads the video's own answer only - its files with their kinds and sizes, another video's answer none`() {
-        val answer = checkNotNull(VkReader.api(fixture("vk-pack/video_get_mp4.json"), LINK).answer(LINK, API))
+        val answer = checkNotNull(VkReader.api(vkPack("video_get_mp4.json"), LINK).answer(LINK, API))
         val layer = ContractLayer(contracts(FakeExtractorHttpClient())::recipeOf)
         val request = contractRequest(PAGE, identify(PAGE), SiteExtractionFailure.NO_MEDIA_FOUND)
 

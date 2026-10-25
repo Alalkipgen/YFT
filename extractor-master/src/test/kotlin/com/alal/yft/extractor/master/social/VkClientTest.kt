@@ -2,7 +2,6 @@ package com.alal.yft.extractor.master.social
 
 import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.extractor.master.NOW
-import com.alal.yft.extractor.master.fixture
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -57,7 +56,7 @@ class VkClientTest {
         val link = VkClient.Link(-100000001, 400000001, "FIXTURELIST")
         assertFalse(link.toString().contains("100000001"))
         assertFalse(link.toString().contains("FIXTURELIST"))
-        val token = checkNotNull(VkClient.token(fixture("vk-pack/token_okay.json"), NOW))
+        val token = checkNotNull(VkClient.token(vkToken(), NOW))
         assertFalse(token.toString().contains("fixture.anonymous"))
     }
 
@@ -114,7 +113,7 @@ class VkClientTest {
 
     @Test
     fun `the token is read as main reads it, with VK's expiry less a minute and at most a day`() {
-        val token = checkNotNull(VkClient.token(fixture("vk-pack/token_okay.json"), NOW))
+        val token = checkNotNull(VkClient.token(vkToken(), NOW))
         assertEquals("fixture.anonymous.token.not-real.0123456789", token.value)
         assertEquals("NOW is 2027; the fixture's expiry is past a day", NOW + 24L * 3600 * 1000 - 60_000, token.usableUntilEpochMs)
         val soon = NOW / 1000 + 600
@@ -147,7 +146,7 @@ class VkClientTest {
 
     @Test
     fun `the asks' headers are main's, in main's order, with the token as a bearer and never a cookie`() {
-        val token = checkNotNull(VkClient.token(fixture("vk-pack/token_okay.json"), NOW))
+        val token = checkNotNull(VkClient.token(vkToken(), NOW))
         assertEquals(
             listOf(
                 "User-Agent" to "FixtureAgent/1.0",

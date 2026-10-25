@@ -34,8 +34,8 @@ import org.junit.Test
  * census's table): V may ask VK's video servers only (`vk{N}-{N}.vkuser.net`, `vkvd{N}.okcdn.ru`),
  * never okcdn.ru's image host, plain HTTP, user info or another site's host; in a VK lookup the
  * shared row check (V) asks VK's media hosts only, never a manifest, and its reads are no way of
- * VK's (main's manifest reads are, [VkLabelsTest]); the table's placeholder slots (A finalizes).
- * JVM only, no network.
+ * VK's (main's manifest reads are, [VkLabelsTest]); the table's placeholder slots (A finalizes);
+ * VK's names as agent C's schema 2 reads them (`vk`; `V1`, `V2`, `V3`). JVM only, no network.
  */
 class VkSiteTest {
     @Test
@@ -129,6 +129,12 @@ class VkSiteTest {
         assertNull(site.kind(0))
         assertNull(site.kind(10))
         assertFalse(SiteExtractionFailure.RESPONSE_CHANGED in site.slots.flatMap { it.expect.reasons })
+    }
+
+    @Test
+    fun `VK's names are agent C's schema 2's - the site vk, the rungs V1, V2 and V3`() {
+        listOf(VkClient.SITE_ID, VkLadder.SITE_ID, VkSite.SITE.id, VkRecipe.RECIPE.site).forEach { assertEquals("vk", it) }
+        assertEquals(listOf("V1", "V2", "V3"), VkLadder.RUNGS)
     }
 
     /** A fake file reader: [answer] for each address; the addresses asked, in order. */

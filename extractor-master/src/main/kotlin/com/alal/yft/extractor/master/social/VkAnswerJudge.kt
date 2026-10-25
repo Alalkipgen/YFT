@@ -57,20 +57,23 @@ internal data class VkReading(
  *   VK's rate errors ([RATE_ERRORS]) → [AnswerClass.RATE_LIMITED]: the site stops and cools.
  * - `restriction.can_play` 0 with VK's deleted icon → [AnswerClass.REMOVED] (final); any other
  *   restriction → [AnswerClass.TRANSIENT].
+ * - VK's region limit (API error [GEO_ERROR], 13300 `ACCESS_GEO`) → [AnswerClass.REGION_LIMITED]
+ *   (final). VK's access errors 15, 17 and 204 name no kind the judge can prove (private, sign-in or
+ *   age alike): [AnswerClass.TRANSIENT] without other positive evidence, never final.
  * - A live broadcast → [AnswerClass.VIDEO_WITHOUT_FILES] (main's live answer stays); not JSON,
  *   another host, another video's entry, no entry, no file or files on unknown hosts →
  *   [AnswerClass.SHAPE_CHANGED].
  *
- * Provisional until A's error-taxonomy recon (§10): [VALUE_ERRORS], [RATE_ERRORS] and the deleted
- * icon. Evidence: a status, a code, a marker's kind; never the page's words, a link or an ID, and
- * none of the words a diagnostic line is dropped for (DiagnosticTextSanitizer: a credential's name).
- * Reads only; no request, no log.
+ * The codes and the deleted icon fit agent A's taxonomy (docs/VK_MASTER_CENSUS.md §3: VK's own
+ * `API_ERROR_*` names; 5, 8 and the deleted icon seen live). Evidence: a status, a code, a marker's
+ * kind; never the page's words, a link or an ID, and none of the words a diagnostic line is dropped
+ * for (DiagnosticTextSanitizer: a credential's name). Reads only; no request, no log.
  */
 internal object VkAnswerJudge {
     /** API error 14: VK asks for a captcha. */
     const val CAPTCHA_ERROR = 14L
 
-    /** VK's API errors for the web client's values (provisional: A confirms). */
+    /** VK's API errors for the web client's values (A's census §3.1: 5 AUTH and 8 REQUEST seen live). */
     val VALUE_ERRORS: Set<Long> = setOf(
         TOKEN_ERROR, // User authorization failed: the token
         8L, // Invalid request: as for an API version VK no longer takes
@@ -82,7 +85,10 @@ internal object VkAnswerJudge {
     /** VK's API errors for too many requests: 6 per second, 9 flood control, 29 rate limit. */
     val RATE_ERRORS: Set<Long> = setOf(6L, 9L, 29L)
 
-    /** VK's icon for a deleted video in `restriction` (provisional: A confirms). */
+    /** API error 13300 (`API_ERROR_ACCESS_GEO`): VK does not show the video in the viewer's region. */
+    const val GEO_ERROR = 13_300L
+
+    /** VK's icon for a deleted video in `restriction` (A's census §3.1: seen live, `delete_outline`). */
     const val DELETED_ICON = "delete_outline"
 
     /** Main's embed answer (B, B again, B2) for the link's video, read into [reading]. */
@@ -168,11 +174,12 @@ internal object VkAnswerJudge {
         }
     }
 
-    /** VK's API error [code]: the class its kind names; an unknown one is TRANSIENT. */
+    /** VK's API error [code]: the class its kind names; an unknown one (15, 17, 204 too) is TRANSIENT. */
     fun apiError(code: Long?): Judged = when (code) {
         null -> Judged(AnswerClass.TRANSIENT, null, "API error, no code")
         CAPTCHA_ERROR -> Judged(AnswerClass.BOT_CHECK, AnswerClass.BOT_CHECK.reason, "API error $code (captcha)")
         in RATE_ERRORS -> Judged(AnswerClass.RATE_LIMITED, AnswerClass.RATE_LIMITED.reason, "API error $code (rate)")
+        GEO_ERROR -> Judged(AnswerClass.REGION_LIMITED, AnswerClass.REGION_LIMITED.reason, "API error $code (region)")
         in VALUE_ERRORS -> Judged(
             AnswerClass.VALUE_REJECTED,
             AnswerClass.VALUE_REJECTED.reason,

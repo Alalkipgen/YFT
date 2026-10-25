@@ -18,7 +18,6 @@ import com.alal.yft.extractor.master.contract.CountingCapture
 import com.alal.yft.extractor.master.contract.SiteContracts
 import com.alal.yft.extractor.master.contract.contractRequest
 import com.alal.yft.extractor.master.contract.mainRequest
-import com.alal.yft.extractor.master.fixture
 import com.alal.yft.extractor.master.lookup.AnswerMark
 import com.alal.yft.extractor.master.lookup.LookupRecord
 import com.alal.yft.extractor.master.lookup.LookupRecorder
@@ -48,8 +47,11 @@ import org.junit.Test
  * short labels that the sanitizer keeps whole. Step 4: in a record labelled with VK's labels
  * ([VkLabels]) main's token ask is read by its mark — VK's captcha stops VK and cools login.vk.ru,
  * an answer without a value is a refused value (V2) — also when main asks with other values. Step 5:
- * a build without VK's recipe checks none of main's rows (V1 says so). JVM only, no network; VK's
- * recipe is step 4's ([VkRecipe], [VkRecipeTest]).
+ * a build without VK's recipe checks none of main's rows (V1 says so). Agent A's census: VK's
+ * region limit (API error 13300) final in V1 and V2; login.vk.ru checks the client id, not the
+ * secret, so the heal's value is a rotated client id (a new secret alone heals nothing); VK's
+ * budget fits main's most (6 asks), V2 and V's reads. JVM only, no network; VK's recipe is step
+ * 4's ([VkRecipe], [VkRecipeTest]).
  */
 class VkLadderTest {
     @Test
@@ -92,7 +94,7 @@ class VkLadderTest {
 
     @Test
     fun `V1 reads main's embed pages - B and B2 alike, the deciding one shown, never the trailer or another video's file`() = runTest {
-        val renamed = fixture("vk-pack/embed_files.html")
+        val renamed = vkPack("embed_files.html")
             .replace("\"mp4_", "\"stream_")
             .replace("\"hls\"", "\"stream_list\"")
             .replace("\"dash_sep\"", "\"stream_dash\"")
@@ -144,7 +146,7 @@ class VkLadderTest {
         assertTrue(failure.details.toString(), "master: page reports PRIVATE_OR_UNAVAILABLE" in failure.details)
         assertEquals(0, deleted.capture.calls)
 
-        val locked = fixture("vk-pack/video_get_deleted.json").replace("delete_outline", "lock_outline")
+        val locked = vkPack("video_get_deleted.json").replace("delete_outline", "lock_outline")
         val other = lookup(vk(api = { json(locked, it) }), ladder(master))
 
         assertTrue(other.result.toString(), other.result is MasterResult.NeedsPlayback)
@@ -160,6 +162,32 @@ class VkLadderTest {
         assertNothingAsked(master)
         assertBare(deleted)
         assertBare(other)
+    }
+
+    @Test
+    fun `VK's region limit is the lookup's final answer - in main's video get and in V2's`() = runTest {
+        val master = vk()
+        val main = lookup(vk(api = answers("video_get_error_13300.json")), ladder(master))
+
+        assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, main.mainFailure)
+        val failure = main.result as MasterResult.Failure
+        assertEquals(SiteExtractionFailure.GEO_RESTRICTED, failure.reason)
+        assertEquals(listOf(LADDER_LINE, ADULT, "$V1 video.get: $REGION_LIMITED"), main.lines)
+        assertTrue(failure.details.toString(), "master: page reports GEO_RESTRICTED" in failure.details)
+        assertEquals(0, main.capture.calls)
+        assertNothingAsked(master)
+
+        // After a heal: V2's own video.get answers the region limit, final too.
+        val healer = vk(token = rotated, api = answers("video_get_error_13300.json"))
+        val healed = lookup(vk(token = rotated), ladder(healer))
+
+        val healedFailure = healed.result as MasterResult.Failure
+        assertEquals(SiteExtractionFailure.GEO_RESTRICTED, healedFailure.reason)
+        assertEquals("$V2 video.get: $REGION_LIMITED", healed.lines.last())
+        assertEquals(listOf(HEALED.videoGetUrl(LINK)), healer.requestedUrls)
+        assertEquals(0, healed.capture.calls)
+        assertBare(main)
+        assertBare(healed)
     }
 
     @Test
@@ -189,10 +217,10 @@ class VkLadderTest {
                     if (URI(url).host == VkClient.COM_HOST) {
                         ExtractorHttpResult.Failure(SiteExtractionFailure.RATE_LIMITED, 429)
                     } else {
-                        page(fixture("vk-pack/embed_adult.html"), url)
+                        page(vkPack("embed_adult.html"), url)
                     }
                 },
-                token = refused(401),
+                token = rotated,
             ),
             ladder(master, cooldown = hosts),
         )
@@ -216,8 +244,8 @@ class VkLadderTest {
 
     @Test
     fun `V2 heals after main's token was refused - one token in memory, one video get, no cookie, its rows checked`() = runTest {
-        val master = vk()
-        val lookup = lookup(vk(token = refused(401)), ladder(master), cookie = COOKIE)
+        val master = vk(token = rotated)
+        val lookup = lookup(vk(token = rotated), ladder(master), cookie = COOKIE)
 
         assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, lookup.mainFailure)
         val success = lookup.result as MasterResult.Success
@@ -233,7 +261,7 @@ class VkLadderTest {
         assertTrue("the healed values' body", master.postedBodies.single() == HEALED.tokenBody)
         assertEquals(listOf(VkClient.headers(AGENT, null).toList()), master.postedHeaders.map { it.toList() })
         assertEquals(listOf(HEALED.videoGetUrl(LINK)), master.requestedUrls)
-        val token = checkNotNull(VkClient.token(fixture("vk-pack/token_okay.json"), NOW))
+        val token = checkNotNull(VkClient.token(vkToken(), NOW))
         assertEquals(listOf(VkClient.headers(AGENT, token).toList()), master.requestedHeaders.map { it.toList() })
         (master.postedHeaders + master.requestedHeaders).forEach { headers ->
             assertFalse(headers.keys.any { it.equals("Cookie", ignoreCase = true) })
@@ -255,6 +283,71 @@ class VkLadderTest {
     }
 
     @Test
+    fun `a new client secret alone heals nothing - VK checks the client id, so V2's token is refused and no video get asked`() = runTest {
+        val master = vk(token = rotated)
+        val secretOnly = VkClientValues.bundled { it.copy(clientSecret = SECRET) }
+        val lookup = lookup(vk(token = rotated), ladder(master, secretOnly))
+
+        assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, lookup.mainFailure)
+        assertTrue(lookup.result.toString(), lookup.result is MasterResult.NeedsPlayback)
+        assertEquals(
+            listOf(
+                LADDER_LINE,
+                ADULT,
+                TOKEN_REFUSED,
+                "$V2 login.vk.ru (debug values of ${VkClient.BUNDLED_DATE}): " +
+                    "VALUE_REJECTED (status 401, the web client's values refused); next: NEXT_RUNG",
+            ),
+            lookup.lines,
+        )
+        assertEquals(listOf(VkClient.TOKEN_URL), master.postedUrls)
+        assertTrue(master.requestedUrls.isEmpty())
+        assertEquals(1, lookup.capture.calls)
+        assertBare(lookup)
+    }
+
+    @Test
+    fun `VK's budget fits main's most, a heal and V - main's 6 asks, V2's 4, V's 8 reads, V2's two answers at their bounds, main's 15 s`() = runTest {
+        // Main's most in a lookup it fails: a token in memory from an earlier lookup, then VK's
+        // shell twice on vk.com, the adult answer on vk.ru, video.get refusing the kept token and
+        // one new token (error 5).
+        var worst = false
+        val main = vk(
+            embed = { url ->
+                val shell = worst && URI(url).host == VkClient.COM_HOST
+                page(vkPack(if (shell) "embed_shell.html" else "embed_adult.html"), url)
+            },
+            api = { url -> json(vkPack(if (worst) "video_get_error_5.json" else "video_get_mp4.json"), url) },
+        )
+        val adapter = VkExtractor(MainPageRecorder(LookupRecorder(main)), clockMillis = { 0L })
+        assertTrue(adapter.extract(mainRequest(identify(PAGE))) is SiteExtractionResult.Success)
+        worst = true
+        val master = vk(token = rotated)
+        val lookup = lookup(main, ladder(master), adapter = adapter)
+
+        assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, lookup.mainFailure)
+        assertEquals(6, lookup.record.mainAsks)
+        assertEquals(MasterStage.CONTRACT, (lookup.result as MasterResult.Success).stage)
+        assertEquals(2, lookup.record.masterAsks)
+        // VkSite.BUDGET: main's 6, V2's token and video.get, the live source's page and script
+        // (agent C's, not asked with the bundled values), V's reads.
+        assertEquals(
+            VkSite.BUDGET.requests,
+            lookup.record.mainAsks + lookup.record.masterAsks + LIVE_SOURCE_READS + SocialRowCheck.MAX_READS,
+        )
+        assertEquals(VkClient.MAX_TOKEN_BYTES + VkClient.MAX_API_BYTES, VkSite.BUDGET.bytes)
+        assertEquals(VkExtractor.DEADLINE_MS, VkSite.BUDGET.millis)
+
+        // The smallest byte budget: one byte less and V2 asks nothing.
+        val healer = vk(token = rotated)
+        val tight = lookup(vk(token = rotated), ladder(healer, budget = VkSite.BUDGET.copy(bytes = VkSite.BUDGET.bytes - 1)))
+        assertEquals("$V2: over the lookup's byte budget; not asked", tight.lines.last())
+        assertNothingAsked(healer)
+        assertBare(lookup)
+        assertBare(tight)
+    }
+
+    @Test
     fun `V2 asks nothing without another value, over VK's budget or the lookup's time, or while a host cools`() = runTest {
         val failing = object : VkClientValues {
             override suspend fun values(): List<VkClient.Values> = error("no source")
@@ -270,7 +363,7 @@ class VkLadderTest {
         for (case in cases) {
             val master = vk()
             val lookup = lookup(
-                vk(token = refused(401)),
+                vk(token = rotated),
                 ladder(master, case.values, cooldown = case.cooldown, budget = case.budget),
             )
 
@@ -281,12 +374,12 @@ class VkLadderTest {
             assertBare(lookup)
         }
 
-        // Main's asks took the lookup's time: 0.4 s left of VK's 30 s, under two asks' least.
+        // Main's asks took the lookup's time: 0.4 s left of VK's 15 s, under two asks' least.
         var now = 0L
         val record = LookupRecord(clock = { now })
         val master = vk()
         val late = lookup(
-            vk(token = { now = 29_600; ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 401) }),
+            vk(token = { now = 14_600; ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 401) }),
             ladder(master),
             record = record,
         )
@@ -348,11 +441,12 @@ class VkLadderTest {
 
     @Test
     fun `route B's rules hold for V2 - main's token answer replayed, main's video get never asked again`() = runTest {
-        // Main's token was fine and video.get refused the values (error 5): a new client secret
-        // changes only the token, and main's video.get is not asked again, so nothing is asked.
+        // Main's token was fine and video.get refused the values (error 5): a value of the token's
+        // side only (here the token version) gives main's own video.get, never asked again (rule 4),
+        // so nothing is asked.
         val refusedApi = vk(api = answers("video_get_error_5.json"))
         val master = vk()
-        val same = lookup(refusedApi, ladder(master))
+        val same = lookup(refusedApi, ladder(master, VkClientValues.bundled { OTHER }))
 
         assertEquals(
             listOf(
@@ -365,11 +459,12 @@ class VkLadderTest {
         )
         assertNothingAsked(master)
 
-        // A new API version: main's identical token ask is answered from the lookup, video.get is new.
+        // Main's video.get refused its API version (error 8): with a new one, main's identical token
+        // ask is answered from the lookup, and video.get is new.
         val version = VkClient.BUNDLED.copy(apiVersion = "5.290")
         val healer = vk()
         val healed = lookup(
-            vk(api = answers("video_get_error_5.json")),
+            vk(api = answers("video_get_error_8.json")),
             ladder(healer, VkClientValues.bundled { version }),
         )
 
@@ -377,7 +472,7 @@ class VkLadderTest {
         assertEquals(MasterStage.CONTRACT, success.stage)
         assertTrue(healer.postedUrls.isEmpty())
         assertEquals(listOf(version.videoGetUrl(LINK)), healer.requestedUrls)
-        val token = checkNotNull(VkClient.token(fixture("vk-pack/token_okay.json"), NOW))
+        val token = checkNotNull(VkClient.token(vkToken(), NOW))
         assertEquals(listOf(VkClient.headers(AGENT, token).toList()), healer.requestedHeaders.map { it.toList() })
         assertEquals(1, healed.record.replayedCount)
         assertEquals(1, healed.record.masterAsks)
@@ -395,7 +490,7 @@ class VkLadderTest {
     fun `V2's own 429, bot check or slow answer ends it - the host cools, nothing more is asked`() = runTest {
         val limitedToken = vk(token = refused(429, SiteExtractionFailure.RATE_LIMITED))
         val cooldown = SocialCooldown()
-        val limited = lookup(vk(token = refused(401)), ladder(limitedToken, cooldown = cooldown))
+        val limited = lookup(vk(token = rotated), ladder(limitedToken, cooldown = cooldown))
 
         assertEquals(
             "$V2 login.vk.ru (debug values of ${VkClient.BUNDLED_DATE}): RATE_LIMITED (status 429); next: STOP_SITE",
@@ -407,7 +502,7 @@ class VkLadderTest {
 
         val captchaApi = vk(api = answers("video_get_captcha.json"))
         val apiCooldown = SocialCooldown()
-        val captcha = lookup(vk(token = refused(401)), ladder(captchaApi, cooldown = apiCooldown))
+        val captcha = lookup(vk(token = rotated), ladder(captchaApi, cooldown = apiCooldown))
 
         assertTrue(captcha.result.toString(), captcha.result is MasterResult.NeedsPlayback)
         assertEquals("$V2 video.get: BOT_CHECK (API error 14 (captcha)); next: STOP_SITE", captcha.lines.last())
@@ -416,12 +511,12 @@ class VkLadderTest {
 
         // A second lookup while login.vk.ru cools: V2 asks nothing.
         val again = vk()
-        val cooling = lookup(vk(token = refused(401)), ladder(again, cooldown = cooldown))
+        val cooling = lookup(vk(token = rotated), ladder(again, cooldown = cooldown))
         assertEquals("$V2: cooling down after a 429 or a bot check; not asked", cooling.lines.last())
         assertNothingAsked(again)
 
         val slow = Slow(vk())
-        val late = lookup(vk(token = refused(401)), ladder(slow))
+        val late = lookup(vk(token = rotated), ladder(slow))
         assertEquals("$V2 login.vk.ru: no answer in time", late.lines.last())
         assertTrue(late.result.toString(), late.result is MasterResult.NeedsPlayback)
         assertBare(limited)
@@ -443,13 +538,13 @@ class VkLadderTest {
         assertEquals(1, v1Off.capture.calls)
         assertNothingAsked(master)
 
-        val healer = vk()
-        val healed = lookup(vk(token = refused(401)), ladder(healer, off = setOf("V1")))
+        val healer = vk(token = rotated)
+        val healed = lookup(vk(token = rotated), ladder(healer, off = setOf("V1")))
         assertEquals(MasterStage.CONTRACT, (healed.result as MasterResult.Success).stage)
         assertEquals("$V1: off (config); not run", healed.lines[1])
         assertEquals(1, healer.postedUrls.size)
 
-        val v2Off = lookup(vk(token = refused(401)), ladder(master, off = setOf("V2")))
+        val v2Off = lookup(vk(token = rotated), ladder(master, off = setOf("V2")))
         assertEquals(
             listOf(
                 "$LADDER after NO_MEDIA_FOUND; main's answers re-read, no new ask",
@@ -461,7 +556,7 @@ class VkLadderTest {
         )
         assertNothingAsked(master)
 
-        val locked = fixture("vk-pack/video_get_deleted.json").replace("delete_outline", "lock_outline")
+        val locked = vkPack("video_get_deleted.json").replace("delete_outline", "lock_outline")
         val v3Off = lookup(vk(api = { json(locked, it) }), ladder(master, off = setOf("V3")))
         assertTrue(v3Off.result.toString(), v3Off.result is MasterResult.NeedsPlayback)
         assertEquals(0, v3Off.capture.calls)
@@ -476,7 +571,7 @@ class VkLadderTest {
     @Test
     fun `in a labelled record main's token ask is read by its mark - VK's captcha stops VK and cools the token host, main's other values too`() = runTest {
         val master = vk()
-        val captcha: (String) -> ExtractorHttpResult = { json(fixture("vk-pack/token_captcha.json"), VkClient.TOKEN_URL) }
+        val captcha: (String) -> ExtractorHttpResult = { json(vkPack("token_captcha.json"), VkClient.TOKEN_URL) }
         val cooldown = SocialCooldown()
         val labelled = lookup(vk(token = captcha), ladder(master, cooldown = cooldown), record = LookupRecord(labels = VkLabels()))
 
@@ -514,7 +609,7 @@ class VkLadderTest {
     @Test
     fun `in a labelled record a token answer without a value is a refused value - V2 heals, its own asks labelled`() = runTest {
         val master = vk()
-        val noValue: (String) -> ExtractorHttpResult = { json(fixture("vk-pack/token_no_value.json"), VkClient.TOKEN_URL) }
+        val noValue: (String) -> ExtractorHttpResult = { json(vkPack("token_no_value.json"), VkClient.TOKEN_URL) }
         val lookup = lookup(vk(token = noValue), ladder(master), record = LookupRecord(labels = VkLabels()))
 
         assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, lookup.mainFailure)
@@ -608,13 +703,15 @@ class VkLadderTest {
         wrap: (ExtractorHttpClient) -> ExtractorHttpClient = { it },
         /** The engine's recipe source (the ladder's: [ladder]'s `contractsOf`). */
         engineContracts: SiteContracts = contracts(FakeExtractorHttpClient()),
+        /** Main's adapter, when one is kept across lookups (its token in memory); else a new one over [main]. */
+        adapter: VkExtractor? = null,
     ): Lookup {
         val identity = identify(PAGE)
         val validator = RecordingValidator()
         val capture = CountingCapture()
         val stage = Recording(ladder)
         return withContext(record + MainPages(site = SITE)) {
-            val answer = VkExtractor(MainPageRecorder(wrap(LookupRecorder(main))), clockMillis = { 0L })
+            val answer = (adapter ?: VkExtractor(MainPageRecorder(wrap(LookupRecorder(main))), clockMillis = { 0L }))
                 .extract(mainRequest(identity, cookie))
             val failure = (answer as SiteExtractionResult.Failure).reason
             val engine = MasterFallbackEngine(
@@ -715,7 +812,7 @@ class VkLadderTest {
             assertEquals(line, listOf(line), DiagnosticTextSanitizer.details(listOf(line)))
             listOf(
                 "http", "100000001", "400000001", "ixture", "IXTURE", "vkuser", "okcdn", "remixsid", "not-real",
-                SECRET, VkClient.CLIENT_SECRET, VkClient.CLIENT_ID, "adult content",
+                SECRET, NEW_CLIENT_ID, VkClient.CLIENT_SECRET, VkClient.CLIENT_ID, "adult content",
             ).forEach { assertFalse("$line has $it", line.contains(it)) }
         }
     }
@@ -737,11 +834,33 @@ class VkLadderTest {
         const val LADDER_LINE = "$LADDER after NO_MEDIA_FOUND; main's answers re-read, no new ask"
         const val TOKEN_CAPTCHA = "$V1 login.vk.ru: BOT_CHECK (a captcha, by the answer's mark); next: STOP_SITE"
         const val TOKEN_REFUSED = "$V1 login.vk.ru: VALUE_REJECTED (status 401, the web client's values refused); next: NEXT_RUNG"
+        const val REGION_LIMITED = "REGION_LIMITED (API error 13300 (region)); next: FINAL"
+
+        /** Agent C's live source's reads for V2 (the page naming today's script, the script; VkSite.BUDGET). */
+        const val LIVE_SOURCE_READS = 2
         val LINK = VkClient.Link(-100000001, 400000001)
 
-        /** The owner's debug hook: one value changed (a made-up client secret of VK's shape). */
-        val HEALED: VkClient.Values = VkClient.BUNDLED.copy(clientSecret = SECRET, source = VkClient.Source.DEBUG)
-        val HEAL: VkClientValues = VkClientValues.bundled { it.copy(clientSecret = SECRET) }
+        /** VK's new web client id after a rotation (made up, of VK's shape). */
+        const val NEW_CLIENT_ID = "100000"
+
+        /**
+         * The owner's debug hook: one value changed, the client id (login.vk.ru checks it, not the
+         * secret: agent A's census §3.2a), as after VK rotated it ([rotated]).
+         */
+        val HEALED: VkClient.Values = VkClient.BUNDLED.copy(clientId = NEW_CLIENT_ID, source = VkClient.Source.DEBUG)
+        val HEAL: VkClientValues = VkClientValues.bundled { it.copy(clientId = NEW_CLIENT_ID) }
+
+        /**
+         * login.vk.ru after VK rotated the web client's id (agent A's census §3.2a): main's id refused
+         * (`invalid_client`, a 401), any other id answered with a token, whatever the secret.
+         */
+        val rotated: (String) -> ExtractorHttpResult = { body ->
+            if ("\"client_id\":\"${VkClient.CLIENT_ID}\"" in body) {
+                ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 401)
+            } else {
+                json(vkToken(), VkClient.TOKEN_URL)
+            }
+        }
 
         /** Main's other values (a token version of VK's shape that is not the bundled one). */
         val OTHER: VkClient.Values = VkClient.BUNDLED.copy(tokenVersion = "2")
@@ -770,8 +889,8 @@ class VkLadderTest {
          * adult answer, a token, the video's files under VK's keys.
          */
         fun vk(
-            embed: (String) -> ExtractorHttpResult = { page(fixture("vk-pack/embed_adult.html"), it) },
-            token: (String) -> ExtractorHttpResult = { json(fixture("vk-pack/token_okay.json"), VkClient.TOKEN_URL) },
+            embed: (String) -> ExtractorHttpResult = { page(vkPack("embed_adult.html"), it) },
+            token: (String) -> ExtractorHttpResult = { json(vkToken(), VkClient.TOKEN_URL) },
             api: (String) -> ExtractorHttpResult = answers("video_get_mp4.json"),
         ) = FakeExtractorHttpClient(
             getResponder = { url, _ ->
@@ -790,7 +909,7 @@ class VkLadderTest {
         fun json(body: String, url: String) = FakeExtractorHttpClient.json(body, url)
 
         /** Each ask answered with the fixture [name] from its own address. */
-        fun answers(name: String): (String) -> ExtractorHttpResult = { url -> json(fixture("vk-pack/$name"), url) }
+        fun answers(name: String): (String) -> ExtractorHttpResult = { url -> json(vkPack(name), url) }
 
         fun refused(
             status: Int,

@@ -3,7 +3,6 @@ package com.alal.yft.extractor.master.social
 import com.alal.yft.core.model.logging.DiagnosticTextSanitizer
 import com.alal.yft.extractor.api.ExtractorHttpResult
 import com.alal.yft.extractor.api.SiteExtractionFailure
-import com.alal.yft.extractor.master.fixture
 import com.alal.yft.extractor.master.modules.youtube.testing.FakeExtractorHttpClient
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -12,15 +11,18 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** VK-Master plan §5, Appendix B step 2: VK's answers to the shared classes, final only on evidence. */
+/**
+ * VK-Master plan §5, Appendix B step 2: VK's answers to the shared classes, final only on evidence
+ * (agent A's census §3: VK's region limit, API error 13300, final; 15, 17 and 204 never).
+ */
 class VkAnswerJudgeTest {
     @Test
     fun `the embed's adult answer is main's trigger, the next rung, never final`() {
-        val judged = VkAnswerJudge.embed(embed(fixture("vk-pack/embed_adult.html")))
+        val judged = VkAnswerJudge.embed(embed(vkPack("embed_adult.html")))
         assertEquals(AnswerClass.VIDEO_WITHOUT_FILES, judged.answerClass)
         assertEquals(Next.NEXT_RUNG, judged.next)
         assertEquals("the embed's adult answer (callback 9)", judged.evidence)
-        assertTrue(VkAnswerJudge.isAdult(fixture("vk-pack/embed_adult.html")))
+        assertTrue(VkAnswerJudge.isAdult(vkPack("embed_adult.html")))
 
         val russian = page("<div id=\"video_ext_msg\">Видео может содержать материалы для взрослых.</div>")
         assertTrue("VK's own adult words, without the callback", VkAnswerJudge.isAdult(russian))
@@ -34,7 +36,7 @@ class VkAnswerJudgeTest {
     @Test
     fun `the embed's other message is deleted, private and list-only alike, in any language, never final`() {
         listOf(
-            fixture("vk-pack/embed_not_found.html"),
+            vkPack("embed_not_found.html"),
             page("<div id=\"video_ext_msg\">Видеозапись не найдена.</div>"),
             page("<div id=\"video_ext_msg\">Fixture message in another language.</div>"),
         ).forEach { html ->
@@ -46,7 +48,7 @@ class VkAnswerJudgeTest {
 
     @Test
     fun `VK's shell is no answer, and a page without player data a changed shape`() {
-        assertEquals(AnswerClass.TRANSIENT, VkAnswerJudge.embed(embed(fixture("vk-pack/embed_shell.html"))).answerClass)
+        assertEquals(AnswerClass.TRANSIENT, VkAnswerJudge.embed(embed(vkPack("embed_shell.html"))).answerClass)
         assertEquals(AnswerClass.SHAPE_CHANGED, VkAnswerJudge.embed(embed(page("<p>fixture</p>"))).answerClass)
         assertEquals(
             AnswerClass.SHAPE_CHANGED,
@@ -74,7 +76,7 @@ class VkAnswerJudgeTest {
         assertEquals(AnswerClass.DIRECT, judged.answerClass)
         assertEquals(Next.CHECK_ROWS, judged.next)
         assertNull(judged.reason)
-        assertEquals("rows win over a page signal", AnswerClass.DIRECT, VkAnswerJudge.embed(embed(fixture("vk-pack/embed_adult.html")), VkReading(rows = 1)).answerClass)
+        assertEquals("rows win over a page signal", AnswerClass.DIRECT, VkAnswerJudge.embed(embed(vkPack("embed_adult.html")), VkReading(rows = 1)).answerClass)
     }
 
     @Test
@@ -94,7 +96,7 @@ class VkAnswerJudgeTest {
 
     @Test
     fun `the token answer - a usable token goes on, a refusal is a stale value, a captcha a bot check`() {
-        assertNull(VkAnswerJudge.token(token(fixture("vk-pack/token_okay.json")), usable = true))
+        assertNull(VkAnswerJudge.token(token(vkToken()), usable = true))
         listOf(400, 401).forEach { status ->
             assertEquals(
                 AnswerClass.VALUE_REJECTED,
@@ -109,7 +111,7 @@ class VkAnswerJudgeTest {
             AnswerClass.RATE_LIMITED,
             VkAnswerJudge.token(ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 429), usable = false)?.answerClass,
         )
-        assertEquals(AnswerClass.BOT_CHECK, VkAnswerJudge.token(token(fixture("vk-pack/token_captcha.json")), usable = false)?.answerClass)
+        assertEquals(AnswerClass.BOT_CHECK, VkAnswerJudge.token(token(vkPack("token_captcha.json")), usable = false)?.answerClass)
         assertEquals(
             AnswerClass.VALUE_REJECTED,
             VkAnswerJudge.token(token("{\"type\":\"error\",\"error_code\":1}"), usable = false)?.answerClass,
@@ -122,13 +124,14 @@ class VkAnswerJudgeTest {
         assertEquals(AnswerClass.SHAPE_CHANGED, VkAnswerJudge.token(token("<html></html>"), usable = false)?.answerClass)
         assertEquals(
             AnswerClass.SHAPE_CHANGED,
-            VkAnswerJudge.token(FakeExtractorHttpClient.json(fixture("vk-pack/token_okay.json"), "https://example.test/"), usable = true)?.answerClass,
+            VkAnswerJudge.token(FakeExtractorHttpClient.json(vkToken(), "https://example.test/"), usable = true)?.answerClass,
         )
     }
 
     @Test
     fun `video get's errors - the web client's values, a captcha, the rate, and every other code no answer`() {
-        assertEquals(AnswerClass.VALUE_REJECTED, VkAnswerJudge.api(api(fixture("vk-pack/video_get_error_5.json"))).answerClass)
+        assertEquals(AnswerClass.VALUE_REJECTED, VkAnswerJudge.api(api(vkPack("video_get_error_5.json"))).answerClass)
+        assertEquals(AnswerClass.VALUE_REJECTED, VkAnswerJudge.api(api(vkPack("video_get_error_8.json"))).answerClass)
         listOf(5L, 8L, 28L, 34L, 101L).forEach { assertEquals("$it", AnswerClass.VALUE_REJECTED, VkAnswerJudge.apiError(it).answerClass) }
         assertEquals(AnswerClass.BOT_CHECK, VkAnswerJudge.apiError(14).answerClass)
         listOf(6L, 9L, 29L).forEach { assertEquals("$it", AnswerClass.RATE_LIMITED, VkAnswerJudge.apiError(it).answerClass) }
@@ -138,22 +141,38 @@ class VkAnswerJudgeTest {
     }
 
     @Test
+    fun `VK's region limit is final, its other access errors no answer without other evidence`() {
+        val region = VkAnswerJudge.api(api(vkPack("video_get_error_13300.json")))
+        assertEquals(AnswerClass.REGION_LIMITED, region.answerClass)
+        assertEquals(Next.FINAL, region.next)
+        assertEquals(SiteExtractionFailure.GEO_RESTRICTED, region.reason)
+        assertEquals("API error 13300 (region)", region.evidence)
+        // 15 access denied, 17 validation required, 204 the video's access: private, sign-in or age alike.
+        listOf(15L, 17L, 204L).forEach { code ->
+            val access = VkAnswerJudge.apiError(code)
+            assertEquals("$code", AnswerClass.TRANSIENT, access.answerClass)
+            assertNull("$code", access.reason)
+        }
+        assertEquals(listOf(VkAnswerJudge.GEO_ERROR), (0L..20_000L).filter { VkAnswerJudge.apiError(it).next == Next.FINAL })
+    }
+
+    @Test
     fun `only VK's deleted icon makes a restriction final, any other is no answer`() {
         val removed = VkAnswerJudge.api(
-            api(fixture("vk-pack/video_get_deleted.json")),
+            api(vkPack("video_get_deleted.json")),
             VkReading(item = true, restricted = true, deleted = true),
         )
         assertEquals(AnswerClass.REMOVED, removed.answerClass)
         assertEquals(Next.FINAL, removed.next)
         assertEquals(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, removed.reason)
-        val unknown = VkAnswerJudge.api(api(fixture("vk-pack/video_get_deleted.json")), VkReading(item = true, restricted = true))
+        val unknown = VkAnswerJudge.api(api(vkPack("video_get_deleted.json")), VkReading(item = true, restricted = true))
         assertEquals(AnswerClass.TRANSIENT, unknown.answerClass)
         assertNotEquals(Next.FINAL, unknown.next)
     }
 
     @Test
     fun `video get without the video's files is never final`() {
-        val body = fixture("vk-pack/video_get_mp4.json")
+        val body = vkPack("video_get_mp4.json")
         assertEquals(AnswerClass.VIDEO_WITHOUT_FILES, VkAnswerJudge.api(api(body), VkReading(item = true, live = true)).answerClass)
         assertEquals(AnswerClass.SHAPE_CHANGED, VkAnswerJudge.api(api(body), VkReading(otherVideo = true)).answerClass)
         assertEquals(AnswerClass.SHAPE_CHANGED, VkAnswerJudge.api(api(body), VkReading()).answerClass)
@@ -165,11 +184,11 @@ class VkAnswerJudgeTest {
 
     @Test
     fun `evidence names a status, a code or a marker's kind, never a link, an ID or VK's words, and the sanitizer keeps it whole`() {
-        val mp4 = fixture("vk-pack/video_get_mp4.json")
+        val mp4 = vkPack("video_get_mp4.json")
         val answers = listOf(
-            VkAnswerJudge.embed(embed(fixture("vk-pack/embed_adult.html"))),
-            VkAnswerJudge.embed(embed(fixture("vk-pack/embed_not_found.html"))),
-            VkAnswerJudge.embed(embed(fixture("vk-pack/embed_shell.html"))),
+            VkAnswerJudge.embed(embed(vkPack("embed_adult.html"))),
+            VkAnswerJudge.embed(embed(vkPack("embed_not_found.html"))),
+            VkAnswerJudge.embed(embed(vkPack("embed_shell.html"))),
             VkAnswerJudge.embed(embed(page(""))),
             VkAnswerJudge.embed(embed(page(""), "https://example.test/")),
             VkAnswerJudge.embed(embed(page("")), VkReading(otherVideo = true)),
@@ -178,10 +197,12 @@ class VkAnswerJudgeTest {
             VkAnswerJudge.embed(embed(page("")), VkReading(item = true)),
             VkAnswerJudge.embed(embed(page("")), VkReading(rows = 2, byShape = true, item = true)),
             VkAnswerJudge.embed(embed(page("")), VkReading(rows = 2, refused = 1, item = true)),
-            VkAnswerJudge.api(api(fixture("vk-pack/video_get_error_5.json"))),
-            VkAnswerJudge.api(api(fixture("vk-pack/video_get_captcha.json"))),
-            VkAnswerJudge.api(api(fixture("vk-pack/video_get_deleted.json")), VkReading(item = true, restricted = true, deleted = true)),
-            VkAnswerJudge.api(api(fixture("vk-pack/video_get_deleted.json")), VkReading(item = true, restricted = true)),
+            VkAnswerJudge.api(api(vkPack("video_get_error_5.json"))),
+            VkAnswerJudge.api(api(vkPack("video_get_error_8.json"))),
+            VkAnswerJudge.api(api(vkPack("video_get_error_13300.json"))),
+            VkAnswerJudge.api(api(vkPack("video_get_captcha.json"))),
+            VkAnswerJudge.api(api(vkPack("video_get_deleted.json")), VkReading(item = true, restricted = true, deleted = true)),
+            VkAnswerJudge.api(api(vkPack("video_get_deleted.json")), VkReading(item = true, restricted = true)),
             VkAnswerJudge.api(api(mp4), VkReading(rows = 4, item = true)),
             VkAnswerJudge.api(api(mp4), VkReading(item = true, live = true)),
             VkAnswerJudge.api(api(mp4), VkReading(otherVideo = true)),
@@ -197,7 +218,7 @@ class VkAnswerJudgeTest {
             VkAnswerJudge.apiError(6),
             VkAnswerJudge.apiError(3610),
         ) + listOf(
-            VkAnswerJudge.token(token(fixture("vk-pack/token_captcha.json")), usable = false),
+            VkAnswerJudge.token(token(vkPack("token_captcha.json")), usable = false),
             VkAnswerJudge.token(ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 401), usable = false),
             VkAnswerJudge.token(ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 500), usable = false),
             VkAnswerJudge.token(token("{\"type\":\"error\",\"error_code\":1}"), usable = false),

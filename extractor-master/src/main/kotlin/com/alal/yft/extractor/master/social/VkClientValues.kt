@@ -17,6 +17,12 @@ interface VkClientValues {
          * Main's values only; with [mutate] (a debug build's hook), its change of them first, as the
          * debug source ([VkClient.Source.DEBUG]). A change that is no change, a value of the wrong
          * shape or a hook that throws: main's values only.
+         *
+         * The values VK checks are the client id and the API version: login.vk.ru answers
+         * `invalid_client` (a 401) for another client id and mints a usable token for any client
+         * secret (agent A's census §3.2a), `video.get` answers error 8 for a version it no longer
+         * takes. So a hook that forces the value-rejected path (agent D's, the phone proof) breaks
+         * the client id or the version, never the secret alone: a changed secret still gets a token.
          */
         fun bundled(mutate: ((VkClient.Values) -> VkClient.Values)? = null): VkClientValues = Bundled(mutate)
     }

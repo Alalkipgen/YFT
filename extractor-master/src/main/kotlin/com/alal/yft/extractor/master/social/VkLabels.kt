@@ -40,12 +40,12 @@ import java.util.Locale
  * `video.get` by Master's own reader and judge ([VkReader], [VkAnswerJudge]) for the video the ask
  * names (`oid` + `id`; `owner_id` + `videos`): rows bound to it are [DATA]; the embed's adult
  * answer or VK's message ("not found": deleted, private and list-only alike), `video.get`'s
- * `restriction.can_play` 0 are [NO_POST]; `video.get`'s captcha (API error 14) is [BOT_CHECK];
- * anything else (VK's shell, a live broadcast, VK's other errors, rate ones included) is
- * [NO_DATA]. The token's answer: a token of VK's shape is [DATA] (checked and dropped, never kept),
- * VK's captcha [BOT_CHECK], anything else [NO_DATA]. A JSON way's answer that is not JSON is
- * [NOT_JSON]. A page's shape: `h` + 8 hex of [EMBED_MARKERS] it holds; JSON's: its key paths
- * ([SiteReadings.jsonShape]).
+ * `restriction.can_play` 0 and VK's region limit (API error 13300) are [NO_POST]; `video.get`'s
+ * captcha (API error 14) is [BOT_CHECK]; anything else (VK's shell, a live broadcast, VK's other
+ * errors, rate ones included) is [NO_DATA]. The token's answer: a token of VK's shape is [DATA]
+ * (checked and dropped, never kept), VK's captcha [BOT_CHECK], anything else [NO_DATA]. A JSON
+ * way's answer that is not JSON is [NOT_JSON]. A page's shape: `h` + 8 hex of [EMBED_MARKERS] it
+ * holds; JSON's: its key paths ([SiteReadings.jsonShape]).
  */
 internal class VkLabels : AskLabels {
     override fun way(ask: LookupAsk): String? {
@@ -94,14 +94,14 @@ internal class VkLabels : AskLabels {
         }
     }
 
-    /** `video.get`'s answer for the video its ask names: rows, the captcha, `can_play` 0, else none. */
+    /** `video.get`'s answer for the video its ask names: rows, the captcha, `can_play` 0 or the region limit, else none. */
     private fun videoGet(ask: LookupAsk, result: ExtractorHttpResult.Success): AskReading? = json(result) {
         val read = videoGetLink(ask.url)?.let { VkReader.api(result.body, it) } ?: VkReader.Read()
         val judged = VkAnswerJudge.api(result, read.reading)
         when {
             judged.next == Next.CHECK_ROWS -> DATA
             judged.answerClass == AnswerClass.BOT_CHECK -> BOT_CHECK
-            read.reading.restricted -> NO_POST
+            read.reading.restricted || judged.next == Next.FINAL -> NO_POST
             else -> NO_DATA
         }
     }

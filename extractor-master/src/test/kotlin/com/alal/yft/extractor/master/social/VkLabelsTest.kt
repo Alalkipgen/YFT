@@ -5,7 +5,6 @@ import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SiteExtractionResult
 import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.extractor.master.contract.mainRequest
-import com.alal.yft.extractor.master.fixture
 import com.alal.yft.extractor.master.lookup.AnswerMark
 import com.alal.yft.extractor.master.lookup.AnswerMark.BOT_CHECK
 import com.alal.yft.extractor.master.lookup.AnswerMark.DATA
@@ -57,11 +56,11 @@ class VkLabelsTest {
 
     @Test
     fun `the embed's answers - rows are data, VK's message no post on both hosts, the shell no data`() = runTest {
-        val files = main(vk(embed = { page(fixture("vk-pack/embed_files.html"), it) }))
+        val files = main(vk(embed = { page(vkPack("embed_files.html"), it) }))
         assertTrue(files.result is SiteExtractionResult.Success)
         assertEquals(listOf(VkLabels.EMBED to DATA), files.labels())
 
-        val notFound = main(vk(embed = { page(fixture("vk-pack/embed_not_found.html"), it) }))
+        val notFound = main(vk(embed = { page(vkPack("embed_not_found.html"), it) }))
         assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, (notFound.result as SiteExtractionResult.Failure).reason)
         assertEquals(List(2) { VkLabels.EMBED to NO_POST }, notFound.labels())
         assertEquals(
@@ -70,7 +69,7 @@ class VkLabelsTest {
         )
 
         // VK's shell: B, B again on the same host, then B2.
-        val shell = main(vk(embed = { page(fixture("vk-pack/embed_shell.html"), it) }))
+        val shell = main(vk(embed = { page(vkPack("embed_shell.html"), it) }))
         assertEquals(List(3) { VkLabels.EMBED to NO_DATA }, shell.labels())
 
         val shapes = listOf(files, notFound, shell).map { it.record.asks().first().shape }
@@ -78,8 +77,8 @@ class VkLabelsTest {
     }
 
     @Test
-    fun `path D's answers - VK's captcha a bot check that stops its host, refused values and VK's other errors no data, can_play 0 no post`() = runTest {
-        val captcha = main(vk(token = { json(fixture("vk-pack/token_captcha.json"), VkClient.TOKEN_URL) }))
+    fun `path D's answers - VK's captcha a bot check that stops its host, refused values and VK's other errors no data, can_play 0 and the region limit no post`() = runTest {
+        val captcha = main(vk(token = { json(vkPack("token_captcha.json"), VkClient.TOKEN_URL) }))
         assertEquals(listOf(VkLabels.EMBED to NO_POST, VkLabels.TOKEN to BOT_CHECK), captcha.labels())
         assertEquals(listOf(VkClient.TOKEN_HOST), captcha.record.stopHosts())
         assertEquals(1, captcha.record.botChecks)
@@ -90,7 +89,9 @@ class VkLabelsTest {
 
         val cases = mapOf(
             "video_get_error_5.json" to NO_DATA,
+            "video_get_error_8.json" to NO_DATA,
             "video_get_deleted.json" to NO_POST,
+            "video_get_error_13300.json" to NO_POST,
             "video_get_live.json" to NO_DATA,
             "video_get_other_video.json" to NO_DATA,
             "video_get_unknown_host.json" to NO_DATA,
@@ -108,7 +109,7 @@ class VkLabelsTest {
         assertTrue(rate.record.stopHosts().isEmpty())
 
         // A token answer without a value of VK's shape is no data; not JSON is not JSON.
-        val noValue = main(vk(token = { json(fixture("vk-pack/token_no_value.json"), VkClient.TOKEN_URL) }))
+        val noValue = main(vk(token = { json(vkPack("token_no_value.json"), VkClient.TOKEN_URL) }))
         assertEquals(listOf(VkLabels.EMBED to NO_POST, VkLabels.TOKEN to NO_DATA), noValue.labels())
         val tokenPage = main(vk(token = { page(NOT_JSON_PAGE, VkClient.TOKEN_URL) }))
         assertEquals(VkLabels.TOKEN to NOT_JSON, tokenPage.labels().last())
@@ -119,10 +120,10 @@ class VkLabelsTest {
         // The same structure with other values keeps its shape; a renamed key changes it.
         val okay = main(vk()).record.asks()[1].shape
         val other = main(
-            vk(token = { json(fixture("vk-pack/token_okay.json").replace("0123456789", "9876543210"), VkClient.TOKEN_URL) }),
+            vk(token = { json(vkToken().replace("0123456789", "9876543210"), VkClient.TOKEN_URL) }),
         ).record.asks()[1].shape
         val renamed = main(
-            vk(token = { json(fixture("vk-pack/token_okay.json").replace("\"expires\"", "\"expiry\""), VkClient.TOKEN_URL) }),
+            vk(token = { json(vkToken().replace("\"expires\"", "\"expiry\""), VkClient.TOKEN_URL) }),
         ).record.asks()[1]
         assertEquals(okay, other)
         assertNotEquals(okay, renamed.shape)
@@ -131,7 +132,7 @@ class VkLabelsTest {
 
     @Test
     fun `main's manifest reads are labelled manifest - only for an answer without MP4, by the address`() = runTest {
-        val manifestsOnly = fixture("vk-pack/embed_files.html").replace(MP4_ENTRY, "")
+        val manifestsOnly = vkPack("embed_files.html").replace(MP4_ENTRY, "")
         val main = main(
             vk(
                 embed = { page(manifestsOnly, it) },
@@ -149,7 +150,7 @@ class VkLabelsTest {
         assertTrue(manifests.all { it.shape == null })
 
         // With MP4 files main reads no manifest.
-        val files = main(vk(embed = { page(fixture("vk-pack/embed_files.html"), it) }))
+        val files = main(vk(embed = { page(vkPack("embed_files.html"), it) }))
         assertTrue(files.labels().none { it.first == VkLabels.MANIFEST })
     }
 
@@ -201,7 +202,7 @@ class VkLabelsTest {
         val embed = "https://vk.com/video_ext.php?oid=-100000001&id=400000001"
         val other = "https://vk.com/video_ext.php?oid=-100000002&id=400000002"
         val bad = "https://vk.com/video_ext.php?oid=0&id=400000001"
-        val body = fixture("vk-pack/embed_files.html")
+        val body = vkPack("embed_files.html")
         fun read(url: String, answer: String, way: String = VkLabels.EMBED) =
             labels.read(LookupAsk(LookupAsk.GET, url, null), way, ExtractorHttpResult.Success(200, answer, url, "text/html"))
 
@@ -209,11 +210,11 @@ class VkLabelsTest {
         // The other video's entry has its own file: that ask reads its rows.
         assertEquals(DATA, read(other, body)?.mark)
         assertEquals(NO_DATA, read(bad, body)?.mark)
-        assertEquals(NO_POST, read(bad, fixture("vk-pack/embed_adult.html"))?.mark)
+        assertEquals(NO_POST, read(bad, vkPack("embed_adult.html"))?.mark)
 
         val api = VkClient.BUNDLED.videoGetUrl(LINK)
         val otherApi = VkClient.BUNDLED.videoGetUrl(VkClient.Link(-100000002, 400000002))
-        val mp4 = fixture("vk-pack/video_get_mp4.json")
+        val mp4 = vkPack("video_get_mp4.json")
         fun readApi(url: String, answer: String) = labels.read(
             LookupAsk(LookupAsk.GET, url, null),
             VkLabels.VIDEO_GET,
@@ -222,7 +223,7 @@ class VkLabelsTest {
         assertEquals(DATA, readApi(api, mp4)?.mark)
         assertEquals(DATA, readApi(VkClient.BUNDLED.videoGetUrl(LINK.copy(list = "FIXTURE")), mp4)?.mark)
         assertEquals(NO_DATA, readApi(otherApi, mp4)?.mark)
-        assertEquals(BOT_CHECK, readApi(otherApi, fixture("vk-pack/video_get_captcha.json"))?.mark)
+        assertEquals(BOT_CHECK, readApi(otherApi, vkPack("video_get_captcha.json"))?.mark)
 
         // An answer off the way's host is not VK's answer; a file check and a manifest read nothing.
         assertEquals(
@@ -278,8 +279,8 @@ class VkLabelsTest {
          * Main's defaults: the embed's adult answer, a token, the video's files under VK's keys.
          */
         fun vk(
-            embed: (String) -> ExtractorHttpResult = { page(fixture("vk-pack/embed_adult.html"), it) },
-            token: (String) -> ExtractorHttpResult = { json(fixture("vk-pack/token_okay.json"), VkClient.TOKEN_URL) },
+            embed: (String) -> ExtractorHttpResult = { page(vkPack("embed_adult.html"), it) },
+            token: (String) -> ExtractorHttpResult = { json(vkToken(), VkClient.TOKEN_URL) },
             api: (String) -> ExtractorHttpResult = answers("video_get_mp4.json"),
             files: (String) -> ExtractorHttpResult? = { null },
         ) = FakeExtractorHttpClient(
@@ -300,6 +301,6 @@ class VkLabelsTest {
         fun json(body: String, url: String) = FakeExtractorHttpClient.json(body, url)
 
         /** Each ask answered with the fixture [name] from its own address. */
-        fun answers(name: String): (String) -> ExtractorHttpResult = { url -> json(fixture("vk-pack/$name"), url) }
+        fun answers(name: String): (String) -> ExtractorHttpResult = { url -> json(vkPack(name), url) }
     }
 }

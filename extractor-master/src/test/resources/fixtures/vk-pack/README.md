@@ -4,10 +4,17 @@ Made-up answers in the shapes of VK's embed page (`video_ext.php`), login.vk.ru'
 answer and api.vkvideo.ru's `video.get`, for `Vk*Test.kt` only (JVM, no network).
 
 Every value here is invented: owner `-100000001`/`-100000002`, videos `400000001`/`400000002`,
-hosts `vk1-1.vkuser.net`, `vkvd1.okcdn.ru`, `vkvd2.okcdn.ru`, `iv.okcdn.ru` and `cdn.example.test`,
-query values `FIXTURE`, titles "Fixture …", and a token string that says "not-real". Nothing was
-copied from a live answer; no cookie, token, signed address or response body of a real lookup is
-kept.
+hosts `vk1-1.vkuser.net`, `vkvd1.okcdn.ru`, `vkvd2.okcdn.ru`, `iv.okcdn.ru` and `cdn.example.test`
+(VK's host families kept, so the host rules can be tested), titles "Fixture …". Nothing was copied
+from a live answer; no cookie, token, signed address or response body of a real lookup is kept.
+
+Rules (agent A's draft in `docs/VK_MASTER_CENSUS.md` §8, as main's `VkFixtureHygieneTest`; checked
+by `VkPackFixtureHygieneTest`): every query value of an address is `FIXTURE` (`expires`, `srcAg`,
+…) — a test that reads an expiry puts its own number in (`vkPack`); no IP address, cookie or
+session name, long hex or key-like run; only the made-up IDs above; no token answer (a test builds
+login.vk.ru's okay answer itself, `vkToken`; only its error shapes are here); none of the web
+client's own values (they live only in `VkClient`, with provenance): an echo says API version
+`5.000` and client id `100000` (made up).
 
 | File | Shape |
 | --- | --- |
@@ -15,7 +22,6 @@ kept.
 | `embed_not_found.html` | the embed's other message |
 | `embed_shell.html` | VK's SPA shell, no player data |
 | `embed_files.html` | an embed whose `apiPrefetchCache` lists the video's files under VK's keys, its trailer, pictures and another video's files |
-| `token_okay.json` | login.vk.ru's okay answer (a "not-real" value, expiry 1900000000) |
 | `token_captcha.json` | login.vk.ru's captcha answer |
 | `token_no_value.json` | login.vk.ru's answer without a token or a captcha (an error of its own) |
 | `video_get_mp4.json` | `video.get` with the video's files under VK's keys, a failover host, a trailer and pictures |
@@ -25,4 +31,6 @@ kept.
 | `video_get_unknown_host.json` | the video's files on a host that is not VK's video servers |
 | `video_get_deleted.json` | `restriction.can_play` 0 with VK's deleted icon |
 | `video_get_error_5.json` | VK's API error 5 |
+| `video_get_error_8.json` | VK's API error 8 (an API version VK no longer takes) |
+| `video_get_error_13300.json` | VK's API error 13300 (the video is not shown in the viewer's region) |
 | `video_get_captcha.json` | VK's API error 14 |

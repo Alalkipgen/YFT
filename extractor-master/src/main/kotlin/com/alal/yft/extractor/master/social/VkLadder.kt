@@ -33,8 +33,9 @@ import kotlinx.coroutines.withTimeoutOrNull
  *   Master's own reader ([VkReader]: VK's key table, then the shape scan, bound to the link's
  *   `owner_id` + video id, never the trailer or the poster) and judged ([VkAnswerJudge]). Rows (`video.get`'s
  *   first, then the embed's) go to the engine's media checks (V) as one video's answer read with
- *   VK's recipe; VK's deleted icon on a video VK does not play is the lookup's final answer; a 429
- *   or a bot check stops the site (its host cools); anything else leaves nothing to read.
+ *   VK's recipe; VK's deleted icon on a video VK does not play, or VK's region limit (API error
+ *   13300), is the lookup's final answer; a 429 or a bot check stops the site (its host cools);
+ *   anything else leaves nothing to read.
  * - **V2, the heal (at most two requests):** only after main's adult answer (the embed's, or main's
  *   path D asked at all) **and** a refused value (the token endpoint refused the web client's values,
  *   or `video.get` answered one of VK's errors for them): the first of [values]' values that is not
@@ -88,7 +89,7 @@ class VkLadder(
 
     /** V3, the visible tab's own playback, when the config turns it off. */
     override suspend fun captureOff(request: MasterRequest): String? =
-        RungsOff.line(V3).takeIf { "V3" in rungsOff(contracts) }
+        RungsOff.line(V3).takeIf { RUNG_V3 in rungsOff(contracts) }
 
     /** V1, then V2, for [request]'s lookup ([record]). */
     private suspend fun climb(
@@ -117,7 +118,7 @@ class VkLadder(
             details += "$V1: none kept for the video${MainPages.unasked(record)}; nothing to read"
             return null
         }
-        val v1 = "V1" !in off
+        val v1 = RUNG_V1 !in off
         // A host main's answer stopped (a 429, a bot check) cools whatever V1 reads.
         cooldown.note(main.stopped)
         if (v1) {
@@ -258,7 +259,8 @@ class VkLadder(
 
     /**
      * V2: one token and one `video.get` with the first of [values]' values that is not main's, for
-     * [link]'s video; its rows staged for V, VK's deleted icon final, anything else null.
+     * [link]'s video; its rows staged for V, VK's final answer (the deleted icon, the region limit)
+     * final, anything else null.
      */
     private suspend fun heal(
         record: LookupRecord,
@@ -269,7 +271,7 @@ class VkLadder(
         off: Set<String>,
         details: MutableList<String>,
     ): SocialStage.Staged? {
-        if ("V2" in off) {
+        if (RUNG_V2 in off) {
             details += RungsOff.line(V2)
             return null
         }
@@ -426,8 +428,14 @@ class VkLadder(
     override fun toString(): String = "VkLadder"
 
     companion object {
-        /** Main's VK adapter's site ID (the video key's prefix). */
+        /** Main's VK adapter's site ID (the video key's prefix; agent C's schema 2 names VK `vk`). */
         const val SITE_ID = VkClient.SITE_ID
+
+        /** The rungs' names in the signed config (agent C's schema 2: `V1`, `V2`, `V3`; [RungsOff]). */
+        const val RUNG_V1 = "V1"
+        const val RUNG_V2 = "V2"
+        const val RUNG_V3 = "V3"
+        val RUNGS: List<String> = listOf(RUNG_V1, RUNG_V2, RUNG_V3)
 
         internal const val LINE = "master: vk ladder"
         internal const val V1 = "master: vk V1 main's answers"

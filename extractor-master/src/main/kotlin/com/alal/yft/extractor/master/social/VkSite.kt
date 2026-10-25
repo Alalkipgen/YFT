@@ -10,14 +10,29 @@ import com.alal.yft.extractor.api.SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE
  */
 object VkSite {
     /**
-     * VK's budget per lookup (§6), **placeholder numbers, A finalizes** from the recon (docs/VK_PLAN.md
-     * §13: main's one 15 s deadline, each of main's asks at most 8 s, `video.get` at most 1 MB, the
-     * token's answer a few hundred characters). Main asks at most 9 in a lookup (the embed on both
-     * hosts and once again after VK's shell, two tokens, two `video.get`, two manifests), V2 at most
-     * 2 (one token, one `video.get`) and V's reads at most 8, so 20 requests; Master's own answers
-     * are at most 16 KiB + 1 MiB, so 2 MiB; main's 15 s and V2's two asks of at most 8 s, so 30 s.
+     * VK's budget per lookup (§6), counted as the four sites' are (`SocialStops`: the lookup's whole
+     * record — main's asks, the ladder's and V's reads; agent A's census §6 proposed 4 / 1 MiB / 15 s,
+     * counting Master's own asks and one V read). The worst case, a heal after main's most:
+     * - main: at most 6 asks in a lookup it fails — the embed on its own host, once more after VK's
+     *   shell, on the other host; path D's `video.get` with the token in memory, one new token and
+     *   one more `video.get`. Main reads a manifest (at most 2 an answer) only for an answer it
+     *   answers with, so Master never runs after one.
+     * - V1: none (main's answers re-read).
+     * - V2: at most 4 — the page that names today's script and the script (agent C's live source, A's
+     *   census §5; none with the bundled values), then one token and one `video.get`.
+     * - V: at most 8 reads ([SocialRowCheck.MAX_READS]).
+     *
+     * So 6 + 4 + 8 = 18 requests. Bytes: V2's two answers at their bounds (16 KiB + 1 MiB, main's:
+     * [VkClient.MAX_TOKEN_BYTES], [VkClient.MAX_API_BYTES]); V1 stages Master's own answer, far
+     * smaller; the live source's two reads add their own bounds when agent C wires it (A: the
+     * cheapest script ~40 KB). Time: main's one 15 s deadline (a Master lookup is never slower than
+     * main's, A's census §6), so V2 asks only in what main left of it. D registers it in SocialStops.
      */
-    val BUDGET = SocialBudget(requests = 20, bytes = 2L * 1024 * 1024, millis = 30_000)
+    val BUDGET = SocialBudget(
+        requests = 18,
+        bytes = VkClient.MAX_TOKEN_BYTES + VkClient.MAX_API_BYTES,
+        millis = 15_000,
+    )
 
     /**
      * VK in the census's site table (§7, §10): main's name for it (`VkExtractor.displayName`),

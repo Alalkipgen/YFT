@@ -4,7 +4,6 @@ import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.extractor.api.SiteExtractionRequest
 import com.alal.yft.extractor.api.SiteExtractionResult
 import com.alal.yft.extractor.master.NOW
-import com.alal.yft.extractor.master.fixture
 import com.alal.yft.extractor.master.modules.youtube.testing.FakeExtractorHttpClient
 import com.alal.yft.extractor.sites.vk.VkExtractor
 import kotlinx.coroutines.test.runTest
@@ -42,7 +41,7 @@ class VkClientDriftTest {
         assertEquals(VkClient.COM_HOST, embed.host)
         assertEquals(VkClient.EMBED_PATH, embed.path)
         assertEquals(VkClient.BUNDLED.videoGetUrl(link), http.requestedUrls[1])
-        val token = checkNotNull(VkClient.token(fixture("vk-pack/token_okay.json"), NOW))
+        val token = checkNotNull(VkClient.token(vkToken(), NOW))
         assertEquals(VkClient.headers(AGENT, token).toList(), http.requestedHeaders[1].toList())
         assertEquals(VkClient.MAX_API_BYTES, http.requestedBodyLimits[1])
 
@@ -92,13 +91,13 @@ class VkClientDriftTest {
         getResponder = { url, _ ->
             val uri = URI(url)
             when {
-                uri.path == VkClient.EMBED_PATH -> FakeExtractorHttpClient.html(fixture("vk-pack/embed_adult.html"), url)
-                uri.host == VkClient.API_HOST -> FakeExtractorHttpClient.json(fixture("vk-pack/video_get_mp4.json"), url)
+                uri.path == VkClient.EMBED_PATH -> FakeExtractorHttpClient.html(vkPack("embed_adult.html"), url)
+                uri.host == VkClient.API_HOST -> FakeExtractorHttpClient.json(vkPack("video_get_mp4.json"), url)
                 else -> null
             }
         },
         postResponder = { url, _ ->
-            if (url == VkClient.TOKEN_URL) FakeExtractorHttpClient.json(fixture("vk-pack/token_okay.json"), url) else null
+            if (url == VkClient.TOKEN_URL) FakeExtractorHttpClient.json(vkToken(), url) else null
         },
     )
 

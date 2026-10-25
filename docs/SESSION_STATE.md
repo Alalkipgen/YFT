@@ -1221,6 +1221,38 @@ Keep at least the heading and one blank line between sections, so Git merges the
     recipe (today's `ContractRecipes.ALL`) checks none of main's rows — V1 says so, then the
     shared capture. A mutation check (VK's endpoint without `{version}`) fails the first test.
     Local: 1037 tests, 0 failed (2 skipped), 1 min 38 s; drift 177/0; pending 76/0.
+    Pushed `0216f7e4`; CI: checkpoint validation, emulator smoke, preview APK — all success.
+  - Addendum (the owner's, after agent A's census: `origin/work/phase-vk-master-census` at
+    `d333fb18`, `docs/VK_MASTER_CENSUS.md`, read only, not merged):
+    1. Judge: API error 13300 (`ACCESS_GEO`) → REGION_LIMITED (final, GEO_RESTRICTED) in V1 and
+       V2; 15, 17 and 204 stay TRANSIENT (no other evidence); `VkLabels`: 13300 is NO_POST. The
+       codes and the deleted icon are no longer provisional (A's §3).
+    2. Budget, the worst case counted as the four sites' (`SocialStops`: the lookup's whole
+       record): main ≤ 6 asks in a lookup it fails (B, B again after the shell, B2; path D's
+       `video.get` with the kept token, one new token, `video.get` again; main reads manifests only
+       for an answer it answers with), V1 0, V2 ≤ 4 (the page naming today's script and the
+       script, C's live source; then the token and `video.get`), V ≤ 8 reads → **18 requests**;
+       **1 MiB + 16 KiB** (V2's two answers at main's bounds, which V2's own check needs; A's
+       1 MiB is too small; the live source's reads add their bounds when C wires it); **15 s**
+       (main's deadline, `VkExtractor.DEADLINE_MS`). A's 4 / 1 MiB / 15 s counted Master's own
+       asks and one script read only. `VkLadderTest` runs main's real adapter to its 6 asks (a
+       token in memory, the shell twice, the adult answer, error 5 twice) and V2 still heals; one
+       byte less and V2 asks nothing.
+    3. A's §3.2a (login.vk.ru checks the client id, not the secret): the tests' heal is a rotated
+       client id (login.vk.ru answers main's id with 401 `invalid_client`), the heal after error 8
+       a new API version; a new secret alone heals nothing (V2's token refused, no `video.get`).
+       `VkClientValues.bundled`'s KDoc says so for D's debug mutate hook (the phone proof).
+    4. `VkPackFixtureHygieneTest` (3), A's draft rules with main's: every query value `FIXTURE`
+       (a test puts its own expiry in: `vkPack`), no IP, cookie or session name, long hex or
+       key-like run, only the made-up IDs, titles "Fixture …", none of `VkClient`'s values (an
+       echo says `5.000` / `100000`), no token answer (`token_okay.json` removed, `vkToken` builds
+       it); the fixture list fixed; the rules caught on a leaky sample. New fixtures
+       `video_get_error_8.json`, `video_get_error_13300.json`.
+    5. Names as C's schema 2 reads them: site `vk` (`VkClient`, `VkLadder`, `VkSite.SITE`,
+       `VkRecipe.RECIPE`), rungs `VkLadder.RUNGS` = `V1`, `V2`, `V3` (`VkSiteTest`).
+    Tests: `VkAnswerJudgeTest` 11 (+1), `VkLadderTest` 17 (+3), `VkSiteTest` 4 (+1),
+    `VkPackFixtureHygieneTest` 3 (new). Local: 1045 tests, 0 failed (2 skipped), 2 min 1 s;
+    drift 177/0; pending 76/0.
 - Provenance (proposal for the owner, Appendix B step 1): no base bump, no script change. Main's
   VK files came after the base `34a41890`, so their rows wait in `toolkit-provenance.tsv`'s header
   as `# pending<TAB>master<TAB>main<TAB>symbol<TAB>sha256` lines, hashed at `50fb8d0f` with the
@@ -1228,13 +1260,15 @@ Keep at least the heading and one blank line between sections, so Git merges the
   them, the self-check stays 177/0). Meanwhile `VkClientDriftTest` checks the copies at run time.
   To activate (owner/D): when the base moves past main's VK files, review each copy, drop the
   prefix, `--write`. Option for later: a per-row ref column in the script (a shared-file change).
-- Status: Appendix B done (steps 1–5); stopped and reported to the owner. Next: the owner's
-  provenance decision (above), then D's wiring, C's values source and A's numbers (Backlog,
-  For review).
+- Status: Appendix B done (steps 1–5) and the owner's addendum (A's census) applied; stopped and
+  reported to the owner. Next: the owner's provenance decision (above), then D's wiring, C's
+  values source and A's census slots (Backlog, For review).
 - Backlog (out of scope here): wiring (D: `VkRecipe` in `ContractRecipes.ALL`, `VkLadder` in the
   social ladders, `VkSite.SITE` in `SiteWays`, `VkSite.BUDGET` in `SocialStops`, V3 in
-  `RungsOff`); the live values source (C: `ValueSource`/`SiteHealth`/`VkClientSource`); R9 schema
-  2's V1–V3 rungs (C); the final budget numbers, error taxonomy and census slots (A).
+  `RungsOff`, `SiteWeekly` `vk → [1, 4, 8]`); the live values source (C: `ValueSource`/`SiteHealth`/
+  `VkClientSource`: heal the client id first, then `v`; its two reads are in VK's 18 requests,
+  their byte bounds to add to VK's bytes); R9 schema 2's V1–V3 rungs (C; the names match); the
+  census slots (A's 10, the region-limited one included, against this pack's 9 placeholders: D).
 - For review (D, owner): V2's `video.get` is listed in the lookup's record without its bearer
   (Master's own anonymous token, never the user's credential), so route B's rule 1 does not refuse
   it; route B's rule 4 means values that differ from main's only on the token's side ask nothing
@@ -1243,5 +1277,7 @@ Keep at least the heading and one blank line between sections, so Git merges the
   `VkReader`, so an R9 overlay of VK's recipe does not reach it; a schema-2 overlay must not set
   VK's endpoint (an overlay may give it known placeholders, `RemoteRecipeConfig.endpoint`).
   `CandidateFactory` gives a cross-origin `Referer` as the origin, not the full page (§7 wants the
-  vk.com page). Until D adds `VkSite.SITE` to `SiteWays.ALL`, a row check built without it meets a
+  vk.com page; A: the Referer is optional). D's debug mutate hook (the phone proof) breaks the
+  client id or the API version, never the secret alone (A's §3.2a: any secret gets a token, so
+  no value-rejected path). Until D adds `VkSite.SITE` to `SiteWays.ALL`, a row check built without it meets a
   VK lookup with its own site's hosts (the app's: Facebook's) and refuses VK's rows.
