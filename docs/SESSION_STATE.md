@@ -1297,8 +1297,18 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - The #12 APKs (the owner asked for `29fd1ba9`'s; later commits changed only the check's test and
   docs, so the app is the same): Preview APK #102 40187305143 — `yft-preview-apk` 12596686333
   (#12 normal), `yft-preview-trial-apk` 12596591356 (#12 trial).
-- Next: STOP and report (Burmese, short); then the owner's #12, PR #2's merge, R9's first Run
-  workflow, P8 with rc.1's update test.
+- Then (the plan at the STOP): the owner's #12, PR #2's merge, R9's first Run workflow, P8 with
+  rc.1's update test. PR #2 merged into `main` as `d732edcc`.
+- P8 (2026-10-26 MMT, the owner with this agent): rc.1 (`release/1.0.0-rc.1` `d75e7fa`, the draft
+  prerelease) installed; 1.0.0 published 2026-10-25 20:01 UTC (release 423607593, tag `v1.0.0` on
+  `d732edcc`; `video-downloader-1.0.0.apk` SHA-256 `42819051…8defe`, `SHA256SUMS` checked); the
+  update test rc.1 → 1.0.0 PASS and a fresh install PASS; the rc.1 draft and branch deleted.
+  Recorded docs only on `work/phase-release-p8-records` (PR to `main`): `docs/TEST_MATRIX.md`,
+  `docs/PHONE_TEST_NOTES.md`, `PROGRESS.md`, `CHANGELOG.md` (`## [1.0.0] - 2026-10-26`, the
+  owner's date in MMT; `## [1.0.1]` started). `gradle.properties` unchanged (`1.0.0` /
+  `1000000`): 1.0.1's release commit sets `1.0.1` / `1000100` (`docs/RELEASE.md` §5 step 4), as
+  1.0.0's release commit set `1.0.0` / `1000000`.
+- Next: the owner's OK to merge the records PR.
 - Rules: no site pack, engine or main lookup change; rc.1 docs only (no version change, tag,
   Release draft run or publish); never `main`, the spike, PR #2, a label,
   `master-recipes-publish`, `release-draft`, signing, the `recipes` branch, a tag or a release,
