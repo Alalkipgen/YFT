@@ -1,9 +1,25 @@
 package com.alal.yft.feature.browser
 
+import android.content.ClipboardManager
+import android.content.Context
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.test.core.app.ApplicationProvider
 import com.alal.yft.core.browser.detection.FocusedVideoProbe
 import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
 import com.alal.yft.core.media.resolver.VariantResolver
 import com.alal.yft.core.media.session.PreviewSelectionStore
+import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
@@ -31,8 +47,11 @@ import com.alal.yft.extractor.api.SiteExtractor
 import com.alal.yft.extractor.api.SiteExtractorRegistry
 import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
+import com.alal.yft.feature.quickdownload.QuickDownloadRoute
 import com.alal.yft.feature.quickdownload.QuickDownloadViewModel
 import com.alal.yft.testing.MainDispatcherRule
+import com.alal.yft.ui.LocalQuietRelease
+import com.alal.yft.ui.theme.YftTheme
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -49,21 +68,25 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 /**
  * VK-Master wave 2 (the success sheet's Lookup details): after the backup finder's success the
  * browser's real ViewModel hands the lookup's own lines (`outcome.details`) with the video to the
- * real download sheet's state — on a site's page (Download after the lookup or while it runs)
- * and for the video on a feed's screen; main's own success has none. Made-up lines only.
+ * real download sheet — on a site's page (Download after the lookup or while it runs) and for the
+ * video on a feed's screen — which shows them behind "Lookup details" with Copy details; a quiet
+ * build without Show details shows none, and main's own success has none. Made-up lines only.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35], qualifiers = "w360dp-h780dp")
 class LookupDetailsSheetTest {
     @get:Rule val main = MainDispatcherRule()
+    @get:Rule val composeRule = createComposeRule()
 
     @Test
-    fun aPageTheBackupFoundOpensTheSheetWithItsLookupDetails() {
+    fun aPageTheBackupFoundOpensTheSheetWithItsLookupDetailsShownAndCopiedAsTheLines() {
         val store = DetectedMediaStore()
         val backup = FoundByBackup(listOf(row(SITE, "fixture:11111")))
         val browser = browser(PageExtractor(), store, backup)
@@ -79,6 +102,39 @@ class LookupDetailsSheetTest {
         settle()
         assertNotNull(sheet.uiState.value.choices)
         assertEquals(LINES, sheet.uiState.value.lookupDetails)
+
+        // The real sheet: Lookup details under the rows; Copy details copies the lines as shown.
+        var quiet by mutableStateOf(false)
+        composeRule.setContent {
+            CompositionLocalProvider(LocalQuietRelease provides quiet) {
+                YftTheme(themeMode = ThemeMode.LIGHT) {
+                    QuickDownloadRoute(
+                        onNavigateBack = {},
+                        onOpenDownloads = {},
+                        onOpenDetails = {},
+                        viewModel = sheet,
+                    )
+                }
+            }
+        }
+        composeRule.onNodeWithTag("quick-details").assertIsDisplayed()
+        composeRule.onAllNodesWithTag("quick-lookup-detail-text").assertCountEquals(0)
+        composeRule.onNodeWithTag("quick-lookup-details").performScrollTo().performClick()
+        composeRule.onNodeWithTag("quick-lookup-detail-text")
+            .assertTextEquals(LINES.joinToString("\n"))
+        composeRule.onNodeWithTag("quick-lookup-copy").performScrollTo().performClick()
+        assertEquals(LINES.joinToString("\n"), copied())
+
+        // A quiet build without Show details: no Lookup details, the rows and Download as before.
+        quiet = true
+        composeRule.waitForIdle()
+        for (tag in listOf(
+            "quick-lookup-details", "quick-lookup-detail-text", "quick-lookup-copy",
+        )) {
+            composeRule.onAllNodesWithTag(tag).assertCountEquals(0)
+        }
+        composeRule.onNodeWithTag("quick-download").assertIsDisplayed()
+        composeRule.onNodeWithTag("quick-details").assertIsDisplayed()
     }
 
     @Test
@@ -181,6 +237,13 @@ class LookupDetailsSheetTest {
         assertTrue(store.lookupDetailsOf(store.selection.value).isEmpty())
         assertTrue(store.lookupDetailsOf(found).isEmpty())
     }
+
+    private fun copied(): String = ApplicationProvider.getApplicationContext<Context>()
+        .getSystemService(ClipboardManager::class.java)
+        .primaryClip!!
+        .getItemAt(0)
+        .text
+        .toString()
 
     private fun settle() {
         main.dispatcher.scheduler.advanceTimeBy(1_000)

@@ -677,6 +677,92 @@ class QuickDownloadScreenTest {
     }
 
     @Test
+    fun aSuccessShowsItsLookupDetailsAndCopyDetailsOnlyWhenAskedFor() {
+        // VK-Master wave 2: after the backup finder's success the rows keep the lookup's own
+        // lines behind "Lookup details", with Copy details, as a failed lookup's Details.
+        val lines = listOf(
+            "master: fixture ladder after NO_MEDIA_FOUND; main's answers re-read, no new ask",
+            "master: fixture V2 heal client_id: healed from fixture-script " +
+                "(the page and its common script: 2 asks, 1843200 bytes)",
+        )
+        var state by mutableStateOf(SAMPLE_QUICK_DOWNLOAD.copy(lookupDetails = lines))
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                QuickDownloadScreen(state = state, onSelect = {}, onDownload = {})
+            }
+        }
+
+        // The rows, the format Details and Download stay; the lines wait behind the toggle.
+        composeRule.onNodeWithTag("quick-details").assert(hasText("Details")).assertIsDisplayed()
+        composeRule.onNodeWithTag("quick-download").assertIsDisplayed()
+        composeRule.onAllNodesWithTag("quick-lookup-detail-text").assertCountEquals(0)
+        composeRule.onAllNodesWithTag("quick-lookup-copy").assertCountEquals(0)
+        composeRule.onNodeWithTag("quick-lookup-details").performScrollTo()
+            .assert(hasText("Lookup details"))
+            .performClick()
+        composeRule.onNodeWithTag("quick-lookup-detail-text").performScrollTo()
+            .assert(hasText(lines.joinToString("\n")))
+        composeRule.onNodeWithTag("quick-lookup-details").assert(hasText("Hide lookup details"))
+
+        // Copy details copies every line as shown, as the failure's Copy details does.
+        composeRule.onNodeWithTag("quick-lookup-copy").performScrollTo().performClick()
+        val copied = ApplicationProvider.getApplicationContext<Context>()
+            .getSystemService(ClipboardManager::class.java)
+            .primaryClip!!
+            .getItemAt(0)
+            .text
+            .toString()
+        assertEquals(lines.joinToString("\n"), copied)
+        assertEquals(copiedDetails(lines), copied)
+
+        // Hide lookup details hides the lines and Copy details with them.
+        composeRule.onNodeWithTag("quick-lookup-details").performScrollTo().performClick()
+        composeRule.onAllNodesWithTag("quick-lookup-detail-text").assertCountEquals(0)
+        composeRule.onAllNodesWithTag("quick-lookup-copy").assertCountEquals(0)
+        composeRule.onNodeWithTag("quick-lookup-details").assert(hasText("Lookup details"))
+
+        // A lookup without lines (main's own success) offers no toggle at all.
+        state = SAMPLE_QUICK_DOWNLOAD
+        composeRule.onAllNodesWithTag("quick-lookup-details").assertCountEquals(0)
+        composeRule.onNodeWithTag("quick-details").assertIsDisplayed()
+        composeRule.onNodeWithTag("quick-download").assertIsDisplayed()
+    }
+
+    @Test
+    fun aQuietBuildShowsLookupDetailsOnlyWithShowDetailsOn() {
+        // Decision 30 (v): a quiet build without Show details keeps its sheet as it was.
+        val lines = listOf("master: fixture ladder after NO_MEDIA_FOUND; main's answers re-read")
+        var quiet by mutableStateOf(true)
+        composeRule.setContent {
+            CompositionLocalProvider(LocalQuietRelease provides quiet) {
+                YftTheme(themeMode = ThemeMode.LIGHT) {
+                    QuickDownloadScreen(
+                        state = SAMPLE_QUICK_DOWNLOAD.copy(lookupDetails = lines),
+                        onSelect = {},
+                        onDownload = {},
+                    )
+                }
+            }
+        }
+
+        for (tag in listOf(
+            "quick-lookup-details", "quick-lookup-detail-text", "quick-lookup-copy",
+        )) {
+            composeRule.onAllNodesWithTag(tag).assertCountEquals(0)
+        }
+        composeRule.onAllNodesWithText("Lookup details").assertCountEquals(0)
+        composeRule.onNodeWithTag("quick-details").assertIsDisplayed()
+        composeRule.onNodeWithTag("quick-download").assertIsDisplayed()
+
+        // Show details on (the quiet build's hidden switch): the toggle and its lines.
+        quiet = false
+        composeRule.onNodeWithTag("quick-lookup-details").performScrollTo().performClick()
+        composeRule.onNodeWithTag("quick-lookup-detail-text").performScrollTo()
+            .assert(hasText(lines.single()))
+        composeRule.onNodeWithTag("quick-lookup-copy").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
     fun meteredDownloadsAskFirstAndNoVideoOffersClose() {
         var state by mutableStateOf(
             SAMPLE_QUICK_DOWNLOAD.copy(downloadStatus = PreviewDownloadStatus.ConfirmMetered),

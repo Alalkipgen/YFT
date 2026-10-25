@@ -1717,14 +1717,25 @@ Keep at least the heading and one blank line between sections, so Git merges the
   `LocalQuietRelease`): debug and #12 trial always; the release and #12 normal (quiet) only with
   Show details on; a quiet build without it unchanged. The banner and the format "Details"
   button stay; no ladder, heal, budget, request or value change.
-- Step 1 (this checkpoint, plumbing): `DetectedMediaStore.select(group, lookupDetails =)` keeps
-  the lines with the selected video (`lookupDetailsOf(group)`; memory only; dropped by another
-  selection, a wait, another page and `clear`). `BrowserViewModel` hands `outcome.details` over
-  on the page lookup (`showPageVideo`; `openPageVideo`, `selectForDownload` and `openMainVideo`
-  when the video is the lookup's, by key) and on a feed's focused-video path
-  (`showFocusedVideo`). `QuickDownloadUiState.lookupDetails` takes them when the sheet opens or
-  its wait ends. Test: `LookupDetailsSheetTest` (the real browser ViewModel and sheet: the page
-  the backup found, Download after and during its lookup; the video on a feed's screen, waiting
-  and again with no new ask; main's own success and another video: none). Made-up lines only.
-- Next: step 2, the sheet's toggle (`QuickDownloadScreen`) and its tests; then CI, the Trial APK
-  and the owner's phone step.
+- Step 1 (plumbing): `DetectedMediaStore.select(group, lookupDetails =)` keeps the lines with
+  the selected video (`lookupDetailsOf(group)`; memory only; dropped by another selection, a
+  wait, another page and `clear`). `BrowserViewModel` hands `outcome.details` over on the page
+  lookup (`showPageVideo`; `openPageVideo`, `selectForDownload` and `openMainVideo` when the
+  video is the lookup's, by key) and on a feed's focused-video path (`showFocusedVideo`).
+  `QuickDownloadUiState.lookupDetails` takes them when the sheet opens or its wait ends.
+- Step 2 (UI): `QuickDownloadScreen` shows them with `FailureDetails(label = "Lookup details")`
+  after the rows in `quick-rows` (tags `quick-lookup-details`, `quick-lookup-detail-text`,
+  `quick-lookup-copy`; "Hide lookup details"); the failure's Details keep their words.
+- Tests: `LookupDetailsSheetTest` (the real browser ViewModel and sheet: the page the backup
+  found, Download after and during its lookup; the video on a feed's screen, waiting and again
+  with no new ask; main's own success and another video: none; the real sheet shows and copies
+  the lines, and a quiet build hides them); `QuickDownloadScreenTest` +2 (toggle, lines, Copy
+  details = the lines = `copiedDetails`, Hide; quiet hides them, Show details on shows them).
+  Made-up lines only. Local: `:app:testDebugUnitTest` green.
+- Backlog: not on Home's paste-a-link sheet (its own lookup), under a format's failure after a
+  success (that failure's own Details), after the player-file fallback, or for Master on demand
+  on a generic page (its rows carry no lines today).
+- Next: CI, the Trial APK and the owner's phone step (YFT Trial, VK value break = Client id,
+  restart, Backup finder on, the phone proof's VK video, Download › Lookup details: the rows,
+  then `master: vk …` lines with `master: vk V2 heal client_id: healed from vkvideo-script (the
+  page and its common script: N asks, N bytes)`, no value).
