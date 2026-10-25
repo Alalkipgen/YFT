@@ -1161,7 +1161,16 @@ Keep at least the heading and one blank line between sections, so Git merges the
     values, a debug hook's change first), `VkClientTest` (12), `VkClientDriftTest` (3: main's
     adapter asks the token and `video.get` exactly as `VkClient`), fixtures `vk-pack/` (made up).
     Local: `:extractor-master:test` 995 tests, 0 failed (2 skipped); drift 177/0; the 35 pending
-    rows re-hash equal at `50fb8d0f`.
+    rows re-hash equal at `50fb8d0f`. Pushed `81c26409`.
+  - Step 2 — `VkAnswerJudge` (+ `VkReading`) over the shared `AnswerClass` (§5): rows → DIRECT
+    or PARTIAL (shape scan, or beside refused files); the embed's adult answer → VIDEO_WITHOUT_FILES
+    (main's trigger, not a Master class); the embed's other message → NEEDS_PLAYBACK; the shell →
+    TRANSIENT; the token refused (400/401, no token) and API errors 5, 8, 28, 34, 101 →
+    VALUE_REJECTED; error 14 and the token's captcha → BOT_CHECK; 429 and errors 6, 9, 29 →
+    RATE_LIMITED; `can_play` 0 + VK's `delete_outline` icon → REMOVED (the only final); every other
+    error or restriction → TRANSIENT. Codes and icon provisional (A's taxonomy). `VkAnswerJudgeTest`
+    (10). 13 more pending rows (48). Local: 1005 tests, 0 failed (2 skipped); drift 177/0;
+    pending 48/0.
 - Provenance (proposal for the owner, Appendix B step 1): no base bump, no script change. Main's
   VK files came after the base `34a41890`, so their rows wait in `toolkit-provenance.tsv`'s header
   as `# pending<TAB>master<TAB>main<TAB>symbol<TAB>sha256` lines, hashed at `50fb8d0f` with the
@@ -1169,7 +1178,7 @@ Keep at least the heading and one blank line between sections, so Git merges the
   them, the self-check stays 177/0). Meanwhile `VkClientDriftTest` checks the copies at run time.
   To activate (owner/D): when the base moves past main's VK files, review each copy, drop the
   prefix, `--write`. Option for later: a per-row ref column in the script (a shared-file change).
-- Next: step 2, `VkAnswerJudge` over `AnswerClass` (§5).
+- Next: step 3, `VkLadder` (V1 re-read, V2 heal, V3 capture) with `VkReader`.
 - Backlog (out of scope here): wiring (D: `VkRecipe` in `ContractRecipes.ALL`, `VkLadder` in the
   social ladders, `VkSite.SITE` in `SiteWays`, `VkSite.BUDGET` in `SocialStops`, V3 in
   `RungsOff`); the live values source (C: `ValueSource`/`SiteHealth`/`VkClientSource`); R9 schema
