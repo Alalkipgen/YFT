@@ -1235,9 +1235,26 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - Local validation (2026-10-25): `testDebugUnitTest` → app 1278 (66 skipped), core-browser 150,
   core-data 35, core-download 281, core-media 39, extractor-master-android 70: 0 failures;
   `:app:compileDebugAndroidTestKotlin` OK.
-- Next: lint, the minified builds (`assembleRelease`, `assemblePreview`, `assemblePreviewTrial`;
-  R8 rules if R8 needs them), `:extractor-master:test` and the JVM modules; the rest of the shared
-  docs (`docs/RELEASE.md`, `PROGRESS.md`, `docs/TEST_MATRIX.md`, `docs/PHONE_TEST_NOTES.md`,
+- Checkpoint 1 `1244f80b`: CI green (Work-branch checkpoint validation #540 40184741769,
+  Android emulator smoke #134 40184741829, Preview APK (test key) #101 40184741778 with
+  `yft-preview-apk` 12596296561 and `yft-preview-trial-apk` 12596046940). Local: `lintDebug`,
+  `:app:assembleRelease` (R8), `:app:assemblePreview`, `:app:assemblePreviewTrial`,
+  `:extractor-master:test`, `:core-model:test :extractor-api:test :extractor-generic:test
+  :extractor-sites:test`: all green.
+- R8 (the owner, 2026-10-25: "decide by running the minified build … not by compiling alone —
+  YouTube route B, one social ladder and the capture must work in it"): this agent's computer has
+  no KVM, so checkpoint 2 adds `.github/workflows/minified-check.yml` (pushes to
+  `work/phase-release-*` only): it builds #12 normal and #12 trial as Preview APK does (R8, a fresh
+  test key), runs both on the emulator smoke's API 34 emulator and drives them through their
+  screens (`scripts/ci-minified-check.sh`, the opt-in `MinifiedBuildCheckTest`, `-e yft.minified
+  <package>`; the smoke skips it): YouTube (route B's notice in the trial), X then Facebook (the
+  ladder's notice), Facebook's video with the capture's "Play the video…" answered by a tap on the
+  video. Each answer is an annotation; a crash or a run that cannot finish fails the job. Static
+  review so far: no reflection, ServiceLoader or serialization in Master; `@JavascriptInterface`
+  kept (the own solver's bridge); the capture talks by `evaluateJavascript` and `org.json`; assets
+  by name; only details lines carry a class name (`ClientLadder`'s `L: <outcome>`, the trial
+  check's failure), shown renamed in a shrunk build.
+- Next: the check's answers decide the R8 rules; the rest of the shared docs (`docs/RELEASE.md`, `PROGRESS.md`, `docs/TEST_MATRIX.md`, `docs/PHONE_TEST_NOTES.md`,
   `docs/SUPPORT_MATRIX.md`, README, the plans' status lines) in the release commit; CI green
   (checkpoint validation, Emulator smoke, Preview APK with both #12 APKs); STOP and report.
 - Rules: no site pack, engine or main lookup change; no rc.1; never `main`, the spike, PR #2, a
