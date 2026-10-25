@@ -1151,9 +1151,11 @@ Keep at least the heading and one blank line between sections, so Git merges the
   prompt). Branch made from `origin/work/phase-vk-master` `50f2e9fb` (the plan's commit). New,
   additive code only: nothing is wired into the app; `RemoteRecipeConfig.kt` (the schema-1 reader)
   and `ContractRecipes.ALL` are unchanged.
-- State (2026-10-25): step 1 (the kit, `ac2005ca`) and step 2 (R9 schema 2, this checkpoint)
-  done. Next: step 3 (the scoping question); step 4 (`VkClientSource`, part 2) only after agent
-  A's proof and the owner's go.
+- State (2026-10-25): steps 1–3 done — step 1 the kit (`ac2005ca`), step 2 R9 schema 2
+  (`3885b3de`), step 3 the scoping question (this checkpoint; not built). **STOP**: step 4
+  (`VkClientSource`, part 2) is not built — agent A has not reported the recon (the script source
+  and its pattern) and the owner has not said go (S10). Next: A's report and the owner's word
+  (part 2; step 3's question).
 - Step 1 — the kit (`extractor-master/.../master/social/`; YouTube's `ClientHealth` and
   `VersionSource` stay YouTube's):
   - `SiteHealth.kt`, data only: per site (`facebook`, `tiktok`, `x`, `instagram`, `vk`) and rung
@@ -1202,6 +1204,41 @@ Keep at least the heading and one blank line between sections, so Git merges the
     `jsonschema`). Two existing tests changed, intent kept: `RemoteRecipesS4Test` and
     `FacebookLadderTest` read the committed (now schema-2) configs through
     `RemoteRecipeConfig2.schema1`, i.e. v1.0.0's file.
+- Step 3 — may VK's R9 carry the web client's values (plan §2, §9)? Scoped only; the owner
+  decides.
+  - Possible, as data. Neither schema has a place for them today: a site overlay carries only
+    `endpoint`, `headers`, `agent` and paths, while the values travel as parameters of the token
+    request and of `video.get`. One exception: if B's `VkRecipe.endpoint` holds the API version
+    (`v=`) in its query, R9's existing endpoint overlay (same host, known placeholders) can
+    already change it, no new field.
+  - Shape, if the owner says yes: an optional `sites.vk.values` object in schema 2 only (schema
+    1's projection drops `vk`, so v1.0.0 never sees it): `apiVersion` `^5\.[0-9]{1,4}$`, `appId`
+    and `clientId` `^[0-9]{6,10}$`, `clientSecret` `^[A-Za-z0-9]{16,32}$` (only with
+    `clientId`); nothing else — no scopes, token version, hosts, headers or code. The reader hands
+    them to `ValueSource`'s first slot (`SignedValues`, built in step 1): a signed value must
+    still match its kind's pattern, and a rejected one is skipped for the day (then the rest of
+    the order: healed, learned, bundled, a heal read, the alternates). Today's bundled values fit
+    these patterns (checked without printing them).
+  - Cost: one optional object in `master-recipes-2.schema.json`; ~40 lines in
+    `RemoteRecipeConfig2` (checked there and taken out before VK's part goes to the schema-1
+    reader; a small result beside `Parsed`, which stays unchanged); ~15 lines in the helper's
+    checks; Kotlin and script tests. No change to schema 1, the workflow or the signing.
+  - Timing: cheapest before v1.0.1 ships. v1.0.1's reader rejects an unknown key under
+    `sites.vk` (the schema-1 rule), so a field added after v1.0.1 means a schema 3 and a third
+    file.
+  - For: a rotated value is fixed by a signed config within a day, no APK, even when the script
+    source has moved (self-heal's weak point). Against: the signed, published config (the
+    `recipes` branch) then carries the web client's secret — public (VK ships it in its own
+    script) but a credential; one more value the owner keeps current by hand; and D8's precedent
+    (the owner dropped YouTube's signed identity data on 2026-10-15 because a self-heal source
+    existed, keeping "a new APK if both fail" as a known limit). Without values, V3 (capture)
+    still serves a rotated value with a broken source until an APK, and `rungsOff` `V2` stops a
+    failing heal.
+  - **Recommendation: do not build it now.** Keep self-heal (§8) the primary path and R9's kill
+    switch (`V2`) for a bad week, as D8 did for YouTube. Decide again when A reports: if the
+    script source is fragile or missing, add `sites.vk.values` (the API version first, as it is
+    no credential) before v1.0.1 ships; otherwise record "a rotated value with a broken source
+    needs an APK (V3 serves meanwhile)" as a known limit.
 - Validation (JDK 17; this sandbox has no Android SDK, so Gradle needs `--configure-on-demand`):
   `./gradlew --no-daemon :extractor-master:test` → 1003 tests, 0 failures, 2 skipped (980 at the
   base, 997 at step 1); `python3 -m unittest discover -s scripts/tests -p
@@ -1221,6 +1258,15 @@ Keep at least the heading and one blank line between sections, so Git merges the
   - Docs (shared, the owner's or D's): the R9 runbook (`MASTER_KEY_SOCIAL_PLAN.md`, configs at
     `extractor-master/recipes/configs/`) should say a config is schema 2 and one run publishes
     both files.
+- Backlog (out of scope here):
+  - Part 2: `VkClientSource` (a `ValueReader` for B's `VkClientValues`), after A's proof and the
+    owner's go.
+  - A healed ID or secret is memory only (§8): after an app restart the same day, V2 falls back to
+    the bundled value and the alternates until the next day's read (the read clock is stored).
+    Fine for now; revisit if the phone proof shows it hurts.
+  - One script read for several values of a site (today one read per value kind, each once a day).
+  - CI: the work-branch workflow does not run `:extractor-master:test` or the script tests; they
+    run locally before each checkpoint.
 - Rules: Appendix C's "Never" list (no push to `main`, `spike/*` or another agent's branch; no PR;
   no label; no publish run or `recipes` branch; no change to the schema-1 reader or
   `ContractRecipes.ALL`; no app wiring, shared app file, engine, census screen, D7 matrix, shared
