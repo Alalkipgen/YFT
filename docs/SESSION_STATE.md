@@ -1707,3 +1707,24 @@ Keep at least the heading and one blank line between sections, so Git merges the
   rows; Details "V2 heal client_id: healed from …" with asks and bytes; (2) again: healed today,
   no new read; (3) restart, again: learned; (4) 1–3 with the API version broken; (5) the secret
   only: no heal (V1 answers); (6) #12 normal: an 18+ video, a public video and a clip work.
+
+### Lookup details after a success (wave 2, the owner's UI fix)
+
+- Ask: after a Backup finder success the sheet showed the rows but none of Master's lines (only
+  the browser's banner line). The success sheet gets **Lookup details** under its rows: every
+  `outcome.details` line, then **Copy details** — the failure sheet's `FailureDetails`,
+  `CopyDetails` and `copiedDetails`, reused. The failure's Details rule (decision 30 (v),
+  `LocalQuietRelease`): debug and #12 trial always; the release and #12 normal (quiet) only with
+  Show details on; a quiet build without it unchanged. The banner and the format "Details"
+  button stay; no ladder, heal, budget, request or value change.
+- Step 1 (this checkpoint, plumbing): `DetectedMediaStore.select(group, lookupDetails =)` keeps
+  the lines with the selected video (`lookupDetailsOf(group)`; memory only; dropped by another
+  selection, a wait, another page and `clear`). `BrowserViewModel` hands `outcome.details` over
+  on the page lookup (`showPageVideo`; `openPageVideo`, `selectForDownload` and `openMainVideo`
+  when the video is the lookup's, by key) and on a feed's focused-video path
+  (`showFocusedVideo`). `QuickDownloadUiState.lookupDetails` takes them when the sheet opens or
+  its wait ends. Test: `LookupDetailsSheetTest` (the real browser ViewModel and sheet: the page
+  the backup found, Download after and during its lookup; the video on a feed's screen, waiting
+  and again with no new ask; main's own success and another video: none). Made-up lines only.
+- Next: step 2, the sheet's toggle (`QuickDownloadScreen`) and its tests; then CI, the Trial APK
+  and the owner's phone step.

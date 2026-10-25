@@ -134,6 +134,13 @@ data class QuickDownloadUiState(
     val startsWhenReady: Boolean = false,
     /** P18: the quality an early Download took ("Downloading 480p — 720p not available"). */
     val startedNote: String? = null,
+    /**
+     * VK-Master wave 2: the detail lines of the lookup that found this video (the backup
+     * finder's: the site's ladder line, VK's V2 heal line, route B's counts), shown behind the
+     * sheet's Lookup details with Copy details, as a failed lookup's Details; none when the
+     * lookup gave none. A quiet build shows them only with Show details on (decision 30 (v)).
+     */
+    val lookupDetails: List<String> = emptyList(),
 ) {
     val selectedOption: SheetOption? get() = choices?.option(selectedId)
 
@@ -197,6 +204,8 @@ class QuickDownloadViewModel @Inject constructor(
         pageLookup?.let(::lookupState) ?: QuickDownloadUiState(
             header = group?.header(),
             maybeAd = store.maybeAd.value && store.selection.value != null,
+            // VK-Master wave 2: the lines of the lookup that found the selected video.
+            lookupDetails = store.lookupDetailsOf(store.selection.value),
         ),
     )
     val uiState: StateFlow<QuickDownloadUiState> = mutableUiState.asStateFlow()
@@ -471,6 +480,8 @@ class QuickDownloadViewModel @Inject constructor(
                 QuickDownloadUiState(
                     header = group?.header(),
                     maybeAd = selected != null && store.maybeAd.value,
+                    // VK-Master wave 2: the lines of the lookup that found it, for Lookup details.
+                    lookupDetails = store.lookupDetailsOf(selected),
                 ).keepingEarly(it)
             }
             if (selected != null) load()

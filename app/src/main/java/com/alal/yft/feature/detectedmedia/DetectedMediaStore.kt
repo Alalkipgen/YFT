@@ -149,6 +149,7 @@ class DetectedMediaStore @Inject constructor() {
         // A video chosen on another page is not this page's: the sheet must not show it.
         if (mutablePage.value?.pageUrl != pageUrl) {
             mutableSelection.value = null
+            selectedLines = null
             mutableMaybeAd.value = false
             awaiting = false
         }
@@ -162,15 +163,38 @@ class DetectedMediaStore @Inject constructor() {
         )
     }
 
+    /** VK-Master wave 2: the detail lines [select] took with [group] ([lookupDetailsOf]). */
+    private class SelectedLines(val group: MediaGroup, val lines: List<String>)
+
+    private var selectedLines: SelectedLines? = null
+
     /**
      * [group] is the video the sheet shows, the page's own video alone (P45: the sheet lists no
      * other video). P28: [maybeAd] when it may be the ad before the page's video ([maybeAd]).
+     * VK-Master wave 2: [lookupDetails] are the detail lines of the lookup that found [group]
+     * (the browser's page lookup or the video on screen: the backup finder's lines), which the
+     * sheet shows as its Lookup details ([lookupDetailsOf]); none for every other selection.
      */
-    fun select(group: MediaGroup, maybeAd: Boolean = false) {
+    fun select(
+        group: MediaGroup,
+        maybeAd: Boolean = false,
+        lookupDetails: List<String> = emptyList(),
+    ) {
         awaiting = false
         mutableMaybeAd.value = maybeAd
+        // Before the selection: a sheet that takes the selection finds its lines with it.
+        selectedLines = lookupDetails.takeIf { it.isNotEmpty() }?.let { SelectedLines(group, it) }
         mutableSelection.value = group
     }
+
+    /**
+     * VK-Master wave 2: the lookup's detail lines [select] took with [group] — the same steps a
+     * failed lookup's Details show (sanitized: hosts, counts and words, never an address, a query
+     * value, a cookie or a site's value). Empty for another video, or one selected without lines.
+     * Memory only.
+     */
+    fun lookupDetailsOf(group: MediaGroup?): List<String> =
+        selectedLines?.takeIf { group != null && it.group == group }?.lines.orEmpty()
 
     /**
      * P12: the sheet opens for the page's own video before its lookup found it. Nothing is
@@ -178,6 +202,7 @@ class DetectedMediaStore @Inject constructor() {
      */
     fun awaitPageVideo() {
         mutableSelection.value = null
+        selectedLines = null
         mutableMaybeAd.value = false
         awaiting = true
     }
@@ -280,6 +305,7 @@ class DetectedMediaStore @Inject constructor() {
     fun clear() {
         mutablePage.value = null
         mutableSelection.value = null
+        selectedLines = null
         mutableMaybeAd.value = false
         mutableLookup.value = null
         awaiting = false
