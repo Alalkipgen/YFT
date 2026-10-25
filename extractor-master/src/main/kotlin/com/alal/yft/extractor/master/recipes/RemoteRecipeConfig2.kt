@@ -15,7 +15,8 @@
  * VK's part, as a one-site schema-1 config, with the bundled VK recipe. Anything either rejects
  * rejects the whole config, and the bundled recipes stay. A config that names `vk` in a build
  * without a VK recipe is rejected as an unknown site (the schema-1 rule). No code is ever loaded,
- * and no value of VK's web client is carried (the owner decides that, plan §2 and §9).
+ * and no value of VK's web client is carried (the owner's answer, 2026-10-25, plan §2 and §9:
+ * self-heal reads them, `social/VkClientSource.kt`).
  */
 package com.alal.yft.extractor.master.recipes
 

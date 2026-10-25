@@ -9,18 +9,18 @@ import com.alal.yft.extractor.api.SiteExtractionFailure
  * X's token later — YouTube's `VersionSource` rules (that file stays YouTube's) for any site.
  *
  * The S5 order for one value ([ValueKind]), a value rejected today ([rejected]) left out:
- * 1. an **R9-signed** value ([SignedValues]; schema 2 carries none yet — the owner decides, plan
- *    §2 and §9);
+ * 1. an **R9-signed** value ([SignedValues]; for VK none: the owner's answer of 2026-10-25 is
+ *    that R9 does not carry the web client's values, plan §2 and §9);
  * 2. a **self-healed** value read today ([heal]; memory only, for the day);
  * 3. a **learned** value ([SiteHealth.learn]: kept only after an OK answer and a V pass; the
  *    health keeps the value itself only for a public version, so this is VK's API version, never an
  *    ID or a secret);
  * 4. the **bundled** value the rung was built with;
  * 5. after a rejection, one heal read: **one** pattern-matched value ([ValueKind.anchor]'s group
- *    1, the whole value matching [ValueKind.pattern]) from the source agent A proves (part 2,
- *    `VkClientSource`, a [ValueReader]); at most once a day per value (the health's clock, claimed
- *    before the read), not while the site is stopped (a bot check or 429, which a read also
- *    starts), at most [ValueKind.maxBytes];
+ *    1, the whole value matching [ValueKind.pattern]) from a [ValueReader] (VK: [VkClientSource],
+ *    the source agent A proved); at most once a day per value (the health's clock, claimed before
+ *    the read), not while the site is stopped (a bot check or 429, which a read also starts), at
+ *    most [ValueKind.maxBytes];
  * 6. ≤ [MAX_ALTERNATES] **bundled alternates** ([ValueAlternate]: each with its source and date).
  *
  * Never code (a value is [VALUE]-shaped: letters, digits and `._,%=+-`, never a quote, a space,
@@ -97,7 +97,9 @@ internal class ValueSource(
         val text = when (val got = reader.read(kind, userAgent?.takeIf(String::isNotBlank), kind.maxBytes)) {
             is ExtractorHttpResult.Failure -> {
                 if (got.reason in STOPS || got.statusCode == HTTP_TOO_MANY) health.stop(kind.site)
-                return Read(null, "read failed (${got.reason.name}${got.statusCode?.let { " $it" }.orEmpty()})")
+                val status = got.statusCode?.let { " $it" }.orEmpty()
+                val note = got.details.firstOrNull()?.takeIf(NOTE::matches)?.let { ": $it" }.orEmpty()
+                return Read(null, "read failed (${got.reason.name}$status$note)")
             }
             is ExtractorHttpResult.Success -> got.body
         }
@@ -183,6 +185,9 @@ internal class ValueSource(
         /** Every value a rung may send: no quote, space, slash, colon or bracket — never code or an address. */
         val VALUE = Regex("^[A-Za-z0-9._,%=+-]{1,256}$")
 
+        /** A reader's note that may join a failed read's reason: short lowercase words, never an address. */
+        private val NOTE = Regex("^[a-z][a-z0-9 _.()-]{0,63}$")
+
         private const val MAX_REJECTED = 8
         private const val HTTP_TOO_MANY = 429
         private val STOPS = setOf(SiteExtractionFailure.RATE_LIMITED, SiteExtractionFailure.BOT_CHECK)
@@ -241,8 +246,10 @@ internal class ValueAlternate(val value: String, val source: String, val date: S
 }
 
 /**
- * R9's signed value for a kind (VK plan §2/§9, the open question): null when the config in use
- * carries none — always, until the owner decides that schema 2 carries values and that is built.
+ * R9's signed value for a kind (S5's first place): null when the config in use carries none. For
+ * VK always null — the owner's answer (2026-10-25, VK plan §2 and §9): R9 does not carry the web
+ * client's values (known limit: a rotated value with a broken source needs an APK; V3 serves
+ * meanwhile). The slot stays for a site whose values R9 may carry later (S9).
  */
 internal fun interface SignedValues {
     fun valueOf(kind: ValueKind): String?
@@ -253,10 +260,11 @@ internal fun interface SignedValues {
 }
 
 /**
- * Reads a heal source for [ValueSource] (part 2: `VkClientSource`, after agent A proves the source
- * and the owner says go): one GET of the source this reader knows, with the user's own User-Agent
- * ([read]'s `userAgent`) and no cookie or token, **no redirect followed** (a redirect is a
- * failure), at most `maxBytes`, as text. Nothing is logged.
+ * Reads a heal source for [ValueSource] (VK: [VkClientSource], vkvideo.ru's page then one script):
+ * only the requests of the source this reader knows, with the user's own User-Agent ([read]'s
+ * `userAgent`) and no cookie or token, **a redirected answer is a failure** (never used), the
+ * text returned at most `maxBytes`. A failure's first detail, a short lowercase note, joins the
+ * read's reason ([ValueSource.Read.why]). Nothing is logged.
  */
 internal interface ValueReader {
     /** The source's ID for notes and the health ([SiteHealth.WORD]: never an address). */
