@@ -1,0 +1,107 @@
+{
+  "response": {
+    "count": 1,
+    "items": [
+      {
+        "response_type": "full",
+        "type": "video",
+        "owner_id": -100000001,
+        "id": 400000001,
+        "title": "FIXTURE sample video",
+        "description": "FIXTURE description",
+        "duration": 120,
+        "date": 1700000000,
+        "views": 1000,
+        "local_views": 10,
+        "width": 1080,
+        "height": 1920,
+        "comments": 0,
+        "likes": {
+          "count": 0,
+          "user_likes": 0
+        },
+        "reposts": {
+          "count": 0
+        },
+        "can_download": 1,
+        "can_like": 1,
+        "can_repost": 1,
+        "can_subscribe": 1,
+        "can_play_in_background": 1,
+        "can_dislike": 1,
+        "can_edit_privacy": 0,
+        "is_favorite": false,
+        "image": [
+          {
+            "url": "https://iv.okcdn.ru/getVideoPreview?id=FIXTURE&idx=FIXTURE&type=FIXTURE&tkn=FIXTURE&fn=FIXTURE&scl=FIXTURE",
+            "width": 227,
+            "height": 405,
+            "with_padding": 1
+          },
+          {
+            "url": "https://iv.okcdn.ru/getVideoPreview?id=FIXTURE&idx=FIXTURE&type=FIXTURE&tkn=FIXTURE&fn=FIXTURE&scl=FIXTURE",
+            "width": 151,
+            "height": 270,
+            "with_padding": 1
+          },
+          {
+            "url": "https://iv.okcdn.ru/getVideoPreview?id=FIXTURE&idx=FIXTURE&type=FIXTURE&tkn=FIXTURE&fn=FIXTURE&scl=FIXTURE",
+            "width": 303,
+            "height": 540,
+            "with_padding": 1
+          }
+        ],
+        "first_frame": [
+          {
+            "url": "https://iv.okcdn.ru/getVideoPreview?id=FIXTURE&idx=FIXTURE&type=FIXTURE&tkn=FIXTURE&fn=FIXTURE&scl=FIXTURE",
+            "width": 227,
+            "height": 405,
+            "with_padding": 1
+          }
+        ],
+        "player": "https://FIXTURE",
+        "share_url": "https://FIXTURE",
+        "direct_url": "https://FIXTURE",
+        "ov_id": "FIXTURE",
+        "ov_provider_id": "FIXTURE",
+        "track_code": "FIXTURE",
+        "tracking_info": "FIXTURE",
+        "wall_post_id": 0,
+        "ads": {},
+        "trailer": {
+          "mp4_144": "https://vk6-1.vkuser.net/trailer_mp4_144/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&pr=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "mp4_240": "https://vk6-1.vkuser.net/trailer_mp4_240/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&pr=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "mp4_360": "https://vk6-1.vkuser.net/trailer_mp4_360/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&pr=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "mp4_480": "https://vk6-1.vkuser.net/trailer_mp4_480/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&pr=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "mp4_720": "https://vk6-1.vkuser.net/trailer_mp4_720/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&pr=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "mp4_1080": "https://vk6-1.vkuser.net/trailer_mp4_1080/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&pr=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE"
+        },
+        "files": {
+          "mp4_144": "https://vk6-1.vkuser.net/mp4_144/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&pr=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "mp4_240": "https://vk6-1.vkuser.net/mp4_240/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&pr=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "mp4_360": "https://vk6-1.vkuser.net/mp4_360/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&pr=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "mp4_480": "https://vk6-1.vkuser.net/mp4_480/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&pr=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "mp4_720": "https://vk6-1.vkuser.net/mp4_720/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&pr=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "mp4_1080": "https://vk6-1.vkuser.net/mp4_1080/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&pr=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "hls": "https://vk6-1.vkuser.net/hls/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&pr=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "hls_fmp4": "https://vk6-1.vkuser.net/hls_fmp4/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&pr=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "dash_sep": "https://vk6-1.vkuser.net/dash_sep/FIXTURE?expires=FIXTURE&srcIp=FIXTURE&pr=FIXTURE&srcAg=FIXTURE&ms=FIXTURE&type=FIXTURE&sig=FIXTURE&ct=FIXTURE&urls=FIXTURE&clientType=FIXTURE&appId=FIXTURE&zs=FIXTURE&id=FIXTURE&scl=FIXTURE",
+          "failover_host": "vkvd1.okcdn.ru"
+        }
+      }
+    ],
+    "max_attached_short_videos": 20,
+    "groups": [
+      {
+        "id": 100000001,
+        "name": "FIXTURE group",
+        "screen_name": "fixture_group",
+        "is_closed": 0,
+        "type": "page",
+        "photo_50": "https://FIXTURE",
+        "photo_100": "https://FIXTURE",
+        "photo_200": "https://FIXTURE"
+      }
+    ]
+  }
+}
