@@ -50,6 +50,7 @@ class WebViewPlaybackCapture(
     private var script: String? = null
     private var steering: ScriptHandler? = null
     private var hooks: ScriptHandler? = null
+    private var early: ScriptHandler? = null
 
     fun attach(view: WebView) {
         mainThread()
@@ -63,6 +64,8 @@ class WebViewPlaybackCapture(
         steering = codecs?.let { steer(view, it) }
         hooks?.remove()
         hooks = if (mediaHooks) documentStart(view, readAsset(view, MEDIA_HOOKS_ASSET)) else null
+        early?.remove()
+        early = documentStart(view, script, EARLY_ORIGINS)
         val userAgent = view.settings.userAgentString
         val cookies = CookieManager.getInstance()
         session.setContextProvider { url, page ->
@@ -90,6 +93,8 @@ class WebViewPlaybackCapture(
         steering = null
         hooks?.remove()
         hooks = null
+        early?.remove()
+        early = null
         session.clear()
     }
 
@@ -150,10 +155,14 @@ class WebViewPlaybackCapture(
         documentStart(view, readAsset(view, CodecSteering.ASSET)?.let(policy::script))
 
     /** Nothing is installed on WebViews without document-start scripts; capture still works. */
-    private fun documentStart(view: WebView, source: String?): ScriptHandler? = runCatching {
+    private fun documentStart(
+        view: WebView,
+        source: String?,
+        origins: Set<String> = CodecSteering.ORIGINS,
+    ): ScriptHandler? = runCatching {
         if (source == null) return null
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return null
-        WebViewCompat.addDocumentStartJavaScript(view, source, CodecSteering.ORIGINS)
+        WebViewCompat.addDocumentStartJavaScript(view, source, origins)
     }.getOrNull()
 
     private fun readAsset(view: WebView, name: String): String? = runCatching {
@@ -255,5 +264,18 @@ class WebViewPlaybackCapture(
         const val SAMPLE_DELAY_MS = 200L
         const val MAX_SAMPLES = 10
         const val MEDIA_HOOKS_ASSET = "yft-master-mse.js"
+
+        /**
+         * VK's pack proof (2026-10-26): VK's player keeps the page's first `fetch` and asks for
+         * its manifest as it starts, both before [bind]'s script runs, so on VK's pages the
+         * capture script is also in place from document start (top frame only, like every
+         * bind; nothing leaves the page before a bind, which takes its own page's requests
+         * only). Every other site keeps the capture of before.
+         */
+        val EARLY_ORIGINS = setOf(
+            "https://vk.com", "https://*.vk.com",
+            "https://vk.ru", "https://*.vk.ru",
+            "https://vkvideo.ru", "https://*.vkvideo.ru",
+        )
     }
 }

@@ -135,19 +135,54 @@ class MasterMainSelectionPolicyTest {
         assertEquals(listOf(media("main")), (result as MasterResult.Success).result.candidates)
     }
 
+    /**
+     * VK's pack proof (2026-10-26): VK's player plays WebM pieces of the DASH manifest it fetched
+     * (the pieces name byte ranges; the sound's are audio). The manifest, as long as the player's
+     * video, is the main; a piece without a length is not, and a sound piece is never checked.
+     */
+    @Test
+    fun thePlayersOwnDashManifestIsTheMainWhenItIsAsLongAsThePlayersVideo() = runBlocking {
+        val session = session(duration = "4651.78")
+        val request = session.request(SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED, 1)!!
+        val selector = MasterMainSelection(session)
+        val manifest = MediaCandidate(
+            PAGE, "https://media.test/?type=4&id=1", setOf(CandidateSource.REQUEST),
+            MediaKind.DASH, mimeType = "application/dash+xml",
+        )
+        val piece = MediaCandidate(
+            PAGE, "https://media.test/?type=2&id=1&bytes=0-99", setOf(CandidateSource.REQUEST),
+            MediaKind.DIRECT, mimeType = "video/webm",
+        )
+        val sound = piece.copy(
+            mediaUrl = "https://media.test/?type=1&id=1&bytes=0-99", mimeType = "audio/webm",
+        )
+        val probed = mutableListOf<String>()
+        val result = selector.select(request, request.snapshot!!, listOf(piece, sound, manifest)) {
+            probed += it.mediaUrl
+            ValidationResult.Valid(
+                if (it.kind == MediaKind.DASH) {
+                    it.copy(durationMillis = 4_651_800, width = 3840, height = 2160)
+                } else it,
+            )
+        } as MasterResult.Success
+        assertEquals(listOf(manifest.mediaUrl), result.result.candidates.map { it.mediaUrl })
+        assertEquals(MediaKind.DASH, result.result.candidates.single().kind)
+        assertEquals(listOf(piece.mediaUrl, manifest.mediaUrl), probed)
+    }
+
     private fun media(name: String) = MediaCandidate(
         PAGE, "https://cdn.test/$name.mp4", setOf(CandidateSource.REQUEST), MediaKind.DIRECT,
         mimeType = "video/mp4", durationMillis = 60_000, width = 1080, height = 1920,
     )
 
-    private fun session(): MasterBrowserSession {
+    private fun session(duration: String = "60"): MasterBrowserSession {
         val session = MasterBrowserSession()
         val scope = session.navigate(PAGE)!!
         repeat(2) { index ->
             val raw = """{"pageUrl":"$PAGE","generation":${scope.generation},"player":{""" +
                 """"key":"video:0","url":"blob:https://page.test/player",""" +
                 """"time":${1 + index * .2},"ready":4,"paused":false,"visible":true,""" +
-                """"duration":60,"width":1080,"height":1920}}"""
+                """"duration":$duration,"width":1080,"height":1920}}"""
             session.accept(CaptureFrameReader.read(raw)!!, 1_000L + index * 200)
         }
         return session

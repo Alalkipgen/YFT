@@ -2,11 +2,28 @@
   "use strict";
   if (window.top !== window || window.__yftMasterCaptureV1) return;
   const MAX_BODY = 65536, MAX_PACKET = 262144, MAX_URL = 8192;
-  const state = { generation: -1, page: "", requests: [], payloads: [], activeReads: 0 };
+  // VK's pack proof (2026-10-26): VK's player keeps the page's first `fetch` and fetches its
+  // manifest as it starts, so on VK's pages this collector is also installed at document start
+  // (WebViewPlaybackCapture.EARLY_ORIGINS). Until the first bind (generation -1) it keeps at
+  // most MAX_EARLY media requests with the address the page had then; the document's first bind
+  // takes those of its own page only, and nothing is read from a body before a bind. A
+  // manifest (HLS/DASH) is kept apart from the pieces after it (at most MAX_MANIFESTS), so a
+  // player's long run of pieces never pushes its manifest out of the packet.
+  const MAX_EARLY = 64, MAX_MANIFESTS = 16;
+  const state = {
+    generation: -1, page: "", requests: [], manifests: [], payloads: [], activeReads: 0,
+    first: null, early: []
+  };
   const originalFetch = window.fetch;
   const originalOpen = XMLHttpRequest.prototype.open;
   const originalSend = XMLHttpRequest.prototype.send;
   const xhrState = new WeakMap(), xhrListening = new WeakSet(), encrypted = new WeakSet();
+  // VK's pack proof (2026-10-26): m.vkvideo.ru's player is a <video> in an open shadow root,
+  // which document.querySelectorAll never enters. The page's videos are the document's, then
+  // those of its open shadow roots (nested ones too): at most MAX_VIDEOS, with at most
+  // MAX_SCAN elements and MAX_ROOTS roots looked at per sample. A closed root stays unseen.
+  const MAX_VIDEOS = 20, MAX_SCAN = 20000, MAX_ROOTS = 32;
+  const shadowRoots = [], listened = new WeakSet();
   let disposed = false;
   function address(value) {
     try {
@@ -21,14 +38,39 @@
       /\.(mp4|webm|m4a|mp3|m3u8|mpd)(?:[?#]|$)/i.test(url || "") ||
       /[?&]mime=(video|audio)(?:%2f|\/)/i.test(url || "");
   }
-  function note(url, mime, generation, preview) {
-    url = address(url);
-    if (disposed || generation !== state.generation || !url || !media(url, mime)) return;
-    state.requests.push({ url: url, mime: (mime || "").slice(0, 128), preview: !!preview });
+  function manifest(url, mime) {
+    return /mpegurl|dash\+xml/i.test(mime || "") || /\.(m3u8|mpd)(?:[?#]|$)/i.test(url || "");
+  }
+  function record(entry) {
+    if (manifest(entry.url, entry.mime)) {
+      if (state.manifests.some(function (item) { return item.url === entry.url; })) return;
+      state.manifests.push(entry);
+      if (state.manifests.length > MAX_MANIFESTS) state.manifests.shift();
+      return;
+    }
+    state.requests.push(entry);
     if (state.requests.length > 200) state.requests.shift();
   }
+  // [href]: the page's address when the request began (only a request begun before the first
+  // bind needs it: it counts for that bind's page alone).
+  function note(url, mime, generation, preview, href) {
+    url = address(url);
+    if (disposed || !url || !media(url, mime)) return;
+    const entry = { url: url, mime: (mime || "").slice(0, 128), preview: !!preview };
+    if (state.generation === -1) {
+      if (generation !== -1 || typeof href !== "string") return;
+      state.early.push({ entry: entry, href: href });
+      if (state.early.length > MAX_EARLY) state.early.shift();
+      return;
+    }
+    if (generation === state.generation ||
+        (generation === -1 && state.first === state.generation && href === state.page)) {
+      record(entry);
+    }
+  }
   function payload(text, generation, priority) {
-    if (disposed || generation !== state.generation || typeof text !== "string") return;
+    if (disposed || generation === -1 || generation !== state.generation) return;
+    if (typeof text !== "string") return;
     if (text.length > MAX_BODY || state.payloads.indexOf(text) >= 0) return;
     if (priority) {
       state.payloads.unshift(text);
@@ -127,7 +169,7 @@
     }
   }
   function observedFetch() {
-    const generation = state.generation;
+    const generation = state.generation, href = String(location.href);
     const promise = originalFetch.apply(this, arguments);
     let method = "GET";
     try {
@@ -137,9 +179,9 @@
     promise.then(function (response) {
       try {
         if (method === "GET") {
-          note(response.url, response.headers.get("content-type"), generation, false);
+          note(response.url, response.headers.get("content-type"), generation, false, href);
         }
-        if (state.payloads.length < 8 && state.activeReads < 2) {
+        if (generation !== -1 && state.payloads.length < 8 && state.activeReads < 2) {
           state.activeReads++;
           readClone(response, generation).finally(function () {
             state.activeReads--;
@@ -152,7 +194,9 @@
   function observedOpen(method, url) {
     let verb = "";
     try { verb = String(method).toUpperCase(); } catch (_) {}
-    xhrState.set(this, { url: url, method: verb, generation: state.generation });
+    xhrState.set(this, {
+      url: url, method: verb, generation: state.generation, href: String(location.href)
+    });
     return originalOpen.apply(this, arguments);
   }
   function observedSend() {
@@ -161,11 +205,12 @@
       this.addEventListener("load", function () {
         try {
           const request = xhrState.get(this);
-          if (!request || request.generation !== state.generation) return;
+          if (!request) return;
           const mime = this.getResponseHeader("content-type") || "";
           if (request.method === "GET") {
-            note(this.responseURL || request.url, mime, request.generation, false);
+            note(this.responseURL || request.url, mime, request.generation, false, request.href);
           }
+          if (request.generation === -1 || request.generation !== state.generation) return;
           if (!/application\/(?:[^;]*\+)?json/i.test(mime)) return;
           if (this.responseType === "json") {
             const text = boundedJson(this.response);
@@ -190,12 +235,45 @@
     if (disposed || location.href !== page) return false;
     if (state.generation === generation && state.page === page) return true;
     state.generation = generation; state.page = page;
-    state.requests = []; state.payloads = [];
+    state.requests = []; state.manifests = []; state.payloads = [];
+    const early = state.early;
+    state.early = [];
+    if (state.first === null) {
+      state.first = generation;
+      early.forEach(function (item) { if (item.href === page) record(item.entry); });
+    }
     return true;
+  }
+  // A shadow root's media events (R2's "encrypted") do not reach the document's listener.
+  function listen(root) {
+    if (listened.has(root) || shadowRoots.length >= MAX_ROOTS) return;
+    listened.add(root);
+    shadowRoots.push(root);
+    root.addEventListener("encrypted", onEncrypted, true);
+  }
+  function pageVideos() {
+    const found = Array.from(document.querySelectorAll("video")).slice(0, MAX_VIDEOS);
+    const queue = [document];
+    let scanned = 0, roots = 0;
+    for (let i = 0; i < queue.length && found.length < MAX_VIDEOS; i++) {
+      const nodes = queue[i].querySelectorAll("*");
+      for (let j = 0; j < nodes.length && scanned < MAX_SCAN && roots < MAX_ROOTS; j++) {
+        scanned++;
+        const root = nodes[j].shadowRoot;
+        if (!root) continue;
+        roots++;
+        listen(root);
+        queue.push(root);
+        Array.from(root.querySelectorAll("video")).forEach(function (v) {
+          if (found.length < MAX_VIDEOS && found.indexOf(v) < 0) found.push(v);
+        });
+      }
+    }
+    return found;
   }
   function sample(generation, page) {
     if (disposed || generation !== state.generation || location.href !== page) return null;
-    const videos = Array.from(document.querySelectorAll("video")).slice(0, 20);
+    const videos = pageVideos();
     const visible = videos.map(function (v, index) {
       const r = v.getBoundingClientRect();
       const width = Math.max(0, Math.min(r.right, innerWidth) - Math.max(r.left, 0));
@@ -263,18 +341,17 @@
         width: v.videoWidth || null, height: v.videoHeight || null
       } : null
     };
-    fedRequests(v).forEach(function (request) {
+    function add(request) {
       packet.requests.push(request);
       if (JSON.stringify(packet).length > MAX_PACKET) packet.requests.pop();
-    });
+    }
+    fedRequests(v).forEach(add);
+    state.manifests.forEach(add);
     state.payloads.splice(0, 4).forEach(function (text) {
       packet.payloads.push(text);
       if (JSON.stringify(packet).length > MAX_PACKET) packet.payloads.pop();
     });
-    state.requests.slice(-64).forEach(function (request) {
-      packet.requests.push(request);
-      if (JSON.stringify(packet).length > MAX_PACKET) packet.requests.pop();
-    });
+    state.requests.slice(-64).forEach(add);
     const encoded = JSON.stringify(packet);
     return encoded.length <= MAX_PACKET ? encoded : null;
   }
@@ -306,7 +383,8 @@
     return found;
   }
   function dispose() {
-    disposed = true; state.requests = []; state.payloads = [];
+    disposed = true;
+    state.requests = []; state.manifests = []; state.payloads = []; state.early = [];
     if (window.fetch === observedFetch) window.fetch = originalFetch;
     if (XMLHttpRequest.prototype.open === observedOpen) {
       XMLHttpRequest.prototype.open = originalOpen;
@@ -315,6 +393,9 @@
       XMLHttpRequest.prototype.send = originalSend;
     }
     document.removeEventListener("encrypted", onEncrypted, true);
+    shadowRoots.splice(0).forEach(function (root) {
+      root.removeEventListener("encrypted", onEncrypted, true);
+    });
     delete window.__yftMasterCaptureV1;
   }
   Object.defineProperty(window, "__yftMasterCaptureV1", {

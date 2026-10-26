@@ -21,6 +21,7 @@ function environment(options = {}) {
     removeEventListener(name) { delete this.listeners[name]; },
     querySelectorAll(selector) {
       if (selector === "video") return options.videos || [];
+      if (selector === "*") return options.elements || [];
       if (selector.startsWith("script")) return options.scripts || [];
       return [];
     }
@@ -33,7 +34,7 @@ function environment(options = {}) {
   };
   env.window = env; env.top = env;
   vm.runInNewContext(source, env);
-  env.__yftMasterCaptureV1.bind(1, env.location.href);
+  if (options.bind !== false) env.__yftMasterCaptureV1.bind(1, env.location.href);
   return { env, originalFetch, originalOpen: Xhr.prototype.open, document, Media };
 }
 
@@ -282,4 +283,105 @@ test("focused TikTok state after eight unrelated JSON scripts is still captured"
   assert.equal(value.payloads.length <= 8, true);
   assert.equal(value.payloads.every(text => text.length <= 65536), true);
   assert.equal(value.player, null);
+});
+
+// VK's pack proof (2026-10-26): m.vkvideo.ru plays in a <video> inside an open shadow root.
+function shadowHost(videos) {
+  const root = {
+    listeners: {},
+    addEventListener(name, fn) { this.listeners[name] = fn; },
+    removeEventListener(name) { delete this.listeners[name]; },
+    querySelectorAll: selector => selector === "video" ? videos : [],
+  };
+  return { shadowRoot: root };
+}
+
+test("VK: a player in an open shadow root is the page's player", () => {
+  const preview = playingVideo("https://cdn.test/preview.mp4", {
+    getBoundingClientRect: () => ({ left: 0, top: 0, right: 60, bottom: 40 }),
+  });
+  const player = playingVideo("blob:https://page.test/player", { duration: 4651.78 });
+  const host = shadowHost([player]);
+  const value = packet(environment({ videos: [preview], elements: [{}, host] }).env);
+  assert.equal(value.player.key, "video:1");
+  assert.equal(value.player.duration, 4651.78);
+  assert.equal(value.player.paused, false);
+});
+
+test("VK: an encrypted event in a shadow root marks the page protected", () => {
+  const options = {};
+  const { env, Media } = environment(options);
+  const player = Object.assign(new Media(), playingVideo("blob:https://page.test/player"));
+  const host = shadowHost([player]);
+  options.elements = [host];
+  assert.equal(packet(env).protected, false);
+  host.shadowRoot.listeners.encrypted({ target: player });
+  assert.equal(packet(env).protected, true);
+  env.__yftMasterCaptureV1.dispose();
+  assert.equal(host.shadowRoot.listeners.encrypted, undefined);
+});
+
+const MPD = "https://media.test/?type=4&id=1";
+const piece = n => "https://media.test/?type=2&id=1&bytes=" + n + "-" + (n + 9);
+
+test("VK: a manifest fetched before the first bind is that page's, its JSON is not read", async () => {
+  const answers = {
+    [MPD]: response("<MPD/>", MPD, "application/dash+xml"),
+    "https://api.test/data": response('{"video_url":"https://cdn.test/main.mp4"}'),
+  };
+  const { env } = environment({ bind: false, fetch: url => Promise.resolve(answers[url]) });
+  await env.fetch(MPD);
+  await env.fetch("https://api.test/data");
+  await settle();
+  assert.equal(env.__yftMasterCaptureV1.sample(1, env.location.href), null);
+  assert.equal(env.__yftMasterCaptureV1.bind(1, env.location.href), true);
+  const value = packet(env);
+  assert.deepEqual(value.requests.map(r => r.url), [MPD]);
+  assert.equal(value.payloads.length, 0);
+});
+
+test("VK: a request made on another address before the first bind is not taken", async () => {
+  const answer = response("<MPD/>", MPD, "application/dash+xml");
+  const { env } = environment({
+    bind: false, page: "https://page.test/first", fetch: () => Promise.resolve(answer),
+  });
+  await env.fetch(MPD);
+  await settle();
+  env.location.href = "https://page.test/watch";
+  assert.equal(env.__yftMasterCaptureV1.bind(1, env.location.href), true);
+  assert.equal(packet(env).requests.length, 0);
+});
+
+test("VK: a request begun before the first bind counts for that bind only", async () => {
+  const done = [];
+  const { env } = environment({
+    bind: false, fetch: () => new Promise(resolve => done.push(resolve)),
+  });
+  env.fetch(MPD);
+  env.fetch(MPD + "&second");
+  env.__yftMasterCaptureV1.bind(1, env.location.href);
+  done[0](response("<MPD/>", MPD, "application/dash+xml"));
+  await settle();
+  assert.deepEqual(packet(env).requests.map(r => r.url), [MPD]);
+  env.location.href = "https://page.test/watch/next";
+  env.__yftMasterCaptureV1.bind(2, env.location.href);
+  done[1](response("<MPD/>", MPD + "&second", "application/dash+xml"));
+  await settle();
+  assert.equal(packet(env).requests.length, 0);
+});
+
+test("VK: the player's manifest stays in the packet after a long run of its pieces", async () => {
+  const { env } = environment({
+    fetch: url => Promise.resolve(url === MPD ? response("<MPD/>", MPD, "application/dash+xml") :
+      response("", url, "video/webm")),
+  });
+  await env.fetch(MPD);
+  for (let n = 0; n < 100; n++) await env.fetch(piece(n * 10));
+  await env.fetch(MPD);
+  await settle();
+  const urls = packet(env).requests.map(r => r.url);
+  assert.equal(urls[0], MPD);
+  assert.equal(urls.filter(url => url === MPD).length, 1);
+  assert.equal(urls.length, 65);
+  assert.equal(urls[64], piece(990));
 });
