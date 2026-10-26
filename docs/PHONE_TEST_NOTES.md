@@ -932,3 +932,27 @@ are left out here.
   → the same 18+ video by its vkvideo.ru link: the first lookup healed — `V2 heal client_id:
   healed from vkvideo-script (the page and its common script: 2 asks, 2115865 bytes)`, main's
   login answered, `video.get` 9 rows, 6 checked (three `media check NO_MEDIA_FOUND`, as before).
+
+## 2026-10-26 — VK-Master wave 2: the pack proof (`docs/VK_MASTER_PLAN.md` §12.2)
+Agent D's record (`docs/SESSION_STATE.md`, "The pack proof"). The owner's phone (HyperOS); times
+MMT (UTC+6:30); Backup finder on. VK's test links, video ids and values are left out here.
+
+### YFT Preview of `8d3abe61` (#12 normal; Preview APK run 40245342911) — PASS
+- The 18+ video, a public video and a clip: rows.
+
+### The census APK of `8d3abe61` (its debug flags; the shared test key) — B0 and W PASS
+- B0 (14:34; VPN off, signed out): VK's census part — 50 requests, 35 s; wrong rows 0;
+  `recipes: bundled`. Slot 5's channel link (a vksport.vkvideo.ru address) `not handled` (main's
+  links; backlog); the slot now holds a plain vkvideo.ru link.
+- W, VK's first run (14:39; VPN on): 5 sites, 14 rows, 86 s, diff NO CHANGE; VK 13 requests,
+  0.1 MB, 17 s (slot 1: main's 9 rows, the ladder's V1 6 rows, the same video, wrong rows 0;
+  slot 4: 13 rows).
+
+### R9's drill (v9 = drill-vk-v2-off; YFT Trial of `8d3abe61`) — PASS; V3 — FAIL
+- VK value break = Client id → Force stop, reopen → the 18+ video by its vkvideo.ru link: V1's
+  `login.vk.ru: VALUE_REJECTED (status 401 …)`, `master: vk V2 heal: off (config); not run`, then
+  "Play the video on this page, then tap Try again."
+- The video played, Try again: `master: discovered 200 bounded media observations`, `master:
+  fresh natural playback required`, no rows. The cause (VK's player in a shadow root; its
+  manifest asked before the capture started) fixed in `bf044861`; its YFT Trial: Preview APK run
+  40308796618.

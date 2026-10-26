@@ -1808,3 +1808,75 @@ Keep at least the heading and one blank line between sections, so Git merges the
   Part 2's steps 1–5 done (main merged, the pending rows active, 0 drift, CI, **the STOP 2
   report**).
 - Next: the PR to `main` (v1.0.1), only with the owner's go.
+
+### The pack proof (plan §12.2; the owner's phone, 2026-10-26)
+
+- **`8d3abe61`'s YFT Preview (#12 normal) recheck: PASS** (Preview APK run 40245342911, artifact
+  12618378621; Backup finder on): the 18+ video, a public video and a clip: rows.
+- **The census APK** (B0 and W need the census; YFT Trial has none): `8d3abe61`'s debug build with
+  the debug flags masterCapture, ownSolver, ownSolverNext, clientLadder, socialLadder and
+  socialTrial — `yft-vk-census-8d3abe61.apk`, 22,535,876 bytes, SHA-256 `62ffecbaab17bf1d…`,
+  signed with the shared test key; handed over by a temporary temp.sh link (not kept).
+- **B0: PASS** (08:04 UTC; VPN off, signed out): VK's census part — 50 requests, 35 s (the
+  baseline nothing may exceed); wrong rows 0; `recipes: bundled` (the schema-2 file was not
+  published yet). **Finding:** slot 5's channel link (`vksport.vkvideo.ru`) is `not handled` —
+  main's `VkUrls` knows vkvideo.ru and m.vkvideo.ru only (backlog; not Master's); the slot now
+  holds a plain vkvideo.ru link.
+- **W, VK's first run: PASS** (08:09 UTC, VPN on; 5 sites, 14 rows, 86 s; diff NO CHANGE): Facebook
+  11 requests, 1.3 MB, 19 s · TikTok 13, 0.4 MB, 28 s · Instagram 11, 0.6 MB, 13 s · X 9, 0.0 MB,
+  8 s · VK 13, 0.1 MB, 17 s (slot 1, the 18+ video with a list: main's 9 rows, the ladder's V1 6
+  rows, the same video, wrong rows 0; slot 4: 13 rows; slot 8: no link). VK's VPN baseline starts
+  here.
+- **R9's drill config** (commit `1ae39ca2`): `extractor-master/recipes/configs/drill-vk-v2-off.json`
+  (`{"schema":2,"sites":{},"rungsOff":["V2"]}`); `RemoteRecipesS4Test` (the config set, schema 1 =
+  schema 2 without VK's rungs, the drill's asserts) and `test_master_recipes_publish.py` (+1:
+  V2 off in the schema-2 file only); local `scripts/tests` 70 OK. CI on `1ae39ca2` all green
+  (checkpoint 40292066750, Preview APK 40292066756, minified 40292066688, emulator 40292066722).
+  The owner's publish run #9 (40295513129) → **v9 = drill-vk-v2-off** on `recipes` (`159a5066`,
+  08:54:20 UTC): `master-recipes.json` schema 1 without `rungsOff`, `master-recipes-2.json` schema 2
+  with `rungsOff: ["V2"]`; the census: `recipes: remote version 9, signed`.
+- **R9's drill: PASS** (`8d3abe61`'s YFT Trial; VK value break = Client id; an 18+ video by its
+  vkvideo.ru link): `V1 … login.vk.ru: VALUE_REJECTED (status 401 …)`, `master: vk V2 heal: off
+  (config); not run`, then "Play the video on this page, then tap Try again."
+- **V3: FAIL** (the same lookup, the video played, Try again): `master: discovered 200 bounded
+  media observations`, `master: fresh natural playback required`, no rows; the words said the
+  site's answer names the video (no video seen). The diagnosis (the shared browser, Pixel 7
+  emulation, a public VK video): (1) m.vkvideo.ru's player is a `<video>` in an open shadow root,
+  which `document.querySelectorAll` never enters — no player, so never "playback"; (2) VK's player
+  keeps the page's first `fetch` and asks for its DASH manifest (`application/dash+xml`, static,
+  WebM VP9 144p–2160p + Opus, SegmentBase; its length the video's) as it starts — both before the
+  capture's bind, so neither the manifest nor the pieces after it (`video/webm`/`audio/webm`, byte
+  ranges `bytes=`, read as streams and appended as slices: no MSE address link) were seen.
+- **The fix** (commit `bf044861`, `yft-master-capture.js`, `WebViewPlaybackCapture`): the page's
+  videos are the document's, then those of its open shadow roots (nested too; ≤ 20 videos,
+  ≤ 20,000 elements and ≤ 32 roots per sample; each root's `encrypted` listened to, removed on
+  dispose); on VK's origins only (`EARLY_ORIGINS`: vk.com, vk.ru, vkvideo.ru and their
+  subdomains) the capture script is also in place from document start — until the first bind it
+  keeps ≤ 64 media requests with the page's address of the time, the document's first bind takes
+  those of its own page only, a request begun before it counts for that bind only, and no body is
+  read before a bind; a manifest (HLS/DASH) is kept apart from the pieces (≤ 16, after the fed
+  requests, before the last 64 pieces), so a long run of pieces never pushes it out. Every other
+  site keeps the capture of before (its manifests now ahead of its pieces). Checked in the shared
+  browser on a public VK video: the player found in its shadow root (4651.78 s, 852×480,
+  playing), the packet's first request the DASH manifest (PT4651.800S), then the pieces.
+- Tests: `capture.test.cjs` 23 (6 new: the shadow-root player, its `encrypted` event, a manifest
+  before the first bind and no JSON read, another address's request not taken, a request begun
+  before the first bind counts for it only, the manifest kept after 100 pieces);
+  `MasterMainSelectionPolicyTest` +1 (the player's DASH manifest as long as its video is the
+  main; a piece without a length is not; a sound piece is never checked). Local:
+  `:extractor-master-android:testDebugUnitTest` 71 (0 failed), `codecs`/`mse` JS tests
+  unchanged. A shared-capture change: every site's S5 count starts on the final code's APK.
+- CI on `bf044861`: Preview APK 40308796618 (YFT Trial: artifact `yft-preview-trial-apk`
+  12645040690), emulator smoke 40308796615 and the minified check 40308796661 green; the
+  checkpoint 40308796822 red at its Gradle step after 7 min 26 s (its log needs admin rights; its
+  `scope` job green; the commit before, `1ae39ca2`, green at 40292066750). The step's tasks on the
+  same tree, locally one Gradle at a time (one Gradle for all of them was killed: the sandbox's
+  4 GB, no swap): `lintDebug` of the 6 Android modules; `testDebugUnitTest` app 1295,
+  core-browser 150, core-data 35, core-download 281, core-media 39, extractor-master-android 71;
+  `test` core-model 142, extractor-api 36, extractor-generic 21, extractor-sites 366 — 0 failed;
+  `:app:assembleDebug` built by the minified check. Not rerun (no way to start a run from the
+  agent's session); the next code push or the PR runs it again.
+- Next (the owner, `bf044861`'s YFT Trial): Backup finder on, VK value break = Client id →
+  Force stop, reopen → the 18+ video by its vkvideo.ru link → play it → Try again → rows by V3
+  (`master: automatic main selected; more=…` in Lookup details). Then `defaults` published again
+  (v10) before S5; S5's counted runs on the final code's census APK.
