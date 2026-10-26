@@ -900,3 +900,103 @@ The owner's phone (HyperOS); times MMT (UTC+6:30).
 ### After the test
 - The `v1.0.0-rc.1` draft deleted (no tag had been pushed) and the branch `release/1.0.0-rc.1`
   deleted. 1.0.0 goes to the friends: https://github.com/Alalkipgen/YFT/releases/tag/v1.0.0
+
+## 2026-10-26 — VK-Master wave 2: STOP 1's phone proof (YFT Trial of `ef680866`)
+`docs/VK_MASTER_PLAN.md` §8; agent D's record (`docs/SESSION_STATE.md`, "VK-Master wiring agent
+(D)", part 2). The owner's phone (HyperOS); times MMT (UTC+6:30); Backup finder on; Settings ›
+Browser › VK value break (the trial only), then a restart. VK's test links, video ids and values
+are left out here.
+
+### YFT Trial of `ef680866` (Preview APK run 40229996001) — PASS, one finding
+- The video: an 18+ VK video whose vkvideo.ru link lands on m.vkvideo.ru. The lines below are
+  from Lookup details (no value in any line).
+- **The finding (05:06), client id broken:** "Play the video on this page, then tap Try again.";
+  Details: V1's `login.vk.ru: VALUE_REJECTED (status 401 …)`, then `V2 heal client_id: no value
+  (not read (read in the last day))` — an earlier lookup of the link, cut short, had claimed the
+  day's one read and got no answer. Fixed in part 2 (`8d3abe61`): such a read is given back.
+- After Clear data, client id broken: rows (`video.get` 9, 6 checked); `V2 heal client_id:
+  healed from vkvideo-script (the page and its common script: 2 asks, 2115863 bytes)`, main's
+  login answered. Again: `healed today from vkvideo-script; no new ask` (5 rows: one `media check
+  NETWORK`). Force stop, reopen: `learned from vkvideo-script; no new ask` (6 rows).
+- API version broken: `V2 heal v: healed from vkvideo-script (… 2 asks, 2115864 bytes)`, main's
+  login "main's identical answer replayed" (6 rows); again `healed today …; no new ask` (5: one
+  `NETWORK`); Force stop, reopen: `learned …; no new ask` (6). Another 18+ video with the learned
+  version: 6 checked rows, "Found on this page 1".
+
+### Part 1's builds (`9a049a14`, Preview APK run 40217521644) — PASS
+- YFT Trial, the secret only broken: rows, no heal (V1 answers).
+- YFT Preview (#12 normal), Backup finder on: an 18+ video, a public video and a clip: rows.
+
+### The fix's YFT Trial (`8d3abe61`, Preview APK run 40245342911) — PASS
+- Reported 13:59. Clear data → Backup finder on, VK value break = Client id → Force stop, reopen
+  → the same 18+ video by its vkvideo.ru link: the first lookup healed — `V2 heal client_id:
+  healed from vkvideo-script (the page and its common script: 2 asks, 2115865 bytes)`, main's
+  login answered, `video.get` 9 rows, 6 checked (three `media check NO_MEDIA_FOUND`, as before).
+
+## 2026-10-26 — VK-Master wave 2: the pack proof (`docs/VK_MASTER_PLAN.md` §12.2)
+Agent D's record (`docs/SESSION_STATE.md`, "The pack proof"). The owner's phone (HyperOS); times
+MMT (UTC+6:30); Backup finder on. VK's test links, video ids and values are left out here.
+
+### YFT Preview of `8d3abe61` (#12 normal; Preview APK run 40245342911) — PASS
+- The 18+ video, a public video and a clip: rows.
+
+### The census APK of `8d3abe61` (its debug flags; the shared test key) — B0 and W PASS
+- B0 (14:34; VPN off, signed out): VK's census part — 50 requests, 35 s; wrong rows 0;
+  `recipes: bundled`. Slot 5's channel link (a vksport.vkvideo.ru address) `not handled` (main's
+  links; backlog); the slot now holds a plain vkvideo.ru link.
+- W, VK's first run (14:39; VPN on): 5 sites, 14 rows, 86 s, diff NO CHANGE; VK 13 requests,
+  0.1 MB, 17 s (slot 1: main's 9 rows, the ladder's V1 6 rows, the same video, wrong rows 0;
+  slot 4: 13 rows).
+
+### R9's drill (v9 = drill-vk-v2-off; YFT Trial of `8d3abe61`) — PASS; V3 — FAIL
+- VK value break = Client id → Force stop, reopen → the 18+ video by its vkvideo.ru link: V1's
+  `login.vk.ru: VALUE_REJECTED (status 401 …)`, `master: vk V2 heal: off (config); not run`, then
+  "Play the video on this page, then tap Try again."
+- The video played, Try again: `master: discovered 200 bounded media observations`, `master:
+  fresh natural playback required`, no rows. The cause (VK's player in a shadow root; its
+  manifest asked before the capture started) fixed in `bf044861`; its YFT Trial: Preview APK run
+  40308796618.
+
+### V3's retest (YFT Trial of `bf044861`, Preview APK run 40308796618) — FAIL
+- 17:49–17:52; VK value break = Client id; the 18+ video by its link (landing on m.vkvideo.ru,
+  1:58), played.
+- Lookup 1: `master: discovered 48 bounded media observations`, `master: automatic main
+  selected; more=0`, `fingerprint qualities=5`.
+- Try again (the same page): Lookup 2 — `discovered 35 …`, `qualities=1`, one row
+  `480p · 478 × 852 · MP4 · 1.4 KB`: a wrong row (a piece of the video, not the video). The cause
+  (pieces taken for files; the manifest not offered to a later lookup; VK's manifest gave no row)
+  is fixed in `f22c2217`; its YFT Trial: Preview APK run 40329196567.
+
+### V3's retest 2 (YFT Trial of `f22c2217`, Preview APK run 40329196567) — FAIL
+- 20:23–20:24; VK value break = Client id; the 18+ video by its link (landing on m.vkvideo.ru,
+  1:58), played: `master: vk V2 heal: off (config); not run`, `master: discovered 18 bounded
+  media observations`, `master: automatic selection NO_MEDIA_FOUND`; no rows, the playback words
+  again. The cause (a capture of VK's pieces only, no page manifest; no row was made of the
+  pieces' whole files) is fixed in `7e101aa4`; its YFT Trial: Preview APK run 40349728907.
+
+### V3's retest 3 (YFT Trial of `7e101aa4`, Preview APK run 40349728907) — FAIL
+- 22:23–22:27; VK value break = Client id; the 18+ video by its link (landing on m.vkvideo.ru,
+  1:58), played.
+- Try again 1: `master: discovered 32 bounded media observations`, `automatic main selected;
+  more=0`, `fingerprint qualities=1`, `VK pieces' files: pictures passed 2 of 2; sounds passed 2
+  of 4`; the row `480p · 478 × 852 · MP4 · ~10 MB`, titled "ВКонтакте | VK Видео" (the page's).
+- Try again 2: `discovered 40 …`, `pictures passed 3 of 6; sounds passed 2 of 5`; the row
+  `1080p · 1078 × 1920 · MP4 · ~33 MB`, titled "Video by Asianese".
+- The 1080p row's download: "This video and its audio cannot be combined on this phone."
+- The causes (the pieces' sound file named no codecs, which the sheet's gate let through and the
+  download's refused; the pieces' files cover only the qualities the player had fetched by then,
+  while the page's own data for the video — every quality, the title — was read once a document
+  and not carried to later binds) are fixed in `e401c48a`; its YFT Trial: Preview APK run
+  40363510324.
+
+### V3's retest 4 (YFT Trial of `e401c48a`, Preview APK run 40363510324, `1.0.0-trial.118`) — PASS
+- 11:49–11:50 (2026-10-27 MMT); VK value break = Client id; the 18+ video by its link (landing
+  on m.vkvideo.ru, 1:58), played, Try again.
+- Lookup details: `master: discovered 20 bounded media observations`, `automatic main selected;
+  more=0`, `fingerprint qualities=1`, `master: VK page data: files=6; tried=1; passed=1;
+  admitted=1` (no pieces' line: the page data's tallest file passed first).
+- The sheet: "Video by Asianese · vkvideo.ru · 1:58"; the row `1080p · Full HD · 1078 × 1920 ·
+  MP4 · 37 MB` (the whole file, its sound inside; no separate sound to merge). The download
+  completed: `1078p · 37 MB` in Downloads, with the video's own picture.
+- PASS: the first Try again gives the tallest quality with the video's title, and it downloads.
+

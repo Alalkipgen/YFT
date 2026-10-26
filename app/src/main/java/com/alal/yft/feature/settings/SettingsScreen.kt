@@ -64,6 +64,7 @@ import com.alal.yft.download.AndroidBackgroundSystemStatus
 import com.alal.yft.download.BackgroundSettingsIntents
 import com.alal.yft.download.BackgroundSystemState
 import com.alal.yft.feature.downloads.backgroundDownloadsValue
+import com.alal.yft.ui.LocalQuietRelease
 import com.alal.yft.ui.components.YftCard
 import com.alal.yft.ui.components.YftDivider
 import com.alal.yft.ui.components.YftGroupLabel
@@ -476,6 +477,23 @@ private fun BrowserRows(
             supporting = BACKUP_FINDER_SUPPORTING,
             onToggle = { onAction(SettingsAction.SetBackupFinder(it)) },
         )
+    }
+    // VK-Master wave 2 (agent D, item 7): the trial's VK value break, #12 trial only (every other
+    // build drops it: BuildConfig.SOCIAL_TRIAL is false there). A tap keeps the next choice.
+    if (BuildConfig.SOCIAL_TRIAL && !LocalQuietRelease.current) {
+        state.vkBreak?.let { row ->
+            RowDivider()
+            ValueRow(
+                icon = YftIcons.Refresh,
+                title = "VK value break",
+                value = row.chosen.label,
+                tag = "settings-vk-value-break",
+                supporting = "Trial only: main asks VK with this value broken, so the backup finder " +
+                    "heals it. Restart YFT to apply" +
+                    if (row.chosen == row.active) "." else " (now: ${row.active.label}).",
+                onClick = { onAction(SettingsAction.NextVkBreak) },
+            )
+        }
     }
 }
 

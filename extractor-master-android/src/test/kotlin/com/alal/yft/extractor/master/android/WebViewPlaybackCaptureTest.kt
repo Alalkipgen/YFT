@@ -64,6 +64,24 @@ class WebViewPlaybackCaptureTest {
         view.destroy()
     }
 
+    /**
+     * V3's retest (2026-10-26): only a bind on VK's own pages (HTTPS, the default port, one of
+     * the early origins) carries the page's manifests to the document's later binds.
+     */
+    @Test
+    fun onlyVksOwnPagesCarryTheirManifestsToLaterBinds() {
+        listOf(
+            "https://vk.com/video-1_2", "https://m.vk.com/video-1_2", "https://vk.ru/video-1_2",
+            "https://m.vkvideo.ru/video-1_2", "https://vkvideo.ru/video-1_2",
+            "https://VKVIDEO.RU:443/video-1_2",
+        ).forEach { assertTrue(it, WebViewPlaybackCapture.carriesManifests(it)) }
+        listOf(
+            "http://vk.com/video-1_2", "https://vk.com:8443/video-1_2",
+            "https://vkvideo.ru.evil.test/video-1_2", "https://notvk.com/video-1_2",
+            "https://user@vk.com/video-1_2", "https://page.test/watch", "not a page",
+        ).forEach { assertFalse(it, WebViewPlaybackCapture.carriesManifests(it)) }
+    }
+
     private class Sink : BrowserObservationSink {
         var starts = 0
         override fun onPageStarted(url: String) { starts++ }

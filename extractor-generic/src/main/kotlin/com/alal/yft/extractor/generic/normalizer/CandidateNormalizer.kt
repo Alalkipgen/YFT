@@ -64,6 +64,11 @@ class CandidateNormalizer(
     }
 
     private fun sanitize(raw: MediaCandidate): MediaCandidate? {
+        // F1 (VK's pack proof, V3's retest 2026-10-26): an address that names a piece of a file by
+        // a closed `bytes=A-B` range ([MediaFileUrls.isPiece]) gives that piece only: never a
+        // file, and no whole file is made of it (its track may be picture or sound only; the
+        // page's manifest is the row).
+        if (MediaFileUrls.isPiece(raw.mediaUrl)) return null
         // A byte range names a piece of the file: the candidate is the whole file, and a length
         // read for the piece is not the file's.
         val wholeFile = MediaFileUrls.wholeFile(raw.mediaUrl)

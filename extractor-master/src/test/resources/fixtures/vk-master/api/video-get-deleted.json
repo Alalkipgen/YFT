@@ -1,0 +1,59 @@
+{
+  "response": {
+    "count": 1,
+    "items": [
+      {
+        "response_type": "full",
+        "type": "",
+        "owner_id": -100000001,
+        "id": 400000001,
+        "title": "FIXTURE sample video",
+        "description": "FIXTURE description",
+        "duration": 0,
+        "date": 1700000000,
+        "views": 1000,
+        "local_views": 10,
+        "can_like": 1,
+        "can_repost": 1,
+        "can_subscribe": 1,
+        "can_play_in_background": 1,
+        "can_dislike": 1,
+        "can_edit_privacy": 0,
+        "is_favorite": false,
+        "ov_id": "FIXTURE",
+        "ov_provider_id": "FIXTURE",
+        "track_code": "FIXTURE",
+        "tracking_info": "FIXTURE",
+        "wall_post_id": 0,
+        "ads": {},
+        "content_restricted": 1,
+        "content_restricted_message": "FIXTURE removed",
+        "can_restore": 0,
+        "need_mute": 1,
+        "restriction": {
+          "blur": 0,
+          "can_play": 0,
+          "can_preview": 0,
+          "disclaimer_type": 0,
+          "icon_name": "delete_outline",
+          "offer_vkvideo": 0,
+          "text": "FIXTURE removed",
+          "title": "FIXTURE removed"
+        }
+      }
+    ],
+    "max_attached_short_videos": 20,
+    "groups": [
+      {
+        "id": 100000001,
+        "name": "FIXTURE group",
+        "screen_name": "fixture_group",
+        "is_closed": 0,
+        "type": "page",
+        "photo_50": "https://FIXTURE",
+        "photo_100": "https://FIXTURE",
+        "photo_200": "https://FIXTURE"
+      }
+    ]
+  }
+}

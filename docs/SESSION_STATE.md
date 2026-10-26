@@ -1313,3 +1313,748 @@ Keep at least the heading and one blank line between sections, so Git merges the
   Release draft run or publish); never `main`, the spike, PR #2, a label,
   `master-recipes-publish`, `release-draft`, signing, the `recipes` branch, a tag or a release,
   `work/phase-vk-master*`; no APK on the owner's phone.
+
+## VK-Master agent A — `work/phase-vk-master-census` (recon / census, wave 1)
+
+- Plan: `docs/VK_MASTER_PLAN.md` §11 and Appendix A (the owner's go, 2026-10-25). Branch made from
+  `origin/work/phase-vk-master` (`50f2e9fb`). Docs and sanitized fixtures only — no Kotlin, Gradle or
+  workflow file.
+- State (2026-10-25): **recon done, STOP.** Answers in `docs/VK_MASTER_CENSUS.md`; fixtures in
+  `extractor-master/src/test/resources/fixtures/vk-master/` (README there, every value made up).
+- Findings (short):
+  - Q1 Vx: **no independent route** — `api.vk.com`/`api.vk.ru` and `login.vk.com` are aliases of the
+    same token endpoint and API; mobile pages carry no signed-out files; yt-dlp uses a login-gated
+    `al_video.php`. Recommendation: do not build Vx.
+  - Q2 source: the web client's values sit in vkvideo.ru's public script (`core_spa`, `common`, and the
+    cheap ~40 KB `error_monitoring` chunk), stable across loads (same content hashes; the static host
+    shards and file names are content-hashed, so discover URLs from the page). yt-dlp is **not** a
+    second source.
+  - Q3: token mint checks `client_id` (wrong → `401 invalid_client`) but **not** the secret (a wrong
+    secret still mints a working token); `video.get` errors 5 (auth), 8 (bad version), restriction
+    `can_play=0` (deleted). VK's `API_ERROR_*` map recorded (6/9/29 rate, 14 captcha, 13300 geo).
+  - Q4: 18+ files on `vk{N}-{N}.vkuser.net`, normal on `vkvd{N}.okcdn.ru` (failover `vkvd{N}.okcdn.ru`
+    also 206); expiry ~72 h; a file binds **both** `srcAg` (other agent → 400) and `srcIp` (signed;
+    tampered → 400); `Referer` optional → track E evidence labels.
+  - Q5 budget proposal: VK `4 req / 1 MiB / 15 s`. Q6: 10 census slots, W `[1, 4, 8]`.
+- Hand-offs to agent D (shared files, not edited here): `SocialStops.kt` (VK budget), `SiteWays.kt`
+  (VK `Site` + slots), `SiteWeekly.kt` (W slots), census screen, `ContractRecipes.ALL` (`VkRecipe`).
+- Backlog: a daily CI canary for VK — off for now (a cloud IP answered today, but is not a phone);
+  the host aliases as a `VkClient` resilience note, not a rung.
+- Validation: docs and test fixtures only; no code changed. Fixture hygiene scanned locally (no IP,
+  signed value, long hex/key-like run, session name or real id/secret/version; all JSON valid); no
+  test lists this folder yet (`ShapeLayerTest` names its master fixtures one by one). No local
+  Gradle run (no Android SDK here): the fixture checkpoint's `Work-branch checkpoint validation`
+  run is the gate (the census-doc checkpoint was docs only, so it started no CI).
+
+## VK-Master pack agent (B) — `work/phase-vk-master-pack`
+
+- Plan: `docs/VK_MASTER_PLAN.md` Appendix B (sections 4, 5, 7, 11; section 2 and ADR-006 first).
+  Branch made from `origin/work/phase-vk-master` (`50f2e9fb`, the plan's commit on `50fb8d0f`).
+  New Master code only, in `extractor-master/.../master/social/Vk*.kt`; not wired into the app
+  (agent D); main's VK adapter and every shared file untouched.
+- Validation before every checkpoint (work-branch CI runs neither):
+  `./gradlew --no-daemon :extractor-master:test` and
+  `python3 scripts/master-toolkit-drift.py --ref 34a4189002b7c9aaf6085ae4adab27b343ca28dc`.
+  Baseline at `50f2e9fb`: 980 tests, 0 failed (2 skipped), 2 min 52 s; drift 177 symbols, 0.
+- Checkpoints (pushed through the GitHub connection; this sandbox has no git push credential):
+  - Step 1 — `VkClient` (the web client's identifiers, the token's read, the asks' headers, VK's
+    media hosts, never `iv.okcdn.ru`), `VkClientValues` (interface; `bundled(mutate)`: main's
+    values, a debug hook's change first), `VkClientTest` (12), `VkClientDriftTest` (3: main's
+    adapter asks the token and `video.get` exactly as `VkClient`), fixtures `vk-pack/` (made up).
+    Local: `:extractor-master:test` 995 tests, 0 failed (2 skipped); drift 177/0; the 35 pending
+    rows re-hash equal at `50fb8d0f`. Pushed `81c26409`.
+  - Step 2 — `VkAnswerJudge` (+ `VkReading`) over the shared `AnswerClass` (§5): rows → DIRECT
+    or PARTIAL (shape scan, or beside refused files); the embed's adult answer → VIDEO_WITHOUT_FILES
+    (main's trigger, not a Master class); the embed's other message → NEEDS_PLAYBACK; the shell →
+    TRANSIENT; the token refused (400/401, no token) and API errors 5, 8, 28, 34, 101 →
+    VALUE_REJECTED; error 14 and the token's captcha → BOT_CHECK; 429 and errors 6, 9, 29 →
+    RATE_LIMITED; `can_play` 0 + VK's `delete_outline` icon → REMOVED (the only final); every other
+    error or restriction → TRANSIENT. Codes and icon provisional (A's taxonomy). `VkAnswerJudgeTest`
+    (10). 13 more pending rows (48). Local: 1005 tests, 0 failed (2 skipped); drift 177/0;
+    pending 48/0.
+  - Step 3 — `VkLadder` (a `SocialStage`, not wired) with `VkReader` and `VkSite.BUDGET`
+    (placeholder 20 requests / 2 MiB / 30 s from VK_PLAN §13; A finalizes). `VkReader`: Master's
+    own read of the embed's `apiPrefetchCache` and of `video.get` — VK's key table, then the shape
+    scan, bound to `owner_id` + `id` (a renamed key by its shape or its address's type; never the
+    trailer, the poster, a picture or another video's entry; VK's video servers only), written as
+    one video's JSON answer for VK's recipe. V1 (no request): main's kept embed pages and
+    `video.get` answers (`MainPages`) and main's token asks by status (`LookupRecord`), judged;
+    rows → V (PAGE_DATA); VK's deleted icon → final; a 429 or a bot check → stop, the host cools.
+    V2 only after the adult answer and a VALUE_REJECTED class: the first value not main's
+    (`VkClientValues`: bundled + debug hook), one token held in memory and one `video.get`, the
+    lookup's user agent, no cookie, VK's budget and the lookup's time; route B's rules (main's
+    identical token answer replayed; main's `video.get` never asked again — then no token is asked
+    for it). V3 = the shared capture (`captureOff` when the config turns it off); rungs off read
+    through a `rungsOff` function (C's schema 2 names V1–V3). The judge's token evidence reworded
+    so no line has a word the sanitizer drops. Tests: `VkReaderTest` (7), `VkLadderTest` (11:
+    main's real VK adapter, then the engine; VK's recipe is the test's own until step 4), the
+    judge's evidence check extended (sanitizer). 28 more pending rows (76, `VkEmbedParser.kt`).
+    Local: 1023 tests, 0 failed (2 skipped), 1 min 8 s; drift 177/0; pending 76/0.
+  - Step 4 — `VkRecipe` (VK's contract for `VkReader`'s one-video answer: `id`, `files.*` by
+    `type`, title, length, picture, expiry; its endpoint keeps `{version}`, so R8 never asks VK on
+    its own; answer hosts api.vkvideo.ru, vk.com, vk.ru; no media host list, VK's servers are
+    numbered; **not** in `ContractRecipes.ALL`), `VkLabels` (ways from the method and address
+    alone, never a header's value: the embed page, the anonymous token, `video.get`, main's
+    manifest reads, the file check; readings by Master's reader and judge: rows DATA; the adult
+    answer, VK's message and `can_play` 0 NO_POST; error 14 and the token's captcha BOT_CHECK; a
+    token of VK's shape DATA (checked, dropped); not JSON NOT_JSON; else NO_DATA, VK's rate errors
+    too), `VkSite.SITE` (main's name and ways, Master's way V2's `video.get`; V on VK's video
+    servers only through `VkClient.mediaFile`, never `iv.okcdn.ru`; nine placeholder slots from
+    §10, A finalizes). `VkLadder` also finds main's token asks by the token's way in a labelled
+    record (main's other values). Tests: `VkLabelsTest` (6: main's real adapter in a labelled
+    record), `VkSiteTest` (3), `VkLadderTest` (13: VK's recipe now `VkRecipe.RECIPE`; labelled:
+    the token's captcha stops VK and cools login.vk.ru, an answer without a value → V2); fixture
+    `token_no_value.json`. Local: 1034 tests, 0 failed (2 skipped), 2 min 1 s; drift 177/0;
+    pending 76/0.
+    Finding: V's reads go through `RouteBMediaStartReader` into the record as Master's GET of the
+    file with the row's own headers (the same as main's manifest GET), and the labels see the ask
+    only — so `MANIFEST` goes only to a GET of a VK video-server file whose path ends `.m3u8` or
+    `.mpd` (V never reads a manifest row); a manifest address that hides its kind stays
+    unlabelled, never mislabelled (A/D: confirm VK's real manifest addresses in the recon).
+    Pushed `a8a78b25`; CI: checkpoint validation, emulator smoke, preview APK — all success.
+  - Step 5 — the engine tests not yet covered (the ladder in the engine already was:
+    `VkLadderTest`, main's real adapter, then the engine with VK's recipe and `VkLadder` as the
+    social stage). `VkRecipeTest` (2): with VK's recipe, R8 asks VK nothing on its own — without
+    VK's ladder, or with it outside a lookup's record: "no endpoint for this video", then the
+    shared capture, no ask; the contract layer reads `VkReader`'s answer with VK's recipe — the
+    files in VK's order with their kinds and sizes, the title, length, picture and expiry; an
+    answer naming another video gives no row. `VkLadderTest` (14, +1): a build without VK's
+    recipe (today's `ContractRecipes.ALL`) checks none of main's rows — V1 says so, then the
+    shared capture. A mutation check (VK's endpoint without `{version}`) fails the first test.
+    Local: 1037 tests, 0 failed (2 skipped), 1 min 38 s; drift 177/0; pending 76/0.
+    Pushed `0216f7e4`; CI: checkpoint validation, emulator smoke, preview APK — all success.
+  - Addendum (the owner's, after agent A's census: `origin/work/phase-vk-master-census` at
+    `d333fb18`, `docs/VK_MASTER_CENSUS.md`, read only, not merged):
+    1. Judge: API error 13300 (`ACCESS_GEO`) → REGION_LIMITED (final, GEO_RESTRICTED) in V1 and
+       V2; 15, 17 and 204 stay TRANSIENT (no other evidence); `VkLabels`: 13300 is NO_POST. The
+       codes and the deleted icon are no longer provisional (A's §3).
+    2. Budget, the worst case counted as the four sites' (`SocialStops`: the lookup's whole
+       record): main ≤ 6 asks in a lookup it fails (B, B again after the shell, B2; path D's
+       `video.get` with the kept token, one new token, `video.get` again; main reads manifests only
+       for an answer it answers with), V1 0, V2 ≤ 4 (the page naming today's script and the
+       script, C's live source; then the token and `video.get`), V ≤ 8 reads → **18 requests**;
+       **1 MiB + 16 KiB** (V2's two answers at main's bounds, which V2's own check needs; A's
+       1 MiB is too small; the live source's reads add their bounds when C wires it); **15 s**
+       (main's deadline, `VkExtractor.DEADLINE_MS`). A's 4 / 1 MiB / 15 s counted Master's own
+       asks and one script read only. `VkLadderTest` runs main's real adapter to its 6 asks (a
+       token in memory, the shell twice, the adult answer, error 5 twice) and V2 still heals; one
+       byte less and V2 asks nothing.
+    3. A's §3.2a (login.vk.ru checks the client id, not the secret): the tests' heal is a rotated
+       client id (login.vk.ru answers main's id with 401 `invalid_client`), the heal after error 8
+       a new API version; a new secret alone heals nothing (V2's token refused, no `video.get`).
+       `VkClientValues.bundled`'s KDoc says so for D's debug mutate hook (the phone proof).
+    4. `VkPackFixtureHygieneTest` (3), A's draft rules with main's: every query value `FIXTURE`
+       (a test puts its own expiry in: `vkPack`), no IP, cookie or session name, long hex or
+       key-like run, only the made-up IDs, titles "Fixture …", none of `VkClient`'s values (an
+       echo says `5.000` / `100000`), no token answer (`token_okay.json` removed, `vkToken` builds
+       it); the fixture list fixed; the rules caught on a leaky sample. New fixtures
+       `video_get_error_8.json`, `video_get_error_13300.json`.
+    5. Names as C's schema 2 reads them: site `vk` (`VkClient`, `VkLadder`, `VkSite.SITE`,
+       `VkRecipe.RECIPE`), rungs `VkLadder.RUNGS` = `V1`, `V2`, `V3` (`VkSiteTest`).
+    Tests: `VkAnswerJudgeTest` 11 (+1), `VkLadderTest` 17 (+3), `VkSiteTest` 4 (+1),
+    `VkPackFixtureHygieneTest` 3 (new). Local: 1045 tests, 0 failed (2 skipped), 2 min 1 s;
+    drift 177/0; pending 76/0.
+- Provenance (proposal for the owner, Appendix B step 1): no base bump, no script change. Main's
+  VK files came after the base `34a41890`, so their rows wait in `toolkit-provenance.tsv`'s header
+  as `# pending<TAB>master<TAB>main<TAB>symbol<TAB>sha256` lines, hashed at `50fb8d0f` with the
+  drift script's own `symbol_text`/`digest` (comments: the script skips them, `--write` keeps
+  them, the self-check stays 177/0). Meanwhile `VkClientDriftTest` checks the copies at run time.
+  To activate (owner/D): when the base moves past main's VK files, review each copy, drop the
+  prefix, `--write`. Option for later: a per-row ref column in the script (a shared-file change).
+- Status: Appendix B done (steps 1–5) and the owner's addendum (A's census) applied; stopped and
+  reported to the owner. Next: the owner's provenance decision (above), then D's wiring, C's
+  values source and A's census slots (Backlog, For review).
+- Backlog (out of scope here): wiring (D: `VkRecipe` in `ContractRecipes.ALL`, `VkLadder` in the
+  social ladders, `VkSite.SITE` in `SiteWays`, `VkSite.BUDGET` in `SocialStops`, V3 in
+  `RungsOff`, `SiteWeekly` `vk → [1, 4, 8]`); the live values source (C: `ValueSource`/`SiteHealth`/
+  `VkClientSource`: heal the client id first, then `v`; its two reads are in VK's 18 requests,
+  their byte bounds to add to VK's bytes); R9 schema 2's V1–V3 rungs (C; the names match); the
+  census slots (A's 10, the region-limited one included, against this pack's 9 placeholders: D).
+- For review (D, owner): V2's `video.get` is listed in the lookup's record without its bearer
+  (Master's own anonymous token, never the user's credential), so route B's rule 1 does not refuse
+  it; route B's rule 4 means values that differ from main's only on the token's side ask nothing
+  once main asked `video.get` in the lookup. Keeping a healed value after V passes needs a hook
+  from the engine's checks (the ladder does not see V's result: C/D). VK's key table is code in
+  `VkReader`, so an R9 overlay of VK's recipe does not reach it; a schema-2 overlay must not set
+  VK's endpoint (an overlay may give it known placeholders, `RemoteRecipeConfig.endpoint`).
+  `CandidateFactory` gives a cross-origin `Referer` as the origin, not the full page (§7 wants the
+  vk.com page; A: the Referer is optional). D's debug mutate hook (the phone proof) breaks the
+  client id or the API version, never the secret alone (A's §3.2a: any secret gets a token, so
+  no value-rejected path). Until D adds `VkSite.SITE` to `SiteWays.ALL`, a row check built without it meets a
+  VK lookup with its own site's hosts (the app's: Facebook's) and refuses VK's rows.
+
+## VK-Master kit agent (C) — `work/phase-vk-master-kit`
+
+- Plan: `docs/VK_MASTER_PLAN.md` §8 (self-heal), §9 (R9 schema 2), Appendix C (this agent's
+  prompt). Branch made from `origin/work/phase-vk-master` `50f2e9fb` (the plan's commit). New,
+  additive code only: nothing is wired into the app; `RemoteRecipeConfig.kt` (the schema-1 reader)
+  and `ContractRecipes.ALL` are unchanged.
+- State (2026-10-25): steps 1–4 done — step 1 the kit (`ac2005ca`), step 2 R9 schema 2
+  (`3885b3de`), step 3 the scoping question (`4d3b0efd`; the owner answered: no), step 4
+  `VkClientSource` (this checkpoint; the owner's go on agent A's recon). **STOP**: report to the
+  owner; the bridge to B's `VkClientValues` is D's (hand-offs).
+- Step 1 — the kit (`extractor-master/.../master/social/`; YouTube's `ClientHealth` and
+  `VersionSource` stay YouTube's):
+  - `SiteHealth.kt`, data only: per site (`facebook`, `tiktok`, `x`, `instagram`, `vk`) and rung
+    (R9's rung names; VK's V1–V3) the last class and its time, the last pass (rows that passed V),
+    the cooldown end (`VALUE_REJECTED` 1 h, `SHAPE_CHANGED` 24 h; a pass or `clearCooldowns` ends
+    it) and the asked/passed counts; per site the last good rung, a 30 min stop after a bot check
+    or 429 (`SocialCooldown.COOLDOWN_MILLIS`; request-sending rungs and value reads only), the
+    once-a-day read clock per value (`claimRead`, spent before the read) and the last learned
+    value (its name, source ID and date; the value itself only when it is a public version, digits
+    and dots). One JSON text `{"v":1,"sites":{…}}` through an `OwnSolverTextFile` (≤ 64 KiB; every
+    stored string checked against a strict pattern on write and on read; a bad file starts empty).
+    Never a token, cookie, address, ID or secret; `describe()` names no value.
+  - `ValueSource.kt`: the S5 order for one named value (`ValueKind`: site, name, the whole value's
+    strict pattern, the heal anchor, the most bytes a read takes, ≤ 2 bundled `ValueAlternate`s
+    with source and date): R9-signed (`SignedValues`; for VK always `NONE`, step 3's answer) →
+    healed today (memory only) → learned (public versions only) → bundled → after a rejection one
+    heal read (`ValueReader`; VK's is `VkClientSource`, step 4) — once a day, not while the site is
+    stopped, ≤ the kind's bytes, exactly one pattern match, never a value rejected today — → the
+    alternates. `kept()` learns a value only after `DIRECT`/`PARTIAL` with rows that passed V;
+    `rejected()` skips it for the day. Values are `[A-Za-z0-9._,%=+-]{1,256}` only: never code,
+    never invented, counted up or brute-forced; notes name the source, never the value.
+  - Tests: `SiteHealthTest` 9, `ValueSourceTest` 8 (made-up values only).
+- Step 2 — R9 schema 2 (additive; the schema-1 reader stays exactly as shipped):
+  - `recipes/RemoteRecipeConfig2.kt` (new reader): schema 2 = schema 1 + site `vk` + rungs
+    V1–V3. It checks the frame (size, bounded JSON, top keys, `schema` 2, known sites and rungs,
+    no rung twice), then hands the four sites' schema-1 projection to the unchanged
+    `RemoteRecipeConfig.parse`, and VK's part as a one-site schema-1 config with the bundled VK
+    recipe, so every schema-1 rule (same host, header names, paths only added, bounds) holds for
+    VK too; anything rejected rejects the whole config. A config naming `vk` in a build without a
+    VK recipe → `Invalid("unknown site vk")`. `schema1(text)` is the projection.
+  - `extractor-master/recipes/master-recipes-2.schema.json` (schema 1's `$defs` unchanged;
+    `schema` 2; site `vk`; `rungsOff` + V1–V3, ≤ 14) and `master-recipes-2.example.json` (its
+    projection is `master-recipes.example.json`). The committed configs (`configs/defaults.json`,
+    `drill-key-change.json`, `drill-rung-off.json`) are now `"schema": 2`; they name no VK, so
+    their schema-1 file is byte for byte what the helper composed before.
+  - `scripts/master-recipes-publish.py`: `compose` writes both payloads (`--out` schema 1,
+    `--out2` schema 2; a committed config must be schema 2); `check` per schema (the schema
+    file's const); new `pair` (both signed by the key, schemas 1 and 2, the first the projection
+    of the second). `scripts/master-recipe-sign.sh` signs schema 1 or 2. The workflow
+    (`master-recipes-publish.yml`; trigger and guards unchanged): next version = the higher of the
+    two live files + 1 (no `master-recipes-2.json` yet = 0); compose; check both; sign both with
+    the one key; verify both + `pair`; one commit with `master-recipes.json`,
+    `master-recipes-2.json` and both `published/` copies (`v…-<name>.schema2.json`). Not run.
+  - Tests: `RemoteRecipeConfig2Test` 6; `test_master_recipes_publish.py` 16 (3 of them run the
+    workflow's own step scripts against a temporary git remote with a throwaway key; they need
+    `jsonschema`). Two existing tests changed, intent kept: `RemoteRecipesS4Test` and
+    `FacebookLadderTest` read the committed (now schema-2) configs through
+    `RemoteRecipeConfig2.schema1`, i.e. v1.0.0's file.
+- Step 3 — may VK's R9 carry the web client's values (plan §2, §9)? Scoped, not built.
+  - **The owner's answer (2026-10-25): no** — R9 does not carry the web client's values (the
+    recommendation below; A found the script source stable). Known limit, recorded in
+    `ValueSource.kt` (`SignedValues`): a rotated value with a broken source needs an APK (V3
+    serves meanwhile). `RemoteRecipeConfig2.kt`'s header says the same; no schema change.
+  - Possible, as data. Neither schema has a place for them today: a site overlay carries only
+    `endpoint`, `headers`, `agent` and paths, while the values travel as parameters of the token
+    request and of `video.get`. One exception: if B's `VkRecipe.endpoint` holds the API version
+    (`v=`) in its query, R9's existing endpoint overlay (same host, known placeholders) can
+    already change it, no new field.
+  - Shape, if the owner says yes: an optional `sites.vk.values` object in schema 2 only (schema
+    1's projection drops `vk`, so v1.0.0 never sees it): `apiVersion` `^5\.[0-9]{1,4}$`, `appId`
+    and `clientId` `^[0-9]{6,10}$`, `clientSecret` `^[A-Za-z0-9]{16,32}$` (only with
+    `clientId`); nothing else — no scopes, token version, hosts, headers or code. The reader hands
+    them to `ValueSource`'s first slot (`SignedValues`, built in step 1): a signed value must
+    still match its kind's pattern, and a rejected one is skipped for the day (then the rest of
+    the order: healed, learned, bundled, a heal read, the alternates). Today's bundled values fit
+    these patterns (checked without printing them).
+  - Cost: one optional object in `master-recipes-2.schema.json`; ~40 lines in
+    `RemoteRecipeConfig2` (checked there and taken out before VK's part goes to the schema-1
+    reader; a small result beside `Parsed`, which stays unchanged); ~15 lines in the helper's
+    checks; Kotlin and script tests. No change to schema 1, the workflow or the signing.
+  - Timing: cheapest before v1.0.1 ships. v1.0.1's reader rejects an unknown key under
+    `sites.vk` (the schema-1 rule), so a field added after v1.0.1 means a schema 3 and a third
+    file.
+  - For: a rotated value is fixed by a signed config within a day, no APK, even when the script
+    source has moved (self-heal's weak point). Against: the signed, published config (the
+    `recipes` branch) then carries the web client's secret — public (VK ships it in its own
+    script) but a credential; one more value the owner keeps current by hand; and D8's precedent
+    (the owner dropped YouTube's signed identity data on 2026-10-15 because a self-heal source
+    existed, keeping "a new APK if both fail" as a known limit). Without values, V3 (capture)
+    still serves a rotated value with a broken source until an APK, and `rungsOff` `V2` stops a
+    failing heal.
+  - Recommendation (taken): do not build it. Keep self-heal (§8) the primary path and R9's kill
+    switch (`V2`) for a bad week, as D8 did for YouTube. Should the script source prove fragile,
+    `sites.vk.values` (the API version first, as it is no credential) is cheapest before v1.0.1.
+- Step 4 — `VkClientSource` (part 2; A's recon: `docs/VK_MASTER_CENSUS.md` §5 and §3.2a on
+  `origin/work/phase-vk-master-census` `d333fb18`, read only, never merged):
+  - `social/VkClientSource.kt`, a `ValueReader` (ID `vkvideo-script`). It heals two values, each
+    one strict match: `CLIENT_ID` (`clientId`, `[0-9]{6,10}`: the digits after `clientId:` in the
+    client block, the object literal that also names `clientSecret:`; never a `clientId` outside
+    it, quoted, prefixed or longer) and `API_VERSION` (`apiVersion`, `5\.[0-9]{1,4}`: after
+    `API_VERSION:"` or `API_VERSION:()=>"`; a public version, learned after OK + V). Never the
+    secret (VK's token endpoint does not check it, A §3.2a): any other kind, a look-alike under
+    the same name included, is refused with no request.
+  - One read = **2 GETs** with the lookup's User-Agent only (no cookie, token or Referer):
+    `https://vkvideo.ru/` (≤ 1 MiB) for today's script address — names are content-hashed, the
+    static host shards (`st.vkvideo.ru`, `st{N}-{N}.vkvideo.ru`), so no script address is bundled;
+    HTTPS or protocol-relative, JSON-escaped too, the query dropped — then one script, the
+    smallest that carries the value: the client id from `error_monitoring` (≤ 256 KiB, ~40 KB),
+    the API version from `web/chunks/common` (≤ 4 MiB, ~1.8 MB: A found it there),
+    `entrypoints/core_spa` (≤ 4 MiB, ~3 MB) only when the page lists neither. A redirect, another
+    host, plain http, two different files of one script, a page with none, an answer that is not
+    HTML or a script: no value, and a short note says which (`ValueSource` now joins a reader's
+    note to the reason, e.g. `read failed (RESPONSE_CHANGED: no script on the page)`).
+    `ValueSource`'s rules hold: after a rejection only, once a day per value, a 429 or bot check
+    stops VK.
+  - Fixtures, made up, in this agent's own folder
+    `extractor-master/src/test/resources/fixtures/vk-master-kit/`: a README, a page, three
+    scripts, and A's `script/web-client-snippet.js` copied as is from `d333fb18`. Tests:
+    `VkClientSourceTest` 11, no network.
+- Validation (JDK 17; this sandbox has no Android SDK, so Gradle needs `--configure-on-demand`):
+  `./gradlew --no-daemon :extractor-master:test` → 1014 tests, 0 failures, 2 skipped (980 at the
+  base, 997 at step 1, 1003 at steps 2–3); `python3 -m unittest discover -s scripts/tests -p
+  'test_master_recipes_publish.py'` → 16 tests OK (4 skipped: this `python3` has no
+  `jsonschema`; with `jsonschema` 4.23.0, the workflow's pin: 16 OK, 0 skipped). All 65 tests in
+  `scripts/tests` pass. Work-branch CI does not run these.
+- Hand-offs (not done here: shared files):
+  - D (wiring, v1.0.1): `RemoteRecipes` reads `master-recipes-2.json` (Gradle
+    `yft.masterRecipeUrl`) with `RemoteRecipeConfig2.parse(text, ContractRecipes.ALL + B's
+    VkRecipe)`; `RungsOff`/`LadderRungs` learn V1–V3; `SiteHealth` on
+    `files/master/site-health.json` (an `AtomicTextFile`, read on first use off the lookup
+    thread), `clearCooldowns()` on a new config. v1.0.0 keeps the schema-1 URL.
+  - D (the bridge, step 4): B's `VkClientValues` over `ValueSource(siteHealth,
+    VkClientSource(http))`. When V2's answer is `VALUE_REJECTED`, `rejected()` the value sent
+    (the client id after a token refusal, the API version after a version error: B's V2 knows
+    which), then `next(VkClientSource.CLIENT_ID or API_VERSION, bundled, the lookup's User-Agent)`
+    (one heal read at most a day); `values()` lists one `VkClient.Values` first: B's bundled set
+    with the healed or learned `clientId`/`apiVersion`, `Source.SCRIPT`, the day's date; then
+    `BUNDLED`. `kept()` after an OK answer whose rows passed V. `http` keeps the app client's
+    HTTPS, size and time rules; it follows redirects before the reader refuses the answer, so a
+    0-redirect policy saves that hop.
+  - B (VK's `SocialBudget`): a heal read is **2 requests** (page + one script), not A's 1. Client
+    id: the page (≤ 1 MiB; not measured) + `error_monitoring` (~40 KB). API version: the page +
+    `common` (~1.8 MB) — over A's proposed 1 MiB. Both values failing on one day: 4 requests. So
+    V2 + one heal + one row's V = 5 requests, or the heal runs outside the lookup's budget (D's
+    call); `SocialBudget` counts main's asks too.
+  - Phone proof (the owner, §12 B0) before V2 relies on it: the vkvideo.ru page lists
+    `error_monitoring` and `common` (else the ~3 MB `core_spa` is read, or "no script on the
+    page"); the script has exactly one client block with digits after `clientId:` (A's "one
+    branch per VK host": two blocks with different IDs give "more than one value", no heal); the
+    API version is two parts `5.N` (A's §5 writes `<x.y.z>`; three parts give "no value").
+  - A (their files): `vk-master/script/web-client-snippet.js` writes `API_VERSION="5.000"`, an
+    assignment, while §5's shape is `API_VERSION:`; the strict anchor takes only the latter (the
+    kit's copy is pinned "no value"). A may align the snippet.
+  - B: `VkLadder.SITE_ID` and `VkRecipe.site` = `"vk"`, the rungs named `V1`–`V3` (both readers
+    and `SiteHealth.RUNGS` use these names); B's client values as `ValueKind`s (API version
+    `publicVersion = true`; IDs and the secret are kept by name, source and date only).
+  - Docs (shared, the owner's or D's): the R9 runbook (`MASTER_KEY_SOCIAL_PLAN.md`, configs at
+    `extractor-master/recipes/configs/`) should say a config is schema 2 and one run publishes
+    both files.
+- Backlog (out of scope here):
+  - A healed ID or secret is memory only (§8): after an app restart the same day, V2 falls back to
+    the bundled value and the alternates until the next day's read (the read clock is stored).
+    Fine for now; revisit if the phone proof shows it hurts.
+  - One page read for both VK values (today each heal read reads the page: 2 requests a value).
+  - CI: the work-branch workflow does not run `:extractor-master:test` or the script tests; they
+    run locally before each checkpoint.
+- Rules: Appendix C's "Never" list (no push to `main`, `spike/*` or another agent's branch; no PR;
+  no label; no publish run or `recipes` branch; no change to the schema-1 reader or
+  `ContractRecipes.ALL`; no app wiring, shared app file, engine, census screen, D7 matrix, shared
+  doc or Master YouTube file); `VkClientSource` heals the client id and the API version only,
+  never the secret; no live network in tests; no real VK value printed or committed.
+
+## VK-Master wiring agent (D) — `work/phase-vk-master-wire`
+
+- Plan: `docs/VK_MASTER_PLAN.md` §8 (wave 2, the wiring for v1.0.1). Branch from `df3cc10f`
+  (B's pack and C's kit merged). Part 1 (this checkpoint): VK registered everywhere, V2's heal
+  wired, the app's wiring, the trial's break, CI. **STOP 1**: the owner's phone proof; part 2
+  only after its PASS. No value (client id, secret, version) in code, fixtures, logs or docs.
+- Registered: `VkRecipe.RECIPE` in `ContractRecipes.ALL`; `VkSite.SITE` in `SiteWays.ALL` (5
+  sites, 51 slots; VK's slot 9 ambiguous without a session); `SocialBudget.VK` = `VkSite.BUDGET`;
+  `VkLadder.V3` in `RungsOff.CAPTURES`; VK's V1–V3 in `LadderRungs`; W's slots `vk` 1, 4, 8;
+  the census's session cookie `remixsid`; the app's `SocialLadder` (`VK_SITE_ID`, `SITES`,
+  `stage()`'s list, VK's final words: removed → main's `VkExtractor.NOT_FOUND_MESSAGE`, region
+  limit → the app's); the debug census's registry and note.
+- R9: `RemoteRecipes` reads schema 2 when its URL ends `-2.json` (`RemoteRecipeConfig2.parse`
+  over the bundled recipes, VK's included), else schema 1 over the four sites (VK's bundled
+  recipe kept). The release and previews read `recipes/master-recipes-2.json`; v1.0.0 keeps
+  `master-recipes.json`. The recipes branch (`5d04b076`) has only `master-recipes.json` (v8):
+  **C's publish workflow must run once before v1.0.1 ships** (until then v1.0.1 finds no file
+  and runs on its bundled recipes). Scripts and configs unchanged here.
+- V2's heal (`VkClientValues.healing`, `HealingVkValues`, `ValueSource`, `SiteHealth`,
+  `VkClientSource`): main's token refused → the client id; `video.get` error 8 → the API version;
+  any other value refusal → the client id first, then the version. One read per pass: vkvideo.ru's
+  page (desktop Chrome's agent, the chain's own redirect cookies) and its `web/chunks/common`
+  script, cached for the pass, so the second value costs no request. Order: healed today →
+  learned (kept in `files/master/site-health.json` after an OK answer whose rows passed V) →
+  one read at most a day per value. A value VK refuses again is dropped and healed again. Never
+  the secret (VK does not check it). Lines name only where a value came from ("healed from
+  vkvideo-script (the page and its common script: N asks, N bytes)", "healed today …; no new
+  ask", "learned from …; no new ask", "… over the lookup's request/byte budget; not read", "no
+  value (why)"), never the value. The engine calls `Staged.checked` once after V.
+- Live check (signed out, US IP; scripts in the hand-off zip, values replaced):
+  - The page needs desktop Chrome's agent and the chain's cookies; the phone agent lands on
+    m.vkvideo.ru, which names no script. The page read is **1 lookup ask but 4 HTTP requests**
+    (3 redirects); `OkHttpExtractorClient` also retries a transient error (after 1 s and 3 s).
+  - `error_monitoring` carries the client id only as a hex literal (C's anchor: 0 matches) and
+    `core_spa`'s names are stripped: both dropped. `common` (~1.8 MB) carries both values; the
+    anchors take a hex client id (made decimal) and `API_VERSION:` through a short alias.
+  - A broken token client id → 401 `invalid_client`; the secret only → token and `video.get`
+    work; `v` 2.0 or 5.0 → error 8; a wrong client id in `video.get`'s query → still OK.
+  - The read cannot stop at the first match: the app's client cannot stream and refuses an
+    answer over its bound (`RESPONSE_TOO_LARGE`), so `common` is read whole.
+- Budget (`VkSite.BUDGET`): **19 requests** = main 6 + page 1 + common 1 + token 1 + `video.get`
+  2 + V 8 (the second `video.get` only when the version breaks after the client id was healed;
+  one break: 18); **7,356,416 bytes** = page 1 MiB + common 4 MiB + token 16 KiB + `video.get`
+  1 MiB × 2 (the owner's 6,569,984: `error_monitoring`'s 256 KiB dropped, a second `video.get`
+  added); 15 s.
+- The trial's "VK value break" (#12 trial only, `BuildConfig.SOCIAL_TRIAL`; Settings › Browser,
+  below Backup finder): Off / client id / API version / client secret only. Main's VK asks with
+  that value broken (`VkTrialBreak`'s client, before main's record), and V2 gets the same change
+  of main's values. Read once per process (main keeps its token for a day): "Restart YFT to
+  apply". `verify-release-debug-actions.py` rejects its label (`TRIAL_TOOL_MARKERS`) in every
+  APK but `com.alal.yft.trial` (`--allow-trial-tools`, set by `verify-release-apk.sh` for that
+  package only).
+- Provenance: `VkClientSource.kt` ← `TikTokAgents.kt` `desktop`, `CHROME_MAJOR`,
+  `FALLBACK_CHROME_MAJOR` (rows recorded at the base; the self-check: 0 drift).
+- Tests: `:extractor-master:test` 1,090+ (VkLadderTest's heal cases, VkClientSourceTest on the
+  live shapes, RemoteRecipesSchema2Test, SiteWays/SiteWeekly/SiteHealth/ValueSource updates);
+  app: `SocialLadderVkTest`, `VkTrialBreakTest`, the Settings row, the census's registry
+  (CI only: no Android SDK here); `scripts/tests` 69. `minified-check.yml` runs on this branch too.
+- Phone proof (the owner; Backup finder on): (1) #12 trial, client id broken, an 18+ VK video:
+  rows; Details "V2 heal client_id: healed from …" with asks and bytes; (2) again: healed today,
+  no new read; (3) restart, again: learned; (4) 1–3 with the API version broken; (5) the secret
+  only: no heal (V1 answers); (6) #12 normal: an 18+ video, a public video and a clip work.
+
+### Lookup details after a success (wave 2, the owner's UI fix)
+
+- Ask: after a Backup finder success the sheet showed the rows but none of Master's lines (only
+  the browser's banner line). The success sheet gets **Lookup details** under its rows: every
+  `outcome.details` line, then **Copy details** — the failure sheet's `FailureDetails`,
+  `CopyDetails` and `copiedDetails`, reused. The failure's Details rule (decision 30 (v),
+  `LocalQuietRelease`): debug and #12 trial always; the release and #12 normal (quiet) only with
+  Show details on; a quiet build without it unchanged. The banner and the format "Details"
+  button stay; no ladder, heal, budget, request or value change.
+- Step 1 (plumbing): `DetectedMediaStore.select(group, lookupDetails =)` keeps the lines with
+  the selected video (`lookupDetailsOf(group)`; memory only; dropped by another selection, a
+  wait, another page and `clear`). `BrowserViewModel` hands `outcome.details` over on the page
+  lookup (`showPageVideo`; `openPageVideo`, `selectForDownload` and `openMainVideo` when the
+  video is the lookup's, by key) and on a feed's focused-video path (`showFocusedVideo`).
+  `QuickDownloadUiState.lookupDetails` takes them when the sheet opens or its wait ends.
+- Step 2 (UI): `QuickDownloadScreen` shows them with `FailureDetails(label = "Lookup details")`
+  after the rows in `quick-rows` (tags `quick-lookup-details`, `quick-lookup-detail-text`,
+  `quick-lookup-copy`; "Hide lookup details"); the failure's Details keep their words.
+- Tests: `LookupDetailsSheetTest` (the real browser ViewModel and sheet: the page the backup
+  found, Download after and during its lookup; the video on a feed's screen, waiting and again
+  with no new ask; main's own success and another video: none; the real sheet shows and copies
+  the lines, and a quiet build hides them); `QuickDownloadScreenTest` +2 (toggle, lines, Copy
+  details = the lines = `copiedDetails`, Hide; quiet hides them, Show details on shows them).
+  Made-up lines only. Local: `:app:testDebugUnitTest` green.
+- Backlog: not on Home's paste-a-link sheet (its own lookup), under a format's failure after a
+  success (that failure's own Details), after the player-file fallback, or for Master on demand
+  on a generic page (its rows carry no lines today).
+- Commits: `14b2199b` (step 1: checkpoint validation and emulator smoke green; its Preview APK
+  and minified runs cancelled by step 2's) and `ef680866` (step 2). CI on `ef680866`, all green:
+  checkpoint validation 40229995920, emulator smoke 40229995926, Preview APK 40229996001 (YFT
+  Trial: artifact `yft-preview-trial-apk` 12612896445), minified check 40229995936.
+- Next (the owner, YFT Trial): Settings › Browser › VK value break = Client id, restart, Backup
+  finder on, the phone proof's VK video, Download › Lookup details: the rows, then the `master:
+  vk …` lines with `master: vk V2 heal client_id: healed from vkvideo-script (the page and its
+  common script: N asks, N bytes)`, no value. A value healed before reads `healed today from …`
+  or `learned from …; no new ask` instead (clear the app's storage first to see a read).
+
+### Part 2 (after STOP 1's PASS; the owner's go, 2026-10-26)
+
+- **STOP 1, the phone proof: PASS** (the owner's HyperOS phone, 2026-10-26 05:06–05:27 MMT; YFT
+  Trial of `ef680866`, Preview APK run 40229996001; Backup finder on; an 18+ VK video whose
+  vkvideo.ru link lands on m.vkvideo.ru; Lookup details after each success, no value in a line):
+  - Client id broken, the app's storage cleared: rows; `V2 heal client_id: healed from
+    vkvideo-script (the page and its common script: 2 asks, 2115863 bytes)`, main's login
+    answered, `video.get` 9 rows, 6 checked. Again: `healed today from vkvideo-script; no new
+    ask` (5 rows: one `media check NETWORK`). Force stop, reopen: `learned from vkvideo-script;
+    no new ask` (6 rows).
+  - API version broken: the same three (`V2 heal v: healed from vkvideo-script (… 2 asks,
+    2115864 bytes)`, main's login "main's identical answer replayed"; 6, 5 and 6 rows). Another
+    18+ video with the learned version: 6 checked rows.
+  - On part 1's trial and preview (`9a049a14`, run 40217521644; only the success sheet changed
+    since): the secret only, rows and no heal (V1 answers); #12 normal, an 18+ video, a public
+    video and a clip: rows.
+  - **The finding** (fixed below): the first try (05:06) ended with "Play the video on this page,
+    then tap Try again." and `V2 heal client_id: no value (not read (read in the last day))` —
+    an earlier lookup of the link, cut short (most likely by the redirect's new page, or by the
+    lookup's 15 s during the 1.8 MB script), had claimed the day's one read and got no answer: no
+    heal until the next day.
+- `main` merged in: PR #7 → `971e9826` (`73470d6a`: 1.0.0 and P8's records; docs only against the
+  branch).
+- Provenance (`extractor-master/toolkit-provenance.tsv`): the base `34a41890` → `d732edcc`
+  (v1.0.0's `main`); the VK-Master pack's 76 rows, `# pending` until now, active (main's VK
+  symbols are the same at `d732edcc` as at `50fb8d0f`); 5 drifted X rows re-recorded (main's X
+  card fix `352b8ec0`, reviewed in the copies' headers). `--write`: 256 symbols; the self-check
+  against `d732edcc`: 256 checked, 0 drifted. The script unchanged.
+- The fix (`ValueSource`, `SiteHealth.giveBackRead`, `VkLadder`): the day's read is still claimed
+  before it goes; a read cut short before its answer — a cancel (a closed page, the lookup's
+  deadline) or no network (`NETWORK` with no status) — gives it back, at most 3 times a day per
+  value (memory only; then it stays spent, so a read that never finishes is not tried all day).
+  An answer of the site to the read (a status, a bot check, a page without the value) spends it
+  as before. Lines: `read failed (NETWORK: …); given back`; the ladder's `V2 <value>: no answer
+  in time; the day's read given back`. No budget, request, rung or value change.
+- Tests: `ValueSourceTest` (a cancel, the deadline, no network: given back three times a day,
+  then spent), `VkClientSourceTest` (no network on the page or the script: given back, read
+  again), `VkLadderTest` (a read the lookup's time cut: the next lookup reads and heals). Local:
+  `:extractor-master:test` 1,093 (0 failed; 2 skipped as before), `scripts/tests` 69 OK.
+- Backlog: YouTube's `VersionSource`/`ClientHealth` spend a read cut short the same way
+  (untouched); a heal read that goes on after the lookup's deadline, for the next lookup (an
+  idea); V2 asks a new token on a repeat while main's token is kept (minor).
+- Commit `8d3abe61` (the fix, its tests, the provenance). CI on `8d3abe61`, all green:
+  checkpoint validation 40245342928, emulator smoke 40245342984, Preview APK 40245342911 (YFT
+  Trial: artifact `yft-preview-trial-apk` 12618851960), minified check 40245342934.
+- **The fix's phone check: PASS** (the owner, that YFT Trial; reported 2026-10-26 13:59 MMT):
+  Clear data → Backup finder on, VK value break = Client id → Force stop, reopen → the phone
+  proof's 18+ video by its vkvideo.ru link → the first lookup healed: `V2 heal client_id: healed
+  from vkvideo-script (the page and its common script: 2 asks, 2115865 bytes)`, main's login
+  answered, `video.get` 9 rows, 6 checked (three `media check NO_MEDIA_FOUND`, as in STOP 1).
+  Part 2's steps 1–5 done (main merged, the pending rows active, 0 drift, CI, **the STOP 2
+  report**).
+- Next: the PR to `main` (v1.0.1), only with the owner's go.
+
+### The pack proof (plan §12.2; the owner's phone, 2026-10-26)
+
+- **`8d3abe61`'s YFT Preview (#12 normal) recheck: PASS** (Preview APK run 40245342911, artifact
+  12618378621; Backup finder on): the 18+ video, a public video and a clip: rows.
+- **The census APK** (B0 and W need the census; YFT Trial has none): `8d3abe61`'s debug build with
+  the debug flags masterCapture, ownSolver, ownSolverNext, clientLadder, socialLadder and
+  socialTrial — `yft-vk-census-8d3abe61.apk`, 22,535,876 bytes, SHA-256 `62ffecbaab17bf1d…`,
+  signed with the shared test key; handed over by a temporary temp.sh link (not kept).
+- **B0: PASS** (08:04 UTC; VPN off, signed out): VK's census part — 50 requests, 35 s (the
+  baseline nothing may exceed); wrong rows 0; `recipes: bundled` (the schema-2 file was not
+  published yet). **Finding:** slot 5's channel link (`vksport.vkvideo.ru`) is `not handled` —
+  main's `VkUrls` knows vkvideo.ru and m.vkvideo.ru only (backlog; not Master's); the slot now
+  holds a plain vkvideo.ru link.
+- **W, VK's first run: PASS** (08:09 UTC, VPN on; 5 sites, 14 rows, 86 s; diff NO CHANGE): Facebook
+  11 requests, 1.3 MB, 19 s · TikTok 13, 0.4 MB, 28 s · Instagram 11, 0.6 MB, 13 s · X 9, 0.0 MB,
+  8 s · VK 13, 0.1 MB, 17 s (slot 1, the 18+ video with a list: main's 9 rows, the ladder's V1 6
+  rows, the same video, wrong rows 0; slot 4: 13 rows; slot 8: no link). VK's VPN baseline starts
+  here.
+- **R9's drill config** (commit `1ae39ca2`): `extractor-master/recipes/configs/drill-vk-v2-off.json`
+  (`{"schema":2,"sites":{},"rungsOff":["V2"]}`); `RemoteRecipesS4Test` (the config set, schema 1 =
+  schema 2 without VK's rungs, the drill's asserts) and `test_master_recipes_publish.py` (+1:
+  V2 off in the schema-2 file only); local `scripts/tests` 70 OK. CI on `1ae39ca2` all green
+  (checkpoint 40292066750, Preview APK 40292066756, minified 40292066688, emulator 40292066722).
+  The owner's publish run #9 (40295513129) → **v9 = drill-vk-v2-off** on `recipes` (`159a5066`,
+  08:54:20 UTC): `master-recipes.json` schema 1 without `rungsOff`, `master-recipes-2.json` schema 2
+  with `rungsOff: ["V2"]`; the census: `recipes: remote version 9, signed`.
+- **R9's drill: PASS** (`8d3abe61`'s YFT Trial; VK value break = Client id; an 18+ video by its
+  vkvideo.ru link): `V1 … login.vk.ru: VALUE_REJECTED (status 401 …)`, `master: vk V2 heal: off
+  (config); not run`, then "Play the video on this page, then tap Try again."
+- **V3: FAIL** (the same lookup, the video played, Try again): `master: discovered 200 bounded
+  media observations`, `master: fresh natural playback required`, no rows; the words said the
+  site's answer names the video (no video seen). The diagnosis (the shared browser, Pixel 7
+  emulation, a public VK video): (1) m.vkvideo.ru's player is a `<video>` in an open shadow root,
+  which `document.querySelectorAll` never enters — no player, so never "playback"; (2) VK's player
+  keeps the page's first `fetch` and asks for its DASH manifest (`application/dash+xml`, static,
+  WebM VP9 144p–2160p + Opus, SegmentBase; its length the video's) as it starts — both before the
+  capture's bind, so neither the manifest nor the pieces after it (`video/webm`/`audio/webm`, byte
+  ranges `bytes=`, read as streams and appended as slices: no MSE address link) were seen.
+- **The fix** (commit `bf044861`, `yft-master-capture.js`, `WebViewPlaybackCapture`): the page's
+  videos are the document's, then those of its open shadow roots (nested too; ≤ 20 videos,
+  ≤ 20,000 elements and ≤ 32 roots per sample; each root's `encrypted` listened to, removed on
+  dispose); on VK's origins only (`EARLY_ORIGINS`: vk.com, vk.ru, vkvideo.ru and their
+  subdomains) the capture script is also in place from document start — until the first bind it
+  keeps ≤ 64 media requests with the page's address of the time, the document's first bind takes
+  those of its own page only, a request begun before it counts for that bind only, and no body is
+  read before a bind; a manifest (HLS/DASH) is kept apart from the pieces (≤ 16, after the fed
+  requests, before the last 64 pieces), so a long run of pieces never pushes it out. Every other
+  site keeps the capture of before (its manifests now ahead of its pieces). Checked in the shared
+  browser on a public VK video: the player found in its shadow root (4651.78 s, 852×480,
+  playing), the packet's first request the DASH manifest (PT4651.800S), then the pieces.
+- Tests: `capture.test.cjs` 23 (6 new: the shadow-root player, its `encrypted` event, a manifest
+  before the first bind and no JSON read, another address's request not taken, a request begun
+  before the first bind counts for it only, the manifest kept after 100 pieces);
+  `MasterMainSelectionPolicyTest` +1 (the player's DASH manifest as long as its video is the
+  main; a piece without a length is not; a sound piece is never checked). Local:
+  `:extractor-master-android:testDebugUnitTest` 71 (0 failed), `codecs`/`mse` JS tests
+  unchanged. A shared-capture change: every site's S5 count starts on the final code's APK.
+- CI on `bf044861`: Preview APK 40308796618 (YFT Trial: artifact `yft-preview-trial-apk`
+  12645040690), emulator smoke 40308796615 and the minified check 40308796661 green; the
+  checkpoint 40308796822 red at its Gradle step after 7 min 26 s (its log needs admin rights; its
+  `scope` job green; the commit before, `1ae39ca2`, green at 40292066750). The step's tasks on the
+  same tree, locally one Gradle at a time (one Gradle for all of them was killed: the sandbox's
+  4 GB, no swap): `lintDebug` of the 6 Android modules; `testDebugUnitTest` app 1295,
+  core-browser 150, core-data 35, core-download 281, core-media 39, extractor-master-android 71;
+  `test` core-model 142, extractor-api 36, extractor-generic 21, extractor-sites 366 — 0 failed;
+  `:app:assembleDebug` built by the minified check. Not rerun (no way to start a run from the
+  agent's session); the next code push or the PR runs it again.
+- **V3's retest of `bf044861`: FAIL** (its YFT Trial; 17:49–17:52 MMT; Backup finder on, VK value
+  break = Client id; the 18+ video by its link, landing on m.vkvideo.ru, 1:58): Lookup 1 —
+  `master: discovered 48 bounded media observations`, `automatic main selected; more=0`,
+  `fingerprint qualities=5` (sizes not checked); Try again on the same page and document →
+  Lookup 2 — `discovered 35 …`, `qualities=1`, one row `480p · 478 × 852 · MP4 · 1.4 KB`: a wrong
+  row (a piece of the video offered as the video).
+- The diagnosis (the code; the shared browser, Pixel 7 emulation, a public VK video): (1) VK's
+  player asks for pieces by address (`&bytes=A-B`, answered 200 with the piece only); the 1.4 KB
+  row was the MP4 init piece, whose start states the whole video's length, so it passed as a
+  whole file; (2) a later bind on the same document starts with no requests, and VK's player asks
+  for its manifest once, as it starts: Lookup 2 saw pieces only; (3) with the manifest there was
+  still no row: VK lookups' row check (`SocialRowCheck`) refused every manifest row unasked, and
+  the app downloads no `SegmentBase` DASH manifest (`DashDownloadManifestParser`: unsupported)
+  and merges no sound into a DASH row; (4) `MasterMainSelection`'s check of a row's sound sent
+  the picture's length with the sound file (a size mismatch for every row with its sound apart).
+- **The fix** (commit `f22c2217`):
+  - F1 (every site): a piece of a file is never a row — an address naming a closed `bytes=A-B`
+    range (`MediaFileUrls.isPiece`), or one whose page answer was a piece (a 206, or a
+    Content-Range short of its total) to a request that named no range (`yft-master-capture.js`
+    marks it, fetch and XHR; `MasterBrowserSession.piece`, ≤ 200 a scope, memory only). Dropped
+    in `CandidateNormalizer.sanitize`, `CandidateGate.eligible` and `MasterMainSelection` (never
+    checked, never offered, never part of a whole-file row); it still counts as the player's
+    request. A request that named a range (a Range header) is no piece: its address is the
+    whole file's.
+  - F2 (VK's pages only: `WebViewPlaybackCapture.carriesManifests` — https, `EARLY_ORIGINS`,
+    the default port, no user info): the page's HLS/DASH manifests seen before the first bind or
+    during any bind (≤ 16, with the address they were fetched on) are offered to every later bind
+    of the same document and address; nothing else is carried; no body is read before a bind;
+    never another address's; a reload starts fresh. Every other site's bind (no carry) is the one
+    of before.
+  - The page manifest's row (`VkPageDash`, new; `SocialRowCheck`): in a VK lookup, the DASH
+    manifest VK's page fetched (a capture row; a ladder's manifest row, an HLS manifest and every
+    other site's manifest row stay unknown, unasked) is read whole (one read ≤ 64 KiB, route B's
+    rules, VK's media hosts, counted in the lookup's 8 reads; a cut, live, piece-only
+    (`SegmentTemplate`/`SegmentList`) or unreadable one unknown, a protected one DRM). Its row is
+    its tallest picture file (MP4 before WebM) with the same container's highest-bandwidth sound
+    as the sound to merge (Facebook's inline-manifest model; `InlineDashReader` now keeps each
+    file's bandwidth), each file's start read and init-checked; the row has the picture's
+    address, type, size and total, the sound with its own total — sizes in MB, the download
+    merged with its sound. Three asks a lookup (the manifest, the picture, the sound); the
+    engine's check of the sound asks nothing new.
+  - `MasterMainSelection`: the sound's check gets the sound file's own length.
+- Tests: `capture.test.cjs` 30 (+7: a later VK bind gets the manifests of before the first bind
+  and of a bind; another address's never, its own address gets it back; a late answer counts
+  for its own address only; every other site carries nothing; at most 16, the newest; a fetch
+  piece and an XHR piece marked, an asked range not); `MediaFileUrlsTest` +1,
+  `CandidateNormalizerTest` +1, `CandidateGateTest` +1 (a piece named by its bytes never a
+  candidate, the manifest kept); `MasterMainSelectionPolicyTest` +4 (the init piece with the
+  player's length never selected; with the manifest the manifest is the main, no piece a row; a
+  206 piece without bytes in its address never a row; the sound's check with its own length) and
+  `bf044861`'s test now probes the manifest only; `WebViewPlaybackCaptureTest` +1 (only VK's own
+  pages carry); `VkPageDashTest` 6 (new: three asks and the row; WebM and a packed answer; DRM,
+  cut, live, `SegmentTemplate`, 204; a failed, encrypted or off-host file; ladder, HLS and
+  Facebook rows unasked; the reader's choices). Local: JS 41/41 (capture 30, codecs, mse);
+  `:extractor-generic:test` 23, `:extractor-master:test` 1100 (2 skipped),
+  `:extractor-master-android:testDebugUnitTest` 76, `:app:testDebugUnitTest` 1295 (66 skipped),
+  `:core-browser:testDebugUnitTest` 150 — 0 failed; `:extractor-master-android:lintDebug`
+  0 errors (the 6 `RequiresFeature` warnings of before). The other modules' code is unchanged.
+- The shared browser (Pixel 7 emulation, a public VK video, the capture script at document
+  start as the WebView installs it): bind 1 — the DASH manifest and 16 pieces (every one a
+  `bytes=` address, so none a row); bind 2 (carry) — the manifest again; a bind without carry —
+  none; after a reload — fresh, the manifest at bind 1 again.
+- The red checkpoint 40308796822: its step stopped at 7 min 26 s (`1ae39ca2`'s green step took
+  11 min 13 s); the job's annotations say only "Process completed with exit code 1"; the log
+  stays admin-only. Not seen again: `f22c2217`'s checkpoint is green.
+- CI on `f22c2217`: the checkpoint 40329196533, emulator smoke 40329196664, the minified check
+  40329196536 and Preview APK 40329196567 (YFT Trial: artifact `yft-preview-trial-apk`
+  12654432541) — all green.
+- Next (the owner, `f22c2217`'s YFT Trial): Settings › Browser: Backup finder on, VK value
+  break = Client id → Force stop, reopen → the 18+ video by its link → play it → Try again →
+  rows in MB, not KB (one row: the manifest's tallest quality with its sound) → screenshot
+  Lookup details → Try again once more → the same row → download the top row: it plays 1:58
+  with sound. PASS = both lookups the manifest's row, no KB row, the download with sound. Then
+  `defaults` published again (v10) before S5; S5's counted runs on the final code's census APK.
+- Backlog (not for this PASS): VK's manifest gives one row (its tallest quality); its other
+  qualities as rows of their own later.
+- **V3's retest of `f22c2217`: FAIL** (its YFT Trial, Preview APK run 40329196567; 20:23–20:24
+  MMT; Backup finder on, VK value break = Client id; the 18+ video by its link, landing on
+  m.vkvideo.ru, 1:58, played): V1's `login.vk.ru: VALUE_REJECTED (status 401 …)`, `master: vk V2
+  heal: off (config); not run`, then `master: discovered 18 bounded media observations`, `master:
+  automatic selection NO_MEDIA_FOUND`; no rows, the playback words again.
+- The diagnosis (the code; a replay in the agent's sandbox of a real capture of the 18+ video, its
+  manifest request left out): the same `NO_MEDIA_FOUND`. VK's player asks for its files' pieces by
+  address (`&bytes=A-B`, `video/mp4` and `audio/mp4`), which F1 rightly never takes as rows; VK's
+  page data (the `getByIds` answer: `files.mp4_*` addresses with no file type) gives no row; the
+  native observer never records VK's pieces (no type in the address). So a capture holding pieces
+  only (no page manifest: VK's player asks for it once, as it starts) had no row at all. Why the
+  phone's capture held no manifest its details did not say (they named no counts); a possible
+  cause: the address it was fetched on differed from the bind's in its query only, and F2's carry
+  matched the exact address.
+- **The fix** (commit `7e101aa4`):
+  - VK's pieces' whole files (`VkPieceFiles`, new; `MasterMainSelection`): in a VK lookup whose
+    captured rows gave nothing, the pieces VK's player asked for (GET, VK's media host, a closed
+    `bytes=` range, typed `video/` or `audio/` MP4 or WebM, the page's video only) are grouped into
+    whole files (the address without its `bytes=`; pictures MP4 before WebM, sounds of the same
+    container, VK's quality order); at most 3 pictures and 2 sounds are checked (the engine's V,
+    in the lookup's reads), and the tallest mergeable (AVC) picture with the fullest sound is
+    admitted as any passed row is (inspected, its length held to the player's, its sound
+    checked). Its line: `master: VK pieces' files: pictures passed X of Y; sounds passed U of V`.
+  - `SocialRowCheck` and `StartPicture.codec`: a VK picture row that states no codecs gets its
+    file's own sample entry (`avc1`, …) from the same bytes, so the phone's merge gate reads it.
+  - A failure names, in counts only (never an address): `master: capture held requests=N (dash=…,
+    hls=…, pieces=…, player's=…); page data=K; player length known|unknown` and `master: rows
+    checked=…; passed=…; off the player's length=…; refused=…`.
+  - The capture script (VK's carrying binds only): a request counts for the bind's page when it
+    began on the same page — the same address, or the same origin and path under another query
+    with the same `z` (VK's overlay video); every other bind exact, as before.
+- Tests: `VkPieceFilesTest` 5 (new: the whole files, the fullest first; only VK's typed GET
+  pieces, MP4 before WebM; the address without its range; the row with its sound; a VK picture
+  row's own codec, elsewhere none), `StartPictureTest` +1 (the sample entry),
+  `VkPieceSelectionTest` 5 (new: pieces only → the tallest picture with the fullest sound; a
+  mergeable picture before one the phone cannot merge; other sites none, the counts said; failed
+  sounds no row, a protected picture final; a picture off the player's length no row),
+  `capture.test.cjs` 32 (+2: a carried bind takes its page's requests under another query, never
+  another video's `z` or another path; every other site exact). Local: JS 43/43;
+  `:extractor-master:test` 1106 (2 skipped), `:extractor-master-android:testDebugUnitTest` 81 —
+  0 failed. The sandbox replay (network, the manifest left out): the row 1080 × 1920 MP4 34.7 MB
+  with its sound (3.9 MB), 118,008 ms; `pictures passed 3 of 6; sounds passed 2 of 5`.
+- CI on `7e101aa4`: the checkpoint 40349729515, emulator smoke 40349728982, the minified check
+  40349729186 and Preview APK 40349728907 (YFT Trial: artifact `yft-preview-trial-apk`
+  12664235520, `1.0.0-trial.116`) — all green.
+- Next (the owner, `7e101aa4`'s YFT Trial): the same steps → a row in MB (1080 × 1920 MP4, about
+  35 MB, with its sound) → download it: it plays 1:58 with sound. On a failure: Lookup details
+  (now with the capture's counts).
+- **V3's retest 3 of `7e101aa4`: FAIL** (its YFT Trial, Preview APK run 40349728907; 22:23–22:27
+  MMT): Try again 1 — `discovered 32 bounded media observations`, `automatic main selected;
+  more=0`, `fingerprint qualities=1`, `VK pieces' files: pictures passed 2 of 2; sounds passed 2
+  of 4`; the row `480p · 478 × 852 · MP4 · ~10 MB`, titled "ВКонтакте | VK Видео". Try again 2 —
+  `discovered 40 …`, `pictures passed 3 of 6; sounds passed 2 of 5`; the row `1080p · 1078 × 1920
+  · MP4 · ~33 MB`, "Video by Asianese". The 1080p row's download: "This video and its audio
+  cannot be combined on this phone."
+- The diagnosis (the code): (1) the pieces' sound file names no codecs; `DeviceMergeSupport`
+  read the video's codecs only, so the sheet offered the row, while `AudioVideoMuxCompatibility`
+  (the download's gate) wants `mp4a.40.…` for the sound. (2) The pieces' files cover only the
+  qualities the player had fetched by then; the page's own data for the video (`video.getByIds`:
+  `files.mp4_144…mp4_1080`, each whole with its sound inside, the title, the length) is read once
+  a document and was lost on Try again (a new generation's payloads start empty); VK's `sig`
+  differs per quality, so no other quality's address can be made from a piece's. (3) The title
+  came from the page's `<title>`.
+- **The fix** (commit `e401c48a`, pushed as one checkpoint; locally two: `d34de51d` the sound's
+  codec and the gate, `164d6b16` the page data):
+  - `StartSound` (new): a sound file's codec from its start bytes (`moov`/`trak`/`stsd` `mp4a`,
+    its `esds`: the object type and the audio object type → `mp4a.40.2`; an `esds` past the bytes
+    → `mp4a.40.2`; another entry its own type, so the gate refuses it). `SocialRowCheck`: a VK
+    sound row that passes and states no codecs gets its own (the companion is checked as a row).
+  - `AudioVideoMuxCompatibility.evaluateMp4` public, by tracks; `DeviceMergeSupport.canMerge`
+    uses it (plus the AV1 decoder check): one gate for the sheet and the download — a video or
+    sound without codecs, or a sound that is no AAC, is left out of the sheet.
+  - The capture script: on a bind that carries (VK's pages) a JSON body naming VK's MP4 files
+    (`"mp4_NNN": "https:`) is kept with the bind's address (≤ 2, the newest) and offered first to
+    later binds of the same page (`samePage`), as the manifests are; nothing is read before the
+    first bind, as before; a bind without carry drops them.
+  - `VkPageData` (new): the capture's page data for the link's video (`VkReader.api`, bound by
+    `owner_id`/`id`; the trailer, pictures and other hosts left out) as MP4 rows, the tallest
+    first, with the data's title, length, picture and the address's expiry; the link from the
+    request's identity, else the page address (`video{o}_{id}`, `clip…`, `z=video…`).
+  - `MasterMainSelection`: in a VK lookup whose captured rows gave nothing, the page data's files
+    are checked from the tallest (≤ 3) and the first that passes is admitted (as any passed row:
+    inspected, its length held to the player's), before the pieces' fallback; the pieces' row
+    takes the data's title and picture when it names none. The line `master: VK page data:
+    files=N; tried=T; passed=P; admitted=A` in the details (success and failure).
+- Tests: `StartSoundTest` 3 (new), `VkPieceFilesTest` +1 (a VK sound row's own codec),
+  `MergeSupportTest` +1 (the sheet offers only the merges the download makes), `VkPageDataTest` 3
+  (new), `VkPageDataSelectionTest` 3 (new: the tallest file that passes before the pieces; failing
+  files give way, then the pieces' row with the data's title; off-length gives way, DRM final,
+  other sites none), `capture.test.cjs` 34 (+2). Local: JS 45/45; `:extractor-master:test` 1113
+  (2 skipped), `:extractor-master-android:testDebugUnitTest` 84 — 0 failed; `:app` and
+  `:core-download` in CI only (their dependencies are not cached offline in the sandbox).
+- CI on `e401c48a`: the checkpoint 40363510352, emulator smoke 40363510251, the minified check
+  40363510450 and Preview APK 40363510324 (YFT Trial: artifact `yft-preview-trial-apk`
+  12669332955, `1.0.0-trial.118`) — all green.
+- **V3's retest 4 of `e401c48a`: PASS** (its YFT Trial; 11:49–11:50 MMT, 2026-10-27; VK value
+  break = Client id; the 18+ video, played, Try again): `discovered 20 bounded media
+  observations`, `automatic main selected; more=0`, `fingerprint qualities=1`, `VK page data:
+  files=6; tried=1; passed=1; admitted=1`; the sheet "Video by Asianese · 1:58", the row `1080p ·
+  1078 × 1920 · MP4 · 37 MB` (the whole file, its sound inside); the download completed, 37 MB.
+- Backlog (not for this PASS): the page data's other qualities as rows of their own (they are
+  one video's; today one row, the tallest that passes, so the sheet never shows them as "More"
+  videos without cues); VK V2 heal stays off.
+- Next: merging `work/phase-vk-master-wire` to main only with the owner's OK; `defaults`
+  published again (v10) before S5; S5's counted runs on the final code's census APK.
+

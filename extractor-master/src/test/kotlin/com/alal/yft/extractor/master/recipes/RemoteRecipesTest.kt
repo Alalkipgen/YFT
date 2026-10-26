@@ -235,7 +235,9 @@ class RemoteRecipesTest {
         fun enum(value: JsonValue?): Set<String> =
             ((value as JsonValue.Object).entries["enum"] as JsonValue.Array).items.map { (it as JsonValue.Text).value }.toSet()
         assertEquals(RemoteRecipeConfig.TOP_KEYS, obj(schema, "properties").entries.keys)
-        assertEquals(ContractRecipes.ALL.map { it.site }.toSet(), obj(schema, "properties", "sites", "properties").entries.keys)
+        // Schema 1 is the frozen file old apps read: VK lives only in schema 2 (RemoteRecipeConfig2).
+        assertEquals(RemoteRecipeConfig2.SCHEMA_1_SITES.toSet(), obj(schema, "properties", "sites", "properties").entries.keys)
+        assertEquals(ContractRecipes.ALL.map { it.site }.toSet(), RemoteRecipeConfig2.SITES.toSet())
         val defs = obj(schema, "\$defs")
         assertEquals(RemoteRecipeConfig.SITE_KEYS, obj(defs, "site", "properties").entries.keys)
         assertEquals(RemoteRecipeConfig.MEDIA_KEYS, obj(defs, "media", "properties").entries.keys)

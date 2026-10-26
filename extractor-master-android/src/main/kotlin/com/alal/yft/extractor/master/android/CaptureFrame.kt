@@ -30,9 +30,15 @@ internal data class FrameRequest(
     val fed: Boolean = false,
     val width: Int? = null,
     val height: Int? = null,
+    /**
+     * F1 (V3's retest, 2026-10-26): the page's answer was a piece of a file (a 206 or a
+     * Content-Range short of its total) to a request that named no range, so the address names
+     * that piece: still the player's request, never a file row ([MasterMainSelection]).
+     */
+    val piece: Boolean = false,
 ) {
     override fun toString(): String =
-        "FrameRequest(preview=$preview, fed=$fed, address=[omitted])"
+        "FrameRequest(preview=$preview, fed=$fed, piece=$piece, address=[omitted])"
 }
 
 internal data class FramePlayer(
@@ -107,6 +113,7 @@ internal object CaptureFrameReader {
                         ?.toInt(),
                     height = value["height"].asLongOrNull?.takeIf { fed && it in 1..16_384 }
                         ?.toInt(),
+                    piece = value["piece"].asBooleanOrNull == true,
                 )
             },
             player = player,

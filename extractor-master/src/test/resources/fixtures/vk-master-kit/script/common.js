@@ -1,0 +1,2 @@
+/* FIXTURE: a made-up web/chunks/common chunk (agent C's VK-Master kit, in the shapes agent D's live check saw, 2026-10-26); every value is made up. */
+"use strict";(self.webpackChunkFIXTURE=self.webpackChunkFIXTURE||[]).push([[22],{22:function(e,t,n){n.d(t,{MIN_API_VERSION:()=>"5.111",FIXTURE_VERSION:()=>"6.000",VK_WEB_APP_ID:()=>Bc,VK_WEB_VKVIDEO_APP_ID:()=>Ab,API_VERSION:()=>Wt});let Wt="5.000";const Bc=300000,Ab=0x186a0,a={apiVersion:"5.222",version:"5.333",clientId:300000,clientSecret:"FIXTUREsecretFIXTURE"};t.FIXTURE=a}}]);

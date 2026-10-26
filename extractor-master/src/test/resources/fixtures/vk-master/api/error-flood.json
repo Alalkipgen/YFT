@@ -1,0 +1,32 @@
+{
+  "error": {
+    "error_code": 9,
+    "error_msg": "Flood control",
+    "request_params": [
+      {
+        "key": "method",
+        "value": "video.get"
+      },
+      {
+        "key": "owner_id",
+        "value": "-100000001"
+      },
+      {
+        "key": "videos",
+        "value": "-100000001_400000001"
+      },
+      {
+        "key": "extended",
+        "value": "1"
+      },
+      {
+        "key": "v",
+        "value": "5.000"
+      },
+      {
+        "key": "client_id",
+        "value": "100000"
+      }
+    ]
+  }
+}

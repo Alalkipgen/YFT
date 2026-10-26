@@ -11,6 +11,7 @@ function environment(options = {}) {
   class Xhr {
     open() { return "open-result"; }
     send() { return "send-result"; }
+    setRequestHeader() { return "header-result"; }
     addEventListener(name, listener) { this.listener = listener; }
     getResponseHeader() { return "application/json"; }
   }
@@ -21,6 +22,7 @@ function environment(options = {}) {
     removeEventListener(name) { delete this.listeners[name]; },
     querySelectorAll(selector) {
       if (selector === "video") return options.videos || [];
+      if (selector === "*") return options.elements || [];
       if (selector.startsWith("script")) return options.scripts || [];
       return [];
     }
@@ -33,7 +35,7 @@ function environment(options = {}) {
   };
   env.window = env; env.top = env;
   vm.runInNewContext(source, env);
-  env.__yftMasterCaptureV1.bind(1, env.location.href);
+  if (options.bind !== false) env.__yftMasterCaptureV1.bind(1, env.location.href);
   return { env, originalFetch, originalOpen: Xhr.prototype.open, document, Media };
 }
 
@@ -282,4 +284,377 @@ test("focused TikTok state after eight unrelated JSON scripts is still captured"
   assert.equal(value.payloads.length <= 8, true);
   assert.equal(value.payloads.every(text => text.length <= 65536), true);
   assert.equal(value.player, null);
+});
+
+// VK's pack proof (2026-10-26): m.vkvideo.ru plays in a <video> inside an open shadow root.
+function shadowHost(videos) {
+  const root = {
+    listeners: {},
+    addEventListener(name, fn) { this.listeners[name] = fn; },
+    removeEventListener(name) { delete this.listeners[name]; },
+    querySelectorAll: selector => selector === "video" ? videos : [],
+  };
+  return { shadowRoot: root };
+}
+
+test("VK: a player in an open shadow root is the page's player", () => {
+  const preview = playingVideo("https://cdn.test/preview.mp4", {
+    getBoundingClientRect: () => ({ left: 0, top: 0, right: 60, bottom: 40 }),
+  });
+  const player = playingVideo("blob:https://page.test/player", { duration: 4651.78 });
+  const host = shadowHost([player]);
+  const value = packet(environment({ videos: [preview], elements: [{}, host] }).env);
+  assert.equal(value.player.key, "video:1");
+  assert.equal(value.player.duration, 4651.78);
+  assert.equal(value.player.paused, false);
+});
+
+test("VK: an encrypted event in a shadow root marks the page protected", () => {
+  const options = {};
+  const { env, Media } = environment(options);
+  const player = Object.assign(new Media(), playingVideo("blob:https://page.test/player"));
+  const host = shadowHost([player]);
+  options.elements = [host];
+  assert.equal(packet(env).protected, false);
+  host.shadowRoot.listeners.encrypted({ target: player });
+  assert.equal(packet(env).protected, true);
+  env.__yftMasterCaptureV1.dispose();
+  assert.equal(host.shadowRoot.listeners.encrypted, undefined);
+});
+
+const MPD = "https://media.test/?type=4&id=1";
+const piece = n => "https://media.test/?type=2&id=1&bytes=" + n + "-" + (n + 9);
+
+test("VK: a manifest fetched before the first bind is that page's, its JSON is not read", async () => {
+  const answers = {
+    [MPD]: response("<MPD/>", MPD, "application/dash+xml"),
+    "https://api.test/data": response('{"video_url":"https://cdn.test/main.mp4"}'),
+  };
+  const { env } = environment({ bind: false, fetch: url => Promise.resolve(answers[url]) });
+  await env.fetch(MPD);
+  await env.fetch("https://api.test/data");
+  await settle();
+  assert.equal(env.__yftMasterCaptureV1.sample(1, env.location.href), null);
+  assert.equal(env.__yftMasterCaptureV1.bind(1, env.location.href), true);
+  const value = packet(env);
+  assert.deepEqual(value.requests.map(r => r.url), [MPD]);
+  assert.equal(value.payloads.length, 0);
+});
+
+test("VK: a request made on another address before the first bind is not taken", async () => {
+  const answer = response("<MPD/>", MPD, "application/dash+xml");
+  const { env } = environment({
+    bind: false, page: "https://page.test/first", fetch: () => Promise.resolve(answer),
+  });
+  await env.fetch(MPD);
+  await settle();
+  env.location.href = "https://page.test/watch";
+  assert.equal(env.__yftMasterCaptureV1.bind(1, env.location.href), true);
+  assert.equal(packet(env).requests.length, 0);
+});
+
+test("VK: a request begun before the first bind counts for that bind only", async () => {
+  const done = [];
+  const { env } = environment({
+    bind: false, fetch: () => new Promise(resolve => done.push(resolve)),
+  });
+  env.fetch(MPD);
+  env.fetch(MPD + "&second");
+  env.__yftMasterCaptureV1.bind(1, env.location.href);
+  done[0](response("<MPD/>", MPD, "application/dash+xml"));
+  await settle();
+  assert.deepEqual(packet(env).requests.map(r => r.url), [MPD]);
+  env.location.href = "https://page.test/watch/next";
+  env.__yftMasterCaptureV1.bind(2, env.location.href);
+  done[1](response("<MPD/>", MPD + "&second", "application/dash+xml"));
+  await settle();
+  assert.equal(packet(env).requests.length, 0);
+});
+
+test("VK: the player's manifest stays in the packet after a long run of its pieces", async () => {
+  const { env } = environment({
+    fetch: url => Promise.resolve(url === MPD ? response("<MPD/>", MPD, "application/dash+xml") :
+      response("", url, "video/webm")),
+  });
+  await env.fetch(MPD);
+  for (let n = 0; n < 100; n++) await env.fetch(piece(n * 10));
+  await env.fetch(MPD);
+  await settle();
+  const urls = packet(env).requests.map(r => r.url);
+  assert.equal(urls[0], MPD);
+  assert.equal(urls.filter(url => url === MPD).length, 1);
+  assert.equal(urls.length, 65);
+  assert.equal(urls[64], piece(990));
+});
+
+// V3's retest (2026-10-26): Try again binds the same document and address with a new generation;
+// VK's player fetched its manifest once, before the first bind. [carry]: VK's pages only.
+const pieceAnswer = (url, mime, status, range) => ({
+  url, status, headers: { get: name => name === "content-type" ? mime :
+    name === "content-range" ? range || null : null },
+  clone() { return { body: null }; },
+});
+const sampled = (env, generation) =>
+  JSON.parse(env.__yftMasterCaptureV1.sample(generation, env.location.href));
+
+test("VK: a later bind of the same page gets the manifests fetched before the first bind and during a bind", async () => {
+  const MPD2 = MPD + "&quality=2";
+  const answers = {
+    [MPD]: response("<MPD/>", MPD, "application/dash+xml"),
+    [MPD2]: response("<MPD/>", MPD2, "application/dash+xml"),
+    "https://api.test/data": response('{"video_url":"https://cdn.test/main.mp4"}'),
+  };
+  const { env } = environment({
+    bind: false, fetch: url => Promise.resolve(answers[url] || response("", url, "video/webm")),
+  });
+  await env.fetch(MPD);
+  await settle();
+  assert.equal(env.__yftMasterCaptureV1.bind(1, env.location.href, true), true);
+  await env.fetch(MPD2);
+  await env.fetch(piece(0));
+  await env.fetch("https://api.test/data");
+  await settle();
+  const first = sampled(env, 1);
+  assert.deepEqual(first.requests.map(r => r.url), [MPD, MPD2, piece(0)]);
+  assert.equal(first.payloads.length, 1);
+  // Try again: a new generation on the same page and document. Only the manifests come along.
+  assert.equal(env.__yftMasterCaptureV1.bind(2, env.location.href, true), true);
+  const again = sampled(env, 2);
+  assert.deepEqual(again.requests.map(r => r.url), [MPD, MPD2]);
+  assert.equal(again.payloads.length, 0);
+  assert.equal(env.__yftMasterCaptureV1.bind(3, env.location.href, true), true);
+  assert.deepEqual(sampled(env, 3).requests.map(r => r.url), [MPD, MPD2]);
+  // A reload is a new document: its collector starts with nothing.
+  env.__yftMasterCaptureV1.dispose();
+  const reloaded = environment({ bind: false }).env;
+  assert.equal(reloaded.__yftMasterCaptureV1.bind(4, reloaded.location.href, true), true);
+  assert.equal(sampled(reloaded, 4).requests.length, 0);
+});
+
+test("VK: another address's manifest is never offered, its own address gets it back", async () => {
+  const answer = response("<MPD/>", MPD, "application/dash+xml");
+  const { env } = environment({
+    bind: false, page: "https://page.test/first", fetch: () => Promise.resolve(answer),
+  });
+  assert.equal(env.__yftMasterCaptureV1.bind(1, env.location.href, true), true);
+  await env.fetch(MPD);
+  await settle();
+  assert.deepEqual(sampled(env, 1).requests.map(r => r.url), [MPD]);
+  env.location.href = "https://page.test/watch";
+  assert.equal(env.__yftMasterCaptureV1.bind(2, env.location.href, true), true);
+  assert.equal(sampled(env, 2).requests.length, 0);
+  env.location.href = "https://page.test/first";
+  assert.equal(env.__yftMasterCaptureV1.bind(3, env.location.href, true), true);
+  assert.deepEqual(sampled(env, 3).requests.map(r => r.url), [MPD]);
+});
+
+test("VK: a carried bind takes its own address's manifest answered late, never another's", async () => {
+  const done = [];
+  const { env } = environment({
+    bind: false, fetch: () => new Promise(resolve => done.push(resolve)),
+  });
+  env.fetch(MPD);
+  env.__yftMasterCaptureV1.bind(1, env.location.href, true);
+  env.fetch(MPD + "&second");
+  assert.equal(env.__yftMasterCaptureV1.bind(2, env.location.href, true), true);
+  done[0](response("<MPD/>", MPD, "application/dash+xml"));
+  done[1](response("<MPD/>", MPD + "&second", "application/dash+xml"));
+  await settle();
+  assert.deepEqual(sampled(env, 2).requests.map(r => r.url), [MPD, MPD + "&second"]);
+  env.fetch(MPD + "&third");
+  env.location.href = "https://page.test/watch/next";
+  assert.equal(env.__yftMasterCaptureV1.bind(3, env.location.href, true), true);
+  done[2](response("<MPD/>", MPD + "&third", "application/dash+xml"));
+  await settle();
+  assert.equal(sampled(env, 3).requests.length, 0);
+});
+
+// V3's retest 2 (2026-10-26): VK's page address gains a query (`list=` and the like) as it
+// settles, so a carried bind counts a request begun on its own page under another query; another
+// video's overlay (`?z=video…`) or another path never. Every other bind: the exact address only.
+test("VK: a carried bind takes its page's requests made under another query, never another video's", async () => {
+  const { env } = environment({
+    bind: false, page: "https://page.test/watch?list=a",
+    fetch: url => Promise.resolve(url.includes("bytes=") ?
+      response("", url, "video/mp4") : response("<MPD/>", url, "application/dash+xml")),
+  });
+  await env.fetch(MPD);
+  await env.fetch(piece(0));
+  await settle();
+  env.location.href = "https://page.test/watch";
+  assert.equal(env.__yftMasterCaptureV1.bind(1, env.location.href, true), true);
+  assert.deepEqual(sampled(env, 1).requests.map(r => r.url), [MPD, piece(0)]);
+  // Another video's overlay on the same path names its video in `z`: nothing comes along.
+  env.location.href = "https://page.test/watch?z=video-1_2";
+  assert.equal(env.__yftMasterCaptureV1.bind(2, env.location.href, true), true);
+  assert.equal(sampled(env, 2).requests.length, 0);
+  await env.fetch(MPD + "&z");
+  await settle();
+  env.location.href = "https://page.test/watch?z=video-1_2&list=b";
+  assert.equal(env.__yftMasterCaptureV1.bind(3, env.location.href, true), true);
+  assert.deepEqual(sampled(env, 3).requests.map(r => r.url), [MPD + "&z"]);
+  // Back on the first video under yet another query: its own manifest only; another path: none.
+  env.location.href = "https://page.test/watch?list=c";
+  assert.equal(env.__yftMasterCaptureV1.bind(4, env.location.href, true), true);
+  assert.deepEqual(sampled(env, 4).requests.map(r => r.url), [MPD]);
+  env.location.href = "https://page.test/watch/next?list=a";
+  assert.equal(env.__yftMasterCaptureV1.bind(5, env.location.href, true), true);
+  assert.equal(sampled(env, 5).requests.length, 0);
+});
+
+test("every other site: a request made under another query before the first bind is not taken", async () => {
+  const answer = response("<MPD/>", MPD, "application/dash+xml");
+  const { env } = environment({
+    bind: false, page: "https://page.test/watch?list=a", fetch: () => Promise.resolve(answer),
+  });
+  await env.fetch(MPD);
+  await settle();
+  env.location.href = "https://page.test/watch";
+  assert.equal(env.__yftMasterCaptureV1.bind(1, env.location.href), true);
+  assert.equal(packet(env).requests.length, 0);
+});
+
+test("every other site: a later bind gets no manifest of an earlier one (as before)", async () => {
+  const answer = response("<MPD/>", MPD, "application/dash+xml");
+  const { env } = environment({ fetch: () => Promise.resolve(answer) });
+  await env.fetch(MPD);
+  await settle();
+  assert.deepEqual(sampled(env, 1).requests.map(r => r.url), [MPD]);
+  assert.equal(env.__yftMasterCaptureV1.bind(2, env.location.href), true);
+  assert.equal(sampled(env, 2).requests.length, 0);
+  assert.equal(env.__yftMasterCaptureV1.bind(3, env.location.href, true), true);
+  assert.equal(sampled(env, 3).requests.length, 0);
+});
+
+// The owner's retest of 7e101aa4 (2026-10-26): VK asks for the video's data (video.getByIds:
+// every quality's file) once a document, so a later bind's lookup had the player's pieces only.
+const VIDEO_DATA = '{"response":{"items":[{"id":1,"owner_id":-2,"title":"t","files":{' +
+  '"mp4_480":"https://media.test/?type=2&id=1","mp4_1080":"https://media.test/?type=5&id=1"}}]}}';
+const OTHER_DATA = '{"response":{"items":[{"id":9,"owner_id":-2,"files":{' +
+  '"mp4_360":"https://media.test/?type=1&id=9"}}]}}';
+
+test("VK: a later bind of the same page gets the video's data read in an earlier bind", async () => {
+  const answers = {
+    "https://api.test/data": response(VIDEO_DATA),
+    "https://api.test/other": response('{"video_url":"https://cdn.test/main.mp4"}'),
+  };
+  const { env } = environment({
+    bind: false, fetch: url => Promise.resolve(answers[url] || response("", url, "video/mp4")),
+  });
+  // Before the first bind no body is read, so nothing is kept of it.
+  await env.fetch("https://api.test/data");
+  await settle();
+  assert.equal(env.__yftMasterCaptureV1.bind(1, env.location.href, true), true);
+  assert.equal(sampled(env, 1).payloads.length, 0);
+  await env.fetch("https://api.test/data");
+  await env.fetch("https://api.test/other");
+  await env.fetch(piece(0));
+  await settle();
+  const first = sampled(env, 1);
+  assert.deepEqual(first.payloads, [VIDEO_DATA, '{"video_url":"https://cdn.test/main.mp4"}']);
+  // Try again: the video's data comes along (once), the other body and the pieces do not.
+  assert.equal(env.__yftMasterCaptureV1.bind(2, env.location.href, true), true);
+  const again = sampled(env, 2);
+  assert.deepEqual(again.payloads, [VIDEO_DATA]);
+  assert.equal(again.requests.length, 0);
+  assert.equal(sampled(env, 2).payloads.length, 0);
+  // The page settles under another query (list=): still its page.
+  env.location.href = env.location.href + "?list=a";
+  assert.equal(env.__yftMasterCaptureV1.bind(3, env.location.href, true), true);
+  assert.deepEqual(sampled(env, 3).payloads, [VIDEO_DATA]);
+  // Another video's page on the same document: never offered.
+  env.location.href = "https://page.test/other";
+  assert.equal(env.__yftMasterCaptureV1.bind(4, env.location.href, true), true);
+  assert.equal(sampled(env, 4).payloads.length, 0);
+  // Back on its own address: offered again; a bind that does not carry drops it for good.
+  env.location.href = "https://page.test/watch";
+  assert.equal(env.__yftMasterCaptureV1.bind(5, env.location.href, true), true);
+  assert.deepEqual(sampled(env, 5).payloads, [VIDEO_DATA]);
+  assert.equal(env.__yftMasterCaptureV1.bind(6, env.location.href), true);
+  assert.equal(sampled(env, 6).payloads.length, 0);
+  assert.equal(env.__yftMasterCaptureV1.bind(7, env.location.href, true), true);
+  assert.equal(sampled(env, 7).payloads.length, 0);
+});
+
+test("VK: at most two of the video's data bodies are kept, the newest; every other site keeps none", async () => {
+  const bodies = [VIDEO_DATA, OTHER_DATA, VIDEO_DATA.replace('"t"', '"u"')];
+  let n = 0;
+  const { env } = environment({ bind: false, fetch: () => Promise.resolve(response(bodies[n++ % 3])) });
+  assert.equal(env.__yftMasterCaptureV1.bind(1, env.location.href, true), true);
+  for (let i = 0; i < 3; i++) { await env.fetch("https://api.test/data"); await settle(); }
+  assert.equal(sampled(env, 1).payloads.length, 3);
+  assert.equal(env.__yftMasterCaptureV1.bind(2, env.location.href, true), true);
+  assert.deepEqual(sampled(env, 2).payloads, [OTHER_DATA, bodies[2]]);
+  // Every other site (no carry): the body is read for its own bind only.
+  const other = environment({ fetch: () => Promise.resolve(response(VIDEO_DATA)) }).env;
+  await other.fetch("https://api.test/data");
+  await settle();
+  assert.deepEqual(sampled(other, 1).payloads, [VIDEO_DATA]);
+  assert.equal(other.__yftMasterCaptureV1.bind(2, other.location.href), true);
+  assert.equal(sampled(other, 2).payloads.length, 0);
+});
+
+test("VK: at most 16 manifests are kept for later binds, the newest", async () => {
+  const urls = Array.from({ length: 20 }, (_, n) => MPD + "&n=" + n);
+  const { env } = environment({
+    bind: false, fetch: url => Promise.resolve(response("<MPD/>", url, "application/dash+xml")),
+  });
+  for (const url of urls.slice(0, 10)) await env.fetch(url);
+  await settle();
+  env.__yftMasterCaptureV1.bind(1, env.location.href, true);
+  for (const url of urls.slice(10)) await env.fetch(url);
+  await settle();
+  env.__yftMasterCaptureV1.bind(2, env.location.href, true);
+  assert.deepEqual(sampled(env, 2).requests.map(r => r.url), urls.slice(4));
+});
+
+test("F1: a piece answered to a request that named no range is marked a piece", async () => {
+  const file = n => "https://cdn.test/file-" + n + ".mp4";
+  const answers = {
+    [file(1)]: pieceAnswer(file(1), "video/mp4", 206, null),
+    [file(2)]: pieceAnswer(file(2), "video/mp4", 206, null),
+    [file(3)]: pieceAnswer(file(3), "video/mp4", 200, "bytes 0-1427/5000000"),
+    [file(4)]: pieceAnswer(file(4), "video/mp4", 206, "bytes 0-4999/5000"),
+    [file(5)]: pieceAnswer(file(5), "video/mp4", 200, null),
+    [MPD]: pieceAnswer(MPD, "application/dash+xml", 206, null),
+  };
+  const { env } = environment({ fetch: url => Promise.resolve(answers[url]) });
+  await env.fetch(file(1));
+  await env.fetch(file(2), { headers: { Range: "bytes=0-99" } });
+  await env.fetch(file(3));
+  await env.fetch(file(4));
+  await env.fetch(file(5));
+  await env.fetch(MPD);
+  await settle();
+  const marked = Object.fromEntries(packet(env).requests.map(r => [r.url, r.piece === true]));
+  assert.deepEqual(marked, {
+    [MPD]: false, [file(1)]: true, [file(2)]: false, [file(3)]: true, [file(4)]: false,
+    [file(5)]: false,
+  });
+});
+
+test("F1: an XHR piece is marked unless the page asked for a range", () => {
+  const { env } = environment();
+  function load(url, header) {
+    const xhr = new env.XMLHttpRequest();
+    xhr.open("GET", url);
+    if (header) assert.equal(xhr.setRequestHeader("Range", "bytes=0-99"), "header-result");
+    xhr.send();
+    Object.assign(xhr, {
+      responseURL: url, status: 206, responseType: "arraybuffer",
+      getResponseHeader: name => name === "content-type" ? "video/mp4" : null,
+      getAllResponseHeaders: () => "content-type: video/mp4\r\n",
+    });
+    xhr.listener.call(xhr);
+  }
+  load("https://cdn.test/unasked.mp4", false);
+  load("https://cdn.test/asked.mp4", true);
+  const marked = Object.fromEntries(packet(env).requests.map(r => [r.url, r.piece === true]));
+  assert.deepEqual(marked, {
+    "https://cdn.test/unasked.mp4": true, "https://cdn.test/asked.mp4": false,
+  });
+  const wrapped = env.XMLHttpRequest.prototype.setRequestHeader;
+  env.__yftMasterCaptureV1.dispose();
+  assert.notEqual(env.XMLHttpRequest.prototype.setRequestHeader, wrapped);
+  assert.equal(new env.XMLHttpRequest().setRequestHeader("Range", "x"), "header-result");
 });

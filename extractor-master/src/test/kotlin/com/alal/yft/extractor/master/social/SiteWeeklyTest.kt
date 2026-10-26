@@ -94,7 +94,7 @@ class SiteWeeklyTest {
                 "(the time bounds each step too); each way once; Master's part on slot 1 only.",
             lines[0],
         )
-        assertEquals("W's slots: Facebook 1, 8, 13 · TikTok 1, 6, 9 · Instagram 1, 8, 10 · X 1, 6, 8", lines[1])
+        assertEquals("W's slots: Facebook 1, 8, 13 · TikTok 1, 6, 9 · Instagram 1, 8, 10 · X 1, 6, 8 · VK 1, 4, 8", lines[1])
         assertEquals("X: ran, ${x["req"].asLongOrNull} requests, bytes not measured, 0 s", lines[2])
         assertEquals("Instagram: not run (no link in W's slots)", lines[3])
         assertTrue(lines[4], lines[4].startsWith("A part not run is never a pass; each CHANGED or BREAKING line names its W runbook step"))
@@ -478,7 +478,7 @@ class SiteWeeklyTest {
         assertEquals(60_000L, SiteWeekly.MAX_MILLIS)
         assertEquals(2L * 1024 * 1024, SiteWeekly.MAX_BYTES)
         assertEquals(24, SiteWeekly.MAX_REQUESTS)
-        assertEquals(listOf("facebook", "tiktok", "instagram", "x"), SiteWeekly.SLOTS.keys.toList())
+        assertEquals(listOf("facebook", "tiktok", "instagram", "x", "vk"), SiteWeekly.SLOTS.keys.toList())
         for (site in SiteWays.ALL) {
             val slots = checkNotNull(SiteWeekly.SLOTS[site.id])
             assertEquals("${site.name}: three slots, Master's slot first", SiteWeekly.MASTER_SLOT, slots.first())

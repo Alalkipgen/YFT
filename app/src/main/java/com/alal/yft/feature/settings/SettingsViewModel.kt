@@ -12,6 +12,7 @@ import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.core.model.settings.SearchEngine
 import com.alal.yft.detection.master.BackupFinder
+import com.alal.yft.detection.master.VkTrialBreak
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -48,6 +49,11 @@ data class SettingsUiState(
      * without Master, which has no such row.
      */
     val backupFinder: Boolean? = null,
+    /**
+     * VK-Master wave 2 (agent D, item 7): Settings › Browser › VK value break, the choice kept and
+     * the one this run uses; null but in #12 trial, which alone has the row.
+     */
+    val vkBreak: VkTrialBreak.Row? = null,
 )
 
 sealed interface SettingsAction {
@@ -61,6 +67,9 @@ sealed interface SettingsAction {
     data class SetSaveHistory(val enabled: Boolean) : SettingsAction
     data class SetBlockPopups(val enabled: Boolean) : SettingsAction
     data class SetBackupFinder(val enabled: Boolean) : SettingsAction
+
+    /** VK-Master wave 2 (item 7): the trial's VK value break, its next choice (after a restart). */
+    data object NextVkBreak : SettingsAction
     data class Request(val confirmation: SettingsConfirmation) : SettingsAction
     data object Confirm : SettingsAction
     data object Dismiss : SettingsAction
@@ -83,9 +92,12 @@ class SettingsViewModel @Inject constructor(
     private val browserHistory: BrowserHistoryRepository,
     // Decision 30 (i): the Backup finder switch; shown only when the build has Master.
     backupFinder: BackupFinder? = null,
+    // VK-Master wave 2 (item 7): the trial's VK value break; shown only when the build has it.
+    vkBreak: VkTrialBreak? = null,
 ) : ViewModel() {
     private val transient = MutableStateFlow(Transient())
     private val backupFinder = backupFinder?.takeIf { it.available }
+    private val vkBreak = vkBreak?.takeIf { it.available }
 
     val uiState: StateFlow<SettingsUiState> = combine(
         preferences.preferences,
@@ -105,6 +117,8 @@ class SettingsViewModel @Inject constructor(
         )
     }.combine(this.backupFinder?.on ?: flowOf(null)) { state, backupFinder ->
         state.copy(backupFinder = backupFinder)
+    }.combine(this.vkBreak?.row ?: flowOf(null)) { state, vkBreak ->
+        state.copy(vkBreak = vkBreak)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), SettingsUiState())
 
     fun onAction(action: SettingsAction) {
@@ -138,6 +152,8 @@ class SettingsViewModel @Inject constructor(
             }
 
             is SettingsAction.SetBackupFinder -> backupFinder?.set(action.enabled)
+
+            SettingsAction.NextVkBreak -> vkBreak?.next()
 
             is SettingsAction.Request -> transient.update {
                 if (it.working) it else it.copy(confirmation = action.confirmation)

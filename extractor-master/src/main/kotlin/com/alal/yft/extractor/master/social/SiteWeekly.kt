@@ -48,13 +48,15 @@ object SiteWeekly {
     /**
      * W's slots per site, [MASTER_SLOT] first: Facebook a video, a share link (main resolves it
      * first), removed; TikTok a single video, a photo post, removed; Instagram a single video,
-     * photo-only, removed; X a video, several videos (the item), removed.
+     * photo-only, removed; X a video, several videos (the item), removed; VK (agent A's census §7.2) an
+     * 18+ video (main's path D, V, the ladder's V1/V2), a normal video main answers, removed.
      */
     val SLOTS: Map<String, List<Int>> = linkedMapOf(
         "facebook" to listOf(1, 8, 13),
         "tiktok" to listOf(1, 6, 9),
         "instagram" to listOf(1, 8, 10),
         "x" to listOf(1, 6, 8),
+        "vk" to listOf(1, 4, 8),
     )
 
     const val MASTER_SLOT = 1

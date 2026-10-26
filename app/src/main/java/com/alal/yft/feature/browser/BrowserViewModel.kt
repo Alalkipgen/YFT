@@ -31,6 +31,7 @@ import com.alal.yft.detection.master.BrowserMasterFallback
 import com.alal.yft.detection.master.BackupFinder
 import com.alal.yft.detection.master.InstagramProbeSwitch
 import com.alal.yft.detection.master.SocialLadder
+import com.alal.yft.detection.master.VkTrialBreak
 import com.alal.yft.detection.master.YouTubeRouteB
 import com.alal.yft.BuildConfig
 import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
@@ -119,6 +120,8 @@ class BrowserViewModel(
             BuildConfig.MASTER_CAPTURE_ENABLED, okHttpClient, siteAdapters, playerScriptRunner,
             { appContext.filesDir },
             on = backupFinder::isOn,
+            // VK-Master wave 2 (agent D, item 7): the trial's VK value break (null elsewhere).
+            vkMutate = VkTrialBreak.mutate(appContext),
         ),
         InstagramProbeSwitch.reader(appContext),
         InstagramProbeSwitch.proofReader(appContext),
@@ -257,6 +260,12 @@ class BrowserViewModel(
 
     /** P12: the page's own video once its lookup found it. */
     private var foundPageVideo: MediaGroup? = null
+
+    /**
+     * VK-Master wave 2: the detail lines of the lookup that found [foundPageVideo] (the backup
+     * finder's), which the download sheet shows as its Lookup details; none when it gave none.
+     */
+    private var foundPageDetails: List<String> = emptyList()
 
     /** P12: the sheet opened before the page's lookup ended and waits for its video. */
     private var sheetAwaitsPageVideo = false
@@ -429,9 +438,19 @@ class BrowserViewModel(
             awaitVideoAfterAd(video)
             return true
         }
-        detectedMediaStore.select(MediaGroups.withPageFacts(video, state.pageFacts))
+        detectedMediaStore.select(
+            MediaGroups.withPageFacts(video, state.pageFacts),
+            lookupDetails = pageLookupDetails(video),
+        )
         return true
     }
+
+    /**
+     * VK-Master wave 2: the lines of the page's lookup when [video] is the video it found (the
+     * download sheet's Lookup details); none for every other video of the page.
+     */
+    private fun pageLookupDetails(video: MediaGroup): List<String> =
+        foundPageDetails.takeIf { foundPageVideo?.key == video.key }.orEmpty()
 
     override fun onPageStarted(url: String) {
         beginPageScope(url)
@@ -691,7 +710,8 @@ class BrowserViewModel(
                             if (mainMore != null) {
                                 mutableUiState.update { it.copy(sitePage = false) }
                             }
-                            showFocusedVideo(video, sheet)
+                            // VK-Master wave 2: the sheet's Lookup details are the lookup's lines.
+                            showFocusedVideo(video, sheet, outcome.details)
                         }
                     }
                 }
@@ -733,9 +753,16 @@ class BrowserViewModel(
         }
     }
 
-    /** The focused video's rows are chosen; the sheet that waited on them shows them. */
-    private fun showFocusedVideo(video: MediaGroup, sheet: PageVideoLookup?) {
-        detectedMediaStore.select(video)
+    /**
+     * The focused video's rows are chosen; the sheet that waited on them shows them. VK-Master
+     * wave 2: with [details], the lines of the lookup that found them (its Lookup details).
+     */
+    private fun showFocusedVideo(
+        video: MediaGroup,
+        sheet: PageVideoLookup?,
+        details: List<String> = emptyList(),
+    ) {
+        detectedMediaStore.select(video, lookupDetails = details)
         finishFocusLookup(notice = null)
         if (sheet == null) {
             quickDownloads.trySend(Unit)
@@ -926,7 +953,8 @@ class BrowserViewModel(
                         }
                     }
                     candidateStore.submitAll(found)
-                    showPageVideo(key, livePageUrl, pageTitle, found)
+                    // VK-Master wave 2: the sheet's Lookup details are the lookup's own lines.
+                    showPageVideo(key, livePageUrl, pageTitle, found, outcome.details)
                     // Phase 1.4 item 7 R4: a route-B build names route B's answer and its counts
                     // (`master: route B after <reason>; replayed N; new M`); every other: nothing.
                     // Social plan S1a (9): the Facebook trial APK names Facebook's line with the
@@ -1003,12 +1031,14 @@ class BrowserViewModel(
     /**
      * P12: the page's lookup found its video; a sheet that waits for it shows it now. A find
      * with nothing savable (only protected media) is the sheet's failure, without Try again.
+     * VK-Master wave 2: [details] (the lookup's lines) go with the video to the sheet.
      */
     private fun showPageVideo(
         key: String?,
         pageUrl: String,
         title: String?,
         found: List<MediaCandidate>,
+        details: List<String> = emptyList(),
     ) {
         pageLookupDone.complete(found.isNotEmpty())
         if (key == null) return
@@ -1024,9 +1054,10 @@ class BrowserViewModel(
         }
         if (mainMore != null) mutableUiState.update { it.copy(sitePage = false) }
         foundPageVideo = video
+        foundPageDetails = details
         if (sheetAwaitsPageVideo) {
             sheetAwaitsPageVideo = false
-            detectedMediaStore.select(video)
+            detectedMediaStore.select(video, lookupDetails = details)
         }
         detectedMediaStore.clearLookup(LookupOwner.BROWSER)
     }
@@ -1099,7 +1130,8 @@ class BrowserViewModel(
         val video = MediaGroups.pageVideos(savable, adapterSite = true).firstOrNull()
             ?: foundPageVideo
         if (video != null) {
-            detectedMediaStore.select(video)
+            // VK-Master wave 2: with the lines of the page's lookup, the sheet's Lookup details.
+            detectedMediaStore.select(video, lookupDetails = pageLookupDetails(video))
             return true
         }
         detectedMediaStore.awaitPageVideo()
@@ -1180,7 +1212,10 @@ class BrowserViewModel(
         if (MediaGroups.mayBeAdBefore(main, facts)) {
             awaitVideoAfterAd(main)
         } else {
-            detectedMediaStore.select(MediaGroups.withPageFacts(main, facts))
+            detectedMediaStore.select(
+                MediaGroups.withPageFacts(main, facts),
+                lookupDetails = pageLookupDetails(main),
+            )
         }
         quickDownloads.trySend(Unit)
     }

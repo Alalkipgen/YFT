@@ -107,7 +107,41 @@ class MasterFallbackEngine(
         }
     }
 
+    /**
+     * Agent D's wiring (VK-Master plan §8): [stages] with the claimed rung's V hook
+     * ([SocialStage.Staged.checked]) told once — after V's checks of its rows, else false when the
+     * lookup ends or moves on before them.
+     */
     private suspend fun run(request: MasterRequest): MasterResult {
+        val rung = RungCheck()
+        return try {
+            stages(request, rung)
+        } finally {
+            rung.report(false)
+        }
+    }
+
+    /** A claimed rung's V hook ([SocialStage.Staged.checked]), told at most once; one that throws is ignored. */
+    private class RungCheck {
+        private var hook: ((Boolean) -> Unit)? = null
+
+        fun expect(checked: ((Boolean) -> Unit)?) {
+            report(false)
+            hook = checked
+        }
+
+        fun report(passed: Boolean) {
+            val told = hook ?: return
+            hook = null
+            try {
+                told(passed)
+            } catch (_: Exception) {
+                // The rung's own bookkeeping: never the lookup's answer.
+            }
+        }
+    }
+
+    private suspend fun stages(request: MasterRequest, rung: RungCheck): MasterResult {
         val details = mutableListOf<String>()
         var ambiguous = false
         var lastFailure: SiteExtractionFailure? = null
@@ -119,6 +153,8 @@ class MasterFallbackEngine(
 
         for (index in 0..2) {
             if (last) break
+            // D: a rung's hook not told in its own stage (the stage moved on): none of its rows passed V.
+            rung.report(false)
             // S1a (3): a social rung's snapshot is read for the video it asked about.
             var read = request
             val stage = when (index) {
@@ -126,6 +162,7 @@ class MasterFallbackEngine(
                     checkNotNull(social).stage(request, policy, details)?.let { staged ->
                         read = staged.request
                         last = staged.last
+                        rung.expect(staged.checked)
                         staged.stage to staged.snapshot
                     }
                 } else {
@@ -214,6 +251,8 @@ class MasterFallbackEngine(
                     }
                 }
             }
+            // D: V's checks of this stage's rows are done: the claimed rung learns whether any passed.
+            rung.report(valid.isNotEmpty())
             if (valid.isNotEmpty()) {
                 details += "master: ${valid.size} checked candidates via ${name.name}"
                 return MasterResult.Success(

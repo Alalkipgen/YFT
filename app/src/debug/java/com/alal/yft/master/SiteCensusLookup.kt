@@ -24,6 +24,7 @@ import com.alal.yft.extractor.sites.facebook.FacebookExtractor
 import com.alal.yft.extractor.sites.instagram.InstagramExtractor
 import com.alal.yft.extractor.sites.tiktok.TikTokAgents
 import com.alal.yft.extractor.sites.tiktok.TikTokExtractor
+import com.alal.yft.extractor.sites.vk.VkExtractor
 import com.alal.yft.extractor.sites.x.XExtractor
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
@@ -108,10 +109,10 @@ class SiteCensusLookup(
         private val ADAPTER_HTTP = Regex("""adapter HTTP (\d{3})""")
 
         /**
-         * The census's four adapters as the app builds them (`SiteAdapterModule`): TikTok on its
+         * The census's five adapters as the app builds them (`SiteAdapterModule`): TikTok on its
          * own client ([tikTokHttp]: a short link's redirect cookies go on) and the WebView's agent;
-         * Facebook, X and Instagram on [http]. 0.4: each tapped ([Tapped]), so a lookup also gets
-         * its answer's lines.
+         * Facebook, X, Instagram and (VK-Master wave 2) VK on [http]. 0.4: each tapped ([Tapped]),
+         * so a lookup also gets its answer's lines.
          */
         fun registry(
             http: ExtractorHttpClient,
@@ -128,6 +129,7 @@ class SiteCensusLookup(
                 FacebookExtractor(http),
                 XExtractor(http),
                 InstagramExtractor(http),
+                VkExtractor(http),
             ).map(::Tapped),
         )
 

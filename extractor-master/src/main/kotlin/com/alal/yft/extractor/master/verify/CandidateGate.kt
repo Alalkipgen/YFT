@@ -2,12 +2,14 @@ package com.alal.yft.extractor.master.verify
 
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.PageMediaRole
+import com.alal.yft.extractor.generic.classifier.MediaFileUrls
 import com.alal.yft.extractor.master.toolkit.UrlPolicy
 
 /**
- * What may be offered at all: HTTPS, unexpired, not DRM, not an ad, not a preview and not a site's
+ * What may be offered at all: HTTPS, unexpired, not DRM, not an ad, not a preview, not a site's
  * build resource ([UrlPolicy.buildResource], social plan task 18: whichever layer or capture found
- * it).
+ * it) and not a piece of a file (F1, VK's pack proof: an address naming a closed `bytes=A-B`
+ * range, [MediaFileUrls.isPiece], gives that piece only).
  */
 internal object CandidateGate {
     fun eligible(candidate: MediaCandidate, now: Long): Boolean =
@@ -15,6 +17,7 @@ internal object CandidateGate {
             candidate.pageRole != PageMediaRole.PREVIEW &&
             !UrlPolicy.looksLikeAd(candidate.mediaUrl) &&
             !UrlPolicy.buildResource(candidate.mediaUrl) &&
+            !MediaFileUrls.isPiece(candidate.mediaUrl) &&
             candidate.expiresAtEpochMs?.let { it > now } != false
 
     /**

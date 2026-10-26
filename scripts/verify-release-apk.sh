@@ -8,7 +8,8 @@ usage() {
 Usage: bash scripts/verify-release-apk.sh [options] <apk>
 
 Checks package and version, that the APK is not debuggable, zip alignment and the APK signature
-(v2 or v3, exactly one signer, not the Android debug certificate).
+(v2 or v3, exactly one signer, not the Android debug certificate). The trial's own tools (the VK
+value break) may be in com.alal.yft.trial only.
 
 Options:
   --package NAME              Required package (default com.alal.yft; the owner's test build is
@@ -132,7 +133,12 @@ ok "not debuggable"
 "$zipalign" -c 4 "$apk" >/dev/null 2>&1 || fail "APK is not zip-aligned"
 ok "zip-aligned"
 command -v python3 >/dev/null || fail "python3 is required for the debug-action safety check"
-python3 "$(dirname "$0")/verify-release-debug-actions.py" "$apk" \
+# VK-Master wave 2 (agent D, item 7): the trial's own tools only in #12 trial (com.alal.yft.trial).
+trial_tools=()
+if [[ "$expected_package" == "com.alal.yft.trial" ]]; then
+  trial_tools=(--allow-trial-tools)
+fi
+python3 "$(dirname "$0")/verify-release-debug-actions.py" ${trial_tools[@]+"${trial_tools[@]}"} "$apk" \
   || fail "debug crash action check failed"
 
 # Prints "<schemes>|<signers>|<cert sha256>|<cert DN>" or fails.

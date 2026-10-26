@@ -1,5 +1,7 @@
 package com.alal.yft.extractor.master.social
 
+import com.alal.yft.core.model.media.BrowserRequestContext
+import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.extractor.api.SiteExtractionFailure
@@ -12,6 +14,7 @@ import com.alal.yft.extractor.master.modules.youtube.StreamCheck
 import com.alal.yft.extractor.master.modules.youtube.ladder.InitCheck
 import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStart
 import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStartReader
+import com.alal.yft.extractor.master.toolkit.CandidateFactory
 import com.alal.yft.extractor.master.toolkit.UrlPolicy
 import java.net.URI
 import java.util.WeakHashMap
@@ -56,6 +59,24 @@ import kotlinx.coroutines.withContext
  *   names it as main names that size (the plugin player's answer names none). No other read, no
  *   larger read, no new ask in the record. A row's own size stays (never overwritten); bytes
  *   without one, and a sound-only file, leave it unknown, as before.
+ * - **VK's page manifest** (VK's pack proof, V3's retest 2026-10-26): in a VK lookup only, the DASH
+ *   manifest VK's player fetched on its page (a capture row, [VkPageDash.pageManifest]; a ladder's
+ *   manifest row stays unknown, unasked) is read whole (one read of at most 64 KiB, under the same
+ *   rules: route B, VK's media hosts, once a lookup, counted in [maxReads]); a cut, live or
+ *   unreadable one is unknown, a protected one DRM (final). Its row is its tallest picture file
+ *   with its best sound of the same container ([VkPageDash.read]), both whole files: each gets V
+ *   and the init check as any file row (its start read once, the sound's too, so the engine's
+ *   check of the row's sound asks nothing new). The row passes with the picture file's address,
+ *   type and size, the sound to merge, the manifest's length (else the file's own) and the
+ *   files' own totals; an HLS manifest and every other site's manifest row stay unknown, unasked.
+ *
+ * - **VK's pieces' files** (V3's retest 2): in a VK lookup, a picture file row (the whole file of
+ *   pieces VK's player asked for, [VkPieceFiles]; any VK picture row) that passes and states no
+ *   codecs gets its file's own sample entry from the same bytes ([StartPicture.codec]), so the
+ *   phone's merge gate reads it. No other read. A VK sound row that passes and states no codecs
+ *   (the pieces' sound file, checked as the row's companion) gets its own the same way
+ *   ([StartSound.codec]: `mp4a.40.2`), so the download's gate takes the merge the sheet offered
+ *   (the owner's retest of 7e101aa4: "cannot be combined on this phone").
  *
  * Every other lookup: [validator] (the engine's own V), unchanged. Nothing is logged; a result
  * names a reason only, never an address, a header or a byte.
@@ -86,14 +107,20 @@ class SocialRowCheck(
         if (row.drmHint == true) return rejected(SiteExtractionFailure.DRM_PROTECTED)
         val expires = listOfNotNull(row.expiresAtEpochMs, UrlPolicy.expiry(row.mediaUrl)).minOrNull()
         if (expires != null && expires - now < MIN_LIFETIME_MILLIS) return rejected(SiteExtractionFailure.EXPIRED_LINK)
-        // Unknown, so no pass: a manifest row (no file start), a host that stopped in the lookup, a
-        // type the check cannot read, another host (refused, task 9), the lookup's reads spent.
-        // None is asked.
-        if (manifest(row) || hostOf(row.mediaUrl) in record.stopHosts()) {
-            return rejected(SiteExtractionFailure.NO_MEDIA_FOUND)
+        // Unknown, so no pass: a manifest row (no file start; VK's page manifest aside), a host that
+        // stopped in the lookup, a type the check cannot read, another host (refused, task 9), the
+        // lookup's reads spent. None is asked.
+        if (hostOf(row.mediaUrl) in record.stopHosts()) return rejected(SiteExtractionFailure.NO_MEDIA_FOUND)
+        if (manifest(row)) {
+            return if (site.id == VkClient.SITE_ID && !hls(row) && VkPageDash.pageManifest(row)) {
+                pageManifest(record, row, now, site, expires)
+            } else {
+                rejected(SiteExtractionFailure.NO_MEDIA_FOUND)
+            }
         }
         val type = typeOf(row) ?: return rejected(SiteExtractionFailure.NO_MEDIA_FOUND)
-        val read = start(record, row, RowReadSite(site)) ?: return rejected(SiteExtractionFailure.NO_MEDIA_FOUND)
+        val read = start(record, row.mediaUrl, row.requestContext, RowReadSite(site))
+            ?: return rejected(SiteExtractionFailure.NO_MEDIA_FOUND)
         if (read is MediaStart.Failed) return rejected(failure(read.statusCode))
         read as MediaStart.Read
         if (read.statusCode !in OK_STATUSES) return rejected(SiteExtractionFailure.HTTP_STATUS)
@@ -107,6 +134,17 @@ class SocialRowCheck(
                 } else {
                     null
                 }
+                // VK's pack proof (V3's retest 2): a VK picture row that states no codecs names its
+                // file's own (its sample entry, as the phone's merge gate reads them).
+                // The owner's retest of 7e101aa4: a VK sound row (the pieces' sound file, checked
+                // as the row's companion) names its own too (`mp4a.40.2`, [StartSound]), so the
+                // download's gate takes the merge the sheet offered.
+                val codecs = when {
+                    row.codecs.isNotEmpty() || site.id != VkClient.SITE_ID -> row.codecs
+                    type.startsWith(VIDEO) -> StartPicture.codec(read.bytes)?.let(::listOf) ?: row.codecs
+                    type.startsWith(AUDIO) -> StartSound.codec(read.bytes)?.let(::listOf) ?: row.codecs
+                    else -> row.codecs
+                }
                 ValidationResult.Valid(
                     row.copy(
                         mimeType = row.mimeType ?: type,
@@ -116,6 +154,7 @@ class SocialRowCheck(
                         durationMillis = row.durationMillis ?: StartDuration.millis(read.bytes),
                         width = picture?.width ?: row.width,
                         height = picture?.height ?: row.height,
+                        codecs = codecs,
                     ),
                 )
             }
@@ -131,13 +170,127 @@ class SocialRowCheck(
     }
 
     /**
-     * [row]'s file's first bytes in [record]'s lookup, read on [site]'s media hosts only: read once
-     * (a later row of the same file gets the same bytes), while fewer than [maxReads] files were
-     * read; null when they are spent, or (task 9) when the file is off [site]'s media hosts: refused
-     * here, before route B lists an ask, and counted ([refused]).
+     * VK's page manifest [row] (see the class notes) in [record]'s lookup at [now], on [site]'s
+     * media hosts: read whole, its tallest picture file and its sound checked, the row of both.
      */
-    private suspend fun start(record: LookupRecord, row: MediaCandidate, site: RowReadSite): MediaStart? {
-        val url = row.mediaUrl
+    private suspend fun pageManifest(
+        record: LookupRecord,
+        row: MediaCandidate,
+        now: Long,
+        site: Site,
+        expires: Long?,
+    ): ValidationResult {
+        val read = start(record, row.mediaUrl, row.requestContext, RowReadSite(site), OkHttpRowReader.MAX_BYTES)
+            ?: return rejected(SiteExtractionFailure.NO_MEDIA_FOUND)
+        if (read is MediaStart.Failed) return rejected(failure(read.statusCode))
+        read as MediaStart.Read
+        if (read.statusCode !in OK_STATUSES) return rejected(SiteExtractionFailure.HTTP_STATUS)
+        // The whole manifest only: an answer short of its total is cut, so unknown.
+        val total = InitCheck.totalOf(read.contentRange) ?: read.contentLength.takeIf { read.statusCode == HTTP_OK }
+        if (total != null && total > read.bytes.size) return rejected(SiteExtractionFailure.NO_MEDIA_FOUND)
+        val text = VkPageDash.text(read.bytes) ?: return rejected(SiteExtractionFailure.NO_MEDIA_FOUND)
+        val files = when (val found = VkPageDash.read(text, row.mediaUrl, now)) {
+            is VkPageDash.Read.None -> return rejected(found.reason)
+            is VkPageDash.Read.Files -> found
+        }
+        val picture = when (val checked = file(record, row, files.picture, now, site)) {
+            is FileCheck.Failed -> return rejected(checked.reason)
+            is FileCheck.Passed -> checked
+        }
+        val sound = when (val checked = files.sound?.let { file(record, row, it, now, site) }) {
+            null -> null
+            is FileCheck.Failed -> return rejected(checked.reason)
+            is FileCheck.Passed -> checked.file
+        }
+        val video = picture.file
+        // The file's own picture size when the manifest states none (read, never asked).
+        val size = if (stated(video.width) == null && stated(video.height) == null) StartPicture.of(picture.bytes) else null
+        return ValidationResult.Valid(
+            row.copy(
+                mediaUrl = video.mediaUrl,
+                sources = row.sources + CandidateSource.MANIFEST,
+                kind = MediaKind.DIRECT,
+                mimeType = video.mimeType,
+                codecs = video.codecs,
+                width = stated(video.width) ?: size?.width,
+                height = stated(video.height) ?: size?.height,
+                durationMillis = row.durationMillis ?: files.durationMillis ?: StartDuration.millis(picture.bytes),
+                contentLengthBytes = video.contentLengthBytes,
+                requestContext = video.requestContext,
+                expiresAtEpochMs = listOfNotNull(expires, video.expiresAtEpochMs).minOrNull(),
+                audioCompanion = sound?.let(CandidateFactory::companion),
+            ),
+        )
+    }
+
+    /** One of [manifest]'s whole [file]s: V and the init check on its start, as a file row's. */
+    private suspend fun file(
+        record: LookupRecord,
+        manifest: MediaCandidate,
+        file: MediaCandidate,
+        now: Long,
+        site: Site,
+    ): FileCheck {
+        val expires = UrlPolicy.expiry(file.mediaUrl)
+        if (expires != null && expires - now < MIN_LIFETIME_MILLIS) return FileCheck.Failed(SiteExtractionFailure.EXPIRED_LINK)
+        if (hostOf(file.mediaUrl) in record.stopHosts()) return FileCheck.Failed(SiteExtractionFailure.NO_MEDIA_FOUND)
+        val type = typeOf(file) ?: return FileCheck.Failed(SiteExtractionFailure.NO_MEDIA_FOUND)
+        // The manifest's own headers on its own host (its page as Referer, the download's agent, as
+        // the manifest's read sent them); another host gets the public ones only.
+        val context = if (UrlPolicy.origin(file.mediaUrl) == UrlPolicy.origin(manifest.mediaUrl)) {
+            manifest.requestContext
+        } else {
+            UrlPolicy.context(manifest.requestContext, manifest.mediaUrl, file.mediaUrl, manifest.pageUrl, captured = true)
+        }
+        val read = start(record, file.mediaUrl, context, RowReadSite(site))
+            ?: return FileCheck.Failed(SiteExtractionFailure.NO_MEDIA_FOUND)
+        if (read is MediaStart.Failed) return FileCheck.Failed(failure(read.statusCode))
+        read as MediaStart.Read
+        if (read.statusCode !in OK_STATUSES) return FileCheck.Failed(SiteExtractionFailure.HTTP_STATUS)
+        val total = InitCheck.totalOf(read.contentRange) ?: read.contentLength.takeIf { read.statusCode == HTTP_OK }
+        val checked = InitCheck.check(type, null, InitCheck.Observed(answerType(type, read.contentType), read.bytes, total))
+        return when (checked.verdict) {
+            StreamCheck.Verdict.PASS -> FileCheck.Passed(
+                file.copy(
+                    pageUrl = manifest.pageUrl,
+                    mimeType = type,
+                    requestContext = context,
+                    contentLengthBytes = total?.takeIf { it > 0 },
+                    expiresAtEpochMs = expires,
+                ),
+                read.bytes,
+            )
+            StreamCheck.Verdict.FAIL -> FileCheck.Failed(
+                if (checked.reason == InitCheck.Reason.ENCRYPTED) {
+                    SiteExtractionFailure.DRM_PROTECTED
+                } else {
+                    SiteExtractionFailure.RESPONSE_CHANGED
+                },
+            )
+            StreamCheck.Verdict.UNKNOWN -> FileCheck.Failed(SiteExtractionFailure.NO_MEDIA_FOUND)
+        }
+    }
+
+    /** A page manifest's file after its check: passed (the file, its start's bytes) or failed. */
+    private sealed interface FileCheck {
+        class Passed(val file: MediaCandidate, val bytes: ByteArray) : FileCheck
+        class Failed(val reason: SiteExtractionFailure) : FileCheck
+    }
+
+    /**
+     * [url]'s first [bytes] bytes (sent with [context]'s headers) in [record]'s lookup, read on
+     * [site]'s media hosts only: read once (a later row of the same file gets the same bytes),
+     * while fewer than [maxReads] files were read; null when they are spent, or (task 9) when the
+     * file is off [site]'s media hosts: refused here, before route B lists an ask, and counted
+     * ([refused]).
+     */
+    private suspend fun start(
+        record: LookupRecord,
+        url: String,
+        context: BrowserRequestContext,
+        site: RowReadSite,
+        bytes: Int = START_BYTES,
+    ): MediaStart? {
         val reads = synchronized(lookups) { lookups.getOrPut(record) { Reads() } }
         synchronized(reads) {
             reads.files[url]?.let { return it }
@@ -148,9 +301,9 @@ class SocialRowCheck(
             if (reads.asked >= maxReads) return null
             reads.asked++
         }
-        val headers = row.requestContext.replayHeaders().filterKeys { it.trim().lowercase() !in UNSENT }
+        val headers = context.replayHeaders().filterKeys { it.trim().lowercase() !in UNSENT }
         // Task 9: the read carries its lookup's site; the reader asks that site's hosts only.
-        val read = withContext(RouteBLookup(record) + site) { reader.read(url, headers, START_BYTES) }
+        val read = withContext(RouteBLookup(record) + site) { reader.read(url, headers, bytes) }
         synchronized(reads) { reads.files[url] = read }
         return read
     }
@@ -192,6 +345,7 @@ class SocialRowCheck(
         private val UNSENT = setOf("cookie", "authorization", "proxy-authorization", "range")
         private val TYPES = setOf("video/mp4", "audio/mp4", "video/webm", "audio/webm")
         private const val VIDEO = "video/"
+        private const val AUDIO = "audio/"
 
         /** A side a row states (above 0), else null. */
         private fun stated(side: Int?): Int? = side?.takeIf { it > 0 }
@@ -222,6 +376,10 @@ class SocialRowCheck(
             val base = answered?.substringBefore(';')?.trim()?.lowercase()
             return if (rowType.startsWith("audio/") && base == "video/" + rowType.substringAfter('/')) rowType else answered
         }
+
+        private fun hls(row: MediaCandidate): Boolean =
+            row.kind == MediaKind.HLS || "mpegurl" in row.mimeType?.lowercase().orEmpty() ||
+                pathOf(row.mediaUrl).endsWith(".m3u8")
 
         private fun manifest(row: MediaCandidate): Boolean {
             val mime = row.mimeType?.lowercase().orEmpty()

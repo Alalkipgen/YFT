@@ -236,6 +236,14 @@ fun QuickDownloadScreen(
                         state = state,
                         onSelect = onSelect,
                     )
+                    // VK-Master wave 2: the lookup's own lines after a success, as a failed
+                    // lookup's Details (Copy details too); a quiet build only with Show details.
+                    FailureDetails(
+                        lines = state.lookupDetails,
+                        tag = LOOKUP_DETAILS_TAG,
+                        copyTag = LOOKUP_COPY_TAG,
+                        label = LOOKUP_DETAILS,
+                    )
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
@@ -771,24 +779,27 @@ private fun ColumnScope.DownloadAction(
  * so a screenshot tells what went wrong. Hidden until asked for. P29: also under the line about
  * the next video ([tag] `quick-next-video-details`), with both attempts. P43: under the line
  * about a skipped ad without a tag ([tag] null). Social plan task 15 (F3): with a [copyTag] (the
- * sheet's failure), the shown Details offer "Copy details" beside "Hide details".
+ * sheet's failure), the shown Details offer "Copy details" beside "Hide details". VK-Master wave
+ * 2: under a success's rows the lookup's own lines, named by [label] ("Lookup details").
  */
 @Composable
 private fun ColumnScope.FailureDetails(
     lines: List<String>,
     tag: String? = "quick-error-details",
     copyTag: String? = null,
+    label: String = "Details",
 ) {
     // Decision 30 (v): a quiet build shows Details only with the hidden Show details on.
     if (lines.isEmpty() || LocalQuietRelease.current) return
     var shown by rememberSaveable(lines) { mutableStateOf(false) }
+    val hide = "Hide ${label.lowercase()}"
     if (shown && copyTag != null) {
         Row(
             modifier = Modifier.align(Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             YftTextButton(
-                text = "Hide details",
+                text = hide,
                 onClick = { shown = false },
                 modifier = if (tag != null) Modifier.testTag(tag) else Modifier,
             )
@@ -796,7 +807,7 @@ private fun ColumnScope.FailureDetails(
         }
     } else {
         YftTextButton(
-            text = if (shown) "Hide details" else "Details",
+            text = if (shown) hide else label,
             onClick = { shown = !shown },
             modifier = Modifier
                 .align(Alignment.CenterHorizontally)
@@ -878,6 +889,15 @@ internal const val AD_SKIPPED_MESSAGE = "That was an ad — showing the page's v
 
 /** P37: the error's way to reload the browser's page without its cache. */
 internal const val RELOAD_AND_RETRY = "Reload page and try again"
+
+/** VK-Master wave 2: the success sheet's toggle of the lookup's own lines. */
+internal const val LOOKUP_DETAILS = "Lookup details"
+
+/** VK-Master wave 2: the Lookup details toggle (its lines: `quick-lookup-detail-text`). */
+internal const val LOOKUP_DETAILS_TAG = "quick-lookup-details"
+
+/** VK-Master wave 2: Lookup details' Copy details. */
+internal const val LOOKUP_COPY_TAG = "quick-lookup-copy"
 
 /** P18: Download's label once it was tapped before the qualities came. */
 internal const val STARTS_WHEN_READY = "Starts when ready…"

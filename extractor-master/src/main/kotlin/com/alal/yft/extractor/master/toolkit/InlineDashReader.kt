@@ -18,7 +18,15 @@ import org.xml.sax.helpers.DefaultHandler
  * SegmentTemplate/SegmentList need a real manifest URL and stay with the existing resolver.
  */
 internal object InlineDashReader {
-    data class Result(val candidates: List<MediaCandidate>, val drm: Boolean = false)
+    /**
+     * [bandwidths]: each track's MPD `bandwidth` by its address (VK's pack proof: a page
+     * manifest's sound is chosen by it, never shown; the tracks themselves state no bitrate).
+     */
+    data class Result(
+        val candidates: List<MediaCandidate>,
+        val drm: Boolean = false,
+        val bandwidths: Map<String, Long> = emptyMap(),
+    )
 
     fun read(
         xml: String,
@@ -50,6 +58,7 @@ internal object InlineDashReader {
             return Result(emptyList(), drm = true)
         }
         val tracks = mutableListOf<MediaCandidate>()
+        val bandwidths = mutableMapOf<String, Long>()
         val representations = root.getElementsByTagNameNS("*", "Representation")
         for (index in 0 until minOf(representations.length, 100)) {
             val representation = representations.item(index) as? Element ?: continue
@@ -103,20 +112,25 @@ internal object InlineDashReader {
                 pageVideoKey = key,
             )
             tracks += candidate
+            representation.getAttribute("bandwidth").toLongOrNull()?.takeIf { it > 0 }
+                ?.let { bandwidths.putIfAbsent(address, it) }
         }
         val audio = tracks.filter { it.mimeType == "audio/mp4" }
             .filter { it.codecs.any { codec -> codec.startsWith("mp4a") } }
             .maxByOrNull { it.bitrateBitsPerSecond ?: 0 }
-        return Result(tracks.map { track ->
-            if (
-                audio != null && track.mimeType == "video/mp4" &&
-                track.codecs.any { it.startsWith("avc1") }
-            ) {
-                track.copy(audioCompanion = CandidateFactory.companion(audio))
-            } else {
-                track
-            }
-        })
+        return Result(
+            tracks.map { track ->
+                if (
+                    audio != null && track.mimeType == "video/mp4" &&
+                    track.codecs.any { it.startsWith("avc1") }
+                ) {
+                    track.copy(audioCompanion = CandidateFactory.companion(audio))
+                } else {
+                    track
+                }
+            },
+            bandwidths = bandwidths,
+        )
     }
 
     private fun Element.children(name: String): List<Element> =

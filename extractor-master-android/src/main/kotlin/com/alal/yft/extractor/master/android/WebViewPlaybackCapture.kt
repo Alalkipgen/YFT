@@ -21,6 +21,7 @@ import com.alal.yft.extractor.master.ValidationResult
 import com.alal.yft.extractor.master.present.MasterMainPresentation
 import com.alal.yft.extractor.master.verify.InspectedMedia
 import java.lang.ref.WeakReference
+import java.net.URI
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -50,6 +51,7 @@ class WebViewPlaybackCapture(
     private var script: String? = null
     private var steering: ScriptHandler? = null
     private var hooks: ScriptHandler? = null
+    private var early: ScriptHandler? = null
 
     fun attach(view: WebView) {
         mainThread()
@@ -63,6 +65,8 @@ class WebViewPlaybackCapture(
         steering = codecs?.let { steer(view, it) }
         hooks?.remove()
         hooks = if (mediaHooks) documentStart(view, readAsset(view, MEDIA_HOOKS_ASSET)) else null
+        early?.remove()
+        early = documentStart(view, script, EARLY_ORIGINS)
         val userAgent = view.settings.userAgentString
         val cookies = CookieManager.getInstance()
         session.setContextProvider { url, page ->
@@ -90,6 +94,8 @@ class WebViewPlaybackCapture(
         steering = null
         hooks?.remove()
         hooks = null
+        early?.remove()
+        early = null
         session.clear()
     }
 
@@ -150,10 +156,14 @@ class WebViewPlaybackCapture(
         documentStart(view, readAsset(view, CodecSteering.ASSET)?.let(policy::script))
 
     /** Nothing is installed on WebViews without document-start scripts; capture still works. */
-    private fun documentStart(view: WebView, source: String?): ScriptHandler? = runCatching {
+    private fun documentStart(
+        view: WebView,
+        source: String?,
+        origins: Set<String> = CodecSteering.ORIGINS,
+    ): ScriptHandler? = runCatching {
         if (source == null) return null
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return null
-        WebViewCompat.addDocumentStartJavaScript(view, source, CodecSteering.ORIGINS)
+        WebViewCompat.addDocumentStartJavaScript(view, source, origins)
     }.getOrNull()
 
     private fun readAsset(view: WebView, name: String): String? = runCatching {
@@ -167,8 +177,11 @@ class WebViewPlaybackCapture(
         val view = browser.get() ?: return
         val source = script ?: return
         val page = JSONObject.quote(scope.pageUrl)
+        // V3's retest (2026-10-26): on VK's pages the bind carries the page's manifests (see
+        // [carriesManifests]); every other site's bind is the one of before.
+        val carry = if (carriesManifests(scope.pageUrl)) ", true" else ""
         view.evaluateJavascript(
-            "$source\nwindow.__yftMasterCaptureV1.bind(${scope.generation}, $page)",
+            "$source\nwindow.__yftMasterCaptureV1.bind(${scope.generation}, $page$carry)",
             null,
         )
     }
@@ -255,5 +268,37 @@ class WebViewPlaybackCapture(
         const val SAMPLE_DELAY_MS = 200L
         const val MAX_SAMPLES = 10
         const val MEDIA_HOOKS_ASSET = "yft-master-mse.js"
+
+        /**
+         * VK's pack proof (2026-10-26): VK's player keeps the page's first `fetch` and asks for
+         * its manifest as it starts, both before [bind]'s script runs, so on VK's pages the
+         * capture script is also in place from document start (top frame only, like every
+         * bind; nothing leaves the page before a bind, which takes its own page's requests
+         * only). Every other site keeps the capture of before.
+         */
+        val EARLY_ORIGINS = setOf(
+            "https://vk.com", "https://*.vk.com",
+            "https://vk.ru", "https://*.vk.ru",
+            "https://vkvideo.ru", "https://*.vkvideo.ru",
+        )
+
+        /**
+         * V3's retest (2026-10-26): whether a bind on [pageUrl] (HTTPS on one of [EARLY_ORIGINS],
+         * the default port) carries the page's manifests: VK's player fetches its manifest once a
+         * document, so the capture keeps the manifests the document fetched (before its first
+         * bind and during any bind, at most 16, by the address they were fetched on) and offers
+         * them to every later bind of the same address (Try again's lookup). Nothing else is
+         * carried; a reload is a new document. Every other site: false (its capture of before).
+         */
+        fun carriesManifests(pageUrl: String): Boolean {
+            val uri = runCatching { URI(pageUrl) }.getOrNull() ?: return false
+            if (!uri.scheme.equals("https", true) || uri.rawUserInfo != null) return false
+            if (uri.port != -1 && uri.port != 443) return false
+            val host = uri.host?.lowercase()?.trimEnd('.')?.takeIf(String::isNotEmpty) ?: return false
+            return EARLY_ORIGINS.any { origin ->
+                val pattern = origin.removePrefix("https://")
+                if (pattern.startsWith("*.")) host.endsWith(pattern.substring(1)) else host == pattern
+            }
+        }
     }
 }

@@ -42,6 +42,31 @@ class StartPictureTest {
         assertEquals(StartPicture.Size(854, 480), StartPicture.of(cut.copyOf(header)))
     }
 
+    /**
+     * VK's pack proof (V3's retest 2): the picture track's sample entry names its codec, so a VK
+     * picture file row that states none names its own (the phone's merge gate reads it).
+     */
+    @Test
+    fun `the picture track's sample entry is its codec, a start without one names none`() {
+        assertEquals("avc1", StartPicture.codec(PictureBytes.fragmented(PictureBytes.video(1_280, 720))))
+        assertEquals(
+            "av01",
+            StartPicture.codec(PictureBytes.fragmented(PictureBytes.video(1_080, 1_920, entry = PictureBytes.visual("av01", 1_080, 1_920)))),
+        )
+        assertEquals(
+            "hvc1",
+            StartPicture.codec(
+                PictureBytes.progressive(PictureBytes.sound(), PictureBytes.video(3_840, 2_160, entry = PictureBytes.visual("hvc1", 3_840, 2_160))),
+            ),
+        )
+        // A sound-only start; a read that cuts the picture track after its header (size, no entry).
+        assertNull(StartPicture.codec(PictureBytes.progressive(PictureBytes.sound())))
+        val cut = PictureBytes.progressive(PictureBytes.video(854, 480))
+        val header = cut.indexOf("tkhd") + 4 + 84
+        assertEquals(StartPicture.Size(854, 480), StartPicture.of(cut.copyOf(header)))
+        assertNull(StartPicture.codec(cut.copyOf(header)))
+    }
+
     @Test
     fun `a fragmented file's moov gives its size`() {
         // A DASH start: no samples in the moov, its fragments in mvex, an index and a fragment after it.
