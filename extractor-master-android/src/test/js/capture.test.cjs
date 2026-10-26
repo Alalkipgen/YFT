@@ -469,6 +469,51 @@ test("VK: a carried bind takes its own address's manifest answered late, never a
   assert.equal(sampled(env, 3).requests.length, 0);
 });
 
+// V3's retest 2 (2026-10-27): VK's page address gains a query (`list=` and the like) as it
+// settles, so a carried bind counts a request begun on its own page under another query; another
+// video's overlay (`?z=video…`) or another path never. Every other bind: the exact address only.
+test("VK: a carried bind takes its page's requests made under another query, never another video's", async () => {
+  const { env } = environment({
+    bind: false, page: "https://page.test/watch?list=a",
+    fetch: url => Promise.resolve(url.includes("bytes=") ?
+      response("", url, "video/mp4") : response("<MPD/>", url, "application/dash+xml")),
+  });
+  await env.fetch(MPD);
+  await env.fetch(piece(0));
+  await settle();
+  env.location.href = "https://page.test/watch";
+  assert.equal(env.__yftMasterCaptureV1.bind(1, env.location.href, true), true);
+  assert.deepEqual(sampled(env, 1).requests.map(r => r.url), [MPD, piece(0)]);
+  // Another video's overlay on the same path names its video in `z`: nothing comes along.
+  env.location.href = "https://page.test/watch?z=video-1_2";
+  assert.equal(env.__yftMasterCaptureV1.bind(2, env.location.href, true), true);
+  assert.equal(sampled(env, 2).requests.length, 0);
+  await env.fetch(MPD + "&z");
+  await settle();
+  env.location.href = "https://page.test/watch?z=video-1_2&list=b";
+  assert.equal(env.__yftMasterCaptureV1.bind(3, env.location.href, true), true);
+  assert.deepEqual(sampled(env, 3).requests.map(r => r.url), [MPD + "&z"]);
+  // Back on the first video under yet another query: its own manifest only; another path: none.
+  env.location.href = "https://page.test/watch?list=c";
+  assert.equal(env.__yftMasterCaptureV1.bind(4, env.location.href, true), true);
+  assert.deepEqual(sampled(env, 4).requests.map(r => r.url), [MPD]);
+  env.location.href = "https://page.test/watch/next?list=a";
+  assert.equal(env.__yftMasterCaptureV1.bind(5, env.location.href, true), true);
+  assert.equal(sampled(env, 5).requests.length, 0);
+});
+
+test("every other site: a request made under another query before the first bind is not taken", async () => {
+  const answer = response("<MPD/>", MPD, "application/dash+xml");
+  const { env } = environment({
+    bind: false, page: "https://page.test/watch?list=a", fetch: () => Promise.resolve(answer),
+  });
+  await env.fetch(MPD);
+  await settle();
+  env.location.href = "https://page.test/watch";
+  assert.equal(env.__yftMasterCaptureV1.bind(1, env.location.href), true);
+  assert.equal(packet(env).requests.length, 0);
+});
+
 test("every other site: a later bind gets no manifest of an earlier one (as before)", async () => {
   const answer = response("<MPD/>", MPD, "application/dash+xml");
   const { env } = environment({ fetch: () => Promise.resolve(answer) });

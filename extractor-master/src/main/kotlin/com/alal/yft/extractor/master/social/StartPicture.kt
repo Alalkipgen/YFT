@@ -42,11 +42,24 @@ internal object StartPicture {
         var header: Size? = null
         var turned = false
         var entry: Size? = null
+        var entryType: String? = null
     }
 
-    fun of(bytes: ByteArray): Size? {
+    fun of(bytes: ByteArray): Size? = read(bytes)?.first
+
+    /**
+     * VK's pack proof (V3's retest 2): the picture track's sample entry as [of] finds that track
+     * (`avc1`, `avc3`, `hvc1`, `hev1`, `vp09`, `av01`), so a row that states no codecs names its
+     * file's own (the phone's merge gate reads them); null when [of] finds no picture or the
+     * track's `stsd` is past the bytes.
+     */
+    fun codec(bytes: ByteArray): String? = read(bytes)?.second
+
+    /** The first picture track's size and its sample entry (when the bytes hold it). */
+    private fun read(bytes: ByteArray): Pair<Size, String?>? {
         var boxes = 0
         var found: Size? = null
+        var codec: String? = null
 
         fun u16(at: Int): Int = ((bytes[at].toInt() and 255) shl 8) or (bytes[at + 1].toInt() and 255)
 
@@ -85,6 +98,7 @@ internal object StartPicture {
             if (entry + 36 > end || u32(body + 4) < 1) return
             val size = u32(entry)
             if (size < 36 || size > end - entry || type(entry + 4) !in VISUAL) return
+            track.entryType = type(entry + 4)
             val width = u16(entry + 32)
             val height = u16(entry + 34)
             if (width > 0 && height > 0) track.entry = Size(width, height)
@@ -125,6 +139,7 @@ internal object StartPicture {
                         val each = Track()
                         walk(body, end, 2, each)
                         found = pictureOf(each)
+                        if (found != null) codec = each.entryType
                     }
                     track != null -> when (name) {
                         "tkhd" -> if (depth == 2 && whole && body < end) trackHeader(track, body, end)
@@ -142,6 +157,6 @@ internal object StartPicture {
         }
 
         walk(0, bytes.size, 0, null)
-        return found
+        return found?.let { it to codec }
     }
 }

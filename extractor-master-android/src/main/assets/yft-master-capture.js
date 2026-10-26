@@ -48,6 +48,19 @@
   function manifest(url, mime) {
     return /mpegurl|dash\+xml/i.test(mime || "") || /\.(m3u8|mpd)(?:[?#]|$)/i.test(url || "");
   }
+  // V3's retest 2 (2026-10-27): on a bind that carries manifests (VK's pages) a request counts
+  // for the bind's page when it began on the same page: the same address, or one that differs in
+  // its query only (VK adds `list=` and the like as the page settles), never another video (VK's
+  // overlay address `?z=video…` names its video in its query). Every other bind: the same address.
+  function samePage(href, page) {
+    if (href === page) return true;
+    if (!state.carry || typeof href !== "string" || typeof page !== "string") return false;
+    try {
+      const a = new URL(href), b = new URL(page);
+      return a.origin === b.origin && a.pathname === b.pathname &&
+        a.searchParams.get("z") === b.searchParams.get("z");
+    } catch (_) { return false; }
+  }
   // A manifest the page fetched on [href] (V3's retest): kept before the first bind (VK's
   // pages only have one then) and on a bind that carries them; at most MAX_MANIFESTS.
   function keep(entry, href) {
@@ -88,8 +101,8 @@
     // A bind that carries manifests (VK's pages) also takes a manifest of its own address
     // that an earlier bind's request (or one begun before the first bind) answered late.
     if (generation === state.generation ||
-        (generation === -1 && state.first === state.generation && href === state.page) ||
-        (state.carry && href === state.page && manifest(url, mime))) {
+        (generation === -1 && state.first === state.generation && samePage(href, state.page)) ||
+        (state.carry && samePage(href, state.page) && manifest(url, mime))) {
       record(entry);
     }
   }
@@ -309,10 +322,10 @@
     state.early = [];
     if (state.first === null) {
       state.first = generation;
-      early.forEach(function (item) { if (item.href === page) record(item.entry); });
+      early.forEach(function (item) { if (samePage(item.href, page)) record(item.entry); });
     }
     if (state.carry) {
-      state.kept.slice().forEach(function (item) { if (item.href === page) record(item.entry); });
+      state.kept.slice().forEach(function (item) { if (samePage(item.href, page)) record(item.entry); });
     } else {
       state.kept = [];
     }

@@ -70,6 +70,11 @@ import kotlinx.coroutines.withContext
  *   type and size, the sound to merge, the manifest's length (else the file's own) and the
  *   files' own totals; an HLS manifest and every other site's manifest row stay unknown, unasked.
  *
+ * - **VK's pieces' files** (V3's retest 2): in a VK lookup, a picture file row (the whole file of
+ *   pieces VK's player asked for, [VkPieceFiles]; any VK picture row) that passes and states no
+ *   codecs gets its file's own sample entry from the same bytes ([StartPicture.codec]), so the
+ *   phone's merge gate reads it. No other read.
+ *
  * Every other lookup: [validator] (the engine's own V), unchanged. Nothing is logged; a result
  * names a reason only, never an address, a header or a byte.
  */
@@ -126,6 +131,13 @@ class SocialRowCheck(
                 } else {
                     null
                 }
+                // VK's pack proof (V3's retest 2): a VK picture row that states no codecs names its
+                // file's own (its sample entry, as the phone's merge gate reads them).
+                val codecs = if (row.codecs.isEmpty() && site.id == VkClient.SITE_ID && type.startsWith(VIDEO)) {
+                    StartPicture.codec(read.bytes)?.let(::listOf) ?: row.codecs
+                } else {
+                    row.codecs
+                }
                 ValidationResult.Valid(
                     row.copy(
                         mimeType = row.mimeType ?: type,
@@ -135,6 +147,7 @@ class SocialRowCheck(
                         durationMillis = row.durationMillis ?: StartDuration.millis(read.bytes),
                         width = picture?.width ?: row.width,
                         height = picture?.height ?: row.height,
+                        codecs = codecs,
                     ),
                 )
             }
