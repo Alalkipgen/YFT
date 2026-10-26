@@ -1800,9 +1800,11 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - Commit `8d3abe61` (the fix, its tests, the provenance). CI on `8d3abe61`, all green:
   checkpoint validation 40245342928, emulator smoke 40245342984, Preview APK 40245342911 (YFT
   Trial: artifact `yft-preview-trial-apk` 12618851960), minified check 40245342934.
-- Next (the owner, that YFT Trial): Clear data → Settings › Browser › VK value break = Client id
-  → Force stop, reopen → Backup finder on → the phone proof's 18+ video by its vkvideo.ru link →
-  rows with `healed from vkvideo-script …`; a first lookup cut short reads `no answer in time;
-  the day's read given back` (or `…; given back`) and Try again heals. Part 2's steps 1–5 done
-  (main merged, the pending rows active, 0 drift, CI, **the STOP 2 report**); the PR to `main`
-  (v1.0.1) only with the owner's go.
+- **The fix's phone check: PASS** (the owner, that YFT Trial; reported 2026-10-26 13:59 MMT):
+  Clear data → Backup finder on, VK value break = Client id → Force stop, reopen → the phone
+  proof's 18+ video by its vkvideo.ru link → the first lookup healed: `V2 heal client_id: healed
+  from vkvideo-script (the page and its common script: 2 asks, 2115865 bytes)`, main's login
+  answered, `video.get` 9 rows, 6 checked (three `media check NO_MEDIA_FOUND`, as in STOP 1).
+  Part 2's steps 1–5 done (main merged, the pending rows active, 0 drift, CI, **the STOP 2
+  report**).
+- Next: the PR to `main` (v1.0.1), only with the owner's go.

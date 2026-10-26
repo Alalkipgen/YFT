@@ -926,3 +926,9 @@ are left out here.
 ### Part 1's builds (`9a049a14`, Preview APK run 40217521644) — PASS
 - YFT Trial, the secret only broken: rows, no heal (V1 answers).
 - YFT Preview (#12 normal), Backup finder on: an 18+ video, a public video and a clip: rows.
+
+### The fix's YFT Trial (`8d3abe61`, Preview APK run 40245342911) — PASS
+- Reported 13:59. Clear data → Backup finder on, VK value break = Client id → Force stop, reopen
+  → the same 18+ video by its vkvideo.ru link: the first lookup healed — `V2 heal client_id:
+  healed from vkvideo-script (the page and its common script: 2 asks, 2115865 bytes)`, main's
+  login answered, `video.get` 9 rows, 6 checked (three `media check NO_MEDIA_FOUND`, as before).
