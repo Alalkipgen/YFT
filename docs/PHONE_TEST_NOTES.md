@@ -965,4 +965,4 @@ MMT (UTC+6:30); Backup finder on. VK's test links, video ids and values are left
 - Try again (the same page): Lookup 2 — `discovered 35 …`, `qualities=1`, one row
   `480p · 478 × 852 · MP4 · 1.4 KB`: a wrong row (a piece of the video, not the video). The cause
   (pieces taken for files; the manifest not offered to a later lookup; VK's manifest gave no row)
-  is fixed in the next checkpoint (agent D's record).
+  is fixed in `f22c2217`; its YFT Trial: Preview APK run 40329196567.

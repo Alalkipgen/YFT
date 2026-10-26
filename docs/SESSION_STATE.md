@@ -1891,7 +1891,7 @@ Keep at least the heading and one blank line between sections, so Git merges the
   the app downloads no `SegmentBase` DASH manifest (`DashDownloadManifestParser`: unsupported)
   and merges no sound into a DASH row; (4) `MasterMainSelection`'s check of a row's sound sent
   the picture's length with the sound file (a size mismatch for every row with its sound apart).
-- **The fix** (this checkpoint):
+- **The fix** (commit `f22c2217`):
   - F1 (every site): a piece of a file is never a row — an address naming a closed `bytes=A-B`
     range (`MediaFileUrls.isPiece`), or one whose page answer was a piece (a 206, or a
     Content-Range short of its total) to a request that named no range (`yft-master-capture.js`
@@ -1940,8 +1940,11 @@ Keep at least the heading and one blank line between sections, so Git merges the
   none; after a reload — fresh, the manifest at bind 1 again.
 - The red checkpoint 40308796822: its step stopped at 7 min 26 s (`1ae39ca2`'s green step took
   11 min 13 s); the job's annotations say only "Process completed with exit code 1"; the log
-  stays admin-only. This push runs it again.
-- Next (the owner, this checkpoint's YFT Trial): Settings › Browser: Backup finder on, VK value
+  stays admin-only. Not seen again: `f22c2217`'s checkpoint is green.
+- CI on `f22c2217`: the checkpoint 40329196533, emulator smoke 40329196664, the minified check
+  40329196536 and Preview APK 40329196567 (YFT Trial: artifact `yft-preview-trial-apk`
+  12654432541) — all green.
+- Next (the owner, `f22c2217`'s YFT Trial): Settings › Browser: Backup finder on, VK value
   break = Client id → Force stop, reopen → the 18+ video by its link → play it → Try again →
   rows in MB, not KB (one row: the manifest's tallest quality with its sound) → screenshot
   Lookup details → Try again once more → the same row → download the top row: it plays 1:58
