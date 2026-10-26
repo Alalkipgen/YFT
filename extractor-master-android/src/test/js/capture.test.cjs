@@ -526,6 +526,74 @@ test("every other site: a later bind gets no manifest of an earlier one (as befo
   assert.equal(sampled(env, 3).requests.length, 0);
 });
 
+// The owner's retest of 7e101aa4 (2026-10-26): VK asks for the video's data (video.getByIds:
+// every quality's file) once a document, so a later bind's lookup had the player's pieces only.
+const VIDEO_DATA = '{"response":{"items":[{"id":1,"owner_id":-2,"title":"t","files":{' +
+  '"mp4_480":"https://media.test/?type=2&id=1","mp4_1080":"https://media.test/?type=5&id=1"}}]}}';
+const OTHER_DATA = '{"response":{"items":[{"id":9,"owner_id":-2,"files":{' +
+  '"mp4_360":"https://media.test/?type=1&id=9"}}]}}';
+
+test("VK: a later bind of the same page gets the video's data read in an earlier bind", async () => {
+  const answers = {
+    "https://api.test/data": response(VIDEO_DATA),
+    "https://api.test/other": response('{"video_url":"https://cdn.test/main.mp4"}'),
+  };
+  const { env } = environment({
+    bind: false, fetch: url => Promise.resolve(answers[url] || response("", url, "video/mp4")),
+  });
+  // Before the first bind no body is read, so nothing is kept of it.
+  await env.fetch("https://api.test/data");
+  await settle();
+  assert.equal(env.__yftMasterCaptureV1.bind(1, env.location.href, true), true);
+  assert.equal(sampled(env, 1).payloads.length, 0);
+  await env.fetch("https://api.test/data");
+  await env.fetch("https://api.test/other");
+  await env.fetch(piece(0));
+  await settle();
+  const first = sampled(env, 1);
+  assert.deepEqual(first.payloads, [VIDEO_DATA, '{"video_url":"https://cdn.test/main.mp4"}']);
+  // Try again: the video's data comes along (once), the other body and the pieces do not.
+  assert.equal(env.__yftMasterCaptureV1.bind(2, env.location.href, true), true);
+  const again = sampled(env, 2);
+  assert.deepEqual(again.payloads, [VIDEO_DATA]);
+  assert.equal(again.requests.length, 0);
+  assert.equal(sampled(env, 2).payloads.length, 0);
+  // The page settles under another query (list=): still its page.
+  env.location.href = env.location.href + "?list=a";
+  assert.equal(env.__yftMasterCaptureV1.bind(3, env.location.href, true), true);
+  assert.deepEqual(sampled(env, 3).payloads, [VIDEO_DATA]);
+  // Another video's page on the same document: never offered.
+  env.location.href = "https://page.test/other";
+  assert.equal(env.__yftMasterCaptureV1.bind(4, env.location.href, true), true);
+  assert.equal(sampled(env, 4).payloads.length, 0);
+  // Back on its own address: offered again; a bind that does not carry drops it for good.
+  env.location.href = "https://page.test/watch";
+  assert.equal(env.__yftMasterCaptureV1.bind(5, env.location.href, true), true);
+  assert.deepEqual(sampled(env, 5).payloads, [VIDEO_DATA]);
+  assert.equal(env.__yftMasterCaptureV1.bind(6, env.location.href), true);
+  assert.equal(sampled(env, 6).payloads.length, 0);
+  assert.equal(env.__yftMasterCaptureV1.bind(7, env.location.href, true), true);
+  assert.equal(sampled(env, 7).payloads.length, 0);
+});
+
+test("VK: at most two of the video's data bodies are kept, the newest; every other site keeps none", async () => {
+  const bodies = [VIDEO_DATA, OTHER_DATA, VIDEO_DATA.replace('"t"', '"u"')];
+  let n = 0;
+  const { env } = environment({ bind: false, fetch: () => Promise.resolve(response(bodies[n++ % 3])) });
+  assert.equal(env.__yftMasterCaptureV1.bind(1, env.location.href, true), true);
+  for (let i = 0; i < 3; i++) { await env.fetch("https://api.test/data"); await settle(); }
+  assert.equal(sampled(env, 1).payloads.length, 3);
+  assert.equal(env.__yftMasterCaptureV1.bind(2, env.location.href, true), true);
+  assert.deepEqual(sampled(env, 2).payloads, [OTHER_DATA, bodies[2]]);
+  // Every other site (no carry): the body is read for its own bind only.
+  const other = environment({ fetch: () => Promise.resolve(response(VIDEO_DATA)) }).env;
+  await other.fetch("https://api.test/data");
+  await settle();
+  assert.deepEqual(sampled(other, 1).payloads, [VIDEO_DATA]);
+  assert.equal(other.__yftMasterCaptureV1.bind(2, other.location.href), true);
+  assert.equal(sampled(other, 2).payloads.length, 0);
+});
+
 test("VK: at most 16 manifests are kept for later binds, the newest", async () => {
   const urls = Array.from({ length: 20 }, (_, n) => MPD + "&n=" + n);
   const { env } = environment({

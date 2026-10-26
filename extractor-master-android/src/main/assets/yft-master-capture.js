@@ -15,10 +15,17 @@
   // first bind and those of any bind, are kept with the address they were fetched on (at most
   // MAX_MANIFESTS) and offered to every later bind of that address; nothing else is carried
   // over, and a reload is a new document. Every other site keeps none.
-  const MAX_EARLY = 64, MAX_MANIFESTS = 16;
+  // The owner's retest of 7e101aa4 (2026-10-26): VK's page asks for its video's data once a
+  // document too (video.getByIds: every quality's file, the title), so a later bind's lookup had
+  // the player's pieces only (480p the first time). On a bind that carries (VK's pages) a JSON
+  // body read in a bind that names such files (MP4 renditions, VK_VIDEO_DATA) is kept with the
+  // bind's address (at most MAX_PAGE_DATA, the newest) and offered to every later bind of that
+  // address, as the manifests are. Nothing is read from a body before the first bind, as before.
+  const MAX_EARLY = 64, MAX_MANIFESTS = 16, MAX_PAGE_DATA = 2;
+  const VK_VIDEO_DATA = /"mp4_[0-9]{3,4}"\s*:\s*"https:/;
   const state = {
     generation: -1, page: "", requests: [], manifests: [], payloads: [], activeReads: 0,
-    first: null, early: [], kept: [], carry: false
+    first: null, early: [], kept: [], keptData: [], carry: false
   };
   const originalFetch = window.fetch;
   const originalOpen = XMLHttpRequest.prototype.open;
@@ -106,10 +113,21 @@
       record(entry);
     }
   }
+  // The video's data read in a bind that carries (VK's pages): kept for later binds of [href].
+  function keepData(text, href) {
+    if (!state.carry || !VK_VIDEO_DATA.test(text)) return;
+    if (state.keptData.some(function (item) {
+      return item.href === href && item.text === text;
+    })) return;
+    state.keptData.push({ text: text, href: href });
+    if (state.keptData.length > MAX_PAGE_DATA) state.keptData.shift();
+  }
   function payload(text, generation, priority) {
     if (disposed || generation === -1 || generation !== state.generation) return;
     if (typeof text !== "string") return;
-    if (text.length > MAX_BODY || state.payloads.indexOf(text) >= 0) return;
+    if (text.length > MAX_BODY) return;
+    keepData(text, state.page);
+    if (state.payloads.indexOf(text) >= 0) return;
     if (priority) {
       state.payloads.unshift(text);
       if (state.payloads.length > 8) state.payloads.pop();
@@ -326,8 +344,15 @@
     }
     if (state.carry) {
       state.kept.slice().forEach(function (item) { if (samePage(item.href, page)) record(item.entry); });
+      // The video's data an earlier bind of this address read, first in the packet.
+      state.keptData.forEach(function (item) {
+        if (samePage(item.href, page) && state.payloads.indexOf(item.text) < 0) {
+          state.payloads.push(item.text);
+        }
+      });
     } else {
       state.kept = [];
+      state.keptData = [];
     }
     return true;
   }

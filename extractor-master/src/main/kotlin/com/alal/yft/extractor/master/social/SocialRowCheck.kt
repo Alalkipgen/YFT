@@ -73,7 +73,10 @@ import kotlinx.coroutines.withContext
  * - **VK's pieces' files** (V3's retest 2): in a VK lookup, a picture file row (the whole file of
  *   pieces VK's player asked for, [VkPieceFiles]; any VK picture row) that passes and states no
  *   codecs gets its file's own sample entry from the same bytes ([StartPicture.codec]), so the
- *   phone's merge gate reads it. No other read.
+ *   phone's merge gate reads it. No other read. A VK sound row that passes and states no codecs
+ *   (the pieces' sound file, checked as the row's companion) gets its own the same way
+ *   ([StartSound.codec]: `mp4a.40.2`), so the download's gate takes the merge the sheet offered
+ *   (the owner's retest of 7e101aa4: "cannot be combined on this phone").
  *
  * Every other lookup: [validator] (the engine's own V), unchanged. Nothing is logged; a result
  * names a reason only, never an address, a header or a byte.
@@ -133,10 +136,14 @@ class SocialRowCheck(
                 }
                 // VK's pack proof (V3's retest 2): a VK picture row that states no codecs names its
                 // file's own (its sample entry, as the phone's merge gate reads them).
-                val codecs = if (row.codecs.isEmpty() && site.id == VkClient.SITE_ID && type.startsWith(VIDEO)) {
-                    StartPicture.codec(read.bytes)?.let(::listOf) ?: row.codecs
-                } else {
-                    row.codecs
+                // The owner's retest of 7e101aa4: a VK sound row (the pieces' sound file, checked
+                // as the row's companion) names its own too (`mp4a.40.2`, [StartSound]), so the
+                // download's gate takes the merge the sheet offered.
+                val codecs = when {
+                    row.codecs.isNotEmpty() || site.id != VkClient.SITE_ID -> row.codecs
+                    type.startsWith(VIDEO) -> StartPicture.codec(read.bytes)?.let(::listOf) ?: row.codecs
+                    type.startsWith(AUDIO) -> StartSound.codec(read.bytes)?.let(::listOf) ?: row.codecs
+                    else -> row.codecs
                 }
                 ValidationResult.Valid(
                     row.copy(
@@ -338,6 +345,7 @@ class SocialRowCheck(
         private val UNSENT = setOf("cookie", "authorization", "proxy-authorization", "range")
         private val TYPES = setOf("video/mp4", "audio/mp4", "video/webm", "audio/webm")
         private const val VIDEO = "video/"
+        private const val AUDIO = "audio/"
 
         /** A side a row states (above 0), else null. */
         private fun stated(side: Int?): Int? = side?.takeIf { it > 0 }

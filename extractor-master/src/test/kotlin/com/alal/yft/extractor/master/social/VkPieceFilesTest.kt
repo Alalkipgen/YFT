@@ -145,6 +145,34 @@ class VkPieceFilesTest {
         assertEquals(emptyList<String>(), (other as ValidationResult.Valid).candidate.codecs)
     }
 
+    /**
+     * The owner's retest of 7e101aa4 (2026-10-26): the 1080p row's download read "cannot be
+     * combined on this phone", as its sound named no codecs. The sound row (the engine checks the
+     * row's companion as a row of its own) names its file's own, `mp4a.40.2`, in a VK lookup.
+     */
+    @Test
+    fun `in a VK lookup a sound file row that passes names its file's own codec`() = runTest {
+        val start = PictureBytes.fragmented(SoundBytes.sound(SoundBytes.mp4a(SoundBytes.esds(2))))
+        val reader = MediaStartReader { _, _, _ ->
+            MediaStart.Read(206, "audio/mp4", "bytes 0-${start.size - 1}/3921440", start.size.toLong(), start)
+        }
+        val files = VkPieceFiles.of(request(), snapshot(phonePieces()))!!
+        val sound = files.sounds.first()
+        val vk = SocialRowCheck(RecordingValidator(), reader, site = VkSite.SITE)
+        val checked = withContext(LookupRecord(labels = VkSite.SITE.labels()) + MainPages(site = VkClient.SITE_ID)) {
+            vk.validate(sound, NOW)
+        }
+        val passed = (checked as ValidationResult.Valid).candidate
+        assertEquals(listOf("mp4a.40.2"), passed.codecs)
+        assertEquals(3_921_440L, passed.contentLengthBytes)
+        assertNull(passed.width)
+        // A sound row's own codecs stay.
+        val stated = withContext(LookupRecord(labels = VkSite.SITE.labels()) + MainPages(site = VkClient.SITE_ID)) {
+            vk.validate(sound.copy(codecs = listOf("mp4a.40.5")), NOW)
+        }
+        assertEquals(listOf("mp4a.40.5"), (stated as ValidationResult.Valid).candidate.codecs)
+    }
+
     private companion object {
         const val PAGE = "https://m.vkvideo.ru/video-100000001_400000001"
         const val FILES = "https://vk1-2.vkuser.net/"

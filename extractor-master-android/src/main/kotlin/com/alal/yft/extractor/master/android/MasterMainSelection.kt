@@ -17,6 +17,7 @@ import com.alal.yft.extractor.master.ValidationResult
 import com.alal.yft.extractor.master.present.MasterMainPresentation
 import com.alal.yft.extractor.master.social.MainPages
 import com.alal.yft.extractor.master.social.VkClient
+import com.alal.yft.extractor.master.social.VkPageData
 import com.alal.yft.extractor.master.social.VkPieceFiles
 import com.alal.yft.extractor.master.verify.FingerprintGroups
 import com.alal.yft.extractor.master.verify.InspectedMedia
@@ -46,6 +47,12 @@ import kotlin.math.abs
  * sounds are checked (V, in the lookup's reads), and the tallest mergeable picture with the
  * fullest sound is admitted as any passed row is (inspected, its length held to the player's, its
  * sound checked). A failure names, in counts only, what the capture held and what the checks said.
+ *
+ * The owner's retest of 7e101aa4 (2026-10-26: the first Try again offered 480p, the pieces the
+ * player had asked for by then): before the pieces, the page's own data for the video
+ * ([VkPageData]: `video.getByIds`'s files, carried to later binds by the capture), at most
+ * [VkPageData.MAX_FILES] checked from the tallest, the first that passes admitted; the pieces'
+ * row takes the data's title when it has none.
  */
 class MasterMainSelection(
     private val session: MasterBrowserSession,
@@ -161,11 +168,48 @@ class MasterMainSelection(
                 }
             }
         }
+        // The owner's retest of 7e101aa4: nothing captured passed in a VK lookup: the page's own
+        // data for the video (every quality's whole file, the title; see [VkPageData]), the
+        // tallest file that passes, admitted as any passed row is.
+        var dataLine: String? = null
+        val vk = coroutineContext[MainPages]?.site == VkClient.SITE_ID
+        val pageData = if (vk) VkPageData.of(request, snapshot) else emptyList()
+        if (!out && checked.isEmpty() && pageData.isNotEmpty()) {
+            var tried = 0
+            var passed = 0
+            for (row in pageData.take(VkPageData.MAX_FILES)) {
+                coroutineContext.ensureActive()
+                val verdict = bounded { probe(row) }
+                if (verdict == null) { out = true; break }
+                tried++
+                tally.checked++
+                when (verdict) {
+                    is ValidationResult.Rejected -> {
+                        if (verdict.reason == SiteExtractionFailure.DRM_PROTECTED) {
+                            return failure(verdict.reason)
+                        }
+                        rejection = verdict.reason
+                        tally.refused(verdict.reason)
+                    }
+                    is ValidationResult.Valid -> {
+                        tally.passed++
+                        passed++
+                        when (admit(verdict.candidate)) {
+                            Step.NEXT -> if (checked.isNotEmpty()) break
+                            Step.OUT -> { out = true; break }
+                            Step.DRM -> return failure(SiteExtractionFailure.DRM_PROTECTED)
+                        }
+                    }
+                }
+            }
+            dataLine = "master: VK page data: files=${pageData.size}; tried=$tried; passed=$passed; " +
+                "admitted=${checked.size}"
+        }
         // VK's pack proof (V3's retest 2): nothing captured passed in a VK lookup (its capture holds
         // no page manifest that did): the whole files of the pieces its player asked for, the
         // tallest picture with the fullest sound (see [VkPieceFiles]).
         var pieceLine: String? = null
-        if (!out && checked.isEmpty() && coroutineContext[MainPages]?.site == VkClient.SITE_ID) {
+        if (!out && checked.isEmpty() && vk) {
             VkPieceFiles.of(request, snapshot)?.let { files ->
                 val pictures = mutableListOf<MediaCandidate>()
                 val sounds = mutableListOf<MediaCandidate>()
@@ -203,7 +247,16 @@ class MasterMainSelection(
                     Step.DRM -> return failure(SiteExtractionFailure.DRM_PROTECTED)
                     Step.OUT -> rejection = SiteExtractionFailure.NETWORK
                     else -> if (picture != null && (sound != null || files.sounds.isEmpty())) {
-                        when (admit(VkPieceFiles.row(picture, sound))) {
+                        // The page data's title and picture when the row names none (the page's
+                        // <title> is VK's, "ВКонтакте | VK Видео").
+                        val named = pageData.firstOrNull()
+                        val row = VkPieceFiles.row(picture, sound).let { row ->
+                            row.copy(
+                                title = row.title ?: named?.title,
+                                thumbnailUrl = row.thumbnailUrl ?: named?.thumbnailUrl,
+                            )
+                        }
+                        when (admit(row)) {
                             Step.NEXT -> Unit
                             Step.OUT -> rejection = SiteExtractionFailure.NETWORK
                             Step.DRM -> return failure(SiteExtractionFailure.DRM_PROTECTED)
@@ -227,7 +280,7 @@ class MasterMainSelection(
             // Counts only (never an address): what the capture held and what the checks said.
             return failure(
                 rejection ?: SiteExtractionFailure.NO_MEDIA_FOUND,
-                listOfNotNull(census(snapshot, target != null), tally.line(), pieceLine),
+                listOfNotNull(census(snapshot, target != null), tally.line(), dataLine, pieceLine),
             )
         }
         val groups = FingerprintGroups.of(ranked) { prints[it.mediaUrl] }
@@ -243,6 +296,7 @@ class MasterMainSelection(
                 "master: independently checked duration; tolerance=2000ms; dimensions=ranking-only",
                 "master: fingerprint qualities=${groups.first().size}; " +
                     "dropped=${ranked.size - selected.size}",
+                dataLine,
                 pieceLine,
             )),
             MasterStage.PLAYBACK_CAPTURE,

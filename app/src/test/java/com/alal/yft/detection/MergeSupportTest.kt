@@ -78,6 +78,27 @@ class MergeSupportTest {
         assertFalse(DeviceMergeSupport(sdkInt = 35, hasDecoder = { true }).canMerge(vp9))
     }
 
+    /**
+     * The owner's retest of 7e101aa4 (VK, 2026-10-26): the sheet offered a 1080p row whose sound
+     * named no codecs, and its download read "cannot be combined on this phone". One gate now
+     * ([AudioVideoMuxCompatibility.evaluateMp4]): a sound without codecs, a sound that is no AAC
+     * and a video without codecs are left out of the sheet; the sound with its own AAC codec stays.
+     */
+    @Test
+    fun theSheetOffersOnlyTheMergesTheDownloadMakes() {
+        val phone = DeviceMergeSupport(sdkInt = 33, hasDecoder = { false })
+        fun withSound(codecs: List<String>) = avc.copy(audioCompanion = avc.audioCompanion!!.copy(codecs = codecs))
+        assertFalse(phone.canMerge(withSound(emptyList())))
+        assertFalse(phone.canMerge(withSound(listOf("opus"))))
+        assertFalse(phone.canMerge(withSound(listOf("mp4a.6b"))))
+        assertTrue(phone.canMerge(withSound(listOf("mp4a.40.2"))))
+        assertTrue(phone.canMerge(withSound(listOf(" MP4A.40.5 "))))
+        assertFalse(phone.canMerge(avc.copy(codecs = emptyList())))
+        assertFalse(phone.canMerge(avc.copy(audioCompanion = avc.audioCompanion!!.copy(mimeType = "audio/webm"))))
+        // A row without a separate sound is never gated here.
+        assertTrue(phone.canMerge(file.copy(codecs = emptyList())))
+    }
+
     @Test
     fun theDecoderListIsReadOnceAndOnlyForAv1() {
         var lookups = 0

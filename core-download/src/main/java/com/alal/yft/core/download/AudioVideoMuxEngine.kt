@@ -173,28 +173,51 @@ object AudioVideoMuxCompatibility {
         plan: AudioVideoMuxDownloadPlan,
         sdkInt: Int,
         av1Enabled: Boolean,
+    ): MuxCompatibility = evaluateMp4(
+        videoMimeType = plan.video.mimeType,
+        videoCodecs = plan.video.codecs,
+        videoHlsPlaylist = plan.video.hlsPlaylist,
+        audioMimeType = plan.audio.mimeType,
+        audioCodecs = plan.audio.codecs,
+        audioHlsPlaylist = plan.audio.hlsPlaylist,
+        sdkInt = sdkInt,
+        av1Enabled = av1Enabled,
+    )
+
+    /**
+     * Whether an MP4 video track and its MP4 sound merge into one MP4 on Android [sdkInt]: both
+     * MP4 containers (an HLS track's segments aside, P50: they are read with MediaExtractor, so
+     * only its codecs decide), the video's codecs named and each one the muxer writes
+     * ([canWriteVideo]), the sound's codecs named and each one AAC (`mp4a.40.…`). The one gate for
+     * the sheet (the phone's `DeviceMergeSupport`) and the download (`DownloadPlanFactory`): the
+     * owner's retest of 7e101aa4 (VK, 2026-10-26) had the sheet offer a 1080p row whose sound
+     * named no codecs, and the download refuse it.
+     */
+    fun evaluateMp4(
+        videoMimeType: String?,
+        videoCodecs: List<String>,
+        videoHlsPlaylist: Boolean,
+        audioMimeType: String?,
+        audioCodecs: List<String>,
+        audioHlsPlaylist: Boolean,
+        sdkInt: Int = Build.VERSION.SDK_INT,
+        av1Enabled: Boolean = AV1_MP4_ENABLED,
     ): MuxCompatibility {
-        // P50: an HLS track's segments (MPEG-TS or fragmented MP4) are read with MediaExtractor,
-        // so only its codecs decide.
-        if (!plan.video.hlsPlaylist && plan.video.mimeType.normalizedMime() !in VIDEO_MP4_MIMES) {
+        if (!videoHlsPlaylist && videoMimeType.normalizedMime() !in VIDEO_MP4_MIMES) {
             return MuxCompatibility.Incompatible(MuxIncompatibilityReason.VIDEO_CONTAINER)
         }
-        if (!plan.audio.hlsPlaylist && plan.audio.mimeType.normalizedMime() !in AUDIO_MP4_MIMES) {
+        if (!audioHlsPlaylist && audioMimeType.normalizedMime() !in AUDIO_MP4_MIMES) {
             return MuxCompatibility.Incompatible(MuxIncompatibilityReason.AUDIO_CONTAINER)
         }
         if (
-            plan.video.codecs.isEmpty() ||
-            plan.video.codecs.any { codec ->
-                !canWriteVideo(codec, sdkInt, av1Enabled, hlsVp9 = plan.video.hlsPlaylist)
-            }
+            videoCodecs.isEmpty() ||
+            videoCodecs.any { codec -> !canWriteVideo(codec, sdkInt, av1Enabled, hlsVp9 = videoHlsPlaylist) }
         ) {
             return MuxCompatibility.Incompatible(MuxIncompatibilityReason.VIDEO_CODEC)
         }
         if (
-            plan.audio.codecs.isEmpty() ||
-            plan.audio.codecs.any { codec ->
-                AUDIO_CODEC_PREFIXES.none(codec.lowercase(Locale.US)::startsWith)
-            }
+            audioCodecs.isEmpty() ||
+            audioCodecs.any { codec -> AUDIO_CODEC_PREFIXES.none(codec.trim().lowercase(Locale.US)::startsWith) }
         ) {
             return MuxCompatibility.Incompatible(MuxIncompatibilityReason.AUDIO_CODEC)
         }
