@@ -18,6 +18,7 @@ import com.alal.yft.extractor.master.recipes.SignedRecipes.payload
 import com.alal.yft.extractor.master.recipes.SignedRecipes.sign
 import com.alal.yft.extractor.master.recipes.SignedRecipes.toHex
 import com.alal.yft.extractor.master.social.InstagramLadder
+import com.alal.yft.extractor.master.social.VkLadder
 import java.io.File
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
@@ -213,7 +214,8 @@ class RemoteRecipesS4Test {
         val docs = File(checkNotNull(System.getProperty("yft.recipeDocs")) { "recipe docs unset" })
         val configs = checkNotNull(File(docs, "configs").listFiles { file -> file.name.endsWith(".json") })
             .associate { it.name.removeSuffix(".json") to it.readText() }
-        assertEquals(setOf("defaults", "drill-rung-off", "drill-key-change"), configs.keys)
+        assertEquals(setOf("defaults", "drill-rung-off", "drill-key-change", "drill-vk-v2-off"), configs.keys)
+        val schema2 = mutableMapOf<String, RemoteRecipeConfig.Parsed.Valid>()
         val parsed = configs.mapValues { (name, text) ->
             val keys = (BoundedJsonParser.parse(text) as JsonValue.Object).entries.keys
             assertTrue("$name: $keys", keys.containsAll(setOf("schema", "sites")))
@@ -222,7 +224,12 @@ class RemoteRecipesS4Test {
             // VK Master plan §9: a committed config is schema 2; v1.0.0's file is its schema-1 projection.
             val schema1 = checkNotNull(RemoteRecipeConfig2.schema1(composed)) { "$name is not a schema-2 config" }
             val result = RemoteRecipeConfig.parse(schema1, ContractRecipes.ALL)
-            assertEquals(name, result, RemoteRecipeConfig2.parse(composed, ContractRecipes.ALL))
+            val two = RemoteRecipeConfig2.parse(composed, ContractRecipes.ALL)
+            assertTrue("$name: $two", two is RemoteRecipeConfig.Parsed.Valid)
+            two as RemoteRecipeConfig.Parsed.Valid
+            schema2[name] = two
+            // v1.0.1's reading less VK's rungs is v1.0.0's (no committed config changes VK's recipe).
+            assertEquals(name, result, two.copy(rungsOff = two.rungsOff - RemoteRecipeConfig2.VK_RUNGS.toSet()))
             assertTrue("$name: $result", result is RemoteRecipeConfig.Parsed.Valid)
             result as RemoteRecipeConfig.Parsed.Valid
         }
@@ -242,6 +249,16 @@ class RemoteRecipesS4Test {
         val bundledFacebook = checkNotNull(ContractRecipes.ALL.firstOrNull { it.site == "facebook" })
         assertEquals(bundledFacebook.answerHosts, facebook.answerHosts)
         assertEquals(bundledFacebook.endpoint, facebook.endpoint)
+        // drill-vk-v2-off (VK Master plan section 12, R9's drill): VK's V2 off in v1.0.1's file, the
+        // recipes as bundled; v1.0.0's file carries nothing of it (the defaults' reading).
+        val vkDrill = schema2.getValue("drill-vk-v2-off")
+        assertEquals(setOf(VkLadder.RUNG_V2), vkDrill.rungsOff)
+        assertEquals(ContractRecipes.ALL, vkDrill.recipes)
+        assertEquals(parsed.getValue("defaults"), parsed.getValue("drill-vk-v2-off"))
+        // Every other config turns off none of VK's rungs.
+        for ((name, two) in schema2 - "drill-vk-v2-off") {
+            assertTrue("$name: ${two.rungsOff}", two.rungsOff.none { it in VkLadder.RUNGS })
+        }
     }
 
     @Test

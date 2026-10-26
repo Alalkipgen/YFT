@@ -48,6 +48,19 @@ def has_jsonschema():
     return True
 
 
+def without_vk(config):
+    """A committed config less VK's parts (site vk, rungs V1-V3, and rungsOff when that empties it)."""
+    out = dict(config)
+    out["sites"] = {site: overlay for site, overlay in config["sites"].items() if site != "vk"}
+    if "rungsOff" in config:
+        kept = [name for name in config["rungsOff"] if name not in ("V1", "V2", "V3")]
+        if kept or not config["rungsOff"]:
+            out["rungsOff"] = kept
+        else:
+            del out["rungsOff"]
+    return out
+
+
 def legacy_compose(config, version, expires):
     """What the helper composed before schema 2 (the schema-1 file's bytes, which must not change)."""
     payload = {"schema": 1, "version": version, "expires": expires, "sites": config["sites"]}
@@ -178,17 +191,29 @@ class HelperTest(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 source = json.loads(config.read_text(encoding="utf-8"))
                 self.assertEqual(source["schema"], 2, "a committed config is schema 2")
-                for path, schema in ((out, 1), (out2, 2)):
+                for path, schema, expected in ((out, 1, without_vk(source)), (out2, 2, source)):
                     text = path.read_text(encoding="utf-8")
                     payload = json.loads(text)
                     self.assertEqual(list(payload)[:4], ["schema", "version", "expires", "sites"])
                     self.assertEqual((payload["schema"], payload["version"], payload["expires"]), (schema, 3, "2027-12-31"))
-                    self.assertEqual(payload["sites"], source["sites"])
-                    self.assertEqual(payload.get("rungsOff"), source.get("rungsOff"))
+                    self.assertEqual(payload["sites"], expected["sites"])
+                    self.assertEqual(payload.get("rungsOff"), expected.get("rungsOff"))
                     self.assertTrue(text.endswith("}\n"))
                     self.assertTrue(text.isascii())
-                # Without vk the schema-1 file is, byte for byte, what the helper composed before schema 2.
-                self.assertEqual(out.read_text(encoding="utf-8"), legacy_compose(source, 3, "2027-12-31"))
+                # Less VK's parts the schema-1 file is, byte for byte, what the helper composed before schema 2.
+                self.assertEqual(out.read_text(encoding="utf-8"), legacy_compose(without_vk(source), 3, "2027-12-31"))
+
+    def test_the_vk_drill_turns_v2_off_in_the_schema_2_file_only(self):
+        """VK Master plan section 12 (R9's drill): v1.0.1's file turns VK's V2 off; v1.0.0's is the defaults'."""
+        composed = {}
+        for name in ("defaults", "drill-vk-v2-off"):
+            result, out, out2 = self.compose(RECIPES / "configs" / f"{name}.json")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            composed[name] = (out.read_text(encoding="utf-8"), json.loads(out2.read_text(encoding="utf-8")))
+        self.assertEqual(composed["drill-vk-v2-off"][0], composed["defaults"][0])
+        self.assertNotIn("rungsOff", json.loads(composed["drill-vk-v2-off"][0]))
+        self.assertEqual(composed["drill-vk-v2-off"][1]["rungsOff"], ["V2"])
+        self.assertNotIn("rungsOff", composed["defaults"][1])
 
     def test_the_schema_1_file_leaves_out_vk_and_its_rungs_only(self):
         config = {
