@@ -11,6 +11,7 @@ function environment(options = {}) {
   class Xhr {
     open() { return "open-result"; }
     send() { return "send-result"; }
+    setRequestHeader() { return "header-result"; }
     addEventListener(name, listener) { this.listener = listener; }
     getResponseHeader() { return "application/json"; }
   }
@@ -384,4 +385,163 @@ test("VK: the player's manifest stays in the packet after a long run of its piec
   assert.equal(urls.filter(url => url === MPD).length, 1);
   assert.equal(urls.length, 65);
   assert.equal(urls[64], piece(990));
+});
+
+// V3's retest (2026-10-26): Try again binds the same document and address with a new generation;
+// VK's player fetched its manifest once, before the first bind. [carry]: VK's pages only.
+const pieceAnswer = (url, mime, status, range) => ({
+  url, status, headers: { get: name => name === "content-type" ? mime :
+    name === "content-range" ? range || null : null },
+  clone() { return { body: null }; },
+});
+const sampled = (env, generation) =>
+  JSON.parse(env.__yftMasterCaptureV1.sample(generation, env.location.href));
+
+test("VK: a later bind of the same page gets the manifests fetched before the first bind and during a bind", async () => {
+  const MPD2 = MPD + "&quality=2";
+  const answers = {
+    [MPD]: response("<MPD/>", MPD, "application/dash+xml"),
+    [MPD2]: response("<MPD/>", MPD2, "application/dash+xml"),
+    "https://api.test/data": response('{"video_url":"https://cdn.test/main.mp4"}'),
+  };
+  const { env } = environment({
+    bind: false, fetch: url => Promise.resolve(answers[url] || response("", url, "video/webm")),
+  });
+  await env.fetch(MPD);
+  await settle();
+  assert.equal(env.__yftMasterCaptureV1.bind(1, env.location.href, true), true);
+  await env.fetch(MPD2);
+  await env.fetch(piece(0));
+  await env.fetch("https://api.test/data");
+  await settle();
+  const first = sampled(env, 1);
+  assert.deepEqual(first.requests.map(r => r.url), [MPD, MPD2, piece(0)]);
+  assert.equal(first.payloads.length, 1);
+  // Try again: a new generation on the same page and document. Only the manifests come along.
+  assert.equal(env.__yftMasterCaptureV1.bind(2, env.location.href, true), true);
+  const again = sampled(env, 2);
+  assert.deepEqual(again.requests.map(r => r.url), [MPD, MPD2]);
+  assert.equal(again.payloads.length, 0);
+  assert.equal(env.__yftMasterCaptureV1.bind(3, env.location.href, true), true);
+  assert.deepEqual(sampled(env, 3).requests.map(r => r.url), [MPD, MPD2]);
+  // A reload is a new document: its collector starts with nothing.
+  env.__yftMasterCaptureV1.dispose();
+  const reloaded = environment({ bind: false }).env;
+  assert.equal(reloaded.__yftMasterCaptureV1.bind(4, reloaded.location.href, true), true);
+  assert.equal(sampled(reloaded, 4).requests.length, 0);
+});
+
+test("VK: another address's manifest is never offered, its own address gets it back", async () => {
+  const answer = response("<MPD/>", MPD, "application/dash+xml");
+  const { env } = environment({
+    bind: false, page: "https://page.test/first", fetch: () => Promise.resolve(answer),
+  });
+  assert.equal(env.__yftMasterCaptureV1.bind(1, env.location.href, true), true);
+  await env.fetch(MPD);
+  await settle();
+  assert.deepEqual(sampled(env, 1).requests.map(r => r.url), [MPD]);
+  env.location.href = "https://page.test/watch";
+  assert.equal(env.__yftMasterCaptureV1.bind(2, env.location.href, true), true);
+  assert.equal(sampled(env, 2).requests.length, 0);
+  env.location.href = "https://page.test/first";
+  assert.equal(env.__yftMasterCaptureV1.bind(3, env.location.href, true), true);
+  assert.deepEqual(sampled(env, 3).requests.map(r => r.url), [MPD]);
+});
+
+test("VK: a carried bind takes its own address's manifest answered late, never another's", async () => {
+  const done = [];
+  const { env } = environment({
+    bind: false, fetch: () => new Promise(resolve => done.push(resolve)),
+  });
+  env.fetch(MPD);
+  env.__yftMasterCaptureV1.bind(1, env.location.href, true);
+  env.fetch(MPD + "&second");
+  assert.equal(env.__yftMasterCaptureV1.bind(2, env.location.href, true), true);
+  done[0](response("<MPD/>", MPD, "application/dash+xml"));
+  done[1](response("<MPD/>", MPD + "&second", "application/dash+xml"));
+  await settle();
+  assert.deepEqual(sampled(env, 2).requests.map(r => r.url), [MPD, MPD + "&second"]);
+  env.fetch(MPD + "&third");
+  env.location.href = "https://page.test/watch/next";
+  assert.equal(env.__yftMasterCaptureV1.bind(3, env.location.href, true), true);
+  done[2](response("<MPD/>", MPD + "&third", "application/dash+xml"));
+  await settle();
+  assert.equal(sampled(env, 3).requests.length, 0);
+});
+
+test("every other site: a later bind gets no manifest of an earlier one (as before)", async () => {
+  const answer = response("<MPD/>", MPD, "application/dash+xml");
+  const { env } = environment({ fetch: () => Promise.resolve(answer) });
+  await env.fetch(MPD);
+  await settle();
+  assert.deepEqual(sampled(env, 1).requests.map(r => r.url), [MPD]);
+  assert.equal(env.__yftMasterCaptureV1.bind(2, env.location.href), true);
+  assert.equal(sampled(env, 2).requests.length, 0);
+  assert.equal(env.__yftMasterCaptureV1.bind(3, env.location.href, true), true);
+  assert.equal(sampled(env, 3).requests.length, 0);
+});
+
+test("VK: at most 16 manifests are kept for later binds, the newest", async () => {
+  const urls = Array.from({ length: 20 }, (_, n) => MPD + "&n=" + n);
+  const { env } = environment({
+    bind: false, fetch: url => Promise.resolve(response("<MPD/>", url, "application/dash+xml")),
+  });
+  for (const url of urls.slice(0, 10)) await env.fetch(url);
+  await settle();
+  env.__yftMasterCaptureV1.bind(1, env.location.href, true);
+  for (const url of urls.slice(10)) await env.fetch(url);
+  await settle();
+  env.__yftMasterCaptureV1.bind(2, env.location.href, true);
+  assert.deepEqual(sampled(env, 2).requests.map(r => r.url), urls.slice(4));
+});
+
+test("F1: a piece answered to a request that named no range is marked a piece", async () => {
+  const file = n => "https://cdn.test/file-" + n + ".mp4";
+  const answers = {
+    [file(1)]: pieceAnswer(file(1), "video/mp4", 206, null),
+    [file(2)]: pieceAnswer(file(2), "video/mp4", 206, null),
+    [file(3)]: pieceAnswer(file(3), "video/mp4", 200, "bytes 0-1427/5000000"),
+    [file(4)]: pieceAnswer(file(4), "video/mp4", 206, "bytes 0-4999/5000"),
+    [file(5)]: pieceAnswer(file(5), "video/mp4", 200, null),
+    [MPD]: pieceAnswer(MPD, "application/dash+xml", 206, null),
+  };
+  const { env } = environment({ fetch: url => Promise.resolve(answers[url]) });
+  await env.fetch(file(1));
+  await env.fetch(file(2), { headers: { Range: "bytes=0-99" } });
+  await env.fetch(file(3));
+  await env.fetch(file(4));
+  await env.fetch(file(5));
+  await env.fetch(MPD);
+  await settle();
+  const marked = Object.fromEntries(packet(env).requests.map(r => [r.url, r.piece === true]));
+  assert.deepEqual(marked, {
+    [MPD]: false, [file(1)]: true, [file(2)]: false, [file(3)]: true, [file(4)]: false,
+    [file(5)]: false,
+  });
+});
+
+test("F1: an XHR piece is marked unless the page asked for a range", () => {
+  const { env } = environment();
+  function load(url, header) {
+    const xhr = new env.XMLHttpRequest();
+    xhr.open("GET", url);
+    if (header) assert.equal(xhr.setRequestHeader("Range", "bytes=0-99"), "header-result");
+    xhr.send();
+    Object.assign(xhr, {
+      responseURL: url, status: 206, responseType: "arraybuffer",
+      getResponseHeader: name => name === "content-type" ? "video/mp4" : null,
+      getAllResponseHeaders: () => "content-type: video/mp4\r\n",
+    });
+    xhr.listener.call(xhr);
+  }
+  load("https://cdn.test/unasked.mp4", false);
+  load("https://cdn.test/asked.mp4", true);
+  const marked = Object.fromEntries(packet(env).requests.map(r => [r.url, r.piece === true]));
+  assert.deepEqual(marked, {
+    "https://cdn.test/unasked.mp4": true, "https://cdn.test/asked.mp4": false,
+  });
+  const wrapped = env.XMLHttpRequest.prototype.setRequestHeader;
+  env.__yftMasterCaptureV1.dispose();
+  assert.notEqual(env.XMLHttpRequest.prototype.setRequestHeader, wrapped);
+  assert.equal(new env.XMLHttpRequest().setRequestHeader("Range", "x"), "header-result");
 });

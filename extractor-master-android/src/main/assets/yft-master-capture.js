@@ -9,14 +9,21 @@
   // takes those of its own page only, and nothing is read from a body before a bind. A
   // manifest (HLS/DASH) is kept apart from the pieces after it (at most MAX_MANIFESTS), so a
   // player's long run of pieces never pushes its manifest out of the packet.
+  // V3's retest (2026-10-26): VK's player fetches its manifest once a document, so a later
+  // lookup's bind on the same page found its pieces only. On VK's pages (bind's [carry]:
+  // WebViewPlaybackCapture.EARLY_ORIGINS) the document's manifests, those fetched before the
+  // first bind and those of any bind, are kept with the address they were fetched on (at most
+  // MAX_MANIFESTS) and offered to every later bind of that address; nothing else is carried
+  // over, and a reload is a new document. Every other site keeps none.
   const MAX_EARLY = 64, MAX_MANIFESTS = 16;
   const state = {
     generation: -1, page: "", requests: [], manifests: [], payloads: [], activeReads: 0,
-    first: null, early: []
+    first: null, early: [], kept: [], carry: false
   };
   const originalFetch = window.fetch;
   const originalOpen = XMLHttpRequest.prototype.open;
   const originalSend = XMLHttpRequest.prototype.send;
+  const originalSetHeader = XMLHttpRequest.prototype.setRequestHeader;
   const xhrState = new WeakMap(), xhrListening = new WeakSet(), encrypted = new WeakSet();
   // VK's pack proof (2026-10-26): m.vkvideo.ru's player is a <video> in an open shadow root,
   // which document.querySelectorAll never enters. The page's videos are the document's, then
@@ -41,8 +48,19 @@
   function manifest(url, mime) {
     return /mpegurl|dash\+xml/i.test(mime || "") || /\.(m3u8|mpd)(?:[?#]|$)/i.test(url || "");
   }
+  // A manifest the page fetched on [href] (V3's retest): kept before the first bind (VK's
+  // pages only have one then) and on a bind that carries them; at most MAX_MANIFESTS.
+  function keep(entry, href) {
+    if (!(state.generation === -1 || state.carry)) return;
+    if (state.kept.some(function (item) {
+      return item.href === href && item.entry.url === entry.url;
+    })) return;
+    state.kept.push({ entry: entry, href: href });
+    if (state.kept.length > MAX_MANIFESTS) state.kept.shift();
+  }
   function record(entry) {
     if (manifest(entry.url, entry.mime)) {
+      keep(entry, state.page);
       if (state.manifests.some(function (item) { return item.url === entry.url; })) return;
       state.manifests.push(entry);
       if (state.manifests.length > MAX_MANIFESTS) state.manifests.shift();
@@ -52,19 +70,26 @@
     if (state.requests.length > 200) state.requests.shift();
   }
   // [href]: the page's address when the request began (only a request begun before the first
-  // bind needs it: it counts for that bind's page alone).
-  function note(url, mime, generation, preview, href) {
+  // bind needs it: it counts for that bind's page alone). [piece] (F1): the answer was a piece
+  // of a file to a request that named no range (partial), so its address names that piece: it
+  // is still the player's request, never a file row (MasterMainSelection).
+  function note(url, mime, generation, preview, href, piece) {
     url = address(url);
     if (disposed || !url || !media(url, mime)) return;
     const entry = { url: url, mime: (mime || "").slice(0, 128), preview: !!preview };
+    if (piece === true && !manifest(url, mime)) entry.piece = true;
     if (state.generation === -1) {
       if (generation !== -1 || typeof href !== "string") return;
+      if (manifest(url, mime)) keep(entry, href);
       state.early.push({ entry: entry, href: href });
       if (state.early.length > MAX_EARLY) state.early.shift();
       return;
     }
+    // A bind that carries manifests (VK's pages) also takes a manifest of its own address
+    // that an earlier bind's request (or one begun before the first bind) answered late.
     if (generation === state.generation ||
-        (generation === -1 && state.first === state.generation && href === state.page)) {
+        (generation === -1 && state.first === state.generation && href === state.page) ||
+        (state.carry && href === state.page && manifest(url, mime))) {
       record(entry);
     }
   }
@@ -168,8 +193,31 @@
       reader.cancel().catch(function () {});
     }
   }
+  // F1 (V3's retest): an answer that is a piece of a file: a 206, unless the Content-Range it
+  // shows is the whole file, or a Content-Range short of its total (a cross-origin answer shows
+  // none unless its server exposes it). Only a request that named no range is asked about.
+  function partial(status, range) {
+    const m = /^\s*bytes\s+(\d+)-(\d+)\/(\d+)\s*$/i.exec(typeof range === "string" ? range : "");
+    if (m) return Number(m[2]) - Number(m[1]) + 1 < Number(m[3]);
+    return status === 206;
+  }
+  // Whether the page's fetch named a range (a Range header); unreadable counts as named.
+  function rangeAsked(input, init) {
+    try {
+      const headers = init && init.headers !== undefined ? init.headers : input && input.headers;
+      if (!headers) return false;
+      if (typeof headers.has === "function") return headers.has("range");
+      if (Array.isArray(headers)) {
+        return headers.some(function (pair) {
+          return Array.isArray(pair) && String(pair[0]).toLowerCase() === "range";
+        });
+      }
+      return Object.keys(headers).some(function (name) { return name.toLowerCase() === "range"; });
+    } catch (_) { return true; }
+  }
   function observedFetch() {
     const generation = state.generation, href = String(location.href);
+    const asked = rangeAsked(arguments[0], arguments[1]);
     const promise = originalFetch.apply(this, arguments);
     let method = "GET";
     try {
@@ -179,7 +227,8 @@
     promise.then(function (response) {
       try {
         if (method === "GET") {
-          note(response.url, response.headers.get("content-type"), generation, false, href);
+          const piece = !asked && partial(response.status, response.headers.get("content-range"));
+          note(response.url, response.headers.get("content-type"), generation, false, href, piece);
         }
         if (generation !== -1 && state.payloads.length < 8 && state.activeReads < 2) {
           state.activeReads++;
@@ -195,9 +244,23 @@
     let verb = "";
     try { verb = String(method).toUpperCase(); } catch (_) {}
     xhrState.set(this, {
-      url: url, method: verb, generation: state.generation, href: String(location.href)
+      url: url, method: verb, generation: state.generation, href: String(location.href),
+      range: false
     });
     return originalOpen.apply(this, arguments);
+  }
+  function observedSetHeader(name) {
+    try {
+      const request = xhrState.get(this);
+      if (request && String(name).toLowerCase() === "range") request.range = true;
+    } catch (_) {}
+    return originalSetHeader.apply(this, arguments);
+  }
+  // A cross-origin answer's unexposed Content-Range is left out here (no console noise).
+  function xhrRange(xhr) {
+    if (typeof xhr.getAllResponseHeaders !== "function") return null;
+    const match = /(?:^|\n)\s*content-range\s*:\s*([^\r\n]*)/i.exec(xhr.getAllResponseHeaders() || "");
+    return match ? match[1] : null;
   }
   function observedSend() {
     if (!xhrListening.has(this)) {
@@ -208,7 +271,9 @@
           if (!request) return;
           const mime = this.getResponseHeader("content-type") || "";
           if (request.method === "GET") {
-            note(this.responseURL || request.url, mime, request.generation, false, request.href);
+            const piece = !request.range && partial(this.status, xhrRange(this));
+            note(this.responseURL || request.url, mime, request.generation, false, request.href,
+              piece);
           }
           if (request.generation === -1 || request.generation !== state.generation) return;
           if (!/application\/(?:[^;]*\+)?json/i.test(mime)) return;
@@ -230,17 +295,26 @@
   if (typeof originalFetch === "function") window.fetch = observedFetch;
   XMLHttpRequest.prototype.open = observedOpen;
   XMLHttpRequest.prototype.send = observedSend;
+  if (typeof originalSetHeader === "function") {
+    XMLHttpRequest.prototype.setRequestHeader = observedSetHeader;
+  }
   document.addEventListener("encrypted", onEncrypted, true);
-  function bind(generation, page) {
+  // [carry] (VK's pages, V3's retest): this bind is offered the manifests kept for [page].
+  function bind(generation, page, carry) {
     if (disposed || location.href !== page) return false;
     if (state.generation === generation && state.page === page) return true;
-    state.generation = generation; state.page = page;
+    state.generation = generation; state.page = page; state.carry = carry === true;
     state.requests = []; state.manifests = []; state.payloads = [];
     const early = state.early;
     state.early = [];
     if (state.first === null) {
       state.first = generation;
       early.forEach(function (item) { if (item.href === page) record(item.entry); });
+    }
+    if (state.carry) {
+      state.kept.slice().forEach(function (item) { if (item.href === page) record(item.entry); });
+    } else {
+      state.kept = [];
     }
     return true;
   }
@@ -385,12 +459,16 @@
   function dispose() {
     disposed = true;
     state.requests = []; state.manifests = []; state.payloads = []; state.early = [];
+    state.kept = [];
     if (window.fetch === observedFetch) window.fetch = originalFetch;
     if (XMLHttpRequest.prototype.open === observedOpen) {
       XMLHttpRequest.prototype.open = originalOpen;
     }
     if (XMLHttpRequest.prototype.send === observedSend) {
       XMLHttpRequest.prototype.send = originalSend;
+    }
+    if (XMLHttpRequest.prototype.setRequestHeader === observedSetHeader) {
+      XMLHttpRequest.prototype.setRequestHeader = originalSetHeader;
     }
     document.removeEventListener("encrypted", onEncrypted, true);
     shadowRoots.splice(0).forEach(function (root) {

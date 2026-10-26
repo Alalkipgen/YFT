@@ -16,6 +16,8 @@ object MediaFileUrls {
     private val BYTE_PARAMETERS = setOf("bytestart", "byteend")
     private val NUMBER = Regex("^[0-9]{1,15}$")
     private val BYTE_RANGE = Regex("^[0-9]{1,15}-[0-9]{0,15}$")
+    private val PIECE_PARAMETERS = setOf("bytes")
+    private val CLOSED_RANGE = Regex("^[0-9]{1,15}-[0-9]{1,15}$")
     private val DIGITS = Regex("[0-9]+")
 
     /** A file name the site generated: long, opaque and with a media extension. */
@@ -41,6 +43,22 @@ object MediaFileUrls {
 
     /** True when [url] asks for a piece of a file by its byte range. */
     fun hasByteRange(url: String): Boolean = wholeFile(url) != url
+
+    /**
+     * VK's pack proof (V3's retest, 2026-10-26): true when [url] names a piece of a file by a
+     * closed byte range that [wholeFile] leaves in place: a `bytes=0-1427` query value (VK's
+     * player). Such an address gives that piece only, never the file, so it is never a file row,
+     * and no whole-file address is made of it (its track may be picture or sound only: the page's
+     * manifest is the row). An open range (`bytes=0-`) asks for the file from its start.
+     */
+    fun isPiece(url: String): Boolean {
+        val fragmentStart = url.indexOf('#').takeIf { it >= 0 } ?: url.length
+        val queryStart = url.indexOf('?').takeIf { it in 0 until fragmentStart } ?: return false
+        return url.substring(queryStart + 1, fragmentStart).split('&').any { parameter ->
+            parameter.substringBefore('=').lowercase(Locale.US) in PIECE_PARAMETERS &&
+                CLOSED_RANGE.matches(parameter.substringAfter('=', missingDelimiterValue = ""))
+        }
+    }
 
     /**
      * True when the file name is an opaque name the site generated, such as Facebook's and

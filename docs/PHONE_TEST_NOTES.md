@@ -956,3 +956,13 @@ MMT (UTC+6:30); Backup finder on. VK's test links, video ids and values are left
   fresh natural playback required`, no rows. The cause (VK's player in a shadow root; its
   manifest asked before the capture started) fixed in `bf044861`; its YFT Trial: Preview APK run
   40308796618.
+
+### V3's retest (YFT Trial of `bf044861`, Preview APK run 40308796618) — FAIL
+- 17:49–17:52; VK value break = Client id; the 18+ video by its link (landing on m.vkvideo.ru,
+  1:58), played.
+- Lookup 1: `master: discovered 48 bounded media observations`, `master: automatic main
+  selected; more=0`, `fingerprint qualities=5`.
+- Try again (the same page): Lookup 2 — `discovered 35 …`, `qualities=1`, one row
+  `480p · 478 × 852 · MP4 · 1.4 KB`: a wrong row (a piece of the video, not the video). The cause
+  (pieces taken for files; the manifest not offered to a later lookup; VK's manifest gave no row)
+  is fixed in the next checkpoint (agent D's record).

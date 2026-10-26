@@ -31,6 +31,8 @@ class MasterBrowserSession {
     private var protected = false
     /** Social plan task 14 (observation e): a frame of this scope showed a visible video. */
     private var sawVideo = false
+    /** F1: this scope's addresses whose page answer was a piece of a file (at most 200). */
+    private val pieces = linkedSetOf<String>()
 
     @Synchronized
     fun navigate(pageUrl: String): BrowserCaptureScope? {
@@ -120,6 +122,10 @@ class MasterBrowserSession {
         frame.requests.forEach { observed ->
             if (!secure(observed.url)) return@forEach
             if (MediaUrlClassifier.classify(observed.url, observed.mime) == null) return@forEach
+            // F1: a piece stays the player's request (recorded as before); it is never a row.
+            if (observed.piece && pieces.add(observed.url) && pieces.size > MAX_PIECES) {
+                pieces.remove(pieces.first())
+            }
             // Only the host can supply credentials. JSON headers/cookies are never interpreted.
             val context = nativeContexts[observed.url]
                 ?: contextForUrl(observed.url, current.pageUrl)
@@ -147,6 +153,14 @@ class MasterBrowserSession {
         previousSampleAt = sampleAtMillis
         return true
     }
+
+    /**
+     * F1 (V3's retest, 2026-10-26): whether the current scope's page got [url]'s answer as a piece
+     * of a file to a request that named no range ([FrameRequest.piece]): that address gives the
+     * piece only, so it is never a file row. Memory only, cleared with the scope.
+     */
+    @Synchronized
+    internal fun piece(url: String): Boolean = url in pieces
 
     suspend fun request(
         failure: SiteExtractionFailure,
@@ -185,11 +199,14 @@ class MasterBrowserSession {
         previousSampleAt = 0
         protected = false
         sawVideo = false
+        pieces.clear()
     }
 
     override fun toString(): String = "MasterBrowserSession(memoryOnly=true)"
 
     internal companion object {
+        private const val MAX_PIECES = 200
+
         fun secure(url: String): Boolean = runCatching {
             val uri = URI(url)
             uri.scheme.equals("https", true) && uri.host != null && uri.userInfo == null

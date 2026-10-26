@@ -21,6 +21,7 @@ import com.alal.yft.extractor.master.ValidationResult
 import com.alal.yft.extractor.master.present.MasterMainPresentation
 import com.alal.yft.extractor.master.verify.InspectedMedia
 import java.lang.ref.WeakReference
+import java.net.URI
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -176,8 +177,11 @@ class WebViewPlaybackCapture(
         val view = browser.get() ?: return
         val source = script ?: return
         val page = JSONObject.quote(scope.pageUrl)
+        // V3's retest (2026-10-26): on VK's pages the bind carries the page's manifests (see
+        // [carriesManifests]); every other site's bind is the one of before.
+        val carry = if (carriesManifests(scope.pageUrl)) ", true" else ""
         view.evaluateJavascript(
-            "$source\nwindow.__yftMasterCaptureV1.bind(${scope.generation}, $page)",
+            "$source\nwindow.__yftMasterCaptureV1.bind(${scope.generation}, $page$carry)",
             null,
         )
     }
@@ -277,5 +281,24 @@ class WebViewPlaybackCapture(
             "https://vk.ru", "https://*.vk.ru",
             "https://vkvideo.ru", "https://*.vkvideo.ru",
         )
+
+        /**
+         * V3's retest (2026-10-26): whether a bind on [pageUrl] (HTTPS on one of [EARLY_ORIGINS],
+         * the default port) carries the page's manifests: VK's player fetches its manifest once a
+         * document, so the capture keeps the manifests the document fetched (before its first
+         * bind and during any bind, at most 16, by the address they were fetched on) and offers
+         * them to every later bind of the same address (Try again's lookup). Nothing else is
+         * carried; a reload is a new document. Every other site: false (its capture of before).
+         */
+        fun carriesManifests(pageUrl: String): Boolean {
+            val uri = runCatching { URI(pageUrl) }.getOrNull() ?: return false
+            if (!uri.scheme.equals("https", true) || uri.rawUserInfo != null) return false
+            if (uri.port != -1 && uri.port != 443) return false
+            val host = uri.host?.lowercase()?.trimEnd('.')?.takeIf(String::isNotEmpty) ?: return false
+            return EARLY_ORIGINS.any { origin ->
+                val pattern = origin.removePrefix("https://")
+                if (pattern.startsWith("*.")) host.endsWith(pattern.substring(1)) else host == pattern
+            }
+        }
     }
 }

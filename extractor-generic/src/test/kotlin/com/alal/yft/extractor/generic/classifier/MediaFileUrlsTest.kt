@@ -26,6 +26,23 @@ class MediaFileUrlsTest {
         assertFalse(MediaFileUrls.hasByteRange("https://cdn.test/v.mp4?start=5"))
     }
 
+    /** F1 (VK's pack proof): a closed `bytes=A-B` query value names a piece; nothing else does. */
+    @Test
+    fun aClosedBytesRangeInTheQueryNamesAPiece() {
+        assertTrue(MediaFileUrls.isPiece("https://vkvd1.media.test/?expires=1&type=2&id=7&bytes=0-1427"))
+        assertTrue(MediaFileUrls.isPiece("https://cdn.test/v.mp4?Bytes=100-199#t=3"))
+        // The piece's address is left as it is: no whole file is made of it.
+        val piece = "https://vkvd1.media.test/?type=2&bytes=0-1427"
+        assertEquals(piece, MediaFileUrls.wholeFile(piece))
+        assertFalse(MediaFileUrls.isPiece("https://cdn.test/v.mp4?bytes=0-"))
+        assertFalse(MediaFileUrls.isPiece("https://cdn.test/v.mp4?bytes=all"))
+        assertFalse(MediaFileUrls.isPiece("https://cdn.test/v.mp4"))
+        assertFalse(MediaFileUrls.isPiece("https://cdn.test/v.mp4#bytes=0-99"))
+        assertFalse(MediaFileUrls.isPiece("https://cdn.test/v.mp4?bytestart=0&byteend=99"))
+        assertFalse(MediaFileUrls.isPiece("https://cdn.test/v.mp4?range=0-99"))
+        assertFalse(MediaFileUrls.isPiece("https://cdn.test/bytes=0-99/v.mp4"))
+    }
+
     @Test
     fun onlyLongGeneratedMediaNamesAreOpaque() {
         assertTrue(

@@ -33,4 +33,12 @@ class CandidateGateTest {
         assertFalse(CandidateGate.eligible(file.copy(expiresAtEpochMs = NOW), NOW))
         assertTrue(CandidateGate.eligible(file.copy(expiresAtEpochMs = NOW + 1), NOW))
     }
+
+    /** F1 (VK's pack proof, V3's retest 2026-10-26): a piece named by its bytes is never offered. */
+    @Test
+    fun `a piece of a file named by its bytes is never offered, its whole file is`() {
+        assertFalse(CandidateGate.eligible(candidate("https://vkvd1.media.test/?type=2&id=7&bytes=0-1427"), NOW))
+        assertTrue(CandidateGate.eligible(candidate("https://vkvd1.media.test/?type=2&id=7"), NOW))
+        assertTrue(CandidateGate.eligible(candidate("https://video.example-cdn.test/v/main.mp4?bytes=0-"), NOW))
+    }
 }

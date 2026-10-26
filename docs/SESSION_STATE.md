@@ -1876,7 +1876,76 @@ Keep at least the heading and one blank line between sections, so Git merges the
   `test` core-model 142, extractor-api 36, extractor-generic 21, extractor-sites 366 — 0 failed;
   `:app:assembleDebug` built by the minified check. Not rerun (no way to start a run from the
   agent's session); the next code push or the PR runs it again.
-- Next (the owner, `bf044861`'s YFT Trial): Backup finder on, VK value break = Client id →
-  Force stop, reopen → the 18+ video by its vkvideo.ru link → play it → Try again → rows by V3
-  (`master: automatic main selected; more=…` in Lookup details). Then `defaults` published again
-  (v10) before S5; S5's counted runs on the final code's census APK.
+- **V3's retest of `bf044861`: FAIL** (its YFT Trial; 17:49–17:52 MMT; Backup finder on, VK value
+  break = Client id; the 18+ video by its link, landing on m.vkvideo.ru, 1:58): Lookup 1 —
+  `master: discovered 48 bounded media observations`, `automatic main selected; more=0`,
+  `fingerprint qualities=5` (sizes not checked); Try again on the same page and document →
+  Lookup 2 — `discovered 35 …`, `qualities=1`, one row `480p · 478 × 852 · MP4 · 1.4 KB`: a wrong
+  row (a piece of the video offered as the video).
+- The diagnosis (the code; the shared browser, Pixel 7 emulation, a public VK video): (1) VK's
+  player asks for pieces by address (`&bytes=A-B`, answered 200 with the piece only); the 1.4 KB
+  row was the MP4 init piece, whose start states the whole video's length, so it passed as a
+  whole file; (2) a later bind on the same document starts with no requests, and VK's player asks
+  for its manifest once, as it starts: Lookup 2 saw pieces only; (3) with the manifest there was
+  still no row: VK lookups' row check (`SocialRowCheck`) refused every manifest row unasked, and
+  the app downloads no `SegmentBase` DASH manifest (`DashDownloadManifestParser`: unsupported)
+  and merges no sound into a DASH row; (4) `MasterMainSelection`'s check of a row's sound sent
+  the picture's length with the sound file (a size mismatch for every row with its sound apart).
+- **The fix** (this checkpoint):
+  - F1 (every site): a piece of a file is never a row — an address naming a closed `bytes=A-B`
+    range (`MediaFileUrls.isPiece`), or one whose page answer was a piece (a 206, or a
+    Content-Range short of its total) to a request that named no range (`yft-master-capture.js`
+    marks it, fetch and XHR; `MasterBrowserSession.piece`, ≤ 200 a scope, memory only). Dropped
+    in `CandidateNormalizer.sanitize`, `CandidateGate.eligible` and `MasterMainSelection` (never
+    checked, never offered, never part of a whole-file row); it still counts as the player's
+    request. A request that named a range (a Range header) is no piece: its address is the
+    whole file's.
+  - F2 (VK's pages only: `WebViewPlaybackCapture.carriesManifests` — https, `EARLY_ORIGINS`,
+    the default port, no user info): the page's HLS/DASH manifests seen before the first bind or
+    during any bind (≤ 16, with the address they were fetched on) are offered to every later bind
+    of the same document and address; nothing else is carried; no body is read before a bind;
+    never another address's; a reload starts fresh. Every other site's bind (no carry) is the one
+    of before.
+  - The page manifest's row (`VkPageDash`, new; `SocialRowCheck`): in a VK lookup, the DASH
+    manifest VK's page fetched (a capture row; a ladder's manifest row, an HLS manifest and every
+    other site's manifest row stay unknown, unasked) is read whole (one read ≤ 64 KiB, route B's
+    rules, VK's media hosts, counted in the lookup's 8 reads; a cut, live, piece-only
+    (`SegmentTemplate`/`SegmentList`) or unreadable one unknown, a protected one DRM). Its row is
+    its tallest picture file (MP4 before WebM) with the same container's highest-bandwidth sound
+    as the sound to merge (Facebook's inline-manifest model; `InlineDashReader` now keeps each
+    file's bandwidth), each file's start read and init-checked; the row has the picture's
+    address, type, size and total, the sound with its own total — sizes in MB, the download
+    merged with its sound. Three asks a lookup (the manifest, the picture, the sound); the
+    engine's check of the sound asks nothing new.
+  - `MasterMainSelection`: the sound's check gets the sound file's own length.
+- Tests: `capture.test.cjs` 30 (+7: a later VK bind gets the manifests of before the first bind
+  and of a bind; another address's never, its own address gets it back; a late answer counts
+  for its own address only; every other site carries nothing; at most 16, the newest; a fetch
+  piece and an XHR piece marked, an asked range not); `MediaFileUrlsTest` +1,
+  `CandidateNormalizerTest` +1, `CandidateGateTest` +1 (a piece named by its bytes never a
+  candidate, the manifest kept); `MasterMainSelectionPolicyTest` +4 (the init piece with the
+  player's length never selected; with the manifest the manifest is the main, no piece a row; a
+  206 piece without bytes in its address never a row; the sound's check with its own length) and
+  `bf044861`'s test now probes the manifest only; `WebViewPlaybackCaptureTest` +1 (only VK's own
+  pages carry); `VkPageDashTest` 6 (new: three asks and the row; WebM and a packed answer; DRM,
+  cut, live, `SegmentTemplate`, 204; a failed, encrypted or off-host file; ladder, HLS and
+  Facebook rows unasked; the reader's choices). Local: JS 41/41 (capture 30, codecs, mse);
+  `:extractor-generic:test` 23, `:extractor-master:test` 1100 (2 skipped),
+  `:extractor-master-android:testDebugUnitTest` 76, `:app:testDebugUnitTest` 1295 (66 skipped),
+  `:core-browser:testDebugUnitTest` 150 — 0 failed; `:extractor-master-android:lintDebug`
+  0 errors (the 6 `RequiresFeature` warnings of before). The other modules' code is unchanged.
+- The shared browser (Pixel 7 emulation, a public VK video, the capture script at document
+  start as the WebView installs it): bind 1 — the DASH manifest and 16 pieces (every one a
+  `bytes=` address, so none a row); bind 2 (carry) — the manifest again; a bind without carry —
+  none; after a reload — fresh, the manifest at bind 1 again.
+- The red checkpoint 40308796822: its step stopped at 7 min 26 s (`1ae39ca2`'s green step took
+  11 min 13 s); the job's annotations say only "Process completed with exit code 1"; the log
+  stays admin-only. This push runs it again.
+- Next (the owner, this checkpoint's YFT Trial): Settings › Browser: Backup finder on, VK value
+  break = Client id → Force stop, reopen → the 18+ video by its link → play it → Try again →
+  rows in MB, not KB (one row: the manifest's tallest quality with its sound) → screenshot
+  Lookup details → Try again once more → the same row → download the top row: it plays 1:58
+  with sound. PASS = both lookups the manifest's row, no KB row, the download with sound. Then
+  `defaults` published again (v10) before S5; S5's counted runs on the final code's census APK.
+- Backlog (not for this PASS): VK's manifest gives one row (its tallest quality); its other
+  qualities as rows of their own later.

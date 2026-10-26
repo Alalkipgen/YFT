@@ -8,6 +8,7 @@ import com.alal.yft.core.model.media.PageMediaRole
 import com.alal.yft.core.model.media.PageVideoFacts
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SiteExtractionResult
+import com.alal.yft.extractor.generic.classifier.MediaFileUrls
 import com.alal.yft.extractor.master.MasterRequest
 import com.alal.yft.extractor.master.MasterResult
 import com.alal.yft.extractor.master.MasterStage
@@ -29,6 +30,12 @@ import kotlin.math.abs
  * video's qualities form one group (main's qualities instead of extra "More" videos); a lone file
  * whose cues disagree with a main confirmed by two agreeing files is an ad, preview or related
  * clip and is dropped. Without cues nothing is grouped or dropped (behaviour before R4).
+ *
+ * F1 (VK's pack proof, V3's retest 2026-10-26): a piece of a file is never a row, whatever its
+ * length: an address naming a closed `bytes=A-B` range ([MediaFileUrls.isPiece]) or one whose
+ * page answer was a piece to a request that named no range ([MasterBrowserSession.piece]). It is
+ * never checked and never offered (a piece's own start may state the whole video's length: VK's
+ * 1.4 KB init piece did); it still counts as the player's request. The page's manifest is the row.
  */
 class MasterMainSelection(
     private val session: MasterBrowserSession,
@@ -69,6 +76,7 @@ class MasterMainSelection(
         for (candidate in candidates) {
             coroutineContext.ensureActive()
             if (candidate.mimeType?.startsWith("audio/") == true) continue
+            if (piece(candidate.mediaUrl)) continue
             if (ad(candidate, facts)) continue
             val verdict = bounded { probe(candidate) }
             if (verdict == null) { rejection = SiteExtractionFailure.NETWORK; break }
@@ -80,6 +88,7 @@ class MasterMainSelection(
                     rejection = verdict.reason
                 }
                 is ValidationResult.Valid -> {
+                    if (piece(verdict.candidate.mediaUrl)) continue
                     val inspected = bounded { inspect(verdict.candidate) }
                     if (inspected == null) { rejection = SiteExtractionFailure.NETWORK; break }
                     var media = inspected.candidate
@@ -92,11 +101,13 @@ class MasterMainSelection(
                     ) continue
                     val audio = media.audioCompanion
                     if (audio != null) {
+                        // The sound file's own length (as the engine's check asks it), never the picture's.
                         val input = media.copy(
                             mediaUrl = audio.mediaUrl, mimeType = audio.mimeType,
                             kind = MediaKind.DIRECT, codecs = audio.codecs,
                             requestContext = audio.requestContext,
                             expiresAtEpochMs = audio.expiresAtEpochMs,
+                            contentLengthBytes = audio.contentLengthBytes,
                             width = null, height = null, framesPerSecond = null,
                             audioCompanion = null,
                         )
@@ -199,6 +210,9 @@ class MasterMainSelection(
             candidates.all { c -> c.pageUrl == record.page && c.mediaUrl in urls }
         }
     }
+
+    /** F1: [url] names a piece of a file, by its address or by the page's answer to it. */
+    private fun piece(url: String): Boolean = MediaFileUrls.isPiece(url) || session.piece(url)
 
     private fun ad(media: MediaCandidate, facts: PageVideoFacts?): Boolean =
         media.pageRole == PageMediaRole.PREVIEW ||

@@ -107,6 +107,36 @@ class CandidateNormalizerTest {
         assertTrue(result.all { it.contentLengthBytes == null })
     }
 
+    /**
+     * F1 (VK's pack proof, V3's retest 2026-10-26): VK's player names each piece of a DASH track
+     * by `bytes=A-B` in its address. A piece is never a candidate, and no whole file is made of
+     * it; the page's manifest stays. Facebook's `bytestart`/`byteend` and `range=` pieces stay
+     * their whole file, as before.
+     */
+    @Test
+    fun aPieceNamedByItsBytesIsNeverACandidateAndTheManifestStays() {
+        val track = "https://vkvd1.media.test/?expires=1&type=2&id=7"
+        val manifest = candidate(
+            "https://vkvd1.media.test/?expires=1&type=4&id=7",
+            kind = MediaKind.DASH, observedAt = 1,
+        )
+        val result = CandidateNormalizer().normalize(
+            pageUrl,
+            listOf(
+                candidate("$track&bytes=0-1427", mimeType = "video/mp4", observedAt = 3),
+                candidate("$track&bytes=1428-90000", mimeType = "video/mp4", observedAt = 4),
+                manifest,
+                candidate("https://cdn.test/movie.mp4?bytestart=0&byteend=999", observedAt = 2),
+                candidate("https://cdn.test/open.mp4?bytes=0-", observedAt = 2),
+            ),
+        )
+
+        assertEquals(
+            setOf(manifest.mediaUrl, "https://cdn.test/movie.mp4", "https://cdn.test/open.mp4?bytes=0-"),
+            result.map(MediaCandidate::mediaUrl).toSet(),
+        )
+    }
+
     @Test
     fun requestsForOneOpaqueCdnFileWithOtherPerRequestValuesAreOneFile() {
         val file = "https://video.cdn.test/o1/v/t2/AQOfixtureOpaqueName0123456789_abc.mp4"
@@ -267,11 +297,13 @@ class CandidateNormalizerTest {
         confidence: CandidateConfidence = CandidateConfidence.MEDIUM,
         observedAt: Long = 1,
         context: BrowserRequestContext = BrowserRequestContext(candidatePageUrl, null, null),
+        mimeType: String? = null,
     ) = MediaCandidate(
         pageUrl = candidatePageUrl,
         mediaUrl = mediaUrl,
         sources = sources,
         kind = kind,
+        mimeType = mimeType,
         title = title,
         durationMillis = durationMillis,
         contentLengthBytes = contentLengthBytes,
