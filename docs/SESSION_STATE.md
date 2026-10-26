@@ -2047,7 +2047,7 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - CI on `e401c48a`: the checkpoint 40363510352, emulator smoke 40363510251, the minified check
   40363510450 and Preview APK 40363510324 (YFT Trial: artifact `yft-preview-trial-apk`
   12669332955, `1.0.0-trial.118`) — all green.
-- **V3's retest 4 of `e401c48a`: PASS** (its YFT Trial; 11:49–11:50 MMT, 2026-10-27; VK value
+- **V3's retest 4 of `e401c48a`: PASS** (its YFT Trial; 23:49–23:50 MMT, 2026-10-26; VK value
   break = Client id; the 18+ video, played, Try again): `discovered 20 bounded media
   observations`, `automatic main selected; more=0`, `fingerprint qualities=1`, `VK page data:
   files=6; tried=1; passed=1; admitted=1`; the sheet "Video by Asianese · 1:58", the row `1080p ·
@@ -2055,6 +2055,23 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - Backlog (not for this PASS): the page data's other qualities as rows of their own (they are
   one video's; today one row, the tallest that passes, so the sheet never shows them as "More"
   videos without cues); VK V2 heal stays off.
-- Next: merging `work/phase-vk-master-wire` to main only with the owner's OK; `defaults`
-  published again (v10) before S5; S5's counted runs on the final code's census APK.
+- **Merged to `main`** with the owner's OK: PR #8 (`work/phase-vk-master-wire`, 39 commits, 0
+  behind `main`) → `a27b2c9c` (2026-10-26 17:52 UTC; a merge commit, its tree `6d73d0d2`'s, the
+  code `e401c48a`'s). The PR's checkpoint validation 40369851957: green.
+- **`defaults` published again: v10** (the owner's publish run #10, 40373491104, from `main`) →
+  `recipes` `ca574918` (`Recipes version 10: defaults (from a27b2c9c3b1b, expires 2027-10-26)`):
+  both files version 10, the schema-2 file without a site entry, so VK's V2 runs again.
+- **The census APK of `a27b2c9c`** (S5's final code): `:app:assembleDebug` with masterCapture,
+  ownSolver, ownSolverNext, clientLadder, socialLadder and socialTrial on (ladderSkip and
+  ladderMutate blank, routeBTrial off), signed with the shared test key —
+  `yft-vk-census-a27b2c9c.apk`, 22,572,312 bytes, SHA-256 `8ced51b6…b680ce`; handed over by a
+  temporary tmpfiles link (not kept).
+- **S5's run 1: PASS on all five sites, counted** (2026-10-26 18:18–18:24 UTC; mobile data; signed
+  out; the VPN for TikTok only): every site's diff NO CHANGE, wrong rows 0; VK 50 requests, 32 s
+  (B0: 50, 35 s). TikTok's note `recipes: bundled (no answer in time)` over the VPN (v10 is
+  `defaults`: the same recipes), the other four `recipes: remote version 10, signed`. Details in
+  `docs/PHONE_TEST_NOTES.md`.
+- Next: S5's run 2 per site from 6 h after run 1 (2026-10-27 00:18–00:24 UTC), run 3 from 24 h
+  after run 1 (2026-10-27 18:18–18:24 UTC) and 6 h after run 2; no code change meanwhile (one
+  restarts the counts). Then the v1.0.1 release (plan §12.4).
 

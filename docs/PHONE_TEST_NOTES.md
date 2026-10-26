@@ -990,7 +990,7 @@ MMT (UTC+6:30); Backup finder on. VK's test links, video ids and values are left
   40363510324.
 
 ### V3's retest 4 (YFT Trial of `e401c48a`, Preview APK run 40363510324, `1.0.0-trial.118`) — PASS
-- 11:49–11:50 (2026-10-27 MMT); VK value break = Client id; the 18+ video by its link (landing
+- 23:49–23:50 (2026-10-26 MMT); VK value break = Client id; the 18+ video by its link (landing
   on m.vkvideo.ru, 1:58), played, Try again.
 - Lookup details: `master: discovered 20 bounded media observations`, `automatic main selected;
   more=0`, `fingerprint qualities=1`, `master: VK page data: files=6; tried=1; passed=1;
@@ -1000,3 +1000,39 @@ MMT (UTC+6:30); Backup finder on. VK's test links, video ids and values are left
   completed: `1078p · 37 MB` in Downloads, with the video's own picture.
 - PASS: the first Try again gives the tallest quality with the video's title, and it downloads.
 
+## 2026-10-26 — S5's run 1 on the census APK of `a27b2c9c` (VK-Master wave 2)
+Rebuilt from the owner's census reports in the session; the phone's own notes, links and posts stay
+on the phone. `main` `a27b2c9c` (PR #8); `defaults` v10 published at 17:57 UTC (run 40373491104).
+As an Update over `8d3abe61`'s census APK; mobile data; signed out; both census boxes unticked; the
+VPN for TikTok only.
+
+### S5's run 1 — the census, every site — PASS, counted
+- TikTok, VPN on, 18:18 UTC: 9 rows, 57 requests, 1.6 MB, 61 s; NO CHANGE against 2026-10-24 17:49
+  UTC; all 9 as expected; main's V pass 6; ladder: parts 9, rows 6, the same video 6, V pass 6,
+  wrong 0, unknown 0 (T1's rows on slots 1–5 and 10; slots 8 and 9 needs playback; slot 6 route B
+  NO_MEDIA_FOUND, T1 not run (final)). One of main's file checks on slot 1 `PROBE NETWORK`, the
+  next one 206 (main's own; 57 requests against 56).
+- Facebook, no VPN, 18:21 UTC: 13 rows, 73 requests, 5.4 MB, 54 s; NO CHANGE against 2026-10-24
+  17:52 UTC; not as expected 0, ambiguous 1 (slot 12 sign-in-only, no session); main's V pass 11;
+  ladder: parts 13, rows 9, the same video 9, V pass 9, wrong 0, unknown 0.
+- Instagram, no VPN, signed out, 18:22 UTC: 10 rows, 46 requests, 2.0 MB, 30 s; NO CHANGE against
+  2026-10-24 17:54 UTC; not as expected 1 (slot 5 reel LOGIN_REQUIRED [browser], = baseline,
+  main's known signed-out gap), ambiguous 1 (slot 10 removed, no session); main's V pass 6; ladder:
+  parts 7, rows 6, the same item 6, V pass 6, wrong 0, unknown 0.
+- X, no VPN, 18:23 UTC: 8 rows, 36 requests, 0.1 MB, 12 s; NO CHANGE against 2026-10-24 17:55 UTC;
+  all 8 as expected; main's V pass 6; ladder: parts 8, rows 6, the same item 6, V pass 6, wrong 0,
+  unknown 0.
+- VK, no VPN, 18:24 UTC: 6 rows, 50 requests, 0.3 MB, 32 s; NO CHANGE against 2026-10-26 08:04 UTC
+  (B0); not as expected 0, ambiguous 0; main's V pass 5; ladder: parts 5, rows 5, the same video
+  5, V pass 5, wrong 0, unknown 0 (V1's rows on slots 1–4 and 6, Master's 6, 6, 6, 8 and 5 against
+  main's 9, 9, 9, 13 and 9; V2 and V3 not reached); slot 5 not looked up (not handled), as in B0.
+- Recipes: TikTok's note `recipes: bundled (no answer in time)` (the ask over the VPN was not
+  answered in time); the other four `recipes: remote version 10, signed`. Version 10 is `defaults`
+  (no site and no rung changed), so TikTok's ladder read the same recipes either way (as in S5's
+  run 2 of 2026-10-24).
+- Counted for S5 (decision 26): Master ran on every site, on the final code (`a27b2c9c`; the code
+  `e401c48a`'s).
+
+### Verdict of S5's run 1
+- S5: run 1 of 3 on every site; run 2 per site from 6 h later (2026-10-27 00:18–00:24 UTC), run 3
+  from 24 h after run 1 (2026-10-27 18:18–18:24 UTC) and 6 h after run 2.
