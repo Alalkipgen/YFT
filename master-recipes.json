@@ -1,1 +1,1 @@
-{"alg": "ES256", "payload": "{\n  \"schema\": 1,\n  \"version\": 9,\n  \"expires\": \"2027-10-26\",\n  \"sites\": {}\n}\n", "signature": "304502203e41b58bc9de60631e79cbcef0b2fdc4fe05fac5a59cbef07d3c25d853ee0bca022100e94d5f9f05e3453ff307101576f139bc8e9314960c1c5d3f87bf2b4f68b6f0a1"}
+{"alg": "ES256", "payload": "{\n  \"schema\": 1,\n  \"version\": 10,\n  \"expires\": \"2027-10-26\",\n  \"sites\": {}\n}\n", "signature": "304502210095ad68d1de2b4731cfc17ef10c90fd539100506cb1c7e2f8b0a0fa62ca4c458802206593c6b99bbeb6e1cfda1123b9143b80c79f852698a296b9145ea43aee144ccc"}
