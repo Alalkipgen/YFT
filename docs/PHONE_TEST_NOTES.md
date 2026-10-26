@@ -973,3 +973,30 @@ MMT (UTC+6:30); Backup finder on. VK's test links, video ids and values are left
   media observations`, `master: automatic selection NO_MEDIA_FOUND`; no rows, the playback words
   again. The cause (a capture of VK's pieces only, no page manifest; no row was made of the
   pieces' whole files) is fixed in `7e101aa4`; its YFT Trial: Preview APK run 40349728907.
+
+### V3's retest 3 (YFT Trial of `7e101aa4`, Preview APK run 40349728907) — FAIL
+- 22:23–22:27; VK value break = Client id; the 18+ video by its link (landing on m.vkvideo.ru,
+  1:58), played.
+- Try again 1: `master: discovered 32 bounded media observations`, `automatic main selected;
+  more=0`, `fingerprint qualities=1`, `VK pieces' files: pictures passed 2 of 2; sounds passed 2
+  of 4`; the row `480p · 478 × 852 · MP4 · ~10 MB`, titled "ВКонтакте | VK Видео" (the page's).
+- Try again 2: `discovered 40 …`, `pictures passed 3 of 6; sounds passed 2 of 5`; the row
+  `1080p · 1078 × 1920 · MP4 · ~33 MB`, titled "Video by Asianese".
+- The 1080p row's download: "This video and its audio cannot be combined on this phone."
+- The causes (the pieces' sound file named no codecs, which the sheet's gate let through and the
+  download's refused; the pieces' files cover only the qualities the player had fetched by then,
+  while the page's own data for the video — every quality, the title — was read once a document
+  and not carried to later binds) are fixed in `e401c48a`; its YFT Trial: Preview APK run
+  40363510324.
+
+### V3's retest 4 (YFT Trial of `e401c48a`, Preview APK run 40363510324, `1.0.0-trial.118`) — PASS
+- 11:49–11:50 (2026-10-27 MMT); VK value break = Client id; the 18+ video by its link (landing
+  on m.vkvideo.ru, 1:58), played, Try again.
+- Lookup details: `master: discovered 20 bounded media observations`, `automatic main selected;
+  more=0`, `fingerprint qualities=1`, `master: VK page data: files=6; tried=1; passed=1;
+  admitted=1` (no pieces' line: the page data's tallest file passed first).
+- The sheet: "Video by Asianese · vkvideo.ru · 1:58"; the row `1080p · Full HD · 1078 × 1920 ·
+  MP4 · 37 MB` (the whole file, its sound inside; no separate sound to merge). The download
+  completed: `1078p · 37 MB` in Downloads, with the video's own picture.
+- PASS: the first Try again gives the tallest quality with the video's title, and it downloads.
+

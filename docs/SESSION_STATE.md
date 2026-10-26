@@ -2000,3 +2000,61 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - Next (the owner, `7e101aa4`'s YFT Trial): the same steps → a row in MB (1080 × 1920 MP4, about
   35 MB, with its sound) → download it: it plays 1:58 with sound. On a failure: Lookup details
   (now with the capture's counts).
+- **V3's retest 3 of `7e101aa4`: FAIL** (its YFT Trial, Preview APK run 40349728907; 22:23–22:27
+  MMT): Try again 1 — `discovered 32 bounded media observations`, `automatic main selected;
+  more=0`, `fingerprint qualities=1`, `VK pieces' files: pictures passed 2 of 2; sounds passed 2
+  of 4`; the row `480p · 478 × 852 · MP4 · ~10 MB`, titled "ВКонтакте | VK Видео". Try again 2 —
+  `discovered 40 …`, `pictures passed 3 of 6; sounds passed 2 of 5`; the row `1080p · 1078 × 1920
+  · MP4 · ~33 MB`, "Video by Asianese". The 1080p row's download: "This video and its audio
+  cannot be combined on this phone."
+- The diagnosis (the code): (1) the pieces' sound file names no codecs; `DeviceMergeSupport`
+  read the video's codecs only, so the sheet offered the row, while `AudioVideoMuxCompatibility`
+  (the download's gate) wants `mp4a.40.…` for the sound. (2) The pieces' files cover only the
+  qualities the player had fetched by then; the page's own data for the video (`video.getByIds`:
+  `files.mp4_144…mp4_1080`, each whole with its sound inside, the title, the length) is read once
+  a document and was lost on Try again (a new generation's payloads start empty); VK's `sig`
+  differs per quality, so no other quality's address can be made from a piece's. (3) The title
+  came from the page's `<title>`.
+- **The fix** (commit `e401c48a`, pushed as one checkpoint; locally two: `d34de51d` the sound's
+  codec and the gate, `164d6b16` the page data):
+  - `StartSound` (new): a sound file's codec from its start bytes (`moov`/`trak`/`stsd` `mp4a`,
+    its `esds`: the object type and the audio object type → `mp4a.40.2`; an `esds` past the bytes
+    → `mp4a.40.2`; another entry its own type, so the gate refuses it). `SocialRowCheck`: a VK
+    sound row that passes and states no codecs gets its own (the companion is checked as a row).
+  - `AudioVideoMuxCompatibility.evaluateMp4` public, by tracks; `DeviceMergeSupport.canMerge`
+    uses it (plus the AV1 decoder check): one gate for the sheet and the download — a video or
+    sound without codecs, or a sound that is no AAC, is left out of the sheet.
+  - The capture script: on a bind that carries (VK's pages) a JSON body naming VK's MP4 files
+    (`"mp4_NNN": "https:`) is kept with the bind's address (≤ 2, the newest) and offered first to
+    later binds of the same page (`samePage`), as the manifests are; nothing is read before the
+    first bind, as before; a bind without carry drops them.
+  - `VkPageData` (new): the capture's page data for the link's video (`VkReader.api`, bound by
+    `owner_id`/`id`; the trailer, pictures and other hosts left out) as MP4 rows, the tallest
+    first, with the data's title, length, picture and the address's expiry; the link from the
+    request's identity, else the page address (`video{o}_{id}`, `clip…`, `z=video…`).
+  - `MasterMainSelection`: in a VK lookup whose captured rows gave nothing, the page data's files
+    are checked from the tallest (≤ 3) and the first that passes is admitted (as any passed row:
+    inspected, its length held to the player's), before the pieces' fallback; the pieces' row
+    takes the data's title and picture when it names none. The line `master: VK page data:
+    files=N; tried=T; passed=P; admitted=A` in the details (success and failure).
+- Tests: `StartSoundTest` 3 (new), `VkPieceFilesTest` +1 (a VK sound row's own codec),
+  `MergeSupportTest` +1 (the sheet offers only the merges the download makes), `VkPageDataTest` 3
+  (new), `VkPageDataSelectionTest` 3 (new: the tallest file that passes before the pieces; failing
+  files give way, then the pieces' row with the data's title; off-length gives way, DRM final,
+  other sites none), `capture.test.cjs` 34 (+2). Local: JS 45/45; `:extractor-master:test` 1113
+  (2 skipped), `:extractor-master-android:testDebugUnitTest` 84 — 0 failed; `:app` and
+  `:core-download` in CI only (their dependencies are not cached offline in the sandbox).
+- CI on `e401c48a`: the checkpoint 40363510352, emulator smoke 40363510251, the minified check
+  40363510450 and Preview APK 40363510324 (YFT Trial: artifact `yft-preview-trial-apk`
+  12669332955, `1.0.0-trial.118`) — all green.
+- **V3's retest 4 of `e401c48a`: PASS** (its YFT Trial; 11:49–11:50 MMT, 2026-10-27; VK value
+  break = Client id; the 18+ video, played, Try again): `discovered 20 bounded media
+  observations`, `automatic main selected; more=0`, `fingerprint qualities=1`, `VK page data:
+  files=6; tried=1; passed=1; admitted=1`; the sheet "Video by Asianese · 1:58", the row `1080p ·
+  1078 × 1920 · MP4 · 37 MB` (the whole file, its sound inside); the download completed, 37 MB.
+- Backlog (not for this PASS): the page data's other qualities as rows of their own (they are
+  one video's; today one row, the tallest that passes, so the sheet never shows them as "More"
+  videos without cues); VK V2 heal stays off.
+- Next: merging `work/phase-vk-master-wire` to main only with the owner's OK; `defaults`
+  published again (v10) before S5; S5's counted runs on the final code's census APK.
+
