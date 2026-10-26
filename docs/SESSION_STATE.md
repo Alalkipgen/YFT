@@ -2071,7 +2071,14 @@ Keep at least the heading and one blank line between sections, so Git merges the
   (B0: 50, 35 s). TikTok's note `recipes: bundled (no answer in time)` over the VPN (v10 is
   `defaults`: the same recipes), the other four `recipes: remote version 10, signed`. Details in
   `docs/PHONE_TEST_NOTES.md`.
+- **YouTube's client census (FULL) on the same APK: PASS, no regression** (18:40 UTC; mobile data):
+  `CHANGED (1)` = the App Store's visionOS version source unreachable (NETWORK); visionOS R0's bot
+  checks answered as R6 (INFO); every video V PASS, HLS 2xx, L steps 9/9 same.
 - Next: S5's run 2 per site from 6 h after run 1 (2026-10-27 00:18–00:24 UTC), run 3 from 24 h
   after run 1 (2026-10-27 18:18–18:24 UTC) and 6 h after run 2; no code change meanwhile (one
   restarts the counts). Then the v1.0.1 release (plan §12.4).
+- Backlog for v1.0.2 (the owner, 2026-10-27): track E (a file's 403: a fresh lookup and a restart,
+  every site); the Downloads list's rows swap places, flashing, during 2–3 downloads at once —
+  `DownloadsUiState.from` orders the active rows by `updatedAtEpochMs`, which every progress write
+  moves (fix: a stable order, such as when the download was added).
 

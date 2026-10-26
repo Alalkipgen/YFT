@@ -1036,3 +1036,11 @@ VPN for TikTok only.
 ### Verdict of S5's run 1
 - S5: run 1 of 3 on every site; run 2 per site from 6 h later (2026-10-27 00:18–00:24 UTC), run 3
   from 24 h after run 1 (2026-10-27 18:18–18:24 UTC) and 6 h after run 2.
+
+### YouTube's client census (FULL) on the same APK — PASS, no regression
+- 18:40 UTC; mobile data, no VPN: 10 videos, 79 requests, 3,380 KB, 59 s; `CHANGED (1)` against
+  the run 8 days earlier: `version visionos from appstore: unreachable (NETWORK)` (one version
+  source; visionOS 1.02 = yt-dlp's and youtube.js's). visionOS R0's bot check on videos 1, 3–5
+  and 7–10 answered as R6 (visitor data: DIRECT, V PASS; INFO, not counted). Every video V PASS
+  (video 6, made for kids: android's progressive 360p and mweb with the signature and n); HLS 2xx
+  on all nine visionOS answers (2160p on videos 2, 4 and 8); L steps 9/9 same.
