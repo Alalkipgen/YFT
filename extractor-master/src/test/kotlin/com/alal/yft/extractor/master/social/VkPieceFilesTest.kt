@@ -22,7 +22,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * VK's pack proof (V3's retest 2 of f22c2217, 2026-10-27): the phone's capture of the 18+ video
+ * VK's pack proof (V3's retest 2 of f22c2217, 2026-10-26): the phone's capture of the 18+ video
  * held 18 observations, all pieces VK's player asked for (`&bytes=A-B`), no page manifest, so no
  * row. Each piece's address without its range is VK's whole file (the manifest's `BaseURL`):
  * [VkPieceFiles] groups the pieces into the picture files and the sound files of their container,

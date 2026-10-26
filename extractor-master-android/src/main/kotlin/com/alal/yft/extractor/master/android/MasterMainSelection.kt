@@ -40,7 +40,7 @@ import kotlin.math.abs
  * never checked and never offered (a piece's own start may state the whole video's length: VK's
  * 1.4 KB init piece did); it still counts as the player's request. The page's manifest is the row.
  *
- * VK's pack proof (V3's retest 2 of f22c2217, 2026-10-27: 18 observations, all pieces, no row):
+ * VK's pack proof (V3's retest 2 of f22c2217, 2026-10-26: 18 observations, all pieces, no row):
  * in a VK lookup ([MainPages.site]) whose captured rows gave nothing, the pieces' whole files
  * ([VkPieceFiles]): at most [VkPieceFiles.MAX_PICTURES] pictures and [VkPieceFiles.MAX_SOUNDS]
  * sounds are checked (V, in the lookup's reads), and the tallest mergeable picture with the

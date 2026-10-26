@@ -1952,3 +1952,51 @@ Keep at least the heading and one blank line between sections, so Git merges the
   `defaults` published again (v10) before S5; S5's counted runs on the final code's census APK.
 - Backlog (not for this PASS): VK's manifest gives one row (its tallest quality); its other
   qualities as rows of their own later.
+- **V3's retest of `f22c2217`: FAIL** (its YFT Trial, Preview APK run 40329196567; 20:23–20:24
+  MMT; Backup finder on, VK value break = Client id; the 18+ video by its link, landing on
+  m.vkvideo.ru, 1:58, played): V1's `login.vk.ru: VALUE_REJECTED (status 401 …)`, `master: vk V2
+  heal: off (config); not run`, then `master: discovered 18 bounded media observations`, `master:
+  automatic selection NO_MEDIA_FOUND`; no rows, the playback words again.
+- The diagnosis (the code; a replay in the agent's sandbox of a real capture of the 18+ video, its
+  manifest request left out): the same `NO_MEDIA_FOUND`. VK's player asks for its files' pieces by
+  address (`&bytes=A-B`, `video/mp4` and `audio/mp4`), which F1 rightly never takes as rows; VK's
+  page data (the `getByIds` answer: `files.mp4_*` addresses with no file type) gives no row; the
+  native observer never records VK's pieces (no type in the address). So a capture holding pieces
+  only (no page manifest: VK's player asks for it once, as it starts) had no row at all. Why the
+  phone's capture held no manifest its details did not say (they named no counts); a possible
+  cause: the address it was fetched on differed from the bind's in its query only, and F2's carry
+  matched the exact address.
+- **The fix** (commit `7e101aa4`):
+  - VK's pieces' whole files (`VkPieceFiles`, new; `MasterMainSelection`): in a VK lookup whose
+    captured rows gave nothing, the pieces VK's player asked for (GET, VK's media host, a closed
+    `bytes=` range, typed `video/` or `audio/` MP4 or WebM, the page's video only) are grouped into
+    whole files (the address without its `bytes=`; pictures MP4 before WebM, sounds of the same
+    container, VK's quality order); at most 3 pictures and 2 sounds are checked (the engine's V,
+    in the lookup's reads), and the tallest mergeable (AVC) picture with the fullest sound is
+    admitted as any passed row is (inspected, its length held to the player's, its sound
+    checked). Its line: `master: VK pieces' files: pictures passed X of Y; sounds passed U of V`.
+  - `SocialRowCheck` and `StartPicture.codec`: a VK picture row that states no codecs gets its
+    file's own sample entry (`avc1`, …) from the same bytes, so the phone's merge gate reads it.
+  - A failure names, in counts only (never an address): `master: capture held requests=N (dash=…,
+    hls=…, pieces=…, player's=…); page data=K; player length known|unknown` and `master: rows
+    checked=…; passed=…; off the player's length=…; refused=…`.
+  - The capture script (VK's carrying binds only): a request counts for the bind's page when it
+    began on the same page — the same address, or the same origin and path under another query
+    with the same `z` (VK's overlay video); every other bind exact, as before.
+- Tests: `VkPieceFilesTest` 5 (new: the whole files, the fullest first; only VK's typed GET
+  pieces, MP4 before WebM; the address without its range; the row with its sound; a VK picture
+  row's own codec, elsewhere none), `StartPictureTest` +1 (the sample entry),
+  `VkPieceSelectionTest` 5 (new: pieces only → the tallest picture with the fullest sound; a
+  mergeable picture before one the phone cannot merge; other sites none, the counts said; failed
+  sounds no row, a protected picture final; a picture off the player's length no row),
+  `capture.test.cjs` 32 (+2: a carried bind takes its page's requests under another query, never
+  another video's `z` or another path; every other site exact). Local: JS 43/43;
+  `:extractor-master:test` 1106 (2 skipped), `:extractor-master-android:testDebugUnitTest` 81 —
+  0 failed. The sandbox replay (network, the manifest left out): the row 1080 × 1920 MP4 34.7 MB
+  with its sound (3.9 MB), 118,008 ms; `pictures passed 3 of 6; sounds passed 2 of 5`.
+- CI on `7e101aa4`: the checkpoint 40349729515, emulator smoke 40349728982, the minified check
+  40349729186 and Preview APK 40349728907 (YFT Trial: artifact `yft-preview-trial-apk`
+  12664235520, `1.0.0-trial.116`) — all green.
+- Next (the owner, `7e101aa4`'s YFT Trial): the same steps → a row in MB (1080 × 1920 MP4, about
+  35 MB, with its sound) → download it: it plays 1:58 with sound. On a failure: Lookup details
+  (now with the capture's counts).

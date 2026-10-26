@@ -13,7 +13,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * VK's pack proof (V3's retest 2 of f22c2217, 2026-10-27): on the phone the 18+ video's capture
+ * VK's pack proof (V3's retest 2 of f22c2217, 2026-10-26): on the phone the 18+ video's capture
  * held 18 observations, all pieces VK's player asked for, no page manifest: no row
  * (`automatic selection NO_MEDIA_FOUND`). In a VK lookup the selection then checks the pieces'
  * whole files (at most 3 pictures and 2 sounds, the fullest first) and admits the tallest

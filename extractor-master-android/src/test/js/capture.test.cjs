@@ -469,7 +469,7 @@ test("VK: a carried bind takes its own address's manifest answered late, never a
   assert.equal(sampled(env, 3).requests.length, 0);
 });
 
-// V3's retest 2 (2026-10-27): VK's page address gains a query (`list=` and the like) as it
+// V3's retest 2 (2026-10-26): VK's page address gains a query (`list=` and the like) as it
 // settles, so a carried bind counts a request begun on its own page under another query; another
 // video's overlay (`?z=video…`) or another path never. Every other bind: the exact address only.
 test("VK: a carried bind takes its page's requests made under another query, never another video's", async () => {

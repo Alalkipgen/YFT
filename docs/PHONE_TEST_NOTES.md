@@ -966,3 +966,10 @@ MMT (UTC+6:30); Backup finder on. VK's test links, video ids and values are left
   `480p · 478 × 852 · MP4 · 1.4 KB`: a wrong row (a piece of the video, not the video). The cause
   (pieces taken for files; the manifest not offered to a later lookup; VK's manifest gave no row)
   is fixed in `f22c2217`; its YFT Trial: Preview APK run 40329196567.
+
+### V3's retest 2 (YFT Trial of `f22c2217`, Preview APK run 40329196567) — FAIL
+- 20:23–20:24; VK value break = Client id; the 18+ video by its link (landing on m.vkvideo.ru,
+  1:58), played: `master: vk V2 heal: off (config); not run`, `master: discovered 18 bounded
+  media observations`, `master: automatic selection NO_MEDIA_FOUND`; no rows, the playback words
+  again. The cause (a capture of VK's pieces only, no page manifest; no row was made of the
+  pieces' whole files) is fixed in `7e101aa4`; its YFT Trial: Preview APK run 40349728907.

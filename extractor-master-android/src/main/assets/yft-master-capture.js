@@ -48,7 +48,7 @@
   function manifest(url, mime) {
     return /mpegurl|dash\+xml/i.test(mime || "") || /\.(m3u8|mpd)(?:[?#]|$)/i.test(url || "");
   }
-  // V3's retest 2 (2026-10-27): on a bind that carries manifests (VK's pages) a request counts
+  // V3's retest 2 (2026-10-26): on a bind that carries manifests (VK's pages) a request counts
   // for the bind's page when it began on the same page: the same address, or one that differs in
   // its query only (VK adds `list=` and the like as the page settles), never another video (VK's
   // overlay address `?z=video…` names its video in its query). Every other bind: the same address.
