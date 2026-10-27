@@ -1660,9 +1660,15 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - Plan: `docs/TRACK_E_PLAN.md` (the owner's go, 2026-10-27, while S5's run 3 waits). Branch from
   `main` `a27b2c9c` (PR #8's merge: the code of S5's census APK). Not for v1.0.1: nothing reaches
   `main`, and no APK from this branch reaches the owner's phone, before v1.0.1 is published.
-- State: the plan only (docs). No code changed; no build or test has run on this branch yet.
-- Next: E0 (recon + design, docs only; plan §6), then STOP and a Burmese report with plan §3's
-  open decisions (their defaults stand until the owner answers).
+- State: E0 done (docs only, 2026-10-27): plan §2 checked on `a27b2c9c` (true, with corrections),
+  §6's seven questions answered, gaps G1–G5 found, the final names and the test list — all in
+  plan §4.5. No code changed. No build or test ran: this sandbox has no Android SDK, and a
+  docs-only push starts no CI.
+- STOP: waiting for the owner's answers to plan §3 (E-D1–E-D9; E0's E-D5' and E-D6's wording)
+  and the OK for §4.5's files beyond §5's list. E1–E3 only after that; E4 only after v1.0.1 is
+  published.
+- Next: E1 (`core-download`: `DownloadLinkRenewal`, `RENEWING_LINK`, the renewal in the task's
+  job, the cap, G1–G4, tests); G5 is E2's.
 - This section sits above the wiring agent's (D) so Git merges it cleanly with that branch's S5
   notes; keep Track E's state here only.
 

@@ -1,6 +1,7 @@
 # Track E — a file's link dies after its download started: a fresh lookup, every site (v1.0.2)
 
-Status: planning (the owner's go, 2026-10-27, while S5's run 3 waits). Branch
+Status: E0 done (docs only, §4.5); STOP, waiting for the owner's answers (§3, §4.5's proposals).
+Planning: the owner's go, 2026-10-27, while S5's run 3 waits. Branch
 `work/phase-track-e-403` from `main` `a27b2c9c` (PR #8's merge: the code of S5's census APK).
 Nothing is built yet; this file is docs only. **Not for v1.0.1:** nothing here reaches `main`, and
 no APK from this branch reaches the owner's phone, before v1.0.1 is published.
@@ -162,8 +163,204 @@ finds them on the same path at no extra cost), and the Downloads rows' order (§
 
 ### 4.5 E0 result
 
-(E0 writes here: §2 confirmed or corrected, the answers to §6's E0 questions, the final names, the
-test list.)
+Read on `a27b2c9c`, docs only. No build or test ran here (this sandbox has no Android SDK; E1's
+pushes get CI). No live check (Q2's is optional; the census already has VK's answers).
+
+**§2 checked: true, with these corrections and additions.**
+
+- **2.1** Every HTTP-status failure has `stage = CONNECT` and keeps `httpStatusCode`, the first
+  request's and a later range's alike: only the checkpoint's bytes say "in the middle". Also
+  404 → `NOT_FOUND`, 416 → `RANGE_NOT_SATISFIABLE` (Direct), 5xx → `SERVER_ERROR` (asked again
+  inside the engine), any other → `HTTP_STATUS` with its code (VK's 400 is `HTTP_STATUS` + 400).
+  `EXPIRED_URL` is each engine's check of the plan's `expiresAtEpochMs` before any request (Direct,
+  HLS, DASH, merge). `SecureDownloadHttp`'s own refusals (an unsafe redirect, too many) fail at
+  CONNECT without a status. `refusedWithTimeLeft` (403, CONNECT, `googlevideo.com`, ≥ 1 min left on
+  every link and on the plan) turns a 403 in the middle of a file into `YOUTUBE_REFUSED` too.
+- **2.2** The engine's failure checkpoint replaces the stored one (`checkpoint =
+  result.checkpoint`; see G1). Other reasons → `FAILED` with the runtime kept (Retry asks the same
+  link again); an exception → `FAILED` / `NETWORK`.
+- **2.3** `refreshRuntime` puts the task at the end of `pending`, not first, and does not check for
+  a running job (G4).
+- **2.4** Direct also needs a resumable answer (ranges and a total) and segments that fit the
+  partial file; a mismatch rewrites every segment from byte 0 (the ranged path sets the length
+  again, the plain one calls `resetDestination`); changed validators in a response →
+  `INTEGRITY_MISMATCH`. DASH: a whole-file track is known by its track type and exact length (and
+  the chunk size; merged plans name the representation "video" / "audio"); the length is known
+  up front only on `googlevideo.com` (`clen`), else from a probe or the first range. Merge: a
+  finished track (`videoReady` / `audioReady`, its file not empty) is kept with no check against
+  the new plan (G3); an unfinished one follows DASH (HLS tracks: `PlaylistTrackTransferRunner`).
+  MP3 / M4A: the source is a Direct download into the workspace, resumed by Direct's rules; a
+  finished source is kept by its length alone, then converted.
+- **2.5** Retry and Resume both call `queue.resume` and start the service; `availableActions` gives
+  Retry for `FAILED` only. The notice is `DownloadServiceController.noticeEnded`: a task it saw
+  run leaves `FOREGROUND_STATUSES` into `COMPLETED`, `FAILED` or `NEEDS_REFRESH` (G5).
+- **2.6** Also: the status is stored by name, an unknown name reads back as `FAILED`
+  (`DownloadTaskStore`); no column or check lists the statuses (migration 2→3's list is history).
+- **2.7** Home: `HeadlessLinkInspector` → `inspect(url, BrowserRequestContext(url,
+  HeadlessIdentity.USER_AGENT, cookie = TikTok's or Instagram's Home session only), fresh)`,
+  90 s. The browser: `BrowserViewModel.lookUp` → `inspect(url, the tab's context (its agent, the
+  site's cookie), tab = tabData)`, then `BrowserMasterFallback.recover` when main fails —
+  browser-only (its capture plays the video in the tab). `PreviewViewModel` (the preview screen)
+  enqueues an asset without the lookup's facts. `SheetOption.id` is "s<index>-<variant id>".
+- **2.8** `SiteLookupKey.session` = the context has a cookie; `fresh = true` forgets the video's
+  entries (with and without the session) first. Without `tab` the order is Home's: the adapter's
+  page read, then the hidden page (`TikTokPageEngine`).
+- **2.9** F8 confirmed (`MediaHostRefusals`): a whole-file DASH track on `googlevideo.com` asks a
+  403'd range once more, 3 s later; refused again, the file fails (`ACCESS_DENIED` 403, so
+  `YOUTUBE_REFUSED` with time left).
+- **2.10** Confirmed (`docs/VK_MASTER_CENSUS.md` §4).
+
+**Gaps (E1 fixes G1–G4 in `core-download`, E2 fixes G5 in `app`):**
+
+- **G1 — the resume point is lost before the engine reads it.** A failure returned before an
+  engine reads the saved state carries its empty checkpoint: the `EXPIRED_URL` pre-check (all four
+  engines), `INVALID_URL`, Direct's stated-length mismatch, HLS / DASH failures while fetching the
+  playlist or manifest, DASH's length probe or first range of a whole file. `failTask` stores it:
+  Direct starts again at 0, HLS / DASH clear their chunks on the next run. It hits §7.3 (Resume
+  after expiry) and every renewal after a manifest 403. Fix: on a failure that goes to a renewal,
+  an untouched empty checkpoint (no segments; no fingerprint and no chunks; no tracks) never
+  replaces the stored one. Safe: each engine checks the files again (Direct the validators and the
+  partial length, HLS / DASH each chunk file's length).
+- **G2 — no cleanup for a "Link expired" row.** `NEEDS_REFRESH` drops the runtime, so Cancel and
+  Delete cannot discard the partial file or the workspace (only `DownloadStorageJanitor`, later).
+  With a renewal source the runtime is kept, as `FAILED` keeps it today, so they clean up.
+- **G3 — a merge keeps a finished track unchecked.** Fix: kept only when its saved DASH
+  fingerprint (track type and length) matches the new plan's track, or one of them is unknown
+  (today's rule); else cleared and downloaded again.
+- **G4 — `refreshRuntime` re-queues at the end and ignores a running job.** The renewal does not
+  use it (below); `refresh()` and its tests stay.
+- **G5 — the service and the notice watch `FOREGROUND_STATUSES` only.** A new status outside it
+  would stop the service and end the watch, so the final "Download failed" would never come: the
+  new status joins that set.
+
+**Answers to §6's questions:**
+
+1. The same-file rules and their cleanup: 2.4 above. Proving tests: Direct "matching validator
+   resumes only missing byte ranges", "a resume whose length read fails starts again at byte 0 and
+   completes"; HLS "fingerprint ignores signed query changes but preserves chunk identity",
+   "retryable failure checkpoint resumes without downloading completed chunk again"; DASH "whole
+   file track resumes finished ranges from a refreshed address", "fingerprint ignores renewed
+   signed queries", `DashFastStartLayoutTest`'s three layout tests; merge "retry resumes failed
+   audio without downloading completed video again"; the queue's two refresh tests (§2.3).
+   Missing (E1): after a refresh, Direct with another ETag or total → byte 0, the old bytes
+   overwritten; HLS / DASH with another fingerprint → chunks cleared, the file right; a DASH whole
+   file of another length; G3; an MP3 / M4A source; G1 per engine.
+2. Every HTTP status reaches `failTask` at CONNECT (first request or a later range), so do the
+   pre-checks and the redirect refusals; `HTTP_STATUS` keeps its code; F8 ends in `ACCESS_DENIED`
+   403. Expected answers (no live check): YouTube 403 (its links are bound to the IP), VK 400 or
+   403 (census §4), the others 403 or 410; E3's tests use fakes.
+3. `MediaVariant.id` is no quality key: the resolver numbers by position — "direct-0" for every
+   file, "hls-stream-N", "hls-audio-N", "dash-<track>-N" by manifest order; only DASH's
+   `manifestVariantId` (the representation's id) comes from the site. Each adapter gives one
+   candidate per quality, with: YouTube height, width, fps, codecs, length, bitrate, the sound's
+   codecs; Facebook and Instagram height, width, fps, codecs, bitrate, the sound; TikTok height,
+   width, codecs, bitrate, length; X height, width, bitrate (MP4) or HLS; VK height (MP4) or
+   HLS / DASH; Vimeo the rendition's label (in the title) and size, or HLS / DASH. So the key
+   (`DownloadQualityKey`) is facts: kind, track type, height, width, frame rate, container, codecs
+   and the sound's codecs, the bitrate where a site states it per file (X), Vimeo's label; then the
+   conversion (MP3 kbps, M4A, merge). Two matches → the one with the stated length; none →
+   `Unavailable` ("this quality is no longer offered"). No fixture has two lookups of one video:
+   E2's tests run each adapter's fixture twice with fresh signatures.
+4. Enqueue paths: the sheet (`QuickDownloadViewModel.enqueue`, Home's and the browser's,
+   `LookupOwner`), knowing the candidate (page address, video id, the request context) and the
+   shown page; `PreviewViewModel` the asset only. A renewal without the tab gets the same `session`
+   when the browser's cookie store still has the site's cookies (Home's rule for Home's), and the
+   adapter's page read without the tab's data: equal for YouTube, VK, Vimeo, X; an Instagram or
+   TikTok post only the tab could read may fail → `Unavailable` (today's note). Never Master
+   (browser-only, its capture needs the tab).
+5. A new status `RENEWING_LINK` (not `PROBING` / `VERIFYING`: nothing sets them, their words are
+   "Checking source" / "Verifying file"). It touches: `DownloadTaskStatus`; `DownloadQueue`
+   (`failTask`, pause, cancel, delete, `setNetworkAvailable`, resume; restore already turns it into
+   `NEEDS_REFRESH`); the store nothing (text); `DownloadsUiState` (active and pausable sets, the
+   Active filter, the badge, Pause and Cancel); `DownloadLabels` (`PROGRESS_STATUSES`,
+   `progressDetail`); `DownloadsScreen` (the row's `when`); `DownloadsViewModel` (Retry);
+   `DownloadNotificationFactory.FOREGROUND_STATUSES` (G5); `DownloadNotificationText.stateText`;
+   `BackgroundWork` (the locks while the lookup runs). Unchanged: `DownloadServiceController`'s
+   notice set (no notice while renewing), the policy gate (it only calls `setNetworkAvailable`),
+   `SiteLookupCache.forgetBrokenDownloads`, `DownloadStorageJanitor`, `TransferRateTracker`,
+   `LibraryViewModel`.
+6. `TabPageReader.read(pageUrl, userAgent)` needs no tab: one GET of the page with that agent and
+   the browser cookie store's cookies for it, then the scanner, one read at a time. The source
+   keeps the tab's agent.
+7. The trial hook: Downloads ⋮ "Break this download's link" on a running or paused row, only when
+   `BuildConfig.SOCIAL_TRIAL && !LocalQuietRelease.current` (as "VK value break").
+   `SecureDownloadHttp`, which sends every engine's requests, tags each with
+   `DownloadRequestTag(taskId, link)` from a context element the queue sets (no engine changes);
+   in the trial build only, an interceptor on the download client answers every request of the
+   broken task's current link with its own 403 (no network), so the next link passes. Marker: the
+   label joins `TRIAL_TOOL_MARKERS`. On YouTube that 403 has time left: `YOUTUBE_REFUSED`,
+   renewed only under E-D5' (below).
+
+**Proposals for §3 (the owner decides):**
+
+- **E-D5 conflicts with §7.2.** A Wi-Fi → mobile switch gives YouTube's 403 with time left
+  (`YOUTUBE_REFUSED`), which E-D5's default never renews. **E-D5'**: one fresh lookup on "YouTube
+  refused" only when the phone's network changed since the link was found (Wi-Fi ↔ mobile data, or
+  it dropped and came back); otherwise exactly B1. F8 untouched.
+- **E-D6 clarified:** Retry on a "Link expired" row = one lookup per tap, also after the
+  automatic tries and not counted in them; offered only while the app has the row's source (this
+  session); after a restart no Retry, as today.
+- **E-D1 as data:** the queue asks on `EXPIRED_URL`, 401, 403, 410, `YOUTUBE_REFUSED`, and on a 400
+  when this link already gave bytes; the app declines a 400 off VK and `YOUTUBE_REFUSED` without a
+  network change. Never 404, 416, 5xx, network, storage, integrity.
+- **E-D3 counted** per download in memory: the first failure asks; the next only after the fresh
+  link gave bytes; 3 at most; a renewal's own failure ends it.
+
+**Final names and shape:**
+
+- `core-download`: `DownloadLinkRenewal { suspend fun renew(request: LinkRenewalRequest):
+  LinkRenewal }`, `DownloadLinkRenewal.None` (always `Declined`: today's behaviour);
+  `LinkRenewalRequest` (task id, plan type, the failure's reason, status and stage, the bytes kept,
+  the bytes from this link, by the user or not; no link); `LinkRenewal.Fresh(plan, metadata?)`,
+  `LinkRenewal.Unavailable(why)` (Details words, no address), `LinkRenewal.Declined`;
+  `DownloadTaskStatus.RENEWING_LINK`; `DownloadRequestTag`.
+- The queue: the renewal runs in the task's own job (`jobs[id]`), outside the lock. So it keeps its
+  slot and goes on first by itself, and Pause, Cancel, Delete and network loss stop it as they stop
+  a transfer (network back, Resume or Retry: the renewal first). `Fresh` swaps the runtime in place
+  with `refreshRuntime`'s checks (not completed, the same plan type, the checkpoint kept) and runs
+  the engine again; its same-file check decides resume or byte 0. Time limit: 90 s per renewal
+  (Home's `LinkInspector.TIMEOUT_MILLIS`), the Direct probe included. Details: a failure's line in
+  `failure.detail` (stored, sanitized); a success's in memory.
+- `app`: `DownloadSources` (memory: one `DownloadSource` per task — page address, site and
+  content id, the lookup's owner and agent, the session flag, `DownloadQualityKey`, the
+  conversion, the stated length, the title, the network's change count; `toString` without an
+  address; dropped on complete, cancel, delete and by Clear browsing data); `SiteLinkRenewal`
+  (implements `DownloadLinkRenewal`, wired in `DownloadRuntimeModule` without a cycle through
+  `DownloadEnqueuer`); `TrialLinkBreak` (E3).
+
+**Files beyond §5's list (the owner's OK):** `feature/quickdownload/QuickDownloadViewModel.kt` and
+`feature/preview/PreviewViewModel.kt` (pass the lookup's owner and video to the enqueue),
+`download/DownloadNotificationFactory.kt` (G5), `download/BackgroundWork.kt` (the locks),
+`feature/settings/SettingsModule.kt` (the wipe's wiring).
+
+**Tests (JVM unit tests with fakes; CI runs them):**
+
+- E1, `core-download`: (1) `None`: every failure as today (today's tests unchanged). (2) 401, 403,
+  410, `EXPIRED_URL`, `YOUTUBE_REFUSED` → `RENEWING_LINK`, asked once, no link in the request; 400
+  only with bytes from this link; 404, 416, 5xx, network, storage, integrity never. (3) `Fresh` per
+  plan type (Direct, HLS, DASH, merge, MP3, M4A): resume for the same file, byte 0 for another
+  (Direct ETag / total; HLS / DASH fingerprint; a DASH whole file's length; G3), the bytes right.
+  (4) G1 per engine. (5) `Unavailable` → `NEEDS_REFRESH` with its line, the runtime kept;
+  `Declined` → today's path; the time limit. (6) E-D3: refused at 0 bytes → no second ask; after
+  bytes → asked again; 3 at most; Retry at the cap, not counted. (7) Pause, Cancel, Delete,
+  network loss during a renewal (no file or workspace left after Cancel; a late `Fresh` dropped).
+  (8) Two downloads, one renewing; capacity 1: the renewed one goes on first. (9) Restore:
+  `RENEWING_LINK` → `NEEDS_REFRESH`. (10) A `Fresh` of another plan type → `NEEDS_REFRESH`.
+  (11) `SecureDownloadHttp`'s tag.
+- E2, `app`: (1) `DownloadSources`: every enqueue path; dropped on complete, cancel, delete, Clear
+  browsing data (`PrivacyCleanersTest`); `toString` without an address. (2) `SiteLinkRenewal`:
+  `fresh = true` with Home's or the browser's context (the same session flag); the same video only
+  (`sameContent`, `MediaGroups.refreshed`); the same quality per adapter's fixture (all seven); the
+  conversion kept; the same task id and file name; Direct's probe; nothing found → `Unavailable`.
+  (3) Declines: no source, a 400 off VK, `YOUTUBE_REFUSED` without a network change. (4) Rows:
+  "Getting a fresh link…", Pause and Cancel, the Active filter and badge, Retry on a renewable
+  "Link expired" row only, the Details lines without an address. (5) No "Download failed" while
+  renewing, one when it ends in `NEEDS_REFRESH`; the service stays up; Wi-Fi only → it waits.
+- E3: (1) VK: 400 after bytes → renewed, at 0 bytes → `FAILED` as today; 403 → renewed. (2) Pages
+  without an adapter: `BrowserPageReader.read` → the same video → `Fresh`; `NoPlayer` / `Failed` →
+  `Unavailable`; a pasted file link → no source. (3) The trial hook: the trial build only; the
+  broken link's requests only; the verifier rejects its label without `--allow-trial-tools`.
+  (4) YouTube: F8's ask-again and B1's hint unchanged; Reset YouTube session unchanged.
 
 ## 5. Files and ownership
 
