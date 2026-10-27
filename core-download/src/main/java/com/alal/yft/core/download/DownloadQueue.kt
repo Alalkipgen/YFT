@@ -19,6 +19,7 @@ import com.alal.yft.core.model.download.Mp3Encoding
 import com.alal.yft.core.model.download.RemoteFileMetadata
 import com.alal.yft.core.model.download.TransferCheckpoint
 import com.alal.yft.core.model.media.BrowserRequestContext
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.CancellationException
@@ -682,12 +683,14 @@ class DownloadQueue(
             var renewal = firstRenewal
             // Track E: a fresh link runs the engine again in this job, so the task keeps its slot.
             while (true) {
+                var freshLink = false
                 if (renewal != null) {
                     val renewed = renewLink(initial.id, renewal) ?: return
                     task = renewed.task
                     runtime = renewed.runtime
+                    freshLink = true
                 }
-                renewal = transferOnce(task, runtime) ?: return
+                renewal = transferOnce(task, runtime, freshLink) ?: return
             }
         } catch (cancellation: CancellationException) {
             throw cancellation
@@ -718,17 +721,28 @@ class DownloadQueue(
         }
     }
 
-    /** One run of the engine; a link that died and may be renewed now comes back as its ask. */
+    /**
+     * One run of the engine; a link that died and may be renewed now comes back as its ask. A run
+     * with a [freshLink] tells [linkRenewal] where it went on (its first reported bytes).
+     */
     private suspend fun transferOnce(
         task: StoredDownloadTask,
         runtime: RuntimeTask,
+        freshLink: Boolean = false,
     ): RenewalAsk? {
         // Stream engines state a length only in their progress, for example a merge of two
         // whole files; the next checkpoint gives the task that total.
         val reportedTotal = AtomicReference<Long?>(null)
         // The bytes this run reported as written (P41), ahead of its checkpoints.
         val reportedBytes = AtomicLong(0)
-        val linkBytes = LinkBytes(task.checkpoint.downloadedBytes)
+        val kept = task.checkpoint.downloadedBytes
+        val linkBytes = LinkBytes(kept)
+        val wentOn = AtomicBoolean(!freshLink)
+        val firstBytes: (Long) -> Unit = { bytes ->
+            if (wentOn.compareAndSet(false, true)) {
+                runCatching { linkRenewal.wentOn(task.id, kept, bytes) }
+            }
+        }
         val result = withContext(DownloadRequestTag(task.id, runtime.link)) {
             transferDispatcher.transfer(
                 plan = runtime.plan,
@@ -736,12 +750,14 @@ class DownloadQueue(
                 destination = runtime.destination,
                 resumeFrom = task.checkpoint,
                 onProgress = { progress ->
+                    firstBytes(progress.downloadedBytes)
                     reportedTotal.set(progress.totalBytes)
                     reportedBytes.accumulateAndGet(progress.downloadedBytes, ::maxOf)
                     linkBytes.see(progress.downloadedBytes)
                     publishProgress(task.id, progress)
                 },
                 onCheckpoint = { checkpoint ->
+                    firstBytes(checkpoint.downloadedBytes)
                     linkBytes.see(checkpoint.downloadedBytes)
                     persistCheckpoint(
                         id = task.id,

@@ -26,14 +26,18 @@ import com.alal.yft.core.download.PlaylistTrackTransferRunner
 import com.alal.yft.core.download.LocalMp3Transcoder
 import com.alal.yft.core.download.Mp3ConvertingTransferDispatcher
 import com.alal.yft.core.download.RoomDownloadTaskStore
+import com.alal.yft.core.media.resolver.VariantResolver
 import com.alal.yft.core.model.media.BrowserReads
 import com.alal.yft.core.model.settings.DownloadLocation
+import com.alal.yft.detection.SiteAdapterCoordinator
+import com.alal.yft.detection.tiktok.TikTokPageSettings
 import com.alal.yft.download.policy.ConnectivityNetworkMonitor
 import com.alal.yft.download.policy.DownloadNetworkStatus
 import com.alal.yft.download.policy.DownloadPolicyController
 import com.alal.yft.download.policy.DownloadPolicyGate
 import com.alal.yft.download.policy.NetworkStatusSource
 import com.alal.yft.thumbnail.DownloadThumbnails
+import dagger.Lazy
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -46,6 +50,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 
 @Qualifier
@@ -139,17 +144,67 @@ object DownloadRuntimeModule {
     fun provideDownloadScope(): CoroutineScope =
         CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    /** Track E: whose sign-in a fresh link's lookup sends, by the lookup's owner. */
+    @Provides
+    @Singleton
+    fun provideLookupSessions(tikTok: TikTokPageSettings): LookupSessions =
+        AndroidLookupSessions(tikTok)
+
+    /** Track E (E-D5'): the phone's network changes, for "YouTube refused". */
+    @Provides
+    @Singleton
+    fun provideNetworkChanges(
+        network: NetworkStatusSource,
+        @DownloadApplicationScope scope: CoroutineScope,
+    ): NetworkChanges = NetworkChanges(network, scope)
+
+    /** Track E: each queued download's source, in memory only (E-D2). */
+    @Provides
+    @Singleton
+    fun provideDownloadSources(
+        sessions: LookupSessions,
+        changes: NetworkChanges,
+    ): DownloadSources = DownloadSources(sessions = sessions, networkChanges = { changes.value })
+
+    /**
+     * Track E: fresh links from the site's page. The lookup's parts are made when a link first
+     * dies, so the queue never waits for them and no cycle runs through them.
+     */
+    @Provides
+    @Singleton
+    fun provideSiteLinkRenewal(
+        sources: DownloadSources,
+        coordinator: Lazy<SiteAdapterCoordinator>,
+        resolver: Lazy<VariantResolver>,
+        probe: DirectMetadataProbe,
+        sessions: LookupSessions,
+        changes: NetworkChanges,
+    ): SiteLinkRenewal = SiteLinkRenewal(
+        sources = sources,
+        coordinator = { coordinator.get() },
+        resolver = { resolver.get() },
+        probe = probe,
+        sessions = sessions,
+        networkChanges = { changes.value },
+    )
+
     @Provides
     @Singleton
     fun provideDownloadQueue(
         store: DownloadTaskStore,
         dispatcher: DownloadTransferDispatcher,
         @DownloadApplicationScope scope: CoroutineScope,
+        renewal: SiteLinkRenewal,
+        sources: DownloadSources,
     ): DownloadQueue = DownloadQueue(
         store = store,
         transferDispatcher = dispatcher,
         scope = scope,
-    )
+        linkRenewal = renewal,
+    ).also { queue ->
+        // A source goes when its download completes, is cancelled or removed (E-D2).
+        scope.launch { queue.tasks.collect(sources::prune) }
+    }
 
     @Provides
     @Singleton
@@ -236,6 +291,7 @@ object DownloadRuntimeModule {
         policy: DownloadPolicyGate,
         preferences: DownloadPreferencesRepository,
         storage: StorageSpace,
+        sources: DownloadSources,
     ): DownloadEnqueuer = DownloadEnqueuer(
         queue = queue,
         probe = probe,
@@ -244,6 +300,7 @@ object DownloadRuntimeModule {
         policy = policy,
         location = { preferences.preferences.first().location },
         storage = storage,
+        sources = sources,
     )
 
     @Provides

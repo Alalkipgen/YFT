@@ -824,6 +824,90 @@ class DownloadsScreenTest {
         composeRule.onAllNodesWithTag("download-failure-dialog").assertCountEquals(0)
     }
 
+    /**
+     * Track E (E-D6): a "Link expired" download whose page YFT can look up again says Retry gets
+     * a fresh link and offers Retry; the tap goes to the queue as any Retry.
+     */
+    @Test
+    fun aRenewableExpiredLinkOffersRetryAndSaysWhatItDoes() {
+        val actions = mutableListOf<Pair<DownloadAction, String>>()
+        setScreen(
+            DownloadsUiState(
+                listOf(
+                    row(
+                        id = "renew",
+                        status = DownloadTaskStatus.NEEDS_REFRESH,
+                        downloaded = 1_024,
+                        total = 4_096,
+                        progressPercent = 25,
+                        requiresLinkRefresh = true,
+                        failureReason = DownloadFailureReason.EXPIRED_URL,
+                    ).copy(canRenew = true),
+                ),
+            ),
+            onAction = { action, id -> actions += action to id },
+        )
+
+        composeRule.onNodeWithText("Link expired").assertIsDisplayed()
+        composeRule.onNodeWithTag("download-refresh-note-renew", useUnmergedTree = true)
+            .assertIsDisplayed()
+            .assertTextEquals(RENEWABLE_LINK_NOTE)
+        composeRule.onNodeWithTag("download-action-retry-renew").performClick()
+
+        assertEquals(listOf(DownloadAction.RETRY to "renew"), actions)
+    }
+
+    /** Track E: a download that got a fresh link offers Details while it runs, without links. */
+    @Test
+    fun aDownloadThatGotAFreshLinkShowsItsDetailsWhileItRuns() {
+        setScreen(
+            DownloadsUiState(
+                listOf(
+                    row("run", DownloadTaskStatus.RUNNING, 1_024, 4_096, 25).copy(
+                        renewalLines = listOf(
+                            "Fresh link (403 at 41.0 MB): resumed at 41.0 MB",
+                            "Fresh link (403 at 80.0 MB): https://rr1.example.test/v?sig=1",
+                        ),
+                    ),
+                    row("plain", DownloadTaskStatus.RUNNING, 1_024, 4_096, 25),
+                ),
+            ),
+        )
+
+        // A running row's Details are in its menu.
+        composeRule.onNodeWithTag("download-run").performClick()
+        composeRule.onNodeWithTag("download-menu-details-run").performClick()
+
+        composeRule.onNodeWithText("Download details").assertIsDisplayed()
+        composeRule.onNodeWithTag("download-failure-text", useUnmergedTree = true)
+            .assert(hasText("Status: RUNNING", substring = true))
+            .assert(hasText("Fresh link (403 at 41.0 MB): resumed at 41.0 MB", substring = true))
+            .assert(hasText("Fresh link (403 at 80.0 MB): [link]", substring = true))
+        composeRule.onAllNodesWithText("sig=1", substring = true).assertCountEquals(0)
+        composeRule.onNodeWithTag("download-failure-close").performClick()
+        // A row without a fresh link has none.
+        composeRule.onNodeWithTag("download-plain").performClick()
+        composeRule.onAllNodesWithTag("download-menu-details-plain").assertCountEquals(0)
+    }
+
+    /** Decision 30 (v): a quiet build keeps a renewed download's Details behind Show details. */
+    @Test
+    fun aQuietBuildHidesARenewedDownloadsDetails() {
+        setScreen(
+            DownloadsUiState(
+                listOf(
+                    row("run", DownloadTaskStatus.RUNNING, 1_024, 4_096, 25).copy(
+                        renewalLines = listOf("Fresh link (403 at 41.0 MB): resumed at 41.0 MB"),
+                    ),
+                ),
+            ),
+            quiet = true,
+        )
+
+        composeRule.onNodeWithTag("download-run").performClick()
+        composeRule.onAllNodesWithTag("download-menu-details-run").assertCountEquals(0)
+    }
+
     private fun setScreen(
         uiState: DownloadsUiState,
         onAction: (DownloadAction, String) -> Unit = { _, _ -> },

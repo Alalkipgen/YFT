@@ -17,6 +17,7 @@ import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
+import com.alal.yft.download.DownloadOrigin
 import com.alal.yft.download.EnqueueResult
 import com.alal.yft.download.PreviewDownloadStarter
 import com.alal.yft.core.model.download.DownloadFailureReason
@@ -36,6 +37,7 @@ import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -98,6 +100,26 @@ class PreviewViewModelTest {
         runCurrent()
 
         assertEquals(listOf("m4a-mp3-128"), starter.requested)
+    }
+
+    /** Track E: an MP3 tells the selected file and its M4A; who looked it up is not known. */
+    @Test
+    fun anMp3TellsTheSelectedFileAndItsM4aAsWhereItCameFrom() = runTest {
+        val store = PreviewSelectionStore().apply { select(candidate()) }
+        val starter = FakeDownloadStarter()
+        val asset = asset(listOf(m4a())).copy(sourcePageUrl = YOUTUBE_PAGE)
+        val resolver = FakeResolver(VariantResolutionResult.Success(asset))
+        val viewModel = viewModel(resolver, store, starter)
+        runCurrent()
+
+        viewModel.selectVariant("m4a-mp3-128")
+        viewModel.download()
+        runCurrent()
+
+        val origin = requireNotNull(starter.origins.single())
+        assertEquals(candidate(), origin.candidate)
+        assertEquals("m4a", origin.base.id)
+        assertNull(origin.owner)
     }
 
     @Test
@@ -472,6 +494,16 @@ class PreviewViewModelTest {
     ) : PreviewDownloadStarter {
         var calls = 0
         val requested = mutableListOf<String>()
+        val origins = mutableListOf<DownloadOrigin?>()
+
+        override suspend fun enqueue(
+            asset: MediaAsset,
+            variant: MediaVariant,
+            origin: DownloadOrigin?,
+        ): EnqueueResult {
+            origins += origin
+            return enqueue(asset, variant)
+        }
 
         override suspend fun enqueue(
             asset: MediaAsset,

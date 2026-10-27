@@ -1675,10 +1675,18 @@ Keep at least the heading and one blank line between sections, so Git merges the
   runs on the E1 checkpoint. No source is wired yet: the app's queue still has
   `DownloadLinkRenewal.None`, so the app behaves as before except G1–G3's fixes (the resume point
   kept, a "Link expired" row's partial file cleaned up, a merge's kept track checked).
-- Next: E2 (`app`: `DownloadSources`, `SiteLinkRenewal`, wiring, Retry on a renewable "Link
-  expired" row, Details lines, notices), then E3 (VK's 400, pages without an adapter, the trial
-  hook); STOP after E3 ("READY FOR PHONE TEST (after v1.0.1)"). E4 only after v1.0.1 is
-  published.
+- E2 done (plan §4.7): `app`'s `DownloadSources` (every enqueue path, memory only; dropped on
+  complete, cancel, delete and Clear browsing data), `SiteLinkRenewal` (adapter sites: a `fresh`
+  lookup in the owner's context, the same video and quality, the conversion, the task id and
+  file name kept; declines a 400 off VK and "YouTube refused" without a tap or a network change),
+  `LookupSessions`, `NetworkChanges`, the wiring (the queue's `linkRenewal`), Retry on a
+  renewable "Link expired" row, Details lines ("Fresh link (403 at 41.0 MB): resumed at
+  41.0 MB"), `core-download`'s `wentOn`. Tests: `DownloadSourcesTest`, `SiteLinkRenewalTest`,
+  `DownloadRenewalRowsTest` and additions to five existing ones; all app, `core-download` and
+  `core-model` tests pass locally. The sandbox was reset once: `/data/setup-tools.sh` re-creates
+  JDK 17 and the SDK (local only, not in the repo).
+- Next: E3 (VK's 400 tests, pages without an adapter via `BrowserPageReader`, the trial hook);
+  STOP after E3 ("READY FOR PHONE TEST (after v1.0.1)"). E4 only after v1.0.1 is published.
 - This section sits above the wiring agent's (D) so Git merges it cleanly with that branch's S5
   notes; keep Track E's state here only.
 

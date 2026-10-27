@@ -16,6 +16,14 @@ import kotlin.coroutines.CoroutineContext
 interface DownloadLinkRenewal {
     suspend fun renew(request: LinkRenewalRequest): LinkRenewal
 
+    /**
+     * Where a fresh link's run went on, for the Details' line: the first bytes it reported
+     * ([firstBytes]) against the [bytesKept] when the queue asked. At or above them the download
+     * resumed; below them it started again (the file changed). Called once per fresh link from
+     * the engine's callback, so it must return at once and never throw.
+     */
+    fun wentOn(taskId: String, bytesKept: Long, firstBytes: Long) = Unit
+
     /** No renewal source: every failure goes on as it did before Track E. */
     object None : DownloadLinkRenewal {
         override suspend fun renew(request: LinkRenewalRequest): LinkRenewal = LinkRenewal.Declined

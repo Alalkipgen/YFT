@@ -1,11 +1,12 @@
 # Track E — a file's link dies after its download started: a fresh lookup, every site (v1.0.2)
 
 Status: E0 done (§4.5); the owner's answers 2026-10-27 (§3); E1 done (§4.6: `core-download` and
-the new status's app plumbing; CI per checkpoint). Next: E2.
+the new status's app plumbing); E2 done (§4.7: the app's renewal source for adapter sites, rows,
+Retry, Details; CI per checkpoint). Next: E3.
 Planning: the owner's go, 2026-10-27, while S5's run 3 waits. Branch
 `work/phase-track-e-403` from `main` `a27b2c9c` (PR #8's merge: the code of S5's census APK).
-E1's code is on this branch; the app does not renew links until E2 wires a source. **Not for
-v1.0.1:** nothing here reaches `main`, and
+E1's and E2's code is on this branch; the app renews the links of adapter sites' downloads (E3
+adds pages without an adapter). **Not for v1.0.1:** nothing here reaches `main`, and
 no APK from this branch reaches the owner's phone, before v1.0.1 is published.
 
 ## 0. အကျဉ်းချုပ် (ပိုင်ရှင်အတွက်)
@@ -423,6 +424,63 @@ Built as §4.5 names it; what differs or was decided in the code:
   ETag / total, HLS / DASH pieces, a DASH whole file's length, G3, MP3 and M4A, G1 per engine,
   the request tag), `RenewingLinkStatusTest` (app, 4). A check with G1 and G3 turned off fails
   four of them. Every existing `core-download` test passes unchanged.
+
+### 4.7 E2 result
+
+Built as §4.3 and §4.5 name it; what differs or was decided in the code:
+
+- **The source.** `DownloadSources` (memory only): the enqueue remembers a download's source just
+  before the queue gets the task, under its task id and the name it is saved under (after
+  " (1)"); a throw forgets it. It holds the page address, the adapter's video id, who looked the
+  video up (Home or the browser) and the agent, whether the site's sign-in went with that lookup
+  (the owner's rule at enqueue), the key of the file's quality before its conversion
+  (`DownloadQualityKey`: kind, track type, merged, height, width, frame rate, container, codec
+  families, the sound's codecs, the label, the bitrate), the conversion (MP3 kbps, M4A from a
+  video), the label, title and length, the file name and the network's moment (E-D5'). Dropped
+  when the task completes, is cancelled or deleted (`prune` on the queue's list) and by Clear
+  browsing data (`SessionMediaCleaner`); a completed row keeps its Details lines (no address)
+  until it is removed. `toString` names no address. Renewable only with the adapter's video id.
+- **Both enqueue paths** pass a `DownloadOrigin` (the page's file, the file before its
+  conversion, the owner, the agent): Quick Download (the page's or the lookup's owner, else the
+  browser's; the tab's agent) and Preview (the selected file; its owner is not known there: the
+  browser's rule). `PreviewDownloadStarter`'s two-argument `enqueue` stays (no source).
+- **The renewal.** `SiteLinkRenewal` declines without a renewable source, on a page no adapter
+  reads (E3), on a 400 off VK, and on "YouTube refused" without a tap unless the network changed
+  since the link was found (`NetworkChanges`, the app's own monitor). Else
+  `SiteAdapterCoordinator.inspect(…, fresh = true)` with the owner's context (`LookupSessions`:
+  Home → `HeadlessIdentity.USER_AGENT` and Home's TikTok or Instagram sign-in; the browser → the
+  tab's agent and its cookies for the page; no cookie when the first lookup sent none), the same
+  video (its id, its length within 2 s, no DRM), the same quality (the three closest candidates
+  resolved at most; a file none of whose stated facts differ, then the most facts shared, the
+  same length, the nearest bitrate), the same conversion, the title and label kept,
+  `DownloadPlanFactory.create` under the same task id, the file name kept; a Direct plan is
+  probed (`DirectMetadataProbe`). The adapters, the coordinator and the resolver are called
+  only (E-D7).
+- **The words.** `Unavailable`: "the site did not give the video (…)", "the video is no longer
+  on the page", "this quality is no longer offered", "the fresh file cannot be downloaded (…)",
+  "the fresh file did not answer (HTTP 403)". When a fresh link's run goes on, the row's Details
+  get "Fresh link (403 at 41.0 MB): resumed at 41.0 MB", "…: started over (the file changed)" or
+  "…: started" (`DownloadLinkRenewal.wentOn`, new in `core-download`: the run's first bytes
+  against the bytes kept); "Fresh link on Retry (…)" after a tap; the status code when known,
+  else "link expired" or "YouTube refused". At most the last 4 lines per download.
+- **Rows.** Retry on a "Link expired" row whose source is renewable (`canRenew`; a "YouTube
+  refused" row too: one lookup per tap), with the note "Tap Retry to get a fresh link, or reopen
+  the page in the browser." (a refusal keeps its own hint). Details ("Download details") for a
+  running, paused or completed row with fresh links' lines; a failure's Details list them too,
+  sanitized again. A quiet build keeps Details behind Show details (Decision 30 (v)).
+- **Wiring.** `DownloadRuntimeModule`: one `DownloadSources`, `SiteLinkRenewal` as the queue's
+  `linkRenewal` (the coordinator and the resolver `Lazy`: no cycle), `NetworkChanges` on the
+  app's `NetworkStatusSource`, the sources pruned on the queue's list; `SettingsModule` gives the
+  sources to `SessionMediaCleaner`. Notifications: E1's line and G5 are enough (no "Download
+  failed" while renewing; one when it ends in `NEEDS_REFRESH`, `RenewingLinkStatusTest`).
+- **Tests:** `DownloadSourcesTest` (12: every path, " (1)", the conversion's base, never queued,
+  prune, clear, the lines, the session flag per owner, the network moment, `toString`),
+  `SiteLinkRenewalTest` (17: the seven adapters' fixtures — YouTube merged / 720p60 / 360p / MP3,
+  Facebook SD and its M4A, Instagram, TikTok H.264 / H.265, X by bitrate, VK's 400, Vimeo HLS /
+  DASH / file; the owner's context; `Unavailable`; probe and plan failures; declines; the queue's
+  own renewal and Retry end to end), `DownloadRenewalRowsTest` (4), `DownloadsScreenTest` (+3),
+  `PrivacyCleanersTest` (+1), `QuickDownloadViewModelTest` (+2), `PreviewViewModelTest` (+1),
+  `DownloadLinkRenewalTest` (+1, `wentOn`). Every existing test passes unchanged.
 
 ## 5. Files and ownership
 

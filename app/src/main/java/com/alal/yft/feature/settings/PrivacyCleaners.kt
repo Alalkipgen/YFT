@@ -11,6 +11,7 @@ import com.alal.yft.core.download.DownloadQueue
 import com.alal.yft.core.media.session.PreviewSelectionStore
 import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.detection.SiteLookupCache
+import com.alal.yft.download.DownloadSources
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import kotlin.coroutines.resume
 import kotlinx.coroutines.Dispatchers
@@ -63,17 +64,21 @@ class CompositeBrowsingDataCleaner(
 
 /**
  * Drops media found while browsing; its URLs can carry signed tokens of the cleared session.
- * P17: the remembered lookups go too, as they may have been read with that session.
+ * P17: the remembered lookups go too, as they may have been read with that session. Track E:
+ * so do the downloads' sources (their pages and how they were looked up): a link that dies
+ * afterwards is not renewed.
  */
 class SessionMediaCleaner(
     private val detectedMedia: DetectedMediaStore,
     private val previewSelection: PreviewSelectionStore,
     private val lookups: SiteLookupCache? = null,
+    private val downloadSources: DownloadSources? = null,
 ) : BrowsingDataCleaner {
     override suspend fun clear() {
         detectedMedia.clear()
         previewSelection.clear()
         lookups?.clear()
+        downloadSources?.clear()
     }
 }
 

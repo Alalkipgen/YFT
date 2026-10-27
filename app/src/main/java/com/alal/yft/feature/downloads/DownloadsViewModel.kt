@@ -9,6 +9,7 @@ import com.alal.yft.download.BackgroundHealthStore
 import com.alal.yft.download.BackgroundSystemState
 import com.alal.yft.download.BackgroundSystemStatus
 import com.alal.yft.download.DownloadServiceStarter
+import com.alal.yft.download.DownloadSources
 import com.alal.yft.download.DownloadStorageSource
 import com.alal.yft.download.DownloadedFileDeleter
 import com.alal.yft.download.FileDeletion
@@ -55,6 +56,8 @@ class DownloadsViewModel @Inject constructor(
     private val fileDeleter: DownloadedFileDeleter = DownloadedFileDeleter.Unavailable,
     /** "Reset YouTube session" (item 7 Track B3); tests of other controls leave it out. */
     private val youTubeSession: YouTubeSessionReset = YouTubeSessionReset.Unavailable,
+    /** Track E: which rows a Retry renews, and their fresh links' lines. */
+    private val sources: DownloadSources = DownloadSources(),
 ) : ViewModel() {
     /** Without a network policy or storage, for tests that only exercise the queue. */
     constructor(queue: DownloadQueue) : this(queue, DownloadNetworkStatus.AlwaysAllowed)
@@ -144,8 +147,9 @@ class DownloadsViewModel @Inject constructor(
                 networkStatus.state,
                 storage(),
                 background(),
-            ) { (tasks, rates), network, storage, background ->
-                DownloadsUiState.from(tasks, rates).copy(
+                sources.renewals,
+            ) { (tasks, rates), network, storage, background, renewals ->
+                DownloadsUiState.from(tasks, rates, renewals).copy(
                     network = network,
                     storage = storage,
                     background = background,

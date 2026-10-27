@@ -631,7 +631,7 @@ private fun cardActions(
     onDeleteFile: (String) -> Unit,
     onDetails: () -> Unit,
     onResetYouTube: () -> Unit,
-    showDetails: Boolean = row.showsFailureDetails,
+    showDetails: Boolean = row.showsDetails,
 ): List<CardAction> = buildList {
     if (row.status == DownloadTaskStatus.COMPLETED) {
         add(CardAction("Play", "download-menu-play-${row.id}", YftIcons.Play) { onPlay(row) })
@@ -661,7 +661,7 @@ private fun cardActions(
     if (showDetails) {
         add(
             CardAction(
-                label = "Failure details",
+                label = if (row.showsFailureDetails) "Failure details" else "Details",
                 tag = "download-menu-details-${row.id}",
                 icon = YftIcons.Info,
                 run = onDetails,
@@ -705,7 +705,7 @@ private fun DownloadCard(
     var detailsOpen by remember { mutableStateOf(false) }
     // Decision 30 (v): a quiet build shows a failure's Details only with Show details on; the
     // failed download's Retry stays (a function).
-    val showDetails = row.showsFailureDetails && !LocalQuietRelease.current
+    val showDetails = row.showsDetails && !LocalQuietRelease.current
     val actions = cardActions(
         row = row,
         onAction = onAction,
@@ -778,8 +778,9 @@ private fun DownloadCard(
 }
 
 /**
- * What failed, where and on which phone (P21), with Copy details for a bug report. The text
- * holds no file name, link or address ([failureDetailsText]).
+ * What failed, where and on which phone (P21), with Copy details for a bug report; Track E: or,
+ * for a download that got a fresh link, how it went on. The text holds no file name, link or
+ * address ([downloadDetailsText]).
  */
 @Composable
 internal fun FailureDetailsDialog(
@@ -793,12 +794,17 @@ internal fun FailureDetailsDialog(
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val text = remember(row, appVersion, androidRelease, sdkInt) {
-        failureDetailsText(row, appVersion, androidRelease, sdkInt)
+        downloadDetailsText(row, appVersion, androidRelease, sdkInt)
     }
     AlertDialog(
         onDismissRequest = onDismiss,
         modifier = Modifier.testTag("download-failure-dialog"),
-        title = { Text("Failure details", color = colors.textPrimary) },
+        title = {
+            Text(
+                text = if (row.showsFailureDetails) "Failure details" else "Download details",
+                color = colors.textPrimary,
+            )
+        },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 SelectionContainer {
@@ -959,10 +965,11 @@ private fun StatusRow(
             }
             if (row.requiresLinkRefresh || row.status == DownloadTaskStatus.NEEDS_REFRESH) {
                 Text(
-                    text = if (row.isYouTubeRefusal()) {
-                        YOUTUBE_REFUSED_HINT
-                    } else {
-                        "Reopen the page in the browser to get a fresh link."
+                    text = when {
+                        row.isYouTubeRefusal() -> YOUTUBE_REFUSED_HINT
+                        // Track E (E-D6): Retry looks the page up again while YFT has its source.
+                        DownloadAction.RETRY in row.availableActions -> RENEWABLE_LINK_NOTE
+                        else -> "Reopen the page in the browser to get a fresh link."
                     },
                     modifier = Modifier
                         .padding(top = 6.dp)

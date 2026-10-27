@@ -127,6 +127,34 @@ class DownloadLinkRenewalTest {
     }
 
     @Test
+    fun `a fresh link's first bytes tell the source whether the download resumed`() = runTest {
+        val engine = FakeEngine { _, plan ->
+            when {
+                (plan as DirectDownloadPlan).sourceUrl == ORIGINAL_LINK ->
+                    Run.Fail(DENIED, bytes = 4)
+                plan.taskId == "resumes" -> Run.Complete
+                else -> Run.StartOver(bytes = 1)
+            }
+        }
+        val renewal = FakeRenewal { request ->
+            LinkRenewal.Fresh(direct(request.taskId, link = FRESH_LINK), metadata())
+        }
+        val queue = queue(engine, renewal)
+        queue.enqueue(direct("resumes"), metadata(), FakeDestination())
+        queue.enqueue(direct("restarts"), metadata(), FakeDestination())
+        runCurrent()
+
+        assertEquals(DownloadTaskStatus.COMPLETED, queue.task("resumes").status)
+        assertEquals(DownloadTaskStatus.COMPLETED, queue.task("restarts").status)
+        // Once per fresh link: the kept bytes and the first bytes its run reported.
+        assertEquals(
+            setOf(Triple("resumes", 4L, TOTAL), Triple("restarts", 4L, 1L)),
+            renewal.wentOn.toSet(),
+        )
+        assertEquals(2, renewal.wentOn.size)
+    }
+
+    @Test
     fun `every reason of a dead link asks for a fresh link`() = runTest {
         val reasons = listOf(
             DownloadFailure(DownloadFailureReason.EXPIRED_URL, stage = CONNECT),
@@ -744,6 +772,9 @@ class DownloadLinkRenewalTest {
 
         /** Writes to the end and completes. */
         data object Complete : Run
+
+        /** Starts again at byte 0 (the file changed): writes [bytes], then completes. */
+        data class StartOver(val bytes: Long) : Run
     }
 
     private data class Call(
@@ -797,6 +828,10 @@ class DownloadLinkRenewalTest {
                 onCheckpoint(done)
                 QueueTransferResult.Completed(TOTAL, done)
             }
+            is Run.StartOver -> {
+                onCheckpoint(checkpointOf(plan, run.bytes, complete = false))
+                play(Run.Complete, plan, run.bytes, onCheckpoint)
+            }
         }
 
         override suspend fun discard(plan: DownloadPlan) {
@@ -809,6 +844,11 @@ class DownloadLinkRenewalTest {
     ) : DownloadLinkRenewal {
         val requests = CopyOnWriteArrayList<LinkRenewalRequest>()
         val cancelled = AtomicInteger()
+        val wentOn = CopyOnWriteArrayList<Triple<String, Long, Long>>()
+
+        override fun wentOn(taskId: String, bytesKept: Long, firstBytes: Long) {
+            wentOn += Triple(taskId, bytesKept, firstBytes)
+        }
 
         override suspend fun renew(request: LinkRenewalRequest): LinkRenewal {
             requests += request

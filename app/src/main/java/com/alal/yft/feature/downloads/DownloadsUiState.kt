@@ -9,6 +9,7 @@ import com.alal.yft.core.model.download.DownloadFailure
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.settings.DownloadLocation
+import com.alal.yft.download.DownloadRenewals
 import com.alal.yft.download.policy.TransferNetworkState
 import com.alal.yft.feature.library.LibraryMimeTypes
 import com.alal.yft.ui.format.YftFormat
@@ -166,6 +167,13 @@ data class DownloadRowUiState(
     val failure: DownloadFailure? = failureReason?.let(::DownloadFailure),
     /** Merging or saving after a merged download's tracks are in (P27); null otherwise. */
     val stage: DownloadStage? = null,
+    /**
+     * Track E (E-D6): the app has this download's source in this session, so Retry on its
+     * "Link expired" looks the page up again for a fresh link.
+     */
+    val canRenew: Boolean = false,
+    /** Track E: this download's fresh links ("Fresh link (403 at 41.0 MB): resumed at …"). */
+    val renewalLines: List<String> = emptyList(),
 ) {
     /** The file name without its extension, as the cards show it. */
     val title: String = YftFormat.title(displayName)
@@ -208,7 +216,11 @@ data class DownloadRowUiState(
     val availableActions: Set<DownloadAction> = buildSet {
         if (status in PAUSABLE_STATUSES) add(DownloadAction.PAUSE)
         if (status == DownloadTaskStatus.PAUSED) add(DownloadAction.RESUME)
-        if (status == DownloadTaskStatus.FAILED) add(DownloadAction.RETRY)
+        if (status == DownloadTaskStatus.FAILED ||
+            (status == DownloadTaskStatus.NEEDS_REFRESH && canRenew)
+        ) {
+            add(DownloadAction.RETRY)
+        }
         if (status !in TERMINAL_STATUSES) add(DownloadAction.CANCEL)
         if (status in TERMINAL_STATUSES) add(DownloadAction.DELETE)
     }
@@ -238,10 +250,14 @@ data class DownloadsUiState(
     companion object {
         val Empty = DownloadsUiState()
 
-        /** Rows for [tasks]; [bytesPerSecond] holds the measured speed of running tasks by id. */
+        /**
+         * Rows for [tasks]; [bytesPerSecond] holds the measured speed of running tasks by id,
+         * [renewals] the downloads a Retry renews and their fresh links' lines (Track E).
+         */
         fun from(
             tasks: List<StoredDownloadTask>,
             bytesPerSecond: Map<String, Long> = emptyMap(),
+            renewals: DownloadRenewals = DownloadRenewals.None,
         ): DownloadsUiState = DownloadsUiState(
             rows = tasks
                 .sortedWith(
@@ -270,6 +286,8 @@ data class DownloadsUiState(
                             ?.takeIf { it.reason == task.failureReason }
                             ?: task.failureReason?.let(::DownloadFailure),
                         stage = stage,
+                        canRenew = task.id in renewals.renewable,
+                        renewalLines = renewals.notes[task.id].orEmpty(),
                     )
                 },
         )
