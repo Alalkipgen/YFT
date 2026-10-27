@@ -188,7 +188,7 @@ class DownloadSourcesTest {
     }
 
     @Test
-    fun `only a named video is renewable and a download keeps its last four lines`() {
+    fun `a pasted file no adapter named is not renewable and a download keeps four lines`() {
         val sources = DownloadSources()
         remember(sources, "named")
         remember(sources, "unnamed", candidate(videoId = " "))
@@ -202,6 +202,38 @@ class DownloadSourcesTest {
             mapOf("named" to listOf("line 2", "line 3", "line 4", "line 5")),
             sources.renewals.value.notes,
         )
+    }
+
+    @Test
+    fun `a page's file no adapter named is kept by its address without its signature`() {
+        val sources = DownloadSources(adapterPage = { it.startsWith("https://vk.test/") })
+        val page = candidate(videoId = null).copy(sources = setOf(CandidateSource.DOM))
+        remember(sources, "page", page)
+        remember(sources, "pasted", candidate(videoId = null))
+        remember(sources, "itself", page.copy(pageUrl = "https://media.example.test/clip?view=1"))
+        remember(sources, "adapter", page.copy(pageUrl = "https://vk.test/video/v1"))
+        remember(sources, "named", candidate().copy(sources = setOf(CandidateSource.DOM)))
+        // A page nobody can say an adapter reads or not is not read again.
+        val unknown = DownloadSources(adapterPage = { error("fixture") })
+        remember(unknown, "unknown", page)
+
+        val source = sources["page"]!!
+        assertEquals("https://media.example.test/clip", source.mediaPath)
+        assertTrue(source.rereadable)
+        assertTrue(source.renewable)
+        // The page's own title ("Fixture — 720p") is no quality word off an adapter.
+        assertNull(source.quality.label)
+        assertEquals("720p", sources["named"]!!.quality.label)
+        assertFalse("$source", "example" in "$source" || "clip" in "$source")
+        listOf("pasted", "itself", "adapter").forEach { id ->
+            assertNull(id, sources[id]!!.mediaPath)
+            assertFalse(id, sources[id]!!.renewable)
+        }
+        assertNull(sources["named"]!!.mediaPath)
+        assertFalse(sources["named"]!!.rereadable)
+        assertEquals(setOf("page", "named"), sources.renewals.value.renewable)
+        assertNull(unknown["unknown"]!!.mediaPath)
+        assertFalse(unknown["unknown"]!!.renewable)
     }
 
     @Test

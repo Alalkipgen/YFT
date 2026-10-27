@@ -3,6 +3,8 @@ package com.alal.yft.download
 import android.content.Context
 import android.os.Process
 import android.os.SystemClock
+import com.alal.yft.BuildConfig
+import com.alal.yft.core.browser.detection.HeadlessPageFetcher
 import com.alal.yft.core.data.db.DownloadRecordDao
 import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
 import com.alal.yft.core.download.AndroidMp3Transcoder
@@ -29,7 +31,10 @@ import com.alal.yft.core.download.RoomDownloadTaskStore
 import com.alal.yft.core.media.resolver.VariantResolver
 import com.alal.yft.core.model.media.BrowserReads
 import com.alal.yft.core.model.settings.DownloadLocation
+import com.alal.yft.detection.BrowserPageReader
+import com.alal.yft.detection.HeadlessIdentity
 import com.alal.yft.detection.SiteAdapterCoordinator
+import com.alal.yft.detection.TabPageReader
 import com.alal.yft.detection.tiktok.TikTokPageSettings
 import com.alal.yft.download.policy.ConnectivityNetworkMonitor
 import com.alal.yft.download.policy.DownloadNetworkStatus
@@ -65,10 +70,20 @@ object DownloadRuntimeModule {
     fun provideDownloadTaskStore(dao: DownloadRecordDao): DownloadTaskStore =
         RoomDownloadTaskStore(dao)
 
+    /**
+     * Track E (E-D9): the trial's "Break this download's link"; in every other build it is off
+     * and the downloads' client is the app's own.
+     */
     @Provides
     @Singleton
-    fun provideDirectTransferRunner(client: OkHttpClient): DirectTransferRunner =
-        DirectTransferEngine(client)
+    fun provideTrialLinkBreak(): TrialLinkBreak = TrialLinkBreak(BuildConfig.SOCIAL_TRIAL)
+
+    @Provides
+    @Singleton
+    fun provideDirectTransferRunner(
+        client: OkHttpClient,
+        trial: TrialLinkBreak,
+    ): DirectTransferRunner = DirectTransferEngine(trial.around(client))
 
     @Provides
     @Singleton
@@ -76,8 +91,9 @@ object DownloadRuntimeModule {
         client: OkHttpClient,
         @ApplicationContext context: Context,
         browserReads: BrowserReads,
+        trial: TrialLinkBreak,
     ): HlsTransferRunner = HlsTransferEngine(
-        client = client,
+        client = trial.around(client),
         workspaceRoot = File(context.noBackupFilesDir, HLS_WORKSPACE_DIRECTORY),
         browserReads = browserReads,
     )
@@ -87,8 +103,9 @@ object DownloadRuntimeModule {
     fun provideDashTransferRunner(
         client: OkHttpClient,
         @ApplicationContext context: Context,
+        trial: TrialLinkBreak,
     ): DashTransferRunner = DashTransferEngine(
-        client = client,
+        client = trial.around(client),
         workspaceRoot = File(context.noBackupFilesDir, DASH_WORKSPACE_DIRECTORY),
     )
 
@@ -158,17 +175,27 @@ object DownloadRuntimeModule {
         @DownloadApplicationScope scope: CoroutineScope,
     ): NetworkChanges = NetworkChanges(network, scope)
 
-    /** Track E: each queued download's source, in memory only (E-D2). */
+    /**
+     * Track E: each queued download's source, in memory only (E-D2). A page an adapter reads
+     * renews only the adapter's video (E3).
+     */
     @Provides
     @Singleton
     fun provideDownloadSources(
         sessions: LookupSessions,
         changes: NetworkChanges,
-    ): DownloadSources = DownloadSources(sessions = sessions, networkChanges = { changes.value })
+        coordinator: Lazy<SiteAdapterCoordinator>,
+    ): DownloadSources = DownloadSources(
+        sessions = sessions,
+        adapterPage = { pageUrl -> coordinator.get().handles(pageUrl) },
+        networkChanges = { changes.value },
+    )
 
     /**
      * Track E: fresh links from the site's page. The lookup's parts are made when a link first
-     * dies, so the queue never waits for them and no cycle runs through them.
+     * dies, so the queue never waits for them and no cycle runs through them. E3 (E-D8): a page
+     * no adapter reads is read again as its owner read it: the browser's re-read (the tab's
+     * agent and cookies, P37), or Home's (Home's agent, no cookie).
      */
     @Provides
     @Singleton
@@ -179,6 +206,8 @@ object DownloadRuntimeModule {
         probe: DirectMetadataProbe,
         sessions: LookupSessions,
         changes: NetworkChanges,
+        browserPages: BrowserPageReader,
+        client: OkHttpClient,
     ): SiteLinkRenewal = SiteLinkRenewal(
         sources = sources,
         coordinator = { coordinator.get() },
@@ -186,6 +215,17 @@ object DownloadRuntimeModule {
         probe = probe,
         sessions = sessions,
         networkChanges = { changes.value },
+        pageReaders = PageReaders(
+            browser = browserPages,
+            home = TabPageReader(
+                fetch = HeadlessPageFetcher(
+                    client,
+                    userAgent = HeadlessIdentity.USER_AGENT,
+                    navigationHeaders = HeadlessIdentity.NAVIGATION_HEADERS,
+                )::fetchForTab,
+                cookies = { null },
+            ),
+        ),
     )
 
     @Provides

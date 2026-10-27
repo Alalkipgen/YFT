@@ -2,6 +2,8 @@ package com.alal.yft.download
 
 import com.alal.yft.core.download.StoredDownloadTask
 import com.alal.yft.core.model.download.DownloadTaskStatus
+import com.alal.yft.core.model.media.CandidateSource
+import com.alal.yft.core.model.media.FreshLinks
 import com.alal.yft.core.model.media.MediaAsset
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaGroups
@@ -19,7 +21,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
@@ -187,8 +188,9 @@ data class DownloadQualityKey(
  * asked for, the video it named, who looked it up and how (the agent; whether the site's
  * sign-in went with it), the quality and the conversion, and what names the file (the variant's
  * label, the title, the name it is saved under). [durationMillis] is the video's stated length;
- * [networkChanges] the phone's network changes when the link was found (E-D5').
- * Its `toString` names no address.
+ * [networkChanges] the phone's network changes when the link was found (E-D5'). [mediaPath] (E3)
+ * is the file's address without its signature on a page no adapter reads, to find the same file
+ * when the page is read again. Its `toString` names no address.
  */
 data class DownloadSource(
     val pageUrl: String,
@@ -204,13 +206,17 @@ data class DownloadSource(
     val durationMillis: Long?,
     val fileName: String,
     val networkChanges: Long,
+    val mediaPath: String? = null,
 ) {
-    /** E2: a site adapter named the video, so its page can be looked up again. */
-    val renewable: Boolean get() = !videoId.isNullOrBlank()
+    /** E3 (E-D8): a page no adapter reads, read again quietly for the same file (P37). */
+    val rereadable: Boolean get() = videoId.isNullOrBlank() && !mediaPath.isNullOrBlank()
+
+    /** E2: a site adapter named the video, so its page can be looked up again; E3: or read. */
+    val renewable: Boolean get() = !videoId.isNullOrBlank() || rereadable
 
     override fun toString(): String =
-        "DownloadSource(site=${videoId?.substringBefore(':')}, owner=$owner, session=$session, " +
-            "quality=$quality, conversion=$conversion)"
+        "DownloadSource(site=${videoId?.substringBefore(':')}, rereadable=$rereadable, " +
+            "owner=$owner, session=$session, quality=$quality, conversion=$conversion)"
 }
 
 /**
@@ -230,9 +236,12 @@ data class DownloadRenewals(
  * Track E: every download's [DownloadSource], in memory only (E-D2). A source is remembered when
  * the download is queued and dropped when it completes, is cancelled or deleted ([prune]) and by
  * Clear browsing data ([clear]); nothing is written to disk, so after a restart there is none.
+ * [adapterPage] says whether a site adapter reads a page: there only the adapter's video is
+ * renewed, never a file it did not name (E3).
  */
 class DownloadSources(
     private val sessions: LookupSessions = LookupSessions.None,
+    private val adapterPage: (pageUrl: String) -> Boolean = { false },
     private val networkChanges: () -> Long = { 0L },
 ) {
     private val lock = Any()
@@ -248,7 +257,8 @@ class DownloadSources(
      * Remembers where [taskId]'s file came from: [origin], the [asset] and [variant] it queued
      * (after the conversion) and the [fileName] it is saved under. Whether the site's sign-in
      * went with the lookup follows the owner's rule now: Home sends only TikTok's or Instagram's
-     * sign-in, the browser the site's cookies it holds.
+     * sign-in, the browser the site's cookies it holds. A file no adapter named keeps its
+     * address without the signature, unless it is a pasted file link or the page itself (E3).
      */
     fun remember(
         taskId: String,
@@ -260,14 +270,19 @@ class DownloadSources(
         val candidate = origin.candidate
         val owner = origin.owner ?: LookupOwner.BROWSER
         val pageUrl = candidate.pageUrl
+        val videoId = candidate.videoId?.takeIf(String::isNotBlank)
         val source = DownloadSource(
             pageUrl = pageUrl,
-            videoId = candidate.videoId?.takeIf(String::isNotBlank),
+            videoId = videoId,
             candidateKind = candidate.kind,
             owner = owner,
             userAgent = origin.userAgent ?: candidate.requestContext.userAgent,
             session = sessions.cookieFor(owner, pageUrl) != null,
-            quality = DownloadQualityKey.of(origin.base, DownloadQualityKey.labelOf(candidate)),
+            // A page's own title is no quality word: only an adapter's label names the quality.
+            quality = DownloadQualityKey.of(
+                origin.base,
+                DownloadQualityKey.labelOf(candidate).takeIf { videoId != null },
+            ),
             conversion = DownloadConversion.of(variant),
             label = variant.label,
             title = asset.title,
@@ -275,6 +290,7 @@ class DownloadSources(
                 ?: candidate.durationMillis)?.takeIf { it > 0 },
             fileName = fileName,
             networkChanges = networkChanges(),
+            mediaPath = if (videoId == null) pagePath(candidate) else null,
         )
         synchronized(lock) {
             sources[taskId] = source
@@ -361,6 +377,20 @@ class DownloadSources(
             renewable = sources.filterValues(DownloadSource::renewable).keys.toSet(),
             notes = notes.toMap(),
         )
+    }
+
+    /**
+     * E3: [candidate]'s file without its signature, for a page read again; null for a pasted
+     * file link, a page that is the file itself, and a page a site adapter reads.
+     */
+    private fun pagePath(candidate: MediaCandidate): String? {
+        if (CandidateSource.PASTED_URL in candidate.sources) return null
+        val path = FreshLinks.unsigned(candidate.mediaUrl).takeIf(String::isNotBlank)
+            ?: return null
+        if (path == FreshLinks.unsigned(candidate.pageUrl)) return null
+        // Unknown counts as an adapter's page: no re-read rather than the wrong one.
+        val adapters = runCatching { adapterPage(candidate.pageUrl) }.getOrDefault(true)
+        return path.takeUnless { adapters }
     }
 
     override fun toString(): String =

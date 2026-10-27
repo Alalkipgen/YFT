@@ -12,14 +12,18 @@ import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.DownloadPlan
 import com.alal.yft.core.model.media.AudioFromVideo
 import com.alal.yft.core.model.media.BrowserRequestContext
+import com.alal.yft.core.model.media.FreshLinks
 import com.alal.yft.core.model.media.MediaAsset
 import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.core.model.media.MediaGroup
 import com.alal.yft.core.model.media.MediaGroups
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.Mp3Variants
 import com.alal.yft.core.model.media.VariantResolutionResult
+import com.alal.yft.detection.BrowserPageReader
 import com.alal.yft.detection.HeadlessIdentity
 import com.alal.yft.detection.InstagramHomeSession
+import com.alal.yft.detection.PageReread
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.detection.SiteAdapterOutcome
 import com.alal.yft.detection.tiktok.TikTokHomeSession
@@ -65,11 +69,35 @@ class AndroidLookupSessions(private val tikTok: TikTokPageSettings) : LookupSess
 }
 
 /**
+ * Track E (E3, E-D8): the quiet page re-reads (P37) of a page no adapter reads, by who looked the
+ * video up: the browser's sends the tab's agent and its cookies for the page, as the sheet's
+ * re-read does; Home's sends Home's agent and no cookie, as Home's lookup of the page did.
+ */
+class PageReaders(
+    private val browser: BrowserPageReader,
+    private val home: BrowserPageReader,
+) {
+    fun of(owner: LookupOwner): BrowserPageReader = when (owner) {
+        LookupOwner.BROWSER -> browser
+        LookupOwner.HOME -> home
+    }
+
+    override fun toString(): String = "PageReaders"
+
+    companion object {
+        /** No re-read (`REREAD=0`): a page no adapter reads gets no fresh link, as in E2. */
+        val None = PageReaders(BrowserPageReader.None, BrowserPageReader.None)
+    }
+}
+
+/**
  * Track E (E2): a fresh link for a download from a site an adapter reads. It looks the page up
  * again as its owner did ([LookupSessions], Home's agent or the browser's; `fresh`, so no
  * remembered answer and no tab), finds the same video (its name and its length within 2 s) and
  * the same quality ([DownloadQualityKey]), makes the same conversion, and plans it under the same
- * task id and file name; a whole file is probed first. It declines what is no link failure for
+ * task id and file name; a whole file is probed first. E3 (E-D8): a page no adapter reads is read
+ * again once, quietly, as its owner read it ([PageReaders]), for the same file (its address
+ * under a fresh signature, else its length within 2 s). It declines what is no link failure for
  * that site: a 400 off VK, and "YouTube refused" without a tap unless the phone's network
  * changed since the link was found (E-D5').
  */
@@ -81,6 +109,7 @@ class SiteLinkRenewal(
     private val sessions: LookupSessions = LookupSessions.None,
     private val networkChanges: () -> Long = { 0L },
     private val clock: () -> Long = System::currentTimeMillis,
+    private val pageReaders: PageReaders = PageReaders.None,
 ) : DownloadLinkRenewal {
     /** Each fresh link's first words ("Fresh link (403 at 41.0 MB)") until its run goes on. */
     private val pending = ConcurrentHashMap<String, String>()
@@ -88,20 +117,27 @@ class SiteLinkRenewal(
     override suspend fun renew(request: LinkRenewalRequest): LinkRenewal {
         val source = sources[request.taskId]?.takeIf(DownloadSource::renewable)
             ?: return LinkRenewal.Declined
-        val lookups = coordinator()
-        // E3 renews pages no adapter reads; here only an adapter's video is looked up again.
-        val identity = lookups.identity(source.pageUrl) ?: return LinkRenewal.Declined
-        if (request.reason == DownloadFailureReason.HTTP_STATUS &&
-            identity.siteId != VK_SITE_ID
-        ) {
-            return LinkRenewal.Declined
-        }
         if (request.reason == DownloadFailureReason.YOUTUBE_REFUSED && !request.byUser &&
             networkChanges() <= source.networkChanges
         ) {
             return LinkRenewal.Declined
         }
-        val answer = lookUp(request, source, lookups)
+        val answer = if (source.rereadable) {
+            // E-D1: a 400 is a link that died on VK only, and VK's pages have an adapter.
+            if (request.reason == DownloadFailureReason.HTTP_STATUS) return LinkRenewal.Declined
+            val reader = pageReaders.of(source.owner).takeIf { it.rereads > 0 }
+                ?: return LinkRenewal.Declined
+            reread(request, source, reader)
+        } else {
+            val lookups = coordinator()
+            val identity = lookups.identity(source.pageUrl) ?: return LinkRenewal.Declined
+            if (request.reason == DownloadFailureReason.HTTP_STATUS &&
+                identity.siteId != VK_SITE_ID
+            ) {
+                return LinkRenewal.Declined
+            }
+            lookUp(request, source, lookups)
+        }
         if (answer is LinkRenewal.Fresh) {
             sources.renewed(request.taskId)
             pending[request.taskId] = headOf(request)
@@ -148,7 +184,68 @@ class SiteLinkRenewal(
             .firstOrNull { group -> group.candidates.any { it.videoId == source.videoId } }
             ?.takeIf { group -> sameLength(source.durationMillis, group.durationMillis) }
             ?: return LinkRenewal.Unavailable(VIDEO_GONE)
-        val match = sameQuality(source, video.candidates)
+        return planned(request, source, video.candidates)
+    }
+
+    /**
+     * E3 (E-D8): the page read again once, as its owner read it (the browser: the tab's agent
+     * and its cookies for the page; Home: Home's agent, no cookie). A page without player data
+     * (a notice, a check) or one that does not answer gives no fresh link.
+     */
+    private suspend fun reread(
+        request: LinkRenewalRequest,
+        source: DownloadSource,
+        reader: BrowserPageReader,
+    ): LinkRenewal {
+        val agent = when (source.owner) {
+            LookupOwner.HOME -> HeadlessIdentity.USER_AGENT
+            LookupOwner.BROWSER -> source.userAgent
+        }
+        val read = try {
+            reader.read(source.pageUrl, agent)
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Exception) {
+            PageReread.Failed
+        }
+        val candidates = when (read) {
+            is PageReread.Found -> read.candidates
+            PageReread.NoPlayer -> return LinkRenewal.Unavailable(NO_PLAYER)
+            PageReread.Failed -> return LinkRenewal.Unavailable(NOT_READ)
+        }
+        val videos = MediaGroups.pageVideos(candidates.filter { it.drmHint != true })
+        val video = sameVideo(source, videos)
+            ?.takeIf { group -> sameLength(source.durationMillis, group.durationMillis) }
+            ?: return LinkRenewal.Unavailable(VIDEO_GONE)
+        return planned(request, source, video.candidates)
+    }
+
+    /**
+     * P29's rule on the page read again: the video with the download's file under any signature
+     * (the same address without its query), else the one of its length, the closest within 2 s.
+     */
+    private fun sameVideo(source: DownloadSource, videos: List<MediaGroup>): MediaGroup? {
+        val path = source.mediaPath ?: return null
+        videos.firstOrNull { video -> video.candidates.any { it.unsignedPath == path } }
+            ?.let { return it }
+        val length = source.durationMillis ?: return null
+        return videos
+            .mapNotNull { video -> video.durationMillis?.let { video to abs(it - length) } }
+            .filter { (_, gap) -> gap <= SAME_LENGTH_MILLIS }
+            .minByOrNull { (_, gap) -> gap }
+            ?.first
+    }
+
+    /**
+     * The fresh [candidates]' file of the download's quality, converted as before and planned
+     * under the same task id and file name; a whole file is probed first.
+     */
+    private suspend fun planned(
+        request: LinkRenewalRequest,
+        source: DownloadSource,
+        candidates: List<MediaCandidate>,
+    ): LinkRenewal {
+        val match = sameQuality(source, candidates)
             ?: return LinkRenewal.Unavailable(QUALITY_GONE)
         val variant = converted(source, match.variant, match.asset.durationMillis)
             ?.let { converted -> converted.copy(label = source.label ?: converted.label) }
@@ -173,9 +270,9 @@ class SiteLinkRenewal(
 
     /**
      * The fresh lookup's file of the download's quality: its candidates that may hold it, the
-     * closest first, are resolved (at most [MAX_RESOLVES]) until one has a variant no stated
-     * fact of which differs; of those the one sharing the most facts, then the one of the
-     * video's length, then the nearest bitrate.
+     * closest first (on a page read again, the download's own file first), are resolved (at
+     * most [MAX_RESOLVES]) until one has a variant no stated fact of which differs; of those the
+     * one sharing the most facts, then the one of the video's length, then the nearest bitrate.
      */
     private suspend fun sameQuality(
         source: DownloadSource,
@@ -185,7 +282,10 @@ class SiteLinkRenewal(
         val ranked = candidates
             .filter { key.admits(it, source.candidateKind) }
             .sortedWith(
-                compareByDescending<MediaCandidate> { key.sharedWith(it) }
+                compareByDescending<MediaCandidate> { candidate ->
+                    source.mediaPath != null && candidate.unsignedPath == source.mediaPath
+                }
+                    .thenByDescending { key.sharedWith(it) }
                     .thenBy { key.bitrateGap(it.bitrateBitsPerSecond) },
             )
         for (candidate in ranked.take(MAX_RESOLVES)) {
@@ -239,6 +339,9 @@ class SiteLinkRenewal(
     companion object {
         internal const val VIDEO_GONE = "the video is no longer on the page"
         internal const val QUALITY_GONE = "this quality is no longer offered"
+        internal const val NO_PLAYER =
+            "the page read again has no player data (a notice or a check)"
+        internal const val NOT_READ = "the page could not be read again"
 
         /** A site adapter's own name for VK (`VkUrls.SITE_ID`): its 400 is a link that died. */
         private const val VK_SITE_ID = "vk"
@@ -251,6 +354,10 @@ class SiteLinkRenewal(
 
         private fun sameLength(first: Long?, second: Long?): Boolean =
             first == null || second == null || abs(first - second) <= SAME_LENGTH_MILLIS
+
+        /** The file's address without its signature (its query and fragment). */
+        private val MediaCandidate.unsignedPath: String
+            get() = FreshLinks.unsigned(mediaUrl)
 
         /** The download's conversion on the fresh file, as the sheet makes it. */
         internal fun converted(

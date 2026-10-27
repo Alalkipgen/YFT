@@ -1685,8 +1685,16 @@ Keep at least the heading and one blank line between sections, so Git merges the
   `DownloadRenewalRowsTest` and additions to five existing ones; all app, `core-download` and
   `core-model` tests pass locally. The sandbox was reset once: `/data/setup-tools.sh` re-creates
   JDK 17 and the SDK (local only, not in the repo).
-- Next: E3 (VK's 400 tests, pages without an adapter via `BrowserPageReader`, the trial hook);
-  STOP after E3 ("READY FOR PHONE TEST (after v1.0.1)"). E4 only after v1.0.1 is published.
+- E3 done (plan §4.8): VK's 400 (E2's rule, tests), pages without an adapter (`DownloadSources`
+  keeps the file's address without its query; `SiteLinkRenewal` reads the page again with P37's
+  `BrowserPageReader` by its owner, `PageReaders`), the trial's "Break this download's link"
+  (`TrialLinkBreak` on the engines' client, Downloads ⋮ in the trial build only; the release
+  verifier's marker), YouTube's B1 and F8 unchanged (tests). Tests: `PageRereadRenewalTest`,
+  `TrialLinkBreakTest`, `BreakLinkMenuTest` (also in a trial build), additions to
+  `SiteLinkRenewalTest` and `DownloadSourcesTest`, the script test; all app, `core-download` and
+  `core-model` tests pass locally.
+- **STOP: READY FOR PHONE TEST (after v1.0.1).** Next: E4 (plan §6, §7) only after the owner says
+  v1.0.1 is published and gives the OK; no APK from this branch before that.
 - This section sits above the wiring agent's (D) so Git merges it cleanly with that branch's S5
   notes; keep Track E's state here only.
 

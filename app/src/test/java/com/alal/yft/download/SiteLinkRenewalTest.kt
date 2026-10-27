@@ -1,27 +1,18 @@
 package com.alal.yft.download
 
-import com.alal.yft.core.download.DownloadDestination
 import com.alal.yft.core.download.DownloadPlanType
-import com.alal.yft.core.download.DownloadTransferDispatcher
 import com.alal.yft.core.download.LinkRenewal
 import com.alal.yft.core.download.LinkRenewalRequest
-import com.alal.yft.core.download.QueueTransferResult
-import com.alal.yft.core.media.resolver.VariantResolver
 import com.alal.yft.core.model.download.AudioVideoMuxDownloadPlan
 import com.alal.yft.core.model.download.DashDownloadPlan
 import com.alal.yft.core.model.download.DirectDownloadPlan
 import com.alal.yft.core.model.download.DirectProbeResult
-import com.alal.yft.core.model.download.DirectTransferCheckpoint
 import com.alal.yft.core.model.download.DownloadFailure
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.DownloadFailureStage
 import com.alal.yft.core.model.download.DownloadPlan
-import com.alal.yft.core.model.download.DownloadProgress
-import com.alal.yft.core.model.download.DownloadSegment
 import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.download.HlsDownloadPlan
-import com.alal.yft.core.model.download.RemoteFileMetadata
-import com.alal.yft.core.model.download.TransferCheckpoint
 import com.alal.yft.core.model.media.AudioFromVideo
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.CandidateSource
@@ -33,7 +24,6 @@ import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.Mp3Variants
-import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.detection.HeadlessIdentity
 import com.alal.yft.detection.MergeSupport
@@ -42,22 +32,18 @@ import com.alal.yft.detection.SiteAdapterOutcome
 import com.alal.yft.detection.SiteLookupCache
 import com.alal.yft.download.RenewalFixtures.MIB
 import com.alal.yft.download.RenewalFixtures.NOW
-import com.alal.yft.download.RenewalFixtures.TOTAL
 import com.alal.yft.extractor.api.SiteExtractionFailure
-import com.alal.yft.extractor.api.SiteExtractionRequest
 import com.alal.yft.extractor.api.SiteExtractionResult
-import com.alal.yft.extractor.api.SiteExtractor
 import com.alal.yft.extractor.api.SiteExtractorRegistry
-import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.feature.detectedmedia.LookupOwner
 import com.alal.yft.feature.downloads.DownloadAction
 import com.alal.yft.feature.downloads.DownloadRowUiState
 import com.alal.yft.feature.downloads.DownloadsUiState
+import com.alal.yft.feature.downloads.YOUTUBE_REFUSED_HINT
 import com.alal.yft.feature.downloads.downloadDetailsText
+import com.alal.yft.feature.downloads.isYouTubeRefusal
 import com.alal.yft.feature.downloads.showsDetails
 import java.io.IOException
-import java.net.URI
-import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
@@ -72,14 +58,18 @@ import org.junit.Test
 /**
  * Track E (E2): a dead link of a site adapter's video is renewed by looking its page up again as
  * its owner did, finding the same video and quality, and planning it under the same task and
- * file name; what is no dead link of a known video is left to the queue. The adapters, the
- * resolver and the file probe are fakes; the coordinator, the enqueue and the queue are real.
+ * file name; what is no dead link of a known video is left to the queue. E3 (E-D1): VK's 400
+ * after its file gave bytes is a dead link, before any byte or off VK a failure as before. The
+ * adapters, the resolver and the file probe are fakes; the coordinator, the enqueue and the
+ * queue are real.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SiteLinkRenewalTest {
     private var changes = 0L
     private val sessions = FakeSessions()
-    private val sources = DownloadSources(sessions) { changes }
+    private val sources = DownloadSources(sessions, adapterPage = { coordinator.handles(it) }) {
+        changes
+    }
     private val resolver = FakeResolver()
     private val probe = RecordingProbe()
     private val youtube = FakeSite("youtube")
@@ -411,6 +401,40 @@ class SiteLinkRenewalTest {
         }
 
     @Test
+    fun `YouTube's refusal on the same network stays B1's, and a tap on Retry renews it`() =
+        runTest {
+            youtube.answer = { found(youTubeFiles(it)) }
+            val transfers = ScriptedTransfers({ YOUTUBE_REFUSAL }) { run ->
+                (41 * MIB).takeIf { run == 0 }
+            }
+            val harness = EnqueueHarness(this, sources, probe, transfers, renewal)
+            val id = download(harness, lookUp(youtube).titled("360p")).taskId
+            runCurrent()
+
+            // No lookup by itself (E-D5'): the row is B1's, with its hint and Reset.
+            val stopped = harness.queue.tasks.value.single()
+            assertEquals(DownloadTaskStatus.NEEDS_REFRESH, stopped.status)
+            assertEquals(DownloadFailureReason.YOUTUBE_REFUSED, stopped.failure?.reason)
+            assertEquals(1, youtube.requests.size)
+            val row = rowOf(harness)
+            assertTrue(row.isYouTubeRefusal())
+            assertTrue(DownloadAction.RETRY in row.availableActions)
+            val details = downloadDetailsText(row, "1.0.1", "15", 35)
+            assertTrue(details, "What to do: $YOUTUBE_REFUSED_HINT" in details.lines())
+
+            harness.queue.resume(id)
+            runCurrent()
+
+            assertEquals(DownloadTaskStatus.COMPLETED, harness.queue.tasks.value.single().status)
+            assertEquals(
+                listOf("Fresh link on Retry (403 at 41.0 MB): resumed at 41.0 MB"),
+                sources.renewals.value.notes[id],
+            )
+            assertEquals(2, youtube.requests.size)
+            assertEquals(listOf(0L, 41 * MIB), transfers.resumedFrom)
+        }
+
+    @Test
     fun `each fresh link's line says what ended the old one and how the download went on`() =
         runTest {
             instagram.answer = { found(instagramFiles(it)) }
@@ -511,6 +535,77 @@ class SiteLinkRenewalTest {
         )
         assertEquals(3, instagram.requests.size)
         assertEquals(2, transfers.plans.size)
+    }
+
+    @Test
+    fun `VK's 400 after its file gave bytes is a dead link the download gets past by itself`() =
+        runTest {
+            vk.answer = { found(vkFiles(it)) }
+            val transfers = ScriptedTransfers({ BAD_REQUEST }) { run ->
+                (41 * MIB).takeIf { run == 0 }
+            }
+            val harness = EnqueueHarness(this, sources, probe, transfers, renewal)
+            val id = download(harness, lookUp(vk).titled("720p")).taskId
+            runCurrent()
+
+            assertEquals(DownloadTaskStatus.COMPLETED, harness.queue.tasks.value.single().status)
+            assertEquals(
+                listOf(link(vk, "720", 0), link(vk, "720", 1)),
+                transfers.plans.map { (it as DirectDownloadPlan).sourceUrl },
+            )
+            assertEquals(listOf(0L, 41 * MIB), transfers.resumedFrom)
+            assertEquals(2, vk.requests.size)
+            assertEquals(
+                listOf("Fresh link (400 at 41.0 MB): resumed at 41.0 MB"),
+                sources.renewals.value.notes[id],
+            )
+        }
+
+    @Test
+    fun `VK's 400 before any byte fails as before, without a lookup`() = runTest {
+        vk.answer = { found(vkFiles(it)) }
+        val transfers = ScriptedTransfers({ BAD_REQUEST }) { run -> 0L.takeIf { run == 0 } }
+        val harness = EnqueueHarness(this, sources, probe, transfers, renewal)
+        download(harness, lookUp(vk).titled("720p"))
+        runCurrent()
+
+        val failed = harness.queue.tasks.value.single()
+        assertEquals(DownloadTaskStatus.FAILED, failed.status)
+        assertEquals(400, failed.failure?.httpStatusCode)
+        assertFalse(failed.requiresLinkRefresh)
+        assertEquals(1, vk.requests.size)
+        assertEquals(1, transfers.plans.size)
+    }
+
+    @Test
+    fun `VK's 403 is a dead link as on every site`() = runTest {
+        vk.answer = { found(vkFiles(it)) }
+        val transfers = ScriptedTransfers { run -> (41 * MIB).takeIf { run == 0 } }
+        val harness = EnqueueHarness(this, sources, probe, transfers, renewal)
+        download(harness, lookUp(vk).titled("480p"))
+        runCurrent()
+
+        assertEquals(DownloadTaskStatus.COMPLETED, harness.queue.tasks.value.single().status)
+        assertEquals(link(vk, "480", 1), (transfers.plans.last() as DirectDownloadPlan).sourceUrl)
+        assertEquals(2, vk.requests.size)
+    }
+
+    @Test
+    fun `off VK a 400 after the file gave bytes fails as before, without a lookup`() = runTest {
+        vimeo.answer = { found(vimeoFiles(it)) }
+        val transfers = ScriptedTransfers({ BAD_REQUEST }) { run ->
+            (41 * MIB).takeIf { run == 0 }
+        }
+        val harness = EnqueueHarness(this, sources, probe, transfers, renewal)
+        download(harness, lookUp(vimeo).titled("540p"))
+        runCurrent()
+
+        val failed = harness.queue.tasks.value.single()
+        assertEquals(DownloadTaskStatus.FAILED, failed.status)
+        assertEquals(400, failed.failure?.httpStatusCode)
+        assertFalse(failed.failure?.detail.orEmpty().startsWith("Fresh link"))
+        assertEquals(1, vimeo.requests.size)
+        assertEquals(1, transfers.plans.size)
     }
 
     private fun TestScope.harness() = EnqueueHarness(this, sources, probe)
@@ -764,147 +859,6 @@ class SiteLinkRenewalTest {
             is AudioVideoMuxDownloadPlan -> DownloadPlanType.AUDIO_VIDEO_MUX
         }
 
-    /** A site adapter for pages `https://<id>.test/video/<id>`; lookup n answers [answer] (n). */
-    private class FakeSite(override val id: String) : SiteExtractor {
-        override val displayName: String = id
-        val host = "$id.test"
-        val requests = CopyOnWriteArrayList<SiteExtractionRequest>()
-        var answer: (lookup: Int) -> SiteExtractionResult = {
-            SiteExtractionResult.Failure(SiteExtractionFailure.NO_MEDIA_FOUND)
-        }
-
-        fun page() = "https://$host/video/v1"
-
-        override fun identify(pageUrl: String): SitePageIdentity? {
-            val uri = runCatching { URI(pageUrl) }.getOrNull() ?: return null
-            val path = uri.path.orEmpty()
-            if (uri.host != host || !path.startsWith(VIDEO_PATH)) return null
-            val video = path.removePrefix(VIDEO_PATH).takeIf(String::isNotBlank) ?: return null
-            return SitePageIdentity(id, video, "https://$host$VIDEO_PATH$video")
-        }
-
-        override suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult {
-            val lookup = requests.size
-            requests += request
-            return answer(lookup)
-        }
-
-        private companion object {
-            const val VIDEO_PATH = "/video/"
-        }
-    }
-
-    /**
-     * Resolves like the real resolver: a whole file is one variant keeping its companion and
-     * codecs, with the height its MP4 header gives ([measured], by the file's name) when the
-     * site states none; a playlist or manifest lists 1080p, 720p and 360p.
-     */
-    private class FakeResolver : VariantResolver {
-        var measured: Map<String, Int> = emptyMap()
-        var failing: (MediaCandidate) -> Boolean = { false }
-
-        override suspend fun resolve(candidate: MediaCandidate): VariantResolutionResult {
-            if (failing(candidate)) {
-                return VariantResolutionResult.Failure(VariantResolutionFailure.NETWORK)
-            }
-            val variants = when (candidate.kind) {
-                MediaKind.DIRECT -> listOf(whole(candidate))
-                else -> listOf(1080, 720, 360).map { rendition(candidate, it) }
-            }
-            return VariantResolutionResult.Success(
-                MediaAsset(
-                    sourcePageUrl = candidate.pageUrl,
-                    title = MediaGroups.baseTitle(candidate.title),
-                    thumbnailUrl = null,
-                    durationMillis = candidate.durationMillis,
-                    variants = variants,
-                    resolvedAtEpochMs = NOW,
-                ),
-            )
-        }
-
-        private fun whole(candidate: MediaCandidate): MediaVariant {
-            val audio = candidate.mimeType?.startsWith("audio/") == true
-            val name = candidate.mediaUrl.substringBefore('?').substringAfterLast('/')
-            return MediaVariant(
-                id = "direct-0",
-                playbackUrl = candidate.mediaUrl,
-                kind = MediaKind.DIRECT,
-                trackType = if (audio) MediaTrackType.AUDIO else MediaTrackType.AUDIO_VIDEO,
-                requestContext = candidate.requestContext,
-                mimeType = candidate.mimeType,
-                container = if (audio) "m4a" else "mp4",
-                codecs = candidate.codecs,
-                height = candidate.height ?: measured[name],
-                durationMillis = candidate.durationMillis,
-                audioCompanion = candidate.audioCompanion,
-            )
-        }
-
-        private fun rendition(candidate: MediaCandidate, height: Int): MediaVariant {
-            val playlist = candidate.kind == MediaKind.HLS
-            return MediaVariant(
-                id = "${candidate.kind.name.lowercase()}-$height",
-                playbackUrl = if (playlist) {
-                    candidate.mediaUrl.replace("?", "/$height.m3u8?")
-                } else {
-                    candidate.mediaUrl
-                },
-                kind = candidate.kind,
-                trackType = MediaTrackType.AUDIO_VIDEO,
-                requestContext = candidate.requestContext,
-                manifestVariantId = "video-$height",
-                mimeType = "video/mp4",
-                codecs = listOf("avc1.64001F", "mp4a.40.2"),
-                width = height * 16 / 9,
-                height = height,
-                framesPerSecond = 30.0,
-                bitrateBitsPerSecond = height * 4_000L,
-                durationMillis = candidate.durationMillis,
-            )
-        }
-    }
-
-    /** A direct file's engine: run n fails with 403 after [failAt] (n) bytes, else completes. */
-    private class ScriptedTransfers(
-        private val failAt: (run: Int) -> Long?,
-    ) : DownloadTransferDispatcher {
-        val plans = CopyOnWriteArrayList<DownloadPlan>()
-        val resumedFrom = CopyOnWriteArrayList<Long>()
-
-        override suspend fun transfer(
-            plan: DownloadPlan,
-            metadata: RemoteFileMetadata?,
-            destination: DownloadDestination,
-            resumeFrom: TransferCheckpoint?,
-            onProgress: suspend (DownloadProgress) -> Unit,
-            onCheckpoint: suspend (TransferCheckpoint) -> Unit,
-        ): QueueTransferResult {
-            val run = plans.size
-            plans += plan
-            val start = resumeFrom?.downloadedBytes ?: 0L
-            resumedFrom += start
-            failAt(run)?.let { bytes ->
-                val written = checkpoint(bytes)
-                onCheckpoint(written)
-                return QueueTransferResult.Failure(DENIED, written)
-            }
-            onCheckpoint(checkpoint(start + MIB))
-            val done = checkpoint(TOTAL)
-            onCheckpoint(done)
-            return QueueTransferResult.Completed(TOTAL, done)
-        }
-
-        override suspend fun discard(plan: DownloadPlan) = Unit
-
-        private fun checkpoint(bytes: Long) = DirectTransferCheckpoint(
-            totalBytes = TOTAL,
-            entityTag = "\"fixture\"",
-            lastModified = null,
-            segments = listOf(DownloadSegment(0, 0, TOTAL - 1, bytes)),
-        )
-    }
-
     private companion object {
         const val TITLE = "Ocean waves"
         const val LENGTH = 252_000L
@@ -913,11 +867,20 @@ class SiteLinkRenewalTest {
         const val OTHER_PAGE = "https://www.example.test/post/1"
         val GONE = LinkRenewal.Unavailable(SiteLinkRenewal.VIDEO_GONE)
         val NO_QUALITY = LinkRenewal.Unavailable(SiteLinkRenewal.QUALITY_GONE)
-        val DENIED = DownloadFailure(
-            reason = DownloadFailureReason.ACCESS_DENIED,
+
+        /** B1: YouTube's media host refusing a link with time left (the queue's own reason). */
+        val YOUTUBE_REFUSAL = DownloadFailure(
+            reason = DownloadFailureReason.YOUTUBE_REFUSED,
             httpStatusCode = 403,
             stage = DownloadFailureStage.CONNECT,
-            detail = "403 text/plain len 0",
+        )
+
+        /** VK's media hosts answer a link that died (a new IP) with 400 (census §4). */
+        val BAD_REQUEST = DownloadFailure(
+            reason = DownloadFailureReason.HTTP_STATUS,
+            httpStatusCode = 400,
+            stage = DownloadFailureStage.CONNECT,
+            detail = "400 text/plain len 0",
         )
     }
 }

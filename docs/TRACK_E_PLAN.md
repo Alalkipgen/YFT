@@ -2,11 +2,14 @@
 
 Status: E0 done (§4.5); the owner's answers 2026-10-27 (§3); E1 done (§4.6: `core-download` and
 the new status's app plumbing); E2 done (§4.7: the app's renewal source for adapter sites, rows,
-Retry, Details; CI per checkpoint). Next: E3.
+Retry, Details); E3 done (§4.8: VK's 400, pages without an adapter, the trial's "Break this
+download's link", YouTube unchanged; CI per checkpoint). **STOP: READY FOR PHONE TEST (after
+v1.0.1).** E4 (§6, §7) only after v1.0.1 is published and with the owner's OK.
 Planning: the owner's go, 2026-10-27, while S5's run 3 waits. Branch
 `work/phase-track-e-403` from `main` `a27b2c9c` (PR #8's merge: the code of S5's census APK).
-E1's and E2's code is on this branch; the app renews the links of adapter sites' downloads (E3
-adds pages without an adapter). **Not for v1.0.1:** nothing here reaches `main`, and
+E1's to E3's code is on this branch: the app renews the links of adapter sites' downloads and of
+pages without an adapter; the trial can break a link. **Not for v1.0.1:** nothing here reaches
+`main`, and
 no APK from this branch reaches the owner's phone, before v1.0.1 is published.
 
 ## 0. အကျဉ်းချုပ် (ပိုင်ရှင်အတွက်)
@@ -481,6 +484,51 @@ Built as §4.3 and §4.5 name it; what differs or was decided in the code:
   own renewal and Retry end to end), `DownloadRenewalRowsTest` (4), `DownloadsScreenTest` (+3),
   `PrivacyCleanersTest` (+1), `QuickDownloadViewModelTest` (+2), `PreviewViewModelTest` (+1),
   `DownloadLinkRenewalTest` (+1, `wentOn`). Every existing test passes unchanged.
+
+### 4.8 E3 result
+
+Built as §4.3, §4.5 and E-D1, E-D8, E-D9 name them; what differs or was decided in the code:
+
+- **VK's 400 (E-D1).** E2's rule is the whole of it: a 400 is renewed on VK's pages only (its
+  adapter's fresh lookup) and only after the file gave bytes (E1's queue: a 400 at 0 bytes stays
+  `FAILED`, as today); off VK, and on a page without an adapter, a 400 stays today's failure.
+- **Pages without an adapter (E-D8).** `DownloadSources` keeps, for a file no adapter named on a
+  page no adapter reads, the file's address without its query (`mediaPath`, memory only;
+  `toString` says `rereadable=` only). A pasted file link, a file that is its own page, a file on
+  an adapter's page (or a page whose check throws) keep none: not renewable, as in E2. A page's
+  title is no quality word: only an adapter's label is part of the quality key.
+  `SiteLinkRenewal` reads the page again with P37's `BrowserPageReader` (called only), by its
+  owner (`PageReaders`): the browser's lookup → the app's reader with the tab's agent and the
+  page's cookies; Home's → a `TabPageReader` on `HeadlessPageFetcher` with `HeadlessIdentity`'s
+  agent and headers, no cookie. The same video: the page's video with the download's file under
+  any signature, else the one of its length, the closest within 2 s; no DRM file; then E2's
+  same quality (the same file first), conversion, plan and probe. It declines in a build
+  without re-reads and on a 400. New words: "the page read again has no player data (a notice
+  or a check)" (`NoPlayer`), "the page could not be read again" (`Failed` or a throw); each
+  `Unavailable` ends in "Link expired" with Retry, which reads the page again.
+- **The trial hook (E-D9).** `TrialLinkBreak` (new, `download/`): an OkHttp interceptor on the
+  Direct, HLS and DASH engines' client in the trial build only (`BuildConfig.SOCIAL_TRIAL`;
+  elsewhere `around` gives the client itself). Downloads ⋮ "Break this download's link" on a
+  running or paused row (the trial, not a quiet build) breaks the task's newest link (the
+  `DownloadRequestTag` number its requests carried; the first before any): that link's requests
+  get the tool's own 403 without the network, and a body still being read throws, so the
+  engine's next request meets a dead link's 403; the fresh link (the next number) passes; a
+  request without a download's tag is never touched. `TRIAL_TOOL_MARKERS` has the label.
+- **YouTube (B1, F8) unchanged.** A "YouTube refused" on the same network ends as B1 (the row,
+  its hint, Reset YouTube session; no lookup by itself); a Retry tap renews it once. F8's
+  ask-again sits in the DASH engine before the queue sees the failure. So on the phone the
+  tool's 403 on a YouTube link (time left) is "YouTube refused" (a DASH track's after F8's one
+  ask-again): the row waits for Retry unless the network changed (E-D5'); the other sites go on
+  by themselves.
+- **Tests:** `PageRereadRenewalTest` (10, new: the browser's and Home's re-reads, files without a
+  height, a moved file by its length, HLS, the words without an address, declines, 41 MB resumed
+  end to end, Retry reads again), `TrialLinkBreakTest` (5, new), `BreakLinkMenuTest` (2, new;
+  also run in a trial build: `-Pyft.masterCapture=true -Pyft.socialLadder=true
+  -Pyft.socialTrial=true`), `SiteLinkRenewalTest` (+5: VK's 400 at 41 MB resumed, at 0 bytes
+  `FAILED` without a lookup, VK's 403, Vimeo's 400 not renewed, B1 end to end),
+  `DownloadSourcesTest` (+1), `test_release_debug_actions.py` (+1). `RenewalFixtures` holds the
+  fakes the renewal tests share. `DashMediaHostRefusalTest`, `MediaHostRefusalsTest` and
+  `DownloadsViewModelYouTubeResetTest` pass unchanged, as every existing test.
 
 ## 5. Files and ownership
 
