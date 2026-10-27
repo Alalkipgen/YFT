@@ -25,6 +25,9 @@ internal val PROGRESS_STATUSES = setOf(
     DownloadTaskStatus.VERIFYING,
 )
 
+/** Track E: a download whose link died while its page is looked up again for the same file. */
+internal const val RENEWING_LINK_LABEL = "Getting a fresh link\u2026"
+
 /** A status pill on a card that has no progress bar. */
 internal data class DownloadStatusChip(
     val text: String,
@@ -212,6 +215,8 @@ internal fun statusChip(
     )
 
     DownloadTaskStatus.CANCELLED -> DownloadStatusChip("Cancelled", YftStatusTone.Neutral)
+    DownloadTaskStatus.RENEWING_LINK ->
+        DownloadStatusChip(RENEWING_LINK_LABEL, YftStatusTone.Active, YftIcons.Refresh)
     else -> null
 }
 

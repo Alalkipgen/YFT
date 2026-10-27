@@ -193,11 +193,16 @@ class DownloadNotificationFactory @Inject constructor(
         const val REFUSED_NOTICE =
             "Android paused downloads in the background. Open YFT to resume."
 
+        /**
+         * The statuses the service runs for. Track E (G5): a download getting a fresh link
+         * stays here, so the service and the end-of-download notice keep watching it.
+         */
         val FOREGROUND_STATUSES = setOf(
             DownloadTaskStatus.QUEUED,
             DownloadTaskStatus.RUNNING,
             DownloadTaskStatus.PAUSING,
             DownloadTaskStatus.WAITING_FOR_NETWORK,
+            DownloadTaskStatus.RENEWING_LINK,
         )
     }
 }

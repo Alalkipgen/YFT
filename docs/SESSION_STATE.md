@@ -1660,15 +1660,25 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - Plan: `docs/TRACK_E_PLAN.md` (the owner's go, 2026-10-27, while S5's run 3 waits). Branch from
   `main` `a27b2c9c` (PR #8's merge: the code of S5's census APK). Not for v1.0.1: nothing reaches
   `main`, and no APK from this branch reaches the owner's phone, before v1.0.1 is published.
-- State: E0 done (docs only, 2026-10-27): plan §2 checked on `a27b2c9c` (true, with corrections),
-  §6's seven questions answered, gaps G1–G5 found, the final names and the test list — all in
-  plan §4.5. No code changed. No build or test ran: this sandbox has no Android SDK, and a
-  docs-only push starts no CI.
-- STOP: waiting for the owner's answers to plan §3 (E-D1–E-D9; E0's E-D5' and E-D6's wording)
-  and the OK for §4.5's files beyond §5's list. E1–E3 only after that; E4 only after v1.0.1 is
+- State: E0 done (docs only, 2026-10-27): plan §2 checked on `a27b2c9c`, §6's questions
+  answered, gaps G1–G5, the final names and the test list in plan §4.5. The owner's answers
+  (2026-10-27, plan §3): the defaults, E-D5' (network change from the app's own monitor only; one
+  "YouTube refused" renewal per download, within the three), E-D6 as clarified, E-D7 confirmed
+  (`core-media`'s resolver and parsers locked too), §4.5's extra files OK with limits, G2 extended
+  to rows without a source.
+- E1 done (plan §4.6): `core-download` (`DownloadLinkRenewal`, `LinkRenewalRequest`,
+  `LinkRenewal`, `DownloadRequestTag`, the queue's renewal in the task's job, E-D3's cap, G1–G4)
+  and `RENEWING_LINK`'s app plumbing (Downloads sets and chip, notification line, the service's
+  foreground set (G5), `BackgroundWork`). Tests: `DownloadLinkRenewalTest`,
+  `FreshLinkSameFileTest`, `RenewingLinkStatusTest`; all `core-download` and `core-model` tests
+  and the touched app tests pass locally (JDK 17 and the Android SDK now run in this sandbox); CI
+  runs on the E1 checkpoint. No source is wired yet: the app's queue still has
+  `DownloadLinkRenewal.None`, so the app behaves as before except G1–G3's fixes (the resume point
+  kept, a "Link expired" row's partial file cleaned up, a merge's kept track checked).
+- Next: E2 (`app`: `DownloadSources`, `SiteLinkRenewal`, wiring, Retry on a renewable "Link
+  expired" row, Details lines, notices), then E3 (VK's 400, pages without an adapter, the trial
+  hook); STOP after E3 ("READY FOR PHONE TEST (after v1.0.1)"). E4 only after v1.0.1 is
   published.
-- Next: E1 (`core-download`: `DownloadLinkRenewal`, `RENEWING_LINK`, the renewal in the task's
-  job, the cap, G1–G4, tests); G5 is E2's.
 - This section sits above the wiring agent's (D) so Git merges it cleanly with that branch's S5
   notes; keep Track E's state here only.
 

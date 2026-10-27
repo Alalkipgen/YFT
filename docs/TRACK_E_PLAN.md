@@ -1,9 +1,11 @@
 # Track E — a file's link dies after its download started: a fresh lookup, every site (v1.0.2)
 
-Status: E0 done (docs only, §4.5); STOP, waiting for the owner's answers (§3, §4.5's proposals).
+Status: E0 done (§4.5); the owner's answers 2026-10-27 (§3); E1 done (§4.6: `core-download` and
+the new status's app plumbing; CI per checkpoint). Next: E2.
 Planning: the owner's go, 2026-10-27, while S5's run 3 waits. Branch
 `work/phase-track-e-403` from `main` `a27b2c9c` (PR #8's merge: the code of S5's census APK).
-Nothing is built yet; this file is docs only. **Not for v1.0.1:** nothing here reaches `main`, and
+E1's code is on this branch; the app does not renew links until E2 wires a source. **Not for
+v1.0.1:** nothing here reaches `main`, and
 no APK from this branch reaches the owner's phone, before v1.0.1 is published.
 
 ## 0. အကျဉ်းချုပ် (ပိုင်ရှင်အတွက်)
@@ -99,6 +101,26 @@ finds them on the same path at no extra cost), and the Downloads rows' order (§
 | E-D7 | v1.0.2's phone gate | E changes no site's pack, not the Master engine and not main's lookup (only the download side: the queue, an engine's gap if E0 finds one, and the app), so no S5 count restarts (decision 26: "a change to a site's pack, the engine or main"); v1.0.2 gets §7's checklist, its previews and the signed install and upgrade (1.0.1 → 1.0.2), as every release. The owner confirms. |
 | E-D8 | Pages without an adapter | One quiet page re-read (P37) for the same video; nothing fresh → today's note. |
 | E-D9 | A trial-only "Break this download's link" action for the phone test | ON in the trial build only (the release verifier rejects its label elsewhere). |
+
+**The owner's answers (2026-10-27): "Default အတိုင်း၊ E-D5' နဲ့၊ ဖိုင်တိုး OK — E1 စပါ".**
+
+- Every default above, except E-D5, which becomes **E-D5'** (§4.5's proposal) with these limits:
+  "the network changed" is read only from the app's own `NetworkMonitor` /
+  `NetworkStatusSource.snapshot` (Wi-Fi ↔ mobile data, or it dropped and came back), never an IP
+  check; the lookup counts within E-D3's three; refused again → stop exactly as B1; at most one
+  `YOUTUBE_REFUSED` renewal per download; F8 unchanged.
+- E-D6 as §4.5 clarifies (one lookup per tap, not counted in the three, only while the app has the
+  row's source). E-D7 confirmed; also locked: `core-media`'s resolver and parsers
+  (`DefaultVariantResolver`, `HlsManifestParser`, `DashManifestParser`).
+- §4.5's extra files OK: `QuickDownloadViewModel.kt` and `PreviewViewModel.kt` only to pass the
+  source to the enqueue (their `inspect` calls, `SiteLookupCache` and the sheet's options stay;
+  P17, P29, P37 and P45's tests stay green); `DownloadNotificationFactory.kt`, `BackgroundWork.kt`,
+  `SettingsModule.kt`.
+- G2 extended: a "Link expired" row without a renewal source (`None`) also keeps its destination
+  (only that: no link, no cookie), so its Cancel and Delete clean the partial file and the
+  workspace in this app session (done in E1).
+- The rest as §6: a checkpoint after each milestone with CI green; after E3 STOP ("READY FOR PHONE
+  TEST (after v1.0.1)"); no APK to the owner before v1.0.1 is published.
 
 ## 4. Design (proposed; E0 confirms it against the code or corrects it here)
 
@@ -361,6 +383,46 @@ pushes get CI). No live check (Q2's is optional; the census already has VK's ans
   `Unavailable`; a pasted file link → no source. (3) The trial hook: the trial build only; the
   broken link's requests only; the verifier rejects its label without `--allow-trial-tools`.
   (4) YouTube: F8's ask-again and B1's hint unchanged; Reset YouTube session unchanged.
+
+### 4.6 E1 result
+
+Built as §4.5 names it; what differs or was decided in the code:
+
+- **The queue.** `DownloadQueue(linkRenewal = DownloadLinkRenewal.None, renewalTimeoutMillis =
+  90 000)`. `failTask` decides: a link died (`REFRESH_FAILURES`, or `HTTP_STATUS` 400 after this
+  link gave bytes) → G1's kept checkpoint; with a source, a task still `RUNNING` and E-D3 allowing
+  it → `RENEWING_LINK`, and the task's own job asks (`renewLink`), outside the lock, then runs the
+  engine again with the fresh runtime (link number + 1). A late answer (the task paused, cancelled,
+  deleted or offline meanwhile) is dropped. `Fresh` of another task id or plan type → "another
+  kind of file"; a Direct `Fresh` without metadata → "the file did not answer"; a Direct
+  `Fresh` gives the task its probe's total. Unavailable, a thrown error or the 90 s limit →
+  `NEEDS_REFRESH` with "Fresh link: <why>; <the failure's detail>" (sanitized).
+- **E-D3 as counted:** at most 3 renewals without a tap; after a fresh link, another only when
+  that link gave bytes (`LinkBytes`: the rises of the run's progress and checkpoints); a "YouTube
+  refused" once per download (E-D5'; whether the network changed is the app's check, E2). A Retry
+  (`resume` of a "Link expired" row that kept its ask) is one lookup, not counted.
+- **G1:** only for a link that died: an engine's untouched, empty checkpoint (Direct without
+  segments; HLS / DASH without fingerprint and chunks; a merge per track not ready and untouched)
+  never replaces the stored one.
+- **G2 (extended):** a "Link expired" row keeps a parked runtime: its destination and the plan's
+  task id and options (the MP3 / M4A workspace, the merge's track ids), the link replaced by
+  `about:blank`, no cookie, page or agent, no metadata. With a source it also keeps its ask, so
+  Retry looks up again; without one, Resume stays "Link expired" as today.
+- **G3:** a merge's finished track is kept when its file has the length the fresh plan states for
+  that track's whole file, or the plan states none (manifest and playlist tracks, a live file);
+  else its files and sub-checkpoint are cleared and it downloads again.
+- **G4:** the renewal does not use `refreshRuntime`; `refresh` now keeps the counters and gives the
+  next link number.
+- **Status:** `RENEWING_LINK` is the enum's last value (stored by name; read back after a restart
+  as `NEEDS_REFRESH`, like every unfinished status). App plumbing in E1, so the app builds: the
+  Downloads sets (occupying, active, pausable), the chip "Getting a fresh link…" (Active tone),
+  the notification's line, `FOREGROUND_STATUSES` (G5: the service and the end notice keep
+  watching) and `BackgroundWork` (a renewal is network work: the Wi-Fi lock stays).
+- **Tests:** `DownloadLinkRenewalTest` (22, the queue with fakes: §4.5's E1 items 1–2, 5–10),
+  `FreshLinkSameFileTest` (8, the real engines and a local server: items 3, 4 and 11 — Direct
+  ETag / total, HLS / DASH pieces, a DASH whole file's length, G3, MP3 and M4A, G1 per engine,
+  the request tag), `RenewingLinkStatusTest` (app, 4). A check with G1 and G3 turned off fails
+  four of them. Every existing `core-download` test passes unchanged.
 
 ## 5. Files and ownership
 

@@ -14,6 +14,7 @@ import com.alal.yft.core.model.download.AudioVideoMuxCheckpoint
 import com.alal.yft.core.model.download.AudioVideoMuxDownloadPlan
 import com.alal.yft.core.model.download.AudioVideoMuxResult
 import com.alal.yft.core.model.download.AudioVideoMuxStage
+import com.alal.yft.core.model.download.DashDownloadPlan
 import com.alal.yft.core.model.download.DashTransferCheckpoint
 import com.alal.yft.core.model.download.DashTransferResult
 import com.alal.yft.core.model.download.DownloadFailure
@@ -47,6 +48,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 enum class MuxIncompatibilityReason {
     OUTPUT_CONTAINER,
@@ -827,7 +829,7 @@ class AudioVideoMuxEngine(
             return@withContext failure(error.toStorageFailure(OPEN_FILE), emptyCheckpoint)
         }
         val initial = try {
-            reconcileCheckpoint(workspace, resumeFrom)
+            reconcileCheckpoint(workspace, resumeFrom, plan)
         } catch (error: IOException) {
             return@withContext failure(error.toStorageFailure(WRITE_FILE), emptyCheckpoint)
         }
@@ -1010,22 +1012,29 @@ class AudioVideoMuxEngine(
     private fun reconcileCheckpoint(
         workspace: File,
         saved: AudioVideoMuxCheckpoint?,
+        plan: AudioVideoMuxDownloadPlan,
     ): AudioVideoMuxCheckpoint {
         var checkpoint = saved ?: AudioVideoMuxCheckpoint()
-        val videoReady = checkpoint.videoReady &&
-            readyFile(workspace, TrackKind.VIDEO).isNonEmptyFile()
-        val audioReady = checkpoint.audioReady &&
-            readyFile(workspace, TrackKind.AUDIO).isNonEmptyFile()
-        if (!videoReady) clearTrackFiles(workspace, TrackKind.VIDEO)
-        if (!audioReady) clearTrackFiles(workspace, TrackKind.AUDIO)
+        val videoFile = readyFile(workspace, TrackKind.VIDEO)
+        val audioFile = readyFile(workspace, TrackKind.AUDIO)
+        val videoReady = checkpoint.videoReady && videoFile.isNonEmptyFile()
+        val audioReady = checkpoint.audioReady && audioFile.isNonEmptyFile()
+        // G3 (Track E): a finished track of another length than the plan states is another file,
+        // for example after a fresh link; it is downloaded again.
+        val videoOther = videoReady && !videoFile.isTrackOf(plan.video)
+        val audioOther = audioReady && !audioFile.isTrackOf(plan.audio)
+        if (!videoReady || videoOther) clearTrackFiles(workspace, TrackKind.VIDEO)
+        if (!audioReady || audioOther) clearTrackFiles(workspace, TrackKind.AUDIO)
         File(workspace, MUX_OUTPUT_NAME).let { file ->
             if (file.exists() && !file.delete()) {
                 throw IOException("Cannot reset mux output")
             }
         }
         checkpoint = checkpoint.copy(
-            videoReady = videoReady,
-            audioReady = audioReady,
+            video = checkpoint.video.takeUnless { videoOther },
+            audio = checkpoint.audio.takeUnless { audioOther },
+            videoReady = videoReady && !videoOther,
+            audioReady = audioReady && !audioOther,
             stage = AudioVideoMuxStage.DOWNLOADING_TRACKS,
             stepDone = 0,
             stepTotal = null,
@@ -1564,6 +1573,17 @@ class AudioVideoMuxEngine(
 }
 
 private fun File.isNonEmptyFile(): Boolean = isFile && length() > 0
+
+/**
+ * G3: whether this finished track file can be [track]'s: its length is the one [track] states
+ * for its whole file, or [track] states none (a manifest's or a playlist's track, a live
+ * stream's pieces, a length read from the first range).
+ */
+private fun File.isTrackOf(track: DashDownloadPlan): Boolean {
+    val stated = track.wholeFile?.totalBytes ?: return true
+    val live = track.manifestUrl.toHttpUrlOrNull()?.let(LiveOriginFile::matches) == true
+    return live || length() == stated
+}
 
 /** Whole percent of [done] in [total], 0..100; 0 without a total. */
 private fun percentOf(done: Long, total: Long?): Int {

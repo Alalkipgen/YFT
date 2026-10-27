@@ -23,7 +23,8 @@ enum class DownloadAction {
 }
 
 /**
- * Statuses that still occupy the queue. `PAUSED` is excluded because a paused task holds no slot.
+ * Statuses that still occupy the queue. `PAUSED` is excluded because a paused task holds no slot;
+ * a task getting a fresh link keeps its slot (Track E).
  */
 internal val OCCUPYING_STATUSES = setOf(
     DownloadTaskStatus.QUEUED,
@@ -32,6 +33,7 @@ internal val OCCUPYING_STATUSES = setOf(
     DownloadTaskStatus.PAUSING,
     DownloadTaskStatus.VERIFYING,
     DownloadTaskStatus.WAITING_FOR_NETWORK,
+    DownloadTaskStatus.RENEWING_LINK,
 )
 
 /** Statuses the queue will not advance without a new user action. */
@@ -51,6 +53,7 @@ internal val ACTIVE_STATUSES = setOf(
     DownloadTaskStatus.RUNNING,
     DownloadTaskStatus.PAUSING,
     DownloadTaskStatus.VERIFYING,
+    DownloadTaskStatus.RENEWING_LINK,
 )
 
 /** Number of [ACTIVE_STATUSES] tasks, shown as the Coral badge on the Downloads tab. */
@@ -64,6 +67,7 @@ internal val PAUSABLE_STATUSES = setOf(
     DownloadTaskStatus.RUNNING,
     DownloadTaskStatus.VERIFYING,
     DownloadTaskStatus.WAITING_FOR_NETWORK,
+    DownloadTaskStatus.RENEWING_LINK,
 )
 
 /**

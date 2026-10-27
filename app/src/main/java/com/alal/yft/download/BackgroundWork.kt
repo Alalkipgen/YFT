@@ -28,6 +28,8 @@ internal enum class TaskWork {
 
 /** The step of a task that runs, or null when it waits, is paused or has ended. */
 internal fun StoredDownloadTask.work(): TaskWork? {
+    // Track E: a fresh link is a lookup over the network, so the task still downloads.
+    if (status == DownloadTaskStatus.RENEWING_LINK) return TaskWork.DOWNLOADING
     if (status !in RUNNING_STATUSES) return null
     (checkpoint as? AudioVideoMuxCheckpoint)?.let { mux ->
         return when (mux.stage) {
