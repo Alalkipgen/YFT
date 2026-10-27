@@ -95,7 +95,7 @@ finds them on the same path at no extra cost), and the Downloads rows' order (§
 | E-D4 | The chosen quality is not in the fresh answer | Stop and say so; never another quality without asking. |
 | E-D5 | YouTube's "YouTube refused" (a 403 with time left) | No automatic lookup: B1's hint and Reset YouTube session stay as today. |
 | E-D6 | Retry on a "Link expired" row in the same app session | ON: Retry runs the same fresh lookup once. |
-| E-D7 | v1.0.2's phone gate | E changes no pack, engine or main lookup, so no S5 count restarts (decision 26); v1.0.2 gets §7's checklist, its previews and the signed install and upgrade (1.0.1 → 1.0.2), as every release. |
+| E-D7 | v1.0.2's phone gate | E changes no site's pack, not the Master engine and not main's lookup (only the download side: the queue, an engine's gap if E0 finds one, and the app), so no S5 count restarts (decision 26: "a change to a site's pack, the engine or main"); v1.0.2 gets §7's checklist, its previews and the signed install and upgrade (1.0.1 → 1.0.2), as every release. The owner confirms. |
 | E-D8 | Pages without an adapter | One quiet page re-read (P37) for the same video; nothing fresh → today's note. |
 | E-D9 | A trial-only "Break this download's link" action for the phone test | ON in the trial build only (the release verifier rejects its label elsewhere). |
 
