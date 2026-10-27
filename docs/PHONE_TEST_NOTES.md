@@ -1044,3 +1044,55 @@ VPN for TikTok only.
   and 7–10 answered as R6 (visitor data: DIRECT, V PASS; INFO, not counted). Every video V PASS
   (video 6, made for kids: android's progressive 360p and mweb with the signature and n); HLS 2xx
   on all nine visionOS answers (2160p on videos 2, 4 and 8); L steps 9/9 same.
+
+## 2026-10-27 — S5's run 2 on the census APK of `a27b2c9c` (VK-Master wave 2)
+Rebuilt from the owner's census reports in the session; the phone's own notes, links and posts stay
+on the phone. The census APK of run 1 (`yft-vk-census-a27b2c9c.apk`; no code change since); mobile
+data; signed out; the VPN for TikTok only.
+
+### S5's run 2 — the census, every site — PASS, counted
+- TikTok, VPN on, 03:56 UTC (the first try; not counted): 9 rows, 51 requests, 1.5 MB, 54 s; NO
+  CHANGE against 2026-10-26 18:18 UTC (run 1), trials incomplete (429): all 9 as expected; main's V
+  pass 6; slot 5's T1 (the embed player) answered 429 (`RATE_LIMITED`; T2 rows, the part failed
+  NETWORK with no file check sent) and slot 10's Master was not run (stopped (429), 30 min); ladder:
+  parts 8, rows 4, the same video 4, V pass 4, wrong 0, unknown 0. Not counted (decision 26: Master
+  stopped by a 429).
+- TikTok, VPN on, 04:51 UTC (54 min after the 429): 9 rows, 56 requests, 1.6 MB, 58 s; all 9 as
+  expected; main's V pass 6; ladder: parts 9, rows 6, the same video 6, V pass 6, wrong 0, unknown 0
+  (T1's rows on slots 1–5 and 10; slots 8 and 9 needs playback; slot 6 route B NO_MEDIA_FOUND, T1
+  not run (final)). The census's diff: NO CHANGE against 03:56 UTC (the last run whose main phase
+  completed; slots 5 and 10 not compared, its 429); against run 1 the same parts, rows and rungs (56
+  requests: run 1's 57 had one main `PROBE NETWORK` retry on slot 1).
+- Facebook, no VPN, 03:59 UTC: 13 rows, 73 requests, 5.4 MB, 77 s; NO CHANGE against 2026-10-26
+  18:21 UTC (run 1); not as expected 0, ambiguous 1 (slot 12 sign-in-only, no session); main's V
+  pass 11; ladder: parts 13, rows 9, the same video 9, V pass 9, wrong 0, unknown 0. 77 s against
+  run 1's 54 s: slower answers on mobile data (slot 8's page 8.8 s); the requests and bytes the
+  same.
+- Instagram, no VPN, signed out, 04:01 UTC: 10 rows, 46 requests, 2.0 MB, 30 s; NO CHANGE against
+  2026-10-26 18:22 UTC (run 1); not as expected 1 (slot 5 reel LOGIN_REQUIRED [browser], = baseline,
+  main's known signed-out gap), ambiguous 1 (slot 10 removed, no session); main's V pass 6; ladder:
+  parts 7, rows 6, the same item 6, V pass 6, wrong 0, unknown 0.
+- X, no VPN, 04:02 UTC: 8 rows, 36 requests, 0.1 MB, 11 s; NO CHANGE against 2026-10-26 18:23 UTC
+  (run 1); all 8 as expected; main's V pass 6; ladder: parts 8, rows 6, the same item 6, V pass 6,
+  wrong 0, unknown 0.
+- VK, no VPN, 04:03 UTC: 6 rows, 50 requests, 0.3 MB, 44 s; NO CHANGE against 2026-10-26 18:24 UTC
+  (run 1); not as expected 0, ambiguous 0; main's V pass 5; ladder: parts 5, rows 5, the same video
+  5, V pass 5, wrong 0, unknown 0 (V1's rows on slots 1–4 and 6, Master's 6, 6, 6, 8 and 5 against
+  main's 9, 9, 9, 13 and 9; V2 and V3 not reached); slot 5 not looked up (not handled), as in B0 and
+  run 1. The time, 44 s against run 1's 32 s and B0's 35 s (plan §12.1: B0's count and time the
+  ceiling), is the network's: 50 requests (= B0) and the same bytes; the first file check of
+  Master's part took 1.9–2.8 s on slots 1–4 (the others 0.3–0.6 s; about 8 s together), and
+  Facebook's run of the same session was slower too (54 s → 77 s). Counted, with this note; not run
+  again.
+- Recipes: TikTok's note `recipes: bundled (no answer in time)` in both tries (the ask over the VPN
+  was not answered in time); the other four `recipes: remote version 10, signed`. Version 10 is
+  `defaults`, so TikTok's ladder read the same recipes either way (as in run 1).
+- Counted for S5 (decision 26): Master ran on every site (TikTok's at 04:51 UTC), on the final code
+  (`a27b2c9c`; the code `e401c48a`'s), the census APK of run 1.
+
+### Verdict of S5's run 2
+- S5: run 2 of 3 on every site. Run 3 per site from 24 h after run 1 (2026-10-27 18:18–18:24 UTC;
+  2026-10-28 00:48–00:54 MMT), by then also more than 6 h after run 2 (TikTok's 04:51 UTC + 6 h =
+  10:51 UTC); the same way; no code change and no recipes publish meanwhile (one restarts the
+  counts). After run 3 the owner brings this branch's docs (runs 1–3) to `main`; then the v1.0.1
+  release (plan §12.4).

@@ -2074,9 +2074,17 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - **YouTube's client census (FULL) on the same APK: PASS, no regression** (18:40 UTC; mobile data):
   `CHANGED (1)` = the App Store's visionOS version source unreachable (NETWORK); visionOS R0's bot
   checks answered as R6 (INFO); every video V PASS, HLS 2xx, L steps 9/9 same.
-- Next: S5's run 2 per site from 6 h after run 1 (2026-10-27 00:18–00:24 UTC), run 3 from 24 h
-  after run 1 (2026-10-27 18:18–18:24 UTC) and 6 h after run 2; no code change meanwhile (one
-  restarts the counts). Then the v1.0.1 release (plan §12.4).
+- **S5's run 2: PASS on all five sites, counted** (2026-10-27 03:59–04:51 UTC; the census APK of run
+  1; mobile data; signed out; the VPN for TikTok only): every site's diff NO CHANGE, wrong rows 0.
+  TikTok's first try (03:56 UTC) met the embed player's 429 on slot 5 (slot 10's Master stopped):
+  not counted (decision 26); again at 04:51 UTC, after the 30 min rest: parts 9, rows 6, V pass 6,
+  as run 1. VK 50 requests, 44 s (B0: 50, 35 s): the time over B0 is the network's (the first file
+  check of Master's part 1.9–2.8 s on four slots; Facebook 54 s → 77 s in the same session);
+  counted, with the note. Details in `docs/PHONE_TEST_NOTES.md`.
+- Next: S5's run 3 per site from 24 h after run 1 (2026-10-27 18:18–18:24 UTC; 2026-10-28
+  00:48–00:54 MMT; more than 6 h after run 2 by then); the same way; no code change and no recipes
+  publish meanwhile (one restarts the counts). After run 3 the owner brings this branch's docs (runs
+  1–3) to `main`; then the v1.0.1 release (plan §12.4).
 - Backlog for v1.0.2 (the owner, 2026-10-27): track E (a file's 403: a fresh lookup and a restart,
   every site); the Downloads list's rows swap places, flashing, during 2–3 downloads at once —
   `DownloadsUiState.from` orders the active rows by `updatedAtEpochMs`, which every progress write
