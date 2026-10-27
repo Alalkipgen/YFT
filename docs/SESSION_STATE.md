@@ -1655,6 +1655,17 @@ Keep at least the heading and one blank line between sections, so Git merges the
   doc or Master YouTube file); `VkClientSource` heals the client id and the API version only,
   never the secret; no live network in tests; no real VK value printed or committed.
 
+## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
+
+- Plan: `docs/TRACK_E_PLAN.md` (the owner's go, 2026-10-27, while S5's run 3 waits). Branch from
+  `main` `a27b2c9c` (PR #8's merge: the code of S5's census APK). Not for v1.0.1: nothing reaches
+  `main`, and no APK from this branch reaches the owner's phone, before v1.0.1 is published.
+- State: the plan only (docs). No code changed; no build or test has run on this branch yet.
+- Next: E0 (recon + design, docs only; plan §6), then STOP and a Burmese report with plan §3's
+  open decisions (their defaults stand until the owner answers).
+- This section sits above the wiring agent's (D) so Git merges it cleanly with that branch's S5
+  notes; keep Track E's state here only.
+
 ## VK-Master wiring agent (D) — `work/phase-vk-master-wire`
 
 - Plan: `docs/VK_MASTER_PLAN.md` §8 (wave 2, the wiring for v1.0.1). Branch from `df3cc10f`
