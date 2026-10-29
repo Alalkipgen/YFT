@@ -1691,8 +1691,16 @@ Keep at least the heading and one blank line between sections, so Git merges the
   tile sits in its third of the row, so the columns line up and a short last row keeps them; edit
   mode drops Add and keeps the rows. Tests: `HomeScreenTest` (the rows, their order, the columns,
   no sideways scroll; edit mode). Other ways for the owner to choose: four to a row with today's
-  spacing, or as many as the screen's width takes.
-- Next: item 6.
+  spacing, or as many as the screen's width takes. `9377dd51`, CI green: checkpoint validation
+  40890668484, emulator smoke 40890668422, Preview APK 40890668464 (#126), minified check
+  40890668455.
+- Item 6 (Home's update card): while the updater has a found version (the same one Settings'
+  Updates row marks New), Home shows a small card under the Promptbox: "Update available", the
+  version (with "(test)" in test mode) and "See what's new"; a tap opens Updates. It reads the
+  updater's state and makes no request of its own; a build that never checks shows none, and it
+  goes when a check finds none or the installed version reaches the found one. Tests:
+  `HomeUpdateCardTest`, additions to `HomeScreenTest` and `YftNavigationSmokeTest`.
+- Next: item 8.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 

@@ -89,6 +89,9 @@ import com.alal.yft.ui.format.YftFormat
 import com.alal.yft.ui.theme.YftIcons
 import com.alal.yft.ui.theme.YftShapes
 import com.alal.yft.ui.theme.YftTheme
+import com.alal.yft.update.HomeUpdateCard
+import com.alal.yft.update.UpdatesViewModel
+import com.alal.yft.update.homeCard
 
 @Composable
 fun HomeRoute(
@@ -98,9 +101,13 @@ fun HomeRoute(
     modifier: Modifier = Modifier,
     onOpenQuickDownload: () -> Unit = {},
     onOpenSearch: () -> Unit = {},
+    onOpenUpdates: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
+    /** The updater's state for the update card (v1.0.2); null (screen tests): no card. */
+    updatesViewModel: UpdatesViewModel? = null,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val updateCard = updatesViewModel?.state?.collectAsStateWithLifecycle()?.value?.homeCard()
     val openQuickDownload by rememberUpdatedState(onOpenQuickDownload)
     LaunchedEffect(viewModel) {
         viewModel.quickDownloadRequests.collect { openQuickDownload() }
@@ -144,12 +151,15 @@ fun HomeRoute(
         copiedLinkHint = rememberCopiedLinkHint(),
         modifier = modifier,
         onOpenSearch = onOpenSearch,
+        updateCard = updateCard,
+        onOpenUpdates = onOpenUpdates,
     )
 }
 
 /**
  * Home from the design (`01-home-light`, `07-home-dark`): the YFT header, the Promptbox card
- * with Paste and Open browser, "Your sites" and the two newest downloads.
+ * with Paste and Open browser, a found update's card ([updateCard], v1.0.2), "Your sites" and the
+ * two newest downloads.
  *
  * The clipboard is read only inside the Paste and Use click handlers; [copiedLinkHint] comes
  * from the clip's description alone.
@@ -164,6 +174,8 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     copiedLinkHint: Boolean = false,
     onOpenSearch: () -> Unit = {},
+    updateCard: HomeUpdateCard? = null,
+    onOpenUpdates: () -> Unit = {},
 ) {
     val colors = YftTheme.colors
     LazyColumn(
@@ -186,6 +198,15 @@ fun HomeScreen(
                 onOpenSearch = onOpenSearch,
                 modifier = Modifier.padding(top = 22.dp),
             )
+        }
+        if (updateCard != null) {
+            item(key = "update") {
+                UpdateCard(
+                    card = updateCard,
+                    onClick = onOpenUpdates,
+                    modifier = Modifier.padding(top = 14.dp),
+                )
+            }
         }
         item(key = "sites") {
             SitesSection(
@@ -524,6 +545,53 @@ private fun SiteLabel(text: String) {
     )
 }
 
+/** A found update (v1.0.2): one small card under the Promptbox; a tap opens Updates. */
+@Composable
+private fun UpdateCard(card: HomeUpdateCard, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = YftTheme.colors
+    YftCard(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("home-update"),
+        onClick = onClick,
+        contentPadding = PaddingValues(start = 14.dp, top = 12.dp, end = 10.dp, bottom = 12.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(UPDATE_CIRCLE)
+                    .clip(CircleShape)
+                    .background(colors.accentSoft),
+                contentAlignment = Alignment.Center,
+            ) {
+                YftIcon(icon = YftIcons.Refresh, contentDescription = null, tint = colors.link)
+            }
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 12.dp, end = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    text = card.title,
+                    color = colors.textPrimary,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text = card.supporting,
+                    color = colors.textSecondary,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            YftIcon(
+                icon = YftIcons.ChevronRight,
+                contentDescription = null,
+                tint = colors.textSecondary,
+            )
+        }
+    }
+}
+
 @Composable
 private fun RecentSection(
     items: List<LibraryItem>,
@@ -669,6 +737,7 @@ private val SITE_CIRCLE = 64.dp
 private val SITE_LOGO = 30.dp
 private const val NIGHT_LETTER_LIGHTEN = 0.6f
 private const val SITES_PER_ROW = 3
+private val UPDATE_CIRCLE = 40.dp
 private val SITE_ROW_GAP = 12.dp
 private const val THUMBNAIL_RATIO = 16f / 9f
 

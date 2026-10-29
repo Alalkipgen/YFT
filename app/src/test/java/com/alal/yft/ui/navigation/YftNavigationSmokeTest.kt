@@ -49,6 +49,8 @@ import com.alal.yft.feature.home.ClipPeek
 import com.alal.yft.feature.home.ClipboardAccess
 import com.alal.yft.feature.home.CopiedLinkWatcher
 import com.alal.yft.feature.home.HomeRoute
+import com.alal.yft.feature.home.HomeScreen
+import com.alal.yft.feature.home.HomeUiState
 import com.alal.yft.feature.home.HomeViewModel
 import com.alal.yft.feature.home.LinkInspection
 import com.alal.yft.feature.library.LibraryItem
@@ -62,6 +64,7 @@ import com.alal.yft.ui.YftAppShell
 import com.alal.yft.ui.components.PhasePlaceholderScreen
 import com.alal.yft.ui.components.PromptboxStatus
 import com.alal.yft.ui.theme.YftTheme
+import com.alal.yft.update.HomeUpdateCard
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -378,7 +381,7 @@ class YftNavigationSmokeTest {
                     navController = rememberNavController(),
                     themeMode = ThemeMode.LIGHT,
                     onThemeModeChanged = {},
-                    homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _, _ ->
+                    homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _, _, _ ->
                         HomeRoute(
                             onOpenBrowser = onOpenBrowser,
                             onOpenDetectedMedia = onOpenDetectedMedia,
@@ -411,6 +414,38 @@ class YftNavigationSmokeTest {
         composeRule.onNodeWithTag("home-link-clear").performClick()
         composeRule.onNodeWithTag("home-open-browser").performClick()
         composeRule.onNodeWithText("link=null").assertIsDisplayed()
+    }
+
+    @Test
+    fun homesUpdateCardOpensUpdatesAndBackReturnsHome() {
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                YftNavHost(
+                    navController = rememberNavController(),
+                    themeMode = ThemeMode.LIGHT,
+                    onThemeModeChanged = {},
+                    homeContent = { onOpenBrowser, onDetected, onOpenLibrary, _, _, onUpdates ->
+                        HomeScreen(
+                            state = HomeUiState(),
+                            onAction = {},
+                            onOpenBrowser = onOpenBrowser,
+                            onOpenDetectedMedia = onDetected,
+                            onOpenLibrary = onOpenLibrary,
+                            updateCard = HomeUpdateCard("Update available", "v1.0.3"),
+                            onOpenUpdates = onUpdates,
+                        )
+                    },
+                    updatesContent = { onNavigateBack ->
+                        Placeholder(YftDestination.UPDATES, onNavigateBack)
+                    },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("home-update").performClick()
+        composeRule.onNodeWithText(YftDestination.UPDATES.summary).assertIsDisplayed()
+        composeRule.onNodeWithTag("navigate-back").performClick()
+        composeRule.onNodeWithTag("home-update").assertIsDisplayed()
     }
 
     @Test
@@ -511,13 +546,14 @@ private fun TestNavHost(
         themeMode = themeMode,
         onThemeModeChanged = onThemeModeChanged,
         modifier = modifier,
-        homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, onOpenQuick, onSearch ->
+        homeContent = { onOpenBrowser, onDetected, onLibrary, onOpenQuick, onSearch, onUpdates ->
             HomeRoute(
                 onOpenBrowser = onOpenBrowser,
-                onOpenDetectedMedia = onOpenDetectedMedia,
-                onOpenLibrary = onOpenLibrary,
+                onOpenDetectedMedia = onDetected,
+                onOpenLibrary = onLibrary,
                 onOpenQuickDownload = onOpenQuick,
                 onOpenSearch = onSearch,
+                onOpenUpdates = onUpdates,
                 viewModel = home,
             )
         },

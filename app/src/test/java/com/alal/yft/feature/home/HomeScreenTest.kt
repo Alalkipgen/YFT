@@ -11,10 +11,12 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertWidthIsAtLeast
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -33,6 +35,7 @@ import com.alal.yft.feature.library.LibraryItem
 import com.alal.yft.feature.library.LibraryLocation
 import com.alal.yft.ui.components.PromptboxStatus
 import com.alal.yft.ui.theme.YftTheme
+import com.alal.yft.update.HomeUpdateCard
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -55,6 +58,8 @@ class HomeScreenTest {
     private var openedDetectedMedia = 0
     private var openedLibrary = 0
     private var openedSearch = 0
+    private var updateCard by mutableStateOf<HomeUpdateCard?>(null)
+    private var openedUpdates = 0
 
     private fun setContent(initial: HomeUiState = HomeUiState(), fontScale: Float = 1f) {
         state = initial
@@ -77,10 +82,34 @@ class HomeScreenTest {
                         onOpenLibrary = { openedLibrary++ },
                         copiedLinkHint = copiedLinkHint,
                         onOpenSearch = { openedSearch++ },
+                        updateCard = updateCard,
+                        onOpenUpdates = { openedUpdates++ },
                     )
                 }
             }
         }
+    }
+
+    @Test
+    fun aFoundUpdatesCardSitsUnderThePromptboxAndOpensUpdates() {
+        setContent()
+        composeRule.onNodeWithTag("home-update").assertDoesNotExist()
+
+        updateCard = HomeUpdateCard("Update available", "v1.0.3 · See what's new")
+
+        composeRule.onNodeWithText("Update available").assertIsDisplayed()
+        composeRule.onNodeWithText("v1.0.3 · See what's new").assertIsDisplayed()
+        val card = composeRule.onNodeWithTag("home-update").assertIsDisplayed()
+            .assertHasClickAction()
+            .getUnclippedBoundsInRoot()
+        val sites = composeRule.onNodeWithTag("home-sites").getUnclippedBoundsInRoot()
+        assertTrue("the card comes before Your sites", card.bottom < sites.top)
+        composeRule.onNodeWithTag("home-update").performClick()
+        assertEquals(1, openedUpdates)
+        assertTrue(actions.isEmpty())
+
+        updateCard = null
+        composeRule.onNodeWithTag("home-update").assertDoesNotExist()
     }
 
     @Test

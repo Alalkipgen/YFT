@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.DialogProperties
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -26,6 +27,7 @@ import com.alal.yft.feature.quickdownload.QuickDownloadRoute
 import com.alal.yft.feature.settings.SettingsRoute
 import com.alal.yft.ui.components.YftModalSheet
 import com.alal.yft.update.UpdatesRoute
+import com.alal.yft.update.UpdatesViewModel
 
 @Composable
 fun YftNavHost(
@@ -39,13 +41,16 @@ fun YftNavHost(
         onOpenLibrary: () -> Unit,
         onOpenQuickDownload: () -> Unit,
         onOpenSearch: () -> Unit,
-    ) -> Unit = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, onOpenQuick, onOpenSearch ->
+        onOpenUpdates: () -> Unit,
+    ) -> Unit = { onBrowser, onDetected, onLibrary, onQuick, onSearch, onUpdates ->
         HomeRoute(
-            onOpenBrowser = onOpenBrowser,
-            onOpenDetectedMedia = onOpenDetectedMedia,
-            onOpenLibrary = onOpenLibrary,
-            onOpenQuickDownload = onOpenQuick,
-            onOpenSearch = onOpenSearch,
+            onOpenBrowser = onBrowser,
+            onOpenDetectedMedia = onDetected,
+            onOpenLibrary = onLibrary,
+            onOpenQuickDownload = onQuick,
+            onOpenSearch = onSearch,
+            onOpenUpdates = onUpdates,
+            updatesViewModel = hiltViewModel<UpdatesViewModel>(),
         )
     },
     browserContent: @Composable (
@@ -155,6 +160,7 @@ fun YftNavHost(
                 { navController.navigateToTab(YftDestination.LIBRARY) },
                 openQuickDownload,
                 { navController.navigate(BROWSER_SEARCH_ROUTE) },
+                openUpdates,
             )
         }
         composable(

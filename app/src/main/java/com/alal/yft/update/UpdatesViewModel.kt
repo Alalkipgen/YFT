@@ -55,5 +55,24 @@ fun UpdateState.settingsRow(): UpdatesRow? {
     }
 }
 
+/** Home's small card while an update is found (v1.0.2; `IN_APP_UPDATE_PLAN.md` §10): its lines. */
+data class HomeUpdateCard(val title: String, val supporting: String)
+
+/**
+ * The card says only what the Settings row's New says: a found version, kept until the installed
+ * version reaches it. None before a find, and none in a build that never checks. No request of
+ * its own: Home reads the updater's state.
+ */
+fun UpdateState.homeCard(): HomeUpdateCard? {
+    if (mode == UpdateMode.OFF) return null
+    val update = found ?: return null
+    return HomeUpdateCard(
+        title = "Update available",
+        supporting = update.version.label + (if (testMode) TEST_SUFFIX else "") + SEE_WHATS_NEW,
+    )
+}
+
+private const val SEE_WHATS_NEW = " · See what's new"
+
 /** Test mode's mark on every offer (debug and preview builds). */
 internal const val TEST_SUFFIX = " (test)"
