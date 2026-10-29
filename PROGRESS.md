@@ -1,5 +1,20 @@
 # YFT Master Extractor backup
 
+## v1.0.1 published; the install over 1.0.0 PASS (2026-10-29)
+
+- **Published:** v1.0.1 on 2026-10-29 10:08:33 UTC (16:38 MMT): release 427683089, tag `v1.0.1` on
+  `main`'s `f9a587ca` (PR #10's merge), not a prerelease; `video-downloader-1.0.1.apk` (SHA-256
+  `91e34450…bbe017`) and `SHA256SUMS`. The backup finder for VK (VK-Master wave 2) and its fixes
+  on every site.
+- **The owner's phone (HyperOS, Android 16):** the previews `1.0.1-preview.122` and
+  `1.0.1-trial.122`: PASS; the draft's APK installed over 1.0.0 — About `Version 1.0.1 (1000100)`,
+  the downloads kept: **PASS**.
+- **Recorded** (docs only, `work/phase-release-1.0.1-records`): `docs/TEST_MATRIX.md`,
+  `docs/PHONE_TEST_NOTES.md`, `docs/SESSION_STATE.md`'s release section, `CHANGELOG.md`
+  (`## [1.0.1] - 2026-10-29`; `## [1.0.2]` started; the version stays `1.0.1` / `1000100` until
+  1.0.2's release commit).
+- **Next:** Track E's E4 (`main` into `work/phase-track-e-403`); then v1.0.2's backlog.
+
 ## P8 — 1.0.0 published; the release-key update test PASS (2026-10-26)
 
 - **Published:** v1.0.0 on 2026-10-25 20:01 UTC (02:31 MMT on 2026-10-26): release 423607593, tag
