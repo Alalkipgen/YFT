@@ -251,8 +251,27 @@ data class DownloadsUiState(
         val Empty = DownloadsUiState()
 
         /**
-         * Rows for [tasks]; [bytesPerSecond] holds the measured speed of running tasks by id,
-         * [renewals] the downloads a Retry renews and their fresh links' lines (Track E).
+         * The rows' order (v1.0.2): unfinished work first, the newest added first by
+         * [StoredDownloadTask.createdAtEpochMs], which only enqueueing sets, so progress writes and
+         * status changes never move a row; finished, failed, cancelled and expired rows below, the
+         * most recently changed first. A retried row returns to its place by when it was added;
+         * ties fall to the id, so they keep one order.
+         */
+        internal val ROW_ORDER: Comparator<StoredDownloadTask> =
+            compareBy<StoredDownloadTask> { it.status in TERMINAL_STATUSES }
+                .thenByDescending { task ->
+                    if (task.status in TERMINAL_STATUSES) {
+                        task.updatedAtEpochMs
+                    } else {
+                        task.createdAtEpochMs
+                    }
+                }
+                .thenBy { it.id }
+
+        /**
+         * Rows for [tasks] in [ROW_ORDER]; [bytesPerSecond] holds the measured speed of running
+         * tasks by id, [renewals] the downloads a Retry renews and their fresh links' lines
+         * (Track E).
          */
         fun from(
             tasks: List<StoredDownloadTask>,
@@ -260,11 +279,7 @@ data class DownloadsUiState(
             renewals: DownloadRenewals = DownloadRenewals.None,
         ): DownloadsUiState = DownloadsUiState(
             rows = tasks
-                .sortedWith(
-                    compareBy<StoredDownloadTask> { it.status in TERMINAL_STATUSES }
-                        .thenByDescending { it.updatedAtEpochMs }
-                        .thenBy { it.id },
-                )
+                .sortedWith(ROW_ORDER)
                 .map { task ->
                     val stage = DownloadStage.of(task)
                     DownloadRowUiState(

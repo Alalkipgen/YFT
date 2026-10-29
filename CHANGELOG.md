@@ -39,6 +39,8 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
 - A download stopped at **Link expired** keeps its progress for the fresh link, and its Cancel or
   Delete removes its partial file in the same app session; a merged download keeps a finished
   track only when the fresh link's track has its length.
+- The Downloads list keeps its rows in place while several downloads run: unfinished ones in the
+  order they were added, the newest first; finished, failed and stopped ones below.
 
 ## [1.0.1] - 2026-10-29
 

@@ -175,19 +175,127 @@ class DownloadsUiStateTest {
     }
 
     @Test
-    fun unfinishedWorkIsOrderedBeforeTerminalWorkAndThenByRecency() {
-        val state = DownloadsUiState.from(
-            listOf(
-                directTask("done", DownloadTaskStatus.COMPLETED, 1, 1, updatedAt = 50),
-                directTask("old-running", DownloadTaskStatus.RUNNING, 1, 10, updatedAt = 10),
-                directTask("new-paused", DownloadTaskStatus.PAUSED, 1, 10, updatedAt = 40),
-                directTask("cancelled", DownloadTaskStatus.CANCELLED, 0, 10, updatedAt = 90),
-            ),
+    fun unfinishedWorkComesFirstNewestAddedFirstThenTerminalWorkByRecency() {
+        val tasks = listOf(
+            added("done", DownloadTaskStatus.COMPLETED, createdAt = 5, updatedAt = 50),
+            added("old-running", DownloadTaskStatus.RUNNING, createdAt = 10, updatedAt = 90),
+            added("new-paused", DownloadTaskStatus.PAUSED, createdAt = 30, updatedAt = 40),
+            added("cancelled", DownloadTaskStatus.CANCELLED, createdAt = 1, updatedAt = 90),
         )
 
+        assertEquals(listOf("new-paused", "old-running", "cancelled", "done"), order(tasks))
+    }
+
+    @Test
+    fun progressWritesNeverReorderTheActiveRows() {
+        val tasks = listOf(
+            added("first", DownloadTaskStatus.RUNNING, createdAt = 10, updatedAt = 100),
+            added("second", DownloadTaskStatus.RUNNING, createdAt = 20, updatedAt = 100),
+            added("third", DownloadTaskStatus.QUEUED, createdAt = 30),
+        )
+        val before = order(tasks)
+
+        var now = 100L
+        val written = (1..6).fold(tasks) { current, step ->
+            current.map { task ->
+                now += 7
+                when {
+                    task.id == "third" && step == 2 ->
+                        task.copy(status = DownloadTaskStatus.RUNNING, updatedAtEpochMs = now)
+                    task.id == "second" && step == 4 ->
+                        task.copy(status = DownloadTaskStatus.PAUSED, updatedAtEpochMs = now)
+                    task.status == DownloadTaskStatus.RUNNING -> added(
+                        task.id,
+                        task.status,
+                        createdAt = task.createdAtEpochMs,
+                        updatedAt = now,
+                        downloaded = task.downloadedBytes + step,
+                    )
+                    else -> task
+                }
+            }.also { assertEquals(before, order(it)) }
+        }
+
+        assertEquals(listOf("third", "second", "first"), before)
+        assertEquals(DownloadTaskStatus.PAUSED, written.single { it.id == "second" }.status)
+    }
+
+    @Test
+    fun aNewDownloadComesFirst() {
+        val running = listOf(
+            added("older", DownloadTaskStatus.RUNNING, createdAt = 10, updatedAt = 900),
+            added("newer", DownloadTaskStatus.RUNNING, createdAt = 20, updatedAt = 950),
+        )
+        val new = added("new", DownloadTaskStatus.QUEUED, createdAt = 30)
+
         assertEquals(
-            listOf("new-paused", "old-running", "cancelled", "done"),
-            state.rows.map(DownloadRowUiState::id),
+            listOf("new", "newer", "older"),
+            order(running + new),
+        )
+        assertEquals(
+            listOf("new", "newer", "older"),
+            order(listOf(new) + running.reversed()),
+        )
+    }
+
+    @Test
+    fun rowsAddedAtTheSameTimeKeepOneOrderWhateverChanges() {
+        val tasks = listOf(
+            added("b", DownloadTaskStatus.RUNNING, createdAt = 50, updatedAt = 70),
+            added("a", DownloadTaskStatus.RUNNING, createdAt = 50, updatedAt = 60),
+            added("c", DownloadTaskStatus.QUEUED, createdAt = 50),
+        )
+        val expected = listOf("a", "b", "c")
+
+        assertEquals(expected, order(tasks))
+        assertEquals(expected, order(tasks.reversed()))
+        assertEquals(
+            expected,
+            order(tasks.map { it.copy(updatedAtEpochMs = 1_000 - it.updatedAtEpochMs) }),
+        )
+    }
+
+    @Test
+    fun finishedAndFailedRowsGoBelowAndARetriedRowReturnsToItsPlace() {
+        val tasks = listOf(
+            added("oldest", DownloadTaskStatus.RUNNING, createdAt = 10, updatedAt = 500),
+            added("middle", DownloadTaskStatus.RUNNING, createdAt = 20, updatedAt = 500),
+            added("newest", DownloadTaskStatus.RUNNING, createdAt = 30, updatedAt = 500),
+        )
+        fun List<StoredDownloadTask>.change(
+            id: String,
+            edit: (StoredDownloadTask) -> StoredDownloadTask,
+        ) = map { if (it.id == id) edit(it) else it }
+
+        val middleFailed = tasks.change("middle") {
+            it.copy(
+                status = DownloadTaskStatus.FAILED,
+                failureReason = DownloadFailureReason.NETWORK,
+                updatedAtEpochMs = 600,
+            )
+        }
+        assertEquals(listOf("newest", "oldest", "middle"), order(middleFailed))
+
+        val newestDone = middleFailed.change("newest") {
+            it.copy(status = DownloadTaskStatus.COMPLETED, updatedAtEpochMs = 700)
+        }
+        assertEquals(listOf("oldest", "newest", "middle"), order(newestDone))
+
+        val middleRetried = newestDone.change("middle") {
+            it.copy(
+                status = DownloadTaskStatus.QUEUED,
+                failureReason = null,
+                updatedAtEpochMs = 800,
+            )
+        }
+        assertEquals(listOf("middle", "oldest", "newest"), order(middleRetried))
+
+        val oldestRenewingAndOneMore = middleRetried.change("oldest") {
+            it.copy(status = DownloadTaskStatus.RENEWING_LINK, updatedAtEpochMs = 900)
+        } + added("new", DownloadTaskStatus.QUEUED, createdAt = 40)
+        assertEquals(
+            listOf("new", "middle", "oldest", "newest"),
+            order(oldestRenewingAndOneMore),
         )
     }
 
@@ -295,6 +403,20 @@ class DownloadsUiStateTest {
     private fun singleRow(task: StoredDownloadTask): DownloadRowUiState =
         DownloadsUiState.from(listOf(task)).rows.single()
 
+    /** The ids of [tasks]' rows, in the order the list shows them. */
+    private fun order(tasks: List<StoredDownloadTask>): List<String> =
+        DownloadsUiState.from(tasks).rows.map(DownloadRowUiState::id)
+
+    /** A task added at [createdAt] and last written at [updatedAt]. */
+    private fun added(
+        id: String,
+        status: DownloadTaskStatus,
+        createdAt: Long,
+        updatedAt: Long = createdAt,
+        downloaded: Long = 1,
+    ): StoredDownloadTask =
+        directTask(id, status, downloaded, 1_000, updatedAt = updatedAt, createdAt = createdAt)
+
     private fun directTask(
         id: String,
         status: DownloadTaskStatus,
@@ -303,6 +425,7 @@ class DownloadsUiStateTest {
         requiresLinkRefresh: Boolean = false,
         failureReason: DownloadFailureReason? = null,
         updatedAt: Long = 1_000,
+        createdAt: Long = 1,
     ): StoredDownloadTask = StoredDownloadTask(
         id = id,
         displayName = "clip-$id.mp4",
@@ -329,7 +452,7 @@ class DownloadsUiStateTest {
                 ),
             ),
         ),
-        createdAtEpochMs = 1,
+        createdAtEpochMs = createdAt,
         updatedAtEpochMs = updatedAt,
     )
 

@@ -1655,6 +1655,28 @@ Keep at least the heading and one blank line between sections, so Git merges the
   doc or Master YouTube file); `VkClientSource` heals the client id and the API version only,
   never the secret; no live network in tests; no real VK value printed or committed.
 
+## v1.0.2 easy-items agent — `work/phase-v102-easy`
+
+- Task (the owner, 2026-10-29): the v1.0.2 backlog's smaller items, part 1 — 1 the Downloads
+  rows' order, 2 a download notification's tap opens Downloads, 3 Home's site tiles, 6 Home's
+  update card, 8 the "no player data" hint, 9 the "960p" check, 10 VK's subdomains, 15 TikTok's
+  HEAD skip, 18 TikTok T1's pacing, 19 the census's rung label, 20 CI. Branch from `main`
+  `dfbfb21a` (PR #13's merge), folder `/data/YFT-V`. Each item its own commit with unit tests;
+  CI green before the next item's checkpoint; at the end STOP: READY FOR PHONE TEST (no PR).
+- Lookup files allowed: `VkUrls.kt` (10), TikTok's adapter (15), `TikTokLadder.kt` and
+  `SocialStops.kt` (18), `LadderRungs.kt` (19); another lookup file → a hand-off line here and a
+  STOP.
+- Baseline on `dfbfb21a` (local, JDK 17): app 1363 tests (66 skipped), `core-download` 312,
+  `core-model` 142, `extractor-api` 36, `extractor-generic` 23, `extractor-sites` 366,
+  `extractor-master` 1113 (2 skipped), the script tests 71 (4 skipped): all pass.
+- Item 1 (the rows' order): `DownloadsUiState.ROW_ORDER` — unfinished rows by when they were
+  added (`createdAtEpochMs`, which only enqueueing sets), the newest first, ties by id; finished,
+  failed, cancelled and "Link expired" rows below them, the most recently changed first (as
+  before). A progress write or a status change never moves a row; a finished row goes to
+  "Completed today", a failed one below the active rows, a retried one back to its place by when
+  it was added. Tests: `DownloadsUiStateTest`. The minified check runs on this branch too.
+- Next: item 2.
+
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
 - Plan: `docs/TRACK_E_PLAN.md` (the owner's go, 2026-10-27, while S5's run 3 waits). Branch from

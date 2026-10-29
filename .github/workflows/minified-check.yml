@@ -8,7 +8,7 @@ name: Minified build check (release branch)
 # are never uploaded: the #12 artifacts stay Preview APK's.
 on:
   push:
-    branches: ["work/phase-release-*", "work/phase-vk-master-wire", "work/phase-track-e-403"]
+    branches: ["work/phase-release-*", "work/phase-vk-master-wire", "work/phase-track-e-403", "work/phase-v102-easy"]
     paths:
       - "app/**"
       - "core-*/**"
