@@ -8,10 +8,42 @@ release's tag: a stable X.Y.Z is X·1000000 + Y·10000 + Z·100 (1.0.0 = 1000000
 a prerelease just below its version's (1.0.0-rc.1 = 999901). Android refuses to install a lower
 one.
 
-## [1.0.1]
+## [1.0.2]
 
 Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.md` §5). Nothing
 yet.
+
+## [1.0.1] - 2026-10-29
+
+The backup finder for VK (VK-Master wave 2) and fixes to what the backup finder offers on every
+site, published on 2026-10-29 (10:08 UTC, 16:38 MMT) after the owner's install over 1.0.0
+passed. No change to the sites' own lookups.
+
+### Added
+
+- Backup finder for VK: when VK's own lookup finds no video, YFT tries VK's own ways — the lookup's
+  own VK pages read again; when VK refuses YFT's copy of its web player's settings (the client id or
+  the API version, never the secret), the current ones read from vkvideo.ru at most once a day, then
+  one more ask; then the video the page plays (play it, then tap Download again), also when VK's
+  player sits inside its page's shadow root, gives only a DASH manifest or the page's own video
+  data, or plays the video in pieces (their whole files checked and merged with their sound). VK's
+  site data can be updated from GitHub (`recipes/master-recipes-2.json`, schema 2, signed with the
+  same key; 1.0.0 keeps reading `master-recipes.json`).
+- Lookup details after a success: with Show details on, the download sheet shows the backup finder's
+  **Lookup details** under the rows it found, with **Copy details** (the failure's Details rule).
+
+### Fixed
+
+- The backup finder never offers a piece of a video (a closed byte range, or a page's answer that
+  was one) as a download row, on any site; a VK video could show a row of a few KB.
+- One merge check for the sheet and the download: a merged quality is offered only when the phone
+  can combine its video and sound, so a download is no longer refused with "This video and its audio
+  cannot be combined on this phone" after the sheet offered it; a sound without its codecs, or not
+  AAC, is left out. A VK file that states no codec has it read from the file's own start (video and
+  sound).
+- A read of VK's settings cut short before its answer (a closed page, the lookup's time limit, no
+  network) gives the day's read back, at most 3 times a day; an answer from the site spends it as
+  before.
 
 ## [1.0.0] - 2026-10-26
 

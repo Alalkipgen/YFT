@@ -14,7 +14,7 @@ verification results are in the Phase 7 table of `docs/TEST_MATRIX.md`.
 | --- | --- | --- |
 | Display name | Video Downloader | `app_name` |
 | Application ID | `com.alal.yft` | Permanent once an APK is published; the owner must reconfirm it first (`docs/PROJECT_CONTEXT.md`) |
-| Version | `yft.versionName` / `yft.versionCode` in `gradle.properties` | `1.0.0` / `1000000` |
+| Version | `yft.versionName` / `yft.versionCode` in `gradle.properties` | `1.0.1` / `1000100` |
 | Git tag | `v<versionName>` | The release workflow refuses a tag that does not match |
 | Android | minSdk 24 (7.0), targetSdk/compileSdk 35 (15) | |
 | Signature schemes | APK Signature Scheme v2 + v3 | v1 is unnecessary for minSdk 24; v3 allows key rotation later |
