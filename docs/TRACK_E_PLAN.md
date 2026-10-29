@@ -623,15 +623,15 @@ TikTok's Pause, break and Resume.
 
 - The Downloads list's rows swap places, flashing, during 2–3 downloads at once:
   `DownloadsUiState.from` orders the active rows by `updatedAtEpochMs`, which every progress write
-  moves (the owner's note, 2026-10-27: a stable order, such as when the download was added). Its
-  own branch and agent (Appendix B), in parallel with E; it touches that sort only, E that file's
-  status sets.
+  moves (the owner's note, 2026-10-27: a stable order, such as when the download was added) — done
+  in v1.0.2 (`447e57e1`). Its own branch and agent (Appendix B), in parallel with E; it touches
+  that sort only, E that file's status sets.
 - From E4's phone test (the owner, 2026-10-29; not E4's work): (a) a "Link expired" row whose
   page read again had no player data (`SiteLinkRenewal.NO_PLAYER`) still shows
   `RENEWABLE_LINK_NOTE` ("Tap Retry to get a fresh link, or reopen the page in the browser."),
-  though Retry reads the same page again: say "reopen the page in the browser" there. (b) The
-  YouTube 1080p row (itag 299) finished as "960p": fine if the video is 1920×960; check only if
-  not.
+  though Retry reads the same page again: say "reopen the page in the browser" there — done in
+  v1.0.2 (`3be32ff8`). (b) The YouTube 1080p row (itag 299) finished as "960p": fine if the video
+  is 1920×960; check only if not — done in v1.0.2 (`a7357ba3`).
 - After E4's merge the backlog phase starts on the new `main`; v1.0.2 is released later by
   `docs/RELEASE.md`.
 

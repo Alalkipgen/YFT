@@ -512,7 +512,7 @@ Keep at least the heading and one blank line between sections, so Git merges the
   of it gave 206. YFT does not offer that file today (the `normal_540_0` row wins at 540p H.264),
   but a row with such an address would fail at FILE_CHECK with 404, because a 4xx HEAD answer still
   fails (the owner's rule for the 5xx fix); P40 or later could skip the HEAD for TikTok rows whose
-  file the adapter already checked.
+  file the adapter already checked — done in v1.0.2 (`c84655bc`).
 - P40 Result (all 7 steps; code in the P40 checkpoint, base `8b0bc93`):
   - Page data (step 1): `SiteExtractionRequest.pageData: SitePageData? = null` (extractor-api,
     additive): one post's JSON text, at most 64 KB (UTF-8), and its source — `TAB_SCRIPT`
@@ -991,9 +991,9 @@ Keep at least the heading and one blank line between sections, so Git merges the
   SUCCESSFUL; no new line over 100 characters. CI (`abac20e`): checkpoint validation run
   40100415386, Preview APK run 40100415355 and Emulator smoke run 40100415357 green.
 - Backlog: Home shows four tiles and scrolls sideways for the rest, so on the owner's phone
-  (YouTube, Facebook, TikTok, VK) Instagram and X come fifth and sixth, after a sideways swipe;
-  a version 1 list the user made without an old default is moved as before (not at all), so it
-  gets neither.
+  (YouTube, Facebook, TikTok, VK) Instagram and X come fifth and sixth, after a sideways swipe —
+  done in v1.0.2 (`9377dd51`); a version 1 list the user made without an old default is moved as
+  before (not at all), so it gets neither.
 
 ### D1 follow-up 3 — one size for a remuxed HLS download
 
@@ -1648,7 +1648,7 @@ Keep at least the heading and one blank line between sections, so Git merges the
     Fine for now; revisit if the phone proof shows it hurts.
   - One page read for both VK values (today each heal read reads the page: 2 requests a value).
   - CI: the work-branch workflow does not run `:extractor-master:test` or the script tests; they
-    run locally before each checkpoint.
+    run locally before each checkpoint — done in v1.0.2 (`f0ff7193`).
 - Rules: Appendix C's "Never" list (no push to `main`, `spike/*` or another agent's branch; no PR;
   no label; no publish run or `recipes` branch; no change to the schema-1 reader or
   `ContractRecipes.ALL`; no app wiring, shared app file, engine, census screen, D7 matrix, shared
@@ -1776,7 +1776,14 @@ Keep at least the heading and one blank line between sections, so Git merges the
   each its own step; until now they ran only on the agents' machines before a checkpoint. The
   scripts' step sets `PYTHONNOUSERSITE=1`, as the publish dry runs start Python with a temporary
   HOME: a package they cannot import skips its tests in both. No app change: no CHANGELOG line.
-- Next: the backlog lines marked done in v1.0.2 (docs only), then the phone test.
+  `f0ff7193`, CI green: checkpoint validation 40928294965 (#578); its two new steps took 1 min 20 s
+  (the Master engine's tests) and 7 s (the scripts'), about 1.5 of the run's 16 minutes. A change
+  to that workflow alone runs no emulator smoke, Preview APK or minified check (their paths), so
+  the phone test's APK is item 19's Preview APK 40924924600 (#133): the same code.
+- Done (docs only): each item's backlog line marked "done in v1.0.2" with its commit (FIX_ADD_PLAN
+  §7, IN_APP_UPDATE_PLAN §10, TRACK_E_PLAN §9, this file's backlog lines).
+- Next: the owner's phone test (Preview APK #133), then S5 for items 10, 15, 18 and 19 (VK and
+  TikTok); no PR before it.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
@@ -1832,8 +1839,9 @@ Keep at least the heading and one blank line between sections, so Git merges the
   `docs/PHONE_TEST_NOTES.md`; the row: `docs/TEST_MATRIX.md`. `CHANGELOG.md`: the menu item is
   **Details**.
 - v1.0.2 backlog from the test (not E4's work; plan §9): (a) "Link expired" after a re-read with no
-  player data: say "reopen the page in the browser", not "Tap Retry"; (b) itag 299 finished as
-  "960p": check only if the video is not 1920×960.
+  player data: say "reopen the page in the browser", not "Tap Retry" — done in v1.0.2
+  (`3be32ff8`); (b) itag 299 finished as "960p": check only if the video is not 1920×960 — done
+  in v1.0.2 (`a7357ba3`).
 - **STOP: the PR `work/phase-track-e-403` → `main` (a merge commit), merged only with the owner's
   OK.** No tag, Release draft or version change (`1.0.1` / `1000100`).
 - This section sits above the wiring agent's (D) so Git merges it cleanly with that branch's S5
@@ -2004,8 +2012,8 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - **B0: PASS** (08:04 UTC; VPN off, signed out): VK's census part — 50 requests, 35 s (the
   baseline nothing may exceed); wrong rows 0; `recipes: bundled` (the schema-2 file was not
   published yet). **Finding:** slot 5's channel link (`vksport.vkvideo.ru`) is `not handled` —
-  main's `VkUrls` knows vkvideo.ru and m.vkvideo.ru only (backlog; not Master's); the slot now
-  holds a plain vkvideo.ru link.
+  main's `VkUrls` knows vkvideo.ru and m.vkvideo.ru only (backlog; not Master's) — done in v1.0.2
+  (`1dc19fc8`); the slot now holds a plain vkvideo.ru link.
 - **W, VK's first run: PASS** (08:09 UTC, VPN on; 5 sites, 14 rows, 86 s; diff NO CHANGE): Facebook
   11 requests, 1.3 MB, 19 s · TikTok 13, 0.4 MB, 28 s · Instagram 11, 0.6 MB, 13 s · X 9, 0.0 MB,
   8 s · VK 13, 0.1 MB, 17 s (slot 1, the 18+ video with a list: main's 9 rows, the ladder's V1 6
@@ -2283,11 +2291,12 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - Backlog for v1.0.2 (the owner, 2026-10-27): track E (a file's 403: a fresh lookup and a restart,
   every site); the Downloads list's rows swap places, flashing, during 2–3 downloads at once —
   `DownloadsUiState.from` orders the active rows by `updatedAtEpochMs`, which every progress write
-  moves (fix: a stable order, such as when the download was added). Added after S5's run 3
-  (2026-10-29): the census's TikTok T1, its embed asks paced (the 429 after one or two asks; watch
-  users' lookups); the census's rung label after `; N answers, the deciding one shown`
-  (`LadderRungs`'s `next:` pattern wants the line's end); VK's SPA shell `h26215c4f` on the embed
-  page (watch).
+  moves (fix: a stable order, such as when the download was added) — done in v1.0.2
+  (`447e57e1`). Added after S5's run 3 (2026-10-29): the census's TikTok T1, its embed asks paced
+  (the 429 after one or two asks; watch users' lookups) — done in v1.0.2 (`5084936a`); the
+  census's rung label after `; N answers, the deciding one shown` (`LadderRungs`'s `next:`
+  pattern wants the line's end) — done in v1.0.2 (`95d50ec0`); VK's SPA shell `h26215c4f` on the
+  embed page (watch).
 
 ## v1.0.1 release — `work/phase-release-1.0.1`
 

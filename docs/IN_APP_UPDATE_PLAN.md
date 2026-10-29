@@ -618,7 +618,8 @@ commit.
 
 ## 10. Backlog (after v1.0.x)
 
-- A small Home card when an update is found (v1.0.0 has the Settings row and the screen only).
+- A small Home card when an update is found (v1.0.0 has the Settings row and the screen only) —
+  done in v1.0.2 (`2ccd7cfd`).
 - Markdown rendering of the notes (headings, bold, lists, links) instead of plain text with the
   marks dropped (U3).
 - Signing-key rotation: U2 compares the current signers strictly and refuses a rotated key (the link

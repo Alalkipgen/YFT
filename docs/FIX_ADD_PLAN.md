@@ -1372,7 +1372,8 @@ Other items:
   its page again, like P37 does for the sheet.
 - A Matroska (WebM) stream copy for 2K/4K merges, like P35's MP4 path.
 - HLS downloads: P41's rolling pool and progress inside a segment for long HLS videos.
-- Open the Downloads tab from the notification (needs `MainActivity` and navigation).
+- Open the Downloads tab from the notification (needs `MainActivity` and navigation) — done in
+  v1.0.2 (`68105531`).
 - Share target: open links shared from other apps (Android share sheet) in Home's lookup, so
   they open the download sheet like a pasted link.
 - Delete several finished downloads at once (select mode), and delete a file from the Library's
