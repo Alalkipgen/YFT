@@ -8,11 +8,16 @@ release's tag: a stable X.Y.Z is X·1000000 + Y·10000 + Z·100 (1.0.0 = 1000000
 a prerelease just below its version's (1.0.0-rc.1 = 999901). Android refuses to install a lower
 one.
 
-## [1.0.1]
+## [1.0.2]
 
-Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.md` §5). The backup
-finder for VK (VK-Master wave 2) and fixes to what the backup finder offers on every site. No change
-to the sites' own lookups.
+Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.md` §5). Nothing
+yet.
+
+## [1.0.1] - 2026-10-29
+
+The backup finder for VK (VK-Master wave 2) and fixes to what the backup finder offers on every
+site, published on 2026-10-29 (10:08 UTC, 16:38 MMT) after the owner's install over 1.0.0
+passed. No change to the sites' own lookups.
 
 ### Added
 

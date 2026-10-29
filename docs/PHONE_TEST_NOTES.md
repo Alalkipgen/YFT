@@ -1201,3 +1201,33 @@ check 40841257526.
 - v1.0.1's #12 normal and #12 trial: PASS. Next: the PR to `main` (the owner's OK), then the Release
   draft of `v1.0.1` (signed, a draft), the owner's install over 1.0.0, then the publish (the owner,
   `docs/RELEASE.md` §5).
+
+## 2026-10-29 — v1.0.1's Release draft, the install over 1.0.0 and the publish
+Rebuilt from the owner's reports in the session (HyperOS, Android 16). `main` `f9a587ca` (PR #10's
+merge of `work/phase-release-1.0.1`).
+
+### The Release draft (run #8)
+- The owner's manual run of Release draft on `main` `f9a587ca`, `publish` unticked (40850473393;
+  13 min 12 s): green; "Publish the release" skipped. The draft release 427683089 `v1.0.1` (not a
+  prerelease); artifact `yft-release-1.0.1` 12888030612.
+
+### The install over 1.0.0 — PASS (the owner)
+- The draft's `video-downloader-1.0.1.apk` installed by hand over the release 1.0.0: About `Version
+  1.0.1 (1000100)`; the downloads in the Library kept.
+- Settings → About → Updates (1.0.0 → 1.0.1) not tried: a draft is invisible to the in-app update,
+  and the phone has 1.0.1 now. Open, optional: a phone with 1.0.0.
+
+### The publish
+- `ALLOW_RELEASE=true` (the owner), then Release draft on `main` `f9a587ca` with `publish` ticked
+  (run #9, 40853331748; 13 min 57 s): green; "Publish the release" ran, "Keep the release as a
+  draft" skipped. Published 2026-10-29 10:08:33 UTC (16:38 MMT): release 427683089, tag `v1.0.1` on
+  `f9a587ca`, not a prerelease, the latest release. `ALLOW_RELEASE` back to `false` (the owner).
+- The assets are run #9's build of the same commit (uploaded with `--clobber`):
+  `video-downloader-1.0.1.apk` (7,178,115 bytes, SHA-256 `91e34450…bbe017`) and `SHA256SUMS`;
+  `sha256sum -c SHA256SUMS` OK; the signing certificate SHA-256 `3A:EB:30:64…78:98:8F` (v2 and v3
+  blocks), the notes' line. The phone's APK is run #8's build (the same commit, key and 1.0.1 /
+  1000100).
+
+### Verdict
+- v1.0.1 published; the install over 1.0.0 PASS. Next: the records PR's merge (the owner's OK);
+  then Track E's E4.

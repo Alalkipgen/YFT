@@ -2120,7 +2120,21 @@ Keep at least the heading and one blank line between sections, so Git merges the
   `1.0.1-preview.122` and `1.0.1-trial.122` (1000100); six sites' lookups and downloads fine; one
   YouTube download `YOUTUBE_REFUSED` (403×3 at 11 MiB; Track B1, as in 1.0.0) — not a blocker; the
   trial-only checks not run again (the owner). Details in `docs/PHONE_TEST_NOTES.md`.
-- Next: the PR to `main` with the owner's OK; then the Release draft `v1.0.1` (the tag or a manual
-  run on `main`, `publish` unticked); the owner's install over 1.0.0 (`docs/RELEASE.md` §4);
-  publishing only by the owner (`ALLOW_RELEASE`, §5).
+- Then (the plan): the PR to `main` with the owner's OK; the Release draft `v1.0.1`; the owner's
+  install over 1.0.0 (`docs/RELEASE.md` §4); publishing only by the owner (`ALLOW_RELEASE`, §5).
+  PR #10 merged into `main` as `f9a587ca` (the owner's OK).
+- Release draft run #8 (40850473393, `main` `f9a587ca`, `publish` unticked): the draft release
+  427683089 `v1.0.1`. **The owner's install over 1.0.0: PASS** (the draft's APK by hand; About
+  `Version 1.0.1 (1000100)`; the Library's downloads kept; the in-app update not tried: a draft is
+  invisible to it).
+- **Published** (the owner: `ALLOW_RELEASE=true`, Release draft run #9 40853331748 with `publish`,
+  then `ALLOW_RELEASE=false`): 2026-10-29 10:08:33 UTC (16:38 MMT), tag `v1.0.1` on `f9a587ca`, the
+  latest release; `video-downloader-1.0.1.apk` SHA-256 `91e34450…bbe017` (`sha256sum -c` OK), the
+  signing certificate the notes' `3A:EB:30:64…78:98:8F`.
+- Recorded docs only on `work/phase-release-1.0.1-records` (PR to `main`): `CHANGELOG.md`
+  (`## [1.0.1] - 2026-10-29`; `## [1.0.2]` started), `docs/PHONE_TEST_NOTES.md`,
+  `docs/TEST_MATRIX.md`, `PROGRESS.md`. `gradle.properties` unchanged (`1.0.1` / `1000100`): 1.0.2's
+  release commit sets `1.0.2` / `1000200` (`docs/RELEASE.md` §5 step 4).
+- Next: the owner's OK to merge the records PR; then Track E's E4 (the owner tells its agent that
+  v1.0.1 is published).
 
