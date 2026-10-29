@@ -179,6 +179,11 @@ data class DownloadRowUiState(
      * notice, a check); Retry would read it the same way, so the hint says to reopen it.
      */
     val noPlayerOnPage: Boolean = false,
+    /**
+     * v1.0.2 (item 50): the quality the download was picked as ("1080p"), while the app holds it
+     * (this session, until it finishes); the meta line names it.
+     */
+    val pickedQuality: String? = null,
 ) {
     /** The file name without its extension, as the cards show it. */
     val title: String = YftFormat.title(displayName)
@@ -309,6 +314,7 @@ data class DownloadsUiState(
                         canRenew = task.id in renewals.renewable,
                         renewalLines = renewals.notes[task.id].orEmpty(),
                         noPlayerOnPage = task.id in renewals.noPlayer,
+                        pickedQuality = renewals.qualities[task.id],
                     )
                 },
         )

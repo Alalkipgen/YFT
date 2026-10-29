@@ -71,7 +71,9 @@ internal fun menuLabel(action: DownloadAction): String = when (action) {
 /**
  * "MP4", "HLS · MP4", "M4A · 12 MB": what the file is, and its size once it is not moving. A
  * finished video whose picture size has been read from the file ([quality]) reads
- * "720p · 96 MB" instead, as in the Library.
+ * "720p · 96 MB" instead, as in the Library. v1.0.2 (item 50): an unfinished video whose picked
+ * quality the app holds ([DownloadRowUiState.pickedQuality]) names it with its stream, else its
+ * format: "1080p · HLS", "1080p · MP4"; the finished row then names the file's own quality.
  */
 internal fun metaLabel(row: DownloadRowUiState, quality: String? = null): String {
     val stream = when (row.planType) {
@@ -88,10 +90,13 @@ internal fun metaLabel(row: DownloadRowUiState, quality: String? = null): String
     val finishedQuality = quality?.takeIf {
         row.status == DownloadTaskStatus.COMPLETED && !row.isAudio
     }
-    val parts = if (finishedQuality != null) {
-        listOf(finishedQuality)
-    } else {
-        listOfNotNull(stream, row.format)
+    val pickedQuality = row.pickedQuality?.takeIf {
+        row.status != DownloadTaskStatus.COMPLETED && !row.isAudio
+    }
+    val parts = when {
+        finishedQuality != null -> listOf(finishedQuality)
+        pickedQuality != null -> listOfNotNull(pickedQuality, stream ?: row.format)
+        else -> listOfNotNull(stream, row.format)
     }
     return (parts + listOfNotNull(size?.let(YftFormat::bytes)))
         .joinToString(" · ")

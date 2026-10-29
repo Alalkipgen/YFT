@@ -42,6 +42,25 @@ class DownloadRenewalRowsTest {
         assertFalse(DownloadAction.RETRY in rows.getValue("running").availableActions)
     }
 
+    /** v1.0.2 (item 50): a row names the quality it was picked as while the app holds it. */
+    @Test
+    fun aRunningRowNamesThePickedQualityTheAppHolds() {
+        val state = DownloadsUiState.from(
+            listOf(
+                task("picked", DownloadTaskStatus.RUNNING),
+                task("restored", DownloadTaskStatus.RUNNING),
+            ),
+            renewals = DownloadRenewals(qualities = mapOf("picked" to "1080p")),
+        )
+
+        val rows = state.rows.associateBy(DownloadRowUiState::id)
+        assertEquals("1080p", rows.getValue("picked").pickedQuality)
+        assertEquals("1080p · MP4", metaLabel(rows.getValue("picked")))
+        // After a restart the app holds none: the line reads as before.
+        assertEquals(null, rows.getValue("restored").pickedQuality)
+        assertEquals("MP4", metaLabel(rows.getValue("restored")))
+    }
+
     /** v1.0.2: a row whose page, read again, had no player data is marked; Retry stays. */
     @Test
     fun aRowWhosePageReadAgainHadNoPlayerIsMarkedAndKeepsRetry() {

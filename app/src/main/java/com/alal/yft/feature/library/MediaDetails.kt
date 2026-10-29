@@ -125,6 +125,16 @@ internal fun qualityLabel(width: Int?, height: Int?): String? {
     }
 }
 
+/**
+ * v1.0.2 (item 50): the quality a download was picked as, for its row while it runs: the name
+ * [qualityLabel] gives the finished file, so both rows say the same ("1080p", "4K"). A variant
+ * whose width is not known is named by its height.
+ */
+internal fun pickedQualityLabel(width: Int?, height: Int?): String? {
+    if (height == null || height <= 0) return null
+    return qualityLabel(width?.takeIf { it > 0 } ?: height, height)
+}
+
 /** A tenth of the way in, at most 10 s, so the frame is past any black lead-in. */
 internal fun previewFrameTimeUs(durationMs: Long?): Long {
     val atMs = durationMs

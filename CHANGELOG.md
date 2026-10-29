@@ -37,6 +37,9 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   of four and a sideways swipe for the rest.
 - **Updates** shows the release notes with their headings, lists, bold, italic and code as such,
   instead of as plain text; a link still shows only its text and opens nothing.
+- **Downloads** names the quality you picked while a video downloads, with its stream
+  ("1080p · HLS", "1080p · MP4"), as its finished row does, instead of only "HLS · MP4" or
+  "MP4"; after the app restarts, a download still running reads as before.
 
 ### Fixed
 

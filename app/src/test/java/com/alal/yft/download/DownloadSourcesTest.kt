@@ -114,7 +114,7 @@ class DownloadSourcesTest {
         val harness = EnqueueHarness(this)
         val variant = file(height = 720)
 
-        // No origin: the screen did not know where the file came from.
+        // No origin: the screen did not know where the file came from (its quality is kept).
         assertTrue(harness.enqueuer.enqueue(asset(variant), variant) is EnqueueResult.Started)
         harness.probe.answer = {
             DirectProbeResult.Failure(DownloadFailure(DownloadFailureReason.EXPIRED_URL))
@@ -131,7 +131,57 @@ class DownloadSourcesTest {
         assertTrue(runCatching { enqueue(harness, variant) }.isFailure)
 
         (0..4).forEach { assertNull(harness.sources["task-$it"]) }
-        assertEquals(DownloadRenewals.None, harness.sources.renewals.value)
+        assertEquals(
+            DownloadRenewals(qualities = mapOf("task-0" to "720p")),
+            harness.sources.renewals.value,
+        )
+    }
+
+    /** v1.0.2 (item 50): each video's picked quality, for its row; sound has none. */
+    @Test
+    fun `every video download keeps the quality it was picked as and sound none`() = runTest {
+        val harness = EnqueueHarness(this)
+        val wide = file(height = 960).copy(width = 1920)
+        val video = file(height = 360)
+        val sound = requireNotNull(AudioFromVideo.of(video, LENGTH))
+        val mp3 = requireNotNull(Mp3Variants.of(sound, 192, LENGTH))
+
+        enqueue(harness, file(height = 720))
+        harness.enqueuer.enqueue(asset(wide), wide)
+        enqueue(harness, file(MediaKind.HLS, height = 2160, container = null))
+        harness.enqueuer.enqueue(asset(video), sound, origin(candidate(), video))
+        harness.enqueuer.enqueue(asset(video), mp3, origin(candidate(), video))
+        enqueue(harness, file(height = null))
+
+        assertEquals(
+            mapOf("task-0" to "720p", "task-1" to "1080p", "task-2" to "4K"),
+            harness.sources.renewals.value.qualities,
+        )
+    }
+
+    @Test
+    fun `a picked quality goes with its download or when it finishes, not with browsing data`() {
+        val sources = DownloadSources()
+        val ids = listOf("done", "cancelled", "deleted", "paused", "queued")
+        ids.forEach { sources.picked(it, "720p") }
+        // "queued" is not in the queue's list yet.
+        sources.prune(ids.take(4).map { task(it, DownloadTaskStatus.RUNNING) })
+        sources.clear()
+        assertEquals(ids.toSet(), sources.renewals.value.qualities.keys)
+
+        sources.prune(
+            listOf(
+                task("done", DownloadTaskStatus.COMPLETED),
+                task("cancelled", DownloadTaskStatus.CANCELLED),
+                task("paused", DownloadTaskStatus.PAUSED),
+            ),
+        )
+        assertEquals(
+            mapOf("paused" to "720p", "queued" to "720p"),
+            sources.renewals.value.qualities,
+        )
+        sources.forget("paused")
+        assertEquals(mapOf("queued" to "720p"), sources.renewals.value.qualities)
     }
 
     @Test

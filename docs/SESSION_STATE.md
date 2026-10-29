@@ -1901,8 +1901,33 @@ Keep at least the heading and one blank line between sections, so Git merges the
   Tests: `scripts/tests/test_spike_label_triggers.py` (+1: one weekly cron off the hour; a
   scheduled run's job runs on main's last commit in its own group; the YAML check takes the
   schedule). Script tests: 86, all pass (4 skipped here). No CHANGELOG line for (b): CI only.
-- Next: item 17's checkpoint through the connector and its CI; then items 50, 4, 5, 11, 13; the
-  backlog lines in a last docs-only commit; READY FOR PHONE TEST.
+  Pushed as `c0923b46` (identical trees). Its CI: checkpoint validation 40973526712 (#581),
+  emulator smoke 40973526721 (#169), Preview APK 40973526724 (#136), minified check 40973526685
+  (#27): all green.
+- Item 50 (the running row's quality). Checked first: not in the code; `metaLabel`
+  (`DownloadLabels.kt` lines 76–98 at `c0923b46`) named an unfinished video by its stream and
+  format ("HLS · MP4", "MP4"), and the picked variant reached no row (only Track E's source
+  held it, and only with an origin). Now `DownloadEnqueuer` notes the quality a video is picked
+  as when the queue gets it, from every place that downloads (with or without Track E's origin):
+  `pickedQualityLabel` (new, `MediaDetails.kt`), the name `qualityLabel` gives the finished file
+  (Part 1's item 9: `YftQualityNames.standardHeight`, then 4K and 8K), by the variant's width
+  and height, or by its height alone. Sound gets none (an audio track, an M4A or an MP3 of a
+  video). `DownloadSources` keeps it in memory (`picked`, published as
+  `DownloadRenewals.qualities`): it goes when the download completes (the finished row then
+  names its file's own quality), is cancelled or deleted, or never reaches the queue, and it
+  stays through Clear browsing data (a quality's name is no browsing data). `DownloadsUiState`
+  sets `DownloadRowUiState.pickedQuality`, and `metaLabel` names it with the stream, else the
+  format, on every unfinished video row (running, queued, paused, failed, Link expired):
+  "1080p · HLS", "1080p · DASH", "1080p · MP4", the size after it once the row is still.
+  Finished rows and sound rows as before. After a restart the app holds no quality, so a
+  running row reads as before ("HLS · MP4"). `docs/design/DESIGN-NOTES.md`'s "Remaining
+  differences" line about it is not a backlog line, so it stays as written (for the owner).
+  Tests: `DownloadLabelsTest` (+1), `DownloadRenewalRowsTest` (+1), `DownloadSourcesTest` (+2;
+  one updated: a download without an origin keeps only its quality), `MediaDetailsTest` (+1).
+  CHANGELOG: Changed.
+- Next: item 50's checkpoint through the connector and its CI; then a pause (the owner,
+  2026-10-29: "after item 50, stop for a while"); items 4, 5, 11, 13 when he says; the backlog
+  lines in a last docs-only commit; READY FOR PHONE TEST.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 

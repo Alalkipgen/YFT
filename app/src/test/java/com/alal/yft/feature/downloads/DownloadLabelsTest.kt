@@ -48,6 +48,34 @@ class DownloadLabelsTest {
         assertEquals("Direct file", metaLabel(row(DownloadTaskStatus.QUEUED, name = "clip")))
     }
 
+    /** v1.0.2 (item 50): the quality the user picked, while the download is not finished. */
+    @Test
+    fun anUnfinishedVideoNamesItsPickedQualityAndItsStream() {
+        fun picked(status: DownloadTaskStatus, plan: DownloadPlanType, total: Long? = null) =
+            metaLabel(row(status, plan = plan, total = total).copy(pickedQuality = "1080p"))
+
+        assertEquals("1080p · HLS", picked(DownloadTaskStatus.RUNNING, DownloadPlanType.HLS))
+        assertEquals("1080p · DASH", picked(DownloadTaskStatus.QUEUED, DownloadPlanType.DASH))
+        assertEquals(
+            "1080p · MP4",
+            picked(DownloadTaskStatus.RUNNING, DownloadPlanType.AUDIO_VIDEO_MUX),
+        )
+        assertEquals(
+            "1080p · MP4",
+            picked(DownloadTaskStatus.PAUSED, DownloadPlanType.DIRECT, total = MB_96),
+        )
+        assertEquals(
+            "1080p · HLS · 96 MB",
+            picked(DownloadTaskStatus.FAILED, DownloadPlanType.HLS, total = MB_96),
+        )
+        // Sound and finished rows as before; a finished one names its file's own quality.
+        val sound = row(DownloadTaskStatus.RUNNING, name = "Rain.m4a").copy(pickedQuality = "1080p")
+        assertEquals("M4A", metaLabel(sound))
+        val done = row(DownloadTaskStatus.COMPLETED, total = MB_96).copy(pickedQuality = "1080p")
+        assertEquals("MP4 · 96 MB", metaLabel(done))
+        assertEquals("720p · 96 MB", metaLabel(done, quality = "720p"))
+    }
+
     @Test
     fun progressDetailCompactsTheUnitAndAddsSpeedAndTimeLeft() {
         val running = row(

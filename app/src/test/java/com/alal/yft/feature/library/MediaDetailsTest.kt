@@ -46,6 +46,23 @@ class MediaDetailsTest {
         assertNull(MediaDetails.Unknown.qualityLabel)
     }
 
+    /** v1.0.2 (item 50): a running row's quality, by the name its finished file will have. */
+    @Test
+    fun aPickedQualityHasTheNameItsFinishedFileWillHave() {
+        assertEquals("1080p", pickedQualityLabel(1920, 960))
+        assertEquals("720p", pickedQualityLabel(null, 720))
+        assertEquals("720p", pickedQualityLabel(0, 720))
+        assertEquals("4K", pickedQualityLabel(3840, 2160))
+        assertEquals("8K", pickedQualityLabel(null, 4320))
+        val pictures = listOf(1280 to 720, 1920 to 960, 848 to 478, 3840 to 1600, 1080 to 1350)
+        pictures.forEach { (width, height) ->
+            val finished = qualityLabel(width, height)
+            assertEquals("$width × $height", finished, pickedQualityLabel(width, height))
+        }
+        assertNull(pickedQualityLabel(1920, null))
+        assertNull(pickedQualityLabel(null, 0))
+    }
+
     @Test
     fun theFrameIsATenthInAndNeverPastTenSeconds() {
         assertEquals(0L, previewFrameTimeUs(null))

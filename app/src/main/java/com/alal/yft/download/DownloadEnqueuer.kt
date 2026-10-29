@@ -8,12 +8,14 @@ import com.alal.yft.core.model.download.DirectProbeResult
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.media.MediaAsset
 import com.alal.yft.core.model.media.MediaSizeAccuracy
+import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.download.policy.DownloadPolicyGate
 import com.alal.yft.feature.downloads.DownloadPlanFactory
 import com.alal.yft.feature.downloads.DownloadPlanResult
 import com.alal.yft.feature.downloads.DownloadRequest
+import com.alal.yft.feature.library.pickedQualityLabel
 import java.io.IOException
 import java.util.Locale
 import java.util.UUID
@@ -161,7 +163,8 @@ class DownloadEnqueuer(
 
     /**
      * Track E: remembers a download's source under the name it is saved as, just before the
-     * queue gets the task; forgets it again when queueing fails.
+     * queue gets the task; forgets it again when queueing fails. v1.0.2 (item 50): also the
+     * quality a video was picked as, for its row, wherever it was picked.
      */
     private inner class Remember(
         private val taskId: String,
@@ -171,8 +174,8 @@ class DownloadEnqueuer(
     ) {
         suspend fun <T> around(fileName: String, enqueue: suspend () -> T): T {
             val sources = sources ?: return enqueue()
-            val origin = origin ?: return enqueue()
-            sources.remember(taskId, origin, asset, variant, fileName)
+            origin?.let { sources.remember(taskId, it, asset, variant, fileName) }
+            pickedQuality(variant)?.let { sources.picked(taskId, it) }
             return try {
                 enqueue()
             } catch (error: Throwable) {
@@ -180,6 +183,13 @@ class DownloadEnqueuer(
                 throw error
             }
         }
+    }
+
+    /** A video's quality name ("1080p"); none for sound alone, an M4A or an MP3 of a video. */
+    private fun pickedQuality(variant: MediaVariant): String? {
+        val sound = variant.trackType == MediaTrackType.AUDIO ||
+            variant.audioFromVideo || variant.mp3 != null
+        return if (sound) null else pickedQualityLabel(variant.width, variant.height)
     }
 
     private suspend fun enqueueDirect(
