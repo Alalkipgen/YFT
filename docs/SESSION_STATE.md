@@ -2105,3 +2105,17 @@ Keep at least the heading and one blank line between sections, so Git merges the
   (`LadderRungs`'s `next:` pattern wants the line's end); VK's SPA shell `h26215c4f` on the embed
   page (watch).
 
+## v1.0.1 release — `work/phase-release-1.0.1`
+
+- The owner's go (2026-10-29), after S5 (PR #9 → `main` `c99883ed`: the wire branch's docs, runs
+  1–3). Plan: `docs/VK_MASTER_PLAN.md` §12.4 and `docs/RELEASE.md`. Branch from `c99883ed`.
+- Release commit: `yft.versionName` 1.0.1 / `yft.versionCode` 1000100 (the version code rule);
+  `CHANGELOG.md` `## [1.0.1]` filled (not dated: the owner dates it when he publishes); the notes
+  `docs/release/1.0.1.md`; `docs/RELEASE.md`'s identity row. No code change against `a27b2c9c` (S5's
+  census APK's code).
+- Next: CI on the release commit (checkpoint validation, emulator smoke, Preview APK, minified
+  check); the owner's phone test of its two previews (YFT Preview and YFT Trial, one run, one
+  commit); then the PR to `main` with the owner's OK; the tag `v1.0.1` → Release draft (signed, a
+  draft); the owner's install and upgrade from 1.0.0 (`docs/RELEASE.md` §4); publishing only by the
+  owner (`ALLOW_RELEASE`, §5).
+
