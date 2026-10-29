@@ -2105,3 +2105,22 @@ Keep at least the heading and one blank line between sections, so Git merges the
   (`LadderRungs`'s `next:` pattern wants the line's end); VK's SPA shell `h26215c4f` on the embed
   page (watch).
 
+## v1.0.1 release — `work/phase-release-1.0.1`
+
+- The owner's go (2026-10-29), after S5 (PR #9 → `main` `c99883ed`: the wire branch's docs, runs
+  1–3). Plan: `docs/VK_MASTER_PLAN.md` §12.4 and `docs/RELEASE.md`. Branch from `c99883ed`.
+- Release commit: `yft.versionName` 1.0.1 / `yft.versionCode` 1000100 (the version code rule);
+  `CHANGELOG.md` `## [1.0.1]` filled (not dated: the owner dates it when he publishes); the notes
+  `docs/release/1.0.1.md`; `docs/RELEASE.md`'s identity row. No code change against `a27b2c9c` (S5's
+  census APK's code).
+- Release commit `2e98c46`; CI all green: checkpoint validation 40841257582, emulator smoke
+  40841257719, Preview APK 40841257516 (#122: `yft-preview-apk` 12882494953, `yft-preview-trial-apk`
+  12882529994), minified check 40841257526.
+- **The previews' phone test: PASS** (the owner, 2026-10-29; HyperOS, Android 16):
+  `1.0.1-preview.122` and `1.0.1-trial.122` (1000100); six sites' lookups and downloads fine; one
+  YouTube download `YOUTUBE_REFUSED` (403×3 at 11 MiB; Track B1, as in 1.0.0) — not a blocker; the
+  trial-only checks not run again (the owner). Details in `docs/PHONE_TEST_NOTES.md`.
+- Next: the PR to `main` with the owner's OK; then the Release draft `v1.0.1` (the tag or a manual
+  run on `main`, `publish` unticked); the owner's install over 1.0.0 (`docs/RELEASE.md` §4);
+  publishing only by the owner (`ALLOW_RELEASE`, §5).
+

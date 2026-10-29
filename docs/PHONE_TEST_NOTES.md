@@ -1176,3 +1176,28 @@ request (docs only).
   after one or two asks; watch users' lookups); the census's rung label after `; N answers, the
   deciding one shown` (`LadderRungs`'s `next:` pattern); VK's SPA shell `h26215c4f` on the embed
   page (watch).
+
+## 2026-10-29 — v1.0.1's previews of the release commit `2e98c46` (#12 normal and #12 trial)
+Rebuilt from the owner's reports in the session (HyperOS, Android 16; mobile data; signed out;
+TikTok over the VPN). The release commit `2e98c46`: 1.0.1 / 1000100, no code change against
+`a27b2c9c`. CI all green: checkpoint validation 40841257582, emulator smoke 40841257719, Preview APK
+40841257516 (#122: `yft-preview-apk` 12882494953, `yft-preview-trial-apk` 12882529994), minified
+check 40841257526.
+
+### The phone test — PASS (the owner)
+- Installed side by side after the old previews' uninstall: About `Version 1.0.1-preview.122
+  (1000100)` and `Version 1.0.1-trial.122 (1000100)`; Backup finder on.
+- Lookups and downloads: YouTube 4 videos, Facebook, X, TikTok, Instagram and VK 3 (a public video,
+  an 18+ video, a clip): rows, downloads finished, files play — the owner: all fine.
+- One YouTube download (YFT Trial) failed `YOUTUBE_REFUSED` at CONNECT, HTTP 403: `MWEB itag 137+140
+  · pot yes · sig yes · ends 359 min (app 358) · 2048 KB · 3 s; 403×3 at 11 MiB, 4 at once, 3 s`.
+  Item 7 Track B1's refusal, as in 1.0.0 (`DownloadLabels`; the transfer and YouTube code unchanged
+  since 1.0.0); not a 1.0.1 change, not a blocker.
+- The trial-only checks (Lookup details with Copy details; the VK 18+ video's MB row with sound) not
+  run again: the owner judged them not needed (both passed on wave 2's YFT Trial: STOP 1 and V3's
+  retest 4).
+
+### Verdict
+- v1.0.1's #12 normal and #12 trial: PASS. Next: the PR to `main` (the owner's OK), then the Release
+  draft of `v1.0.1` (signed, a draft), the owner's install over 1.0.0, then the publish (the owner,
+  `docs/RELEASE.md` §5).
