@@ -30,8 +30,11 @@ fun UpdateAutoOpen(
     val pending = state.autoOpen
     LaunchedEffect(pending?.version?.name, route) {
         val update = pending ?: return@LaunchedEffect
-        when (route) {
-            // The graph is not set yet.
+        // The graph is not set yet.
+        if (route == null) return@LaunchedEffect
+        // Where the app is now, not where it was when this started: a tab asked for in the same
+        // frame (a download notification's tap, ShowRequestedTab) may have left Home already.
+        when (navController.currentDestination?.route) {
             null -> Unit
             YftDestination.HOME.route -> {
                 viewModel.markOpened(update.version.name)

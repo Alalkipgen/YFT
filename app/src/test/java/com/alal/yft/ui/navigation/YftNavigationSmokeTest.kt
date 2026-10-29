@@ -1,5 +1,6 @@
 package com.alal.yft.ui.navigation
 
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
@@ -32,6 +33,7 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import com.alal.yft.MainActivity
 import com.alal.yft.core.data.preferences.HomeSitesRepository
 import com.alal.yft.core.data.preferences.SettingsRepository
 import com.alal.yft.core.model.ThemeMode
@@ -62,6 +64,7 @@ import com.alal.yft.ui.components.PromptboxStatus
 import com.alal.yft.ui.theme.YftTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -410,6 +413,54 @@ class YftNavigationSmokeTest {
         composeRule.onNodeWithText("link=null").assertIsDisplayed()
     }
 
+    @Test
+    fun aDownloadNotificationsTapOpensTheDownloadsTab() {
+        val requests = TabRequests().apply { take(notificationTap()) }
+        setShell(requests = requests)
+
+        screenTitle(YftDestination.DOWNLOADS).assertIsDisplayed()
+        composeRule.onNodeWithTag("nav-downloads").assertIsSelected()
+        assertNull(requests.requested.value)
+
+        // As from a tab the user picked: back returns to Home.
+        composeRule.runOnUiThread { composeRule.activity.onBackPressedDispatcher.onBackPressed() }
+        composeRule.onNodeWithTag("home-list").assertIsDisplayed()
+        composeRule.onNodeWithTag("nav-home").assertIsSelected()
+    }
+
+    @Test
+    fun aPlainLaunchShowsHomeAndATapWhileOpenSwitchesToDownloads() {
+        val requests = TabRequests().apply {
+            take(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER))
+        }
+        setShell(requests = requests)
+
+        composeRule.onNodeWithTag("home-list").assertIsDisplayed()
+        composeRule.onNodeWithTag("nav-home").assertIsSelected()
+
+        // From another tab.
+        composeRule.onNodeWithTag("nav-library").performClick()
+        composeRule.runOnUiThread { requests.take(notificationTap()) }
+        screenTitle(YftDestination.DOWNLOADS).assertIsDisplayed()
+        composeRule.onNodeWithTag("nav-downloads").assertIsSelected()
+
+        // From a full-screen page over a tab.
+        composeRule.onNodeWithTag("nav-settings").performClick()
+        composeRule.onNodeWithTag("settings-list")
+            .performScrollToNode(hasTestTag("settings-open-about"))
+        composeRule.onNodeWithTag("settings-open-about").performClick()
+        composeRule.onNodeWithTag("about-content").assertIsDisplayed()
+        composeRule.runOnUiThread { requests.take(notificationTap()) }
+        screenTitle(YftDestination.DOWNLOADS).assertIsDisplayed()
+        composeRule.onNodeWithTag("nav-downloads").assertIsSelected()
+        assertNull(requests.requested.value)
+    }
+
+    private fun notificationTap(): Intent = TabRequests.showing(
+        Intent(composeRule.activity, MainActivity::class.java),
+        YftDestination.DOWNLOADS,
+    )
+
     /** The bar label repeats each tab's title, so match the screen's own title only. */
     private fun screenTitle(destination: YftDestination) = composeRule.onNode(
         hasText(destination.title) and !hasTestTag("nav-${destination.route}"),
@@ -421,12 +472,14 @@ class YftNavigationSmokeTest {
     private fun setShell(
         activeDownloads: () -> Int = { 0 },
         miniPlayer: @Composable () -> Unit = {},
+        requests: TabRequests? = null,
     ) {
         val home = homeViewModel()
         composeRule.setContent {
             var themeMode by remember { mutableStateOf(ThemeMode.SYSTEM) }
             YftTheme(themeMode = themeMode) {
                 val navController = rememberNavController().also { shellNavController = it }
+                requests?.let { ShowRequestedTab(navController, it) }
                 YftAppShell(
                     navController = navController,
                     activeDownloads = activeDownloads(),

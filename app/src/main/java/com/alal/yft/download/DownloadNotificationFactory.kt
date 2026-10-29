@@ -13,6 +13,8 @@ import com.alal.yft.R
 import com.alal.yft.core.download.StoredDownloadTask
 import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.download.policy.TransferNetworkState
+import com.alal.yft.ui.navigation.TabRequests
+import com.alal.yft.ui.navigation.YftDestination
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -157,10 +159,11 @@ class DownloadNotificationFactory @Inject constructor(
         .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
         .setContentIntent(openAppIntent())
 
+    /** A tap opens YFT on its Downloads tab (v1.0.2): the open YFT when there is one. */
     private fun openAppIntent(): PendingIntent = PendingIntent.getActivity(
         context,
         0,
-        Intent(context, MainActivity::class.java),
+        TabRequests.showing(Intent(context, MainActivity::class.java), YftDestination.DOWNLOADS),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 

@@ -3,7 +3,9 @@ package com.alal.yft.download
 import android.app.Notification
 import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
 import androidx.test.core.app.ApplicationProvider
+import com.alal.yft.MainActivity
 import com.alal.yft.core.download.DownloadDestinationKind
 import com.alal.yft.core.download.StoredDownloadTask
 import com.alal.yft.core.model.download.AudioVideoMuxStage
@@ -11,6 +13,8 @@ import com.alal.yft.core.model.download.DirectTransferCheckpoint
 import com.alal.yft.core.model.download.DownloadSegment
 import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.feature.downloads.mergedTask
+import com.alal.yft.ui.navigation.TabRequests
+import com.alal.yft.ui.navigation.YftDestination
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -19,6 +23,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
@@ -113,6 +118,29 @@ class DownloadNotificationFactoryTest {
         assertEquals(80, saving.extras.getInt(Notification.EXTRA_PROGRESS))
         assertEquals("Merging audio and video", starting.extras.getString(Notification.EXTRA_TEXT))
         assertTrue(starting.extras.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE))
+    }
+
+    @Test
+    fun `a tap on a download notification opens the Downloads tab of the open YFT`() {
+        val notifications = listOf(
+            factory.active(listOf(task("one", downloaded = 25))),
+            checkNotNull(
+                factory.finished(
+                    task("done", downloaded = 100).copy(status = DownloadTaskStatus.COMPLETED),
+                ),
+            ),
+            factory.pausedByAndroid("Downloads paused. Open YFT to go on."),
+        )
+
+        for (notification in notifications) {
+            val tap = shadowOf(notification.contentIntent)
+            assertTrue(tap.isActivityIntent)
+            val intent = tap.savedIntent
+            assertEquals(MainActivity::class.java.name, intent.component?.className)
+            assertEquals(YftDestination.DOWNLOADS, TabRequests.tabOf(intent))
+            val reuse = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            assertEquals(reuse, intent.flags and reuse)
+        }
     }
 
     private fun task(id: String, downloaded: Long): StoredDownloadTask {

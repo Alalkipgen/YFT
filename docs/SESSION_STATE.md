@@ -1675,7 +1675,16 @@ Keep at least the heading and one blank line between sections, so Git merges the
   before). A progress write or a status change never moves a row; a finished row goes to
   "Completed today", a failed one below the active rows, a retried one back to its place by when
   it was added. Tests: `DownloadsUiStateTest`. The minified check runs on this branch too.
-- Next: item 2.
+  `447e57e1`, CI green: checkpoint validation 40883259732, emulator smoke 40883259846, Preview
+  APK 40883259744 (#124), minified check 40883259787.
+- Item 2 (a notification's tap): every download notification (progress, finished or failed,
+  paused by Android) opens YFT on Downloads. `TabRequests`: the intent's extra with
+  `SINGLE_TOP | CLEAR_TOP`, so the open YFT gets it in `onNewIntent`; a start from Recents or a
+  recreated activity keeps its tab. `ShowRequestedTab` runs in `YftApp` before `UpdateAutoOpen`,
+  which now looks where the app is when it runs, so the Updates screen waits for the next open
+  instead of covering Downloads. Tests: `TabRequestsTest`, additions to
+  `DownloadNotificationFactoryTest`, `YftNavigationSmokeTest` and `UpdateAutoOpenTest`.
+- Next: item 3.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
