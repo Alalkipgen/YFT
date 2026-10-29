@@ -24,8 +24,8 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   quietly. At most three tries per download, in the same app session; never another quality.
 - **Retry** on a **Link expired** or **YouTube refused** row whose page YFT can look up again (in
   the same app session): one fresh lookup per tap.
-- With Show details on, **Download details** on a running, paused or finished download that got a
-  fresh link, with its lines ("Fresh link (403 at 41.0 MB): resumed at 41.0 MB"); never an address.
+- With Show details on, **Details** on a running, paused or finished download that got a fresh
+  link, with its lines ("Fresh link (403 at 41.0 MB): resumed at 41.0 MB"); never an address.
 
 ### Changed
 

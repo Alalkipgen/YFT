@@ -3,10 +3,10 @@
 Status: E0 done (§4.5); the owner's answers 2026-10-27 (§3); E1 done (§4.6: `core-download` and
 the new status's app plumbing); E2 done (§4.7: the app's renewal source for adapter sites, rows,
 Retry, Details); E3 done (§4.8: VK's 400, pages without an adapter, the trial's "Break this
-download's link", YouTube unchanged; CI per checkpoint). E4 started 2026-10-29 (the owner:
-v1.0.1 is published): `main` `3b339e8` merged in (sync PR #12: `9c99e4dc`), previews (normal +
-trial). **STOP: the owner's phone test (§7)**; the PR to `main` only after its PASS, merged with
-the owner's OK.
+download's link", YouTube unchanged; CI per checkpoint). E4 (2026-10-29; the owner: v1.0.1 is
+published): `main` `3b339e8` merged in (sync PR #12: `9c99e4dc`), previews (normal + trial,
+Preview APK #123); **the owner's phone test (§7): PASS, all six items** (2026-10-29 MMT).
+**STOP: the PR to `main` (a merge commit), merged only with the owner's OK.**
 Planning: the owner's go, 2026-10-27, while S5's run 3 waits. Branch
 `work/phase-track-e-403` from `main` `a27b2c9c` (PR #8's merge: the code of S5's census APK).
 E1's to E3's code is on this branch: the app renews the links of adapter sites' downloads and of
@@ -599,6 +599,13 @@ On E4's previews (`main` merged in; normal + trial; uninstall the old preview fi
 5. No "Download failed" notification during a renewal; one only when it fails.
 6. "YouTube refused" (B1) as today.
 
+**Result: PASS, all six items** (the owner, 2026-10-29 17:45–18:40 MMT; Preview APK #123,
+40860514633; `docs/PHONE_TEST_NOTES.md`, `docs/TEST_MATRIX.md`). Item 1's HLS page: the hls.js
+demo page (its player loads the stream by script, so its HTML names none) ended "Link expired"
+after the re-read, E-D8 as designed; a Home lookup of mux.dev's test stream resumed. Item 2
+without Wi-Fi: Airplane mode on mobile data (the network dropped and came back). Item 3:
+TikTok's Pause, break and Resume.
+
 ## 8. Risks
 
 - Loops and 429s → one lookup per failure, the cap (E-D3), the sites' budgets and cooldowns.
@@ -619,6 +626,12 @@ On E4's previews (`main` merged in; normal + trial; uninstall the old preview fi
   moves (the owner's note, 2026-10-27: a stable order, such as when the download was added). Its
   own branch and agent (Appendix B), in parallel with E; it touches that sort only, E that file's
   status sets.
+- From E4's phone test (the owner, 2026-10-29; not E4's work): (a) a "Link expired" row whose
+  page read again had no player data (`SiteLinkRenewal.NO_PLAYER`) still shows
+  `RENEWABLE_LINK_NOTE` ("Tap Retry to get a fresh link, or reopen the page in the browser."),
+  though Retry reads the same page again: say "reopen the page in the browser" there. (b) The
+  YouTube 1080p row (itag 299) finished as "960p": fine if the video is 1920×960; check only if
+  not.
 - After E4's merge the backlog phase starts on the new `main`; v1.0.2 is released later by
   `docs/RELEASE.md`.
 

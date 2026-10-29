@@ -1693,11 +1693,26 @@ Keep at least the heading and one blank line between sections, so Git merges the
   `TrialLinkBreakTest`, `BreakLinkMenuTest` (also in a trial build), additions to
   `SiteLinkRenewalTest` and `DownloadSourcesTest`, the script test; all app, `core-download` and
   `core-model` tests pass locally.
-- **STOP: READY FOR PHONE TEST (after v1.0.1).** Next: E4 (plan §6, §7) only after the owner says
-  v1.0.1 is published and gives the OK; no APK from this branch before that.
+- E3 ended at STOP: READY FOR PHONE TEST (after v1.0.1); no APK from this branch reached the
+  owner's phone before v1.0.1 was published.
 - E4 (2026-10-29, the owner: v1.0.1 published): `main` `3b339e8` merged in (sync PR #12, as #7:
-  `9c99e4dc`), `CHANGELOG.md` `[1.0.2]`'s Track E lines, the minified check on this branch;
-  **STOP: the owner's phone test** (plan §7) on the merge's previews; no PR to `main` before PASS.
+  `9c99e4dc`), `CHANGELOG.md` `[1.0.2]`'s Track E lines, the minified check on this branch (CI
+  green: checkpoint validation 40860514570 and 40860750524, emulator smoke 40860514638, Preview
+  APK 40860514633 = #123, minified check 40860750542).
+- **The owner's phone test (plan §7): PASS, all six items** (2026-10-29 17:45–18:40 MMT; #123's
+  YFT Trial `1.0.1-trial.123` and YFT Preview `1.0.1-preview.123`; HyperOS, Android 16; mobile
+  data; the VPN for TikTok only): the break at about 30 % on YouTube ("YouTube refused", then
+  Retry: resumed), Facebook and VK (started over), TikTok (resumed after Pause) and HLS (mux.dev's
+  test stream: resumed), each file plays; the hls.js demo page E-D8 as designed (no player data,
+  not a fail); the network dropped and came back → it went on without Retry; Cancel during a
+  renewal → no file; no "Download failed"; "YouTube refused" as before. Notes:
+  `docs/PHONE_TEST_NOTES.md`; the row: `docs/TEST_MATRIX.md`. `CHANGELOG.md`: the menu item is
+  **Details**.
+- v1.0.2 backlog from the test (not E4's work; plan §9): (a) "Link expired" after a re-read with no
+  player data: say "reopen the page in the browser", not "Tap Retry"; (b) itag 299 finished as
+  "960p": check only if the video is not 1920×960.
+- **STOP: the PR `work/phase-track-e-403` → `main` (a merge commit), merged only with the owner's
+  OK.** No tag, Release draft or version change (`1.0.1` / `1000100`).
 - This section sits above the wiring agent's (D) so Git merges it cleanly with that branch's S5
   notes; keep Track E's state here only.
 

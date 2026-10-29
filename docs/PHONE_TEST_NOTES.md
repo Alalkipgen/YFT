@@ -1231,3 +1231,56 @@ merge of `work/phase-release-1.0.1`).
 ### Verdict
 - v1.0.1 published; the install over 1.0.0 PASS. Next: the records PR's merge (the owner's OK);
   then Track E's E4.
+
+## 2026-10-29 — Track E's phone test on Preview APK #123 (`9c99e4dc`, `work/phase-track-e-403`)
+Rebuilt from the owner's report in the session. Preview APK (test key) run #123 (40860514633) of
+the merge of `main` `3b339e8` into `work/phase-track-e-403` (sync PR #12, `9c99e4dc`; the same code
+as the branch's head `bb2c65bc`): YFT Trial `1.0.1-trial.123` and YFT Preview `1.0.1-preview.123`
+(1000100), the old previews uninstalled first. 2026-10-29 17:45–18:40 MMT; HyperOS, Android 16
+(API 36); mobile data (5G); the VPN for TikTok only. YFT Trial unless said; the items of
+`docs/TRACK_E_PLAN.md` §7.
+
+### 1. "Break this download's link" at about 30 % — PASS
+- YouTube merged (visionOS, itag 299 + 140, 780 MB; the finished row says "960p"):
+  `YOUTUBE_REFUSED` at CONNECT 403 ("403×2 at 221 MiB") with B1's hint, Details, Reset YouTube
+  session and Retry; Retry → "Fresh link on Retry (403 at 210.8 MB): resumed at 210.8 MB" →
+  finished; plays with sound to the end.
+- Facebook (Direct, 43 MB): "Fresh link (403 at 14.0 MB): started over (the file changed)"; plays
+  with sound.
+- TikTok (Direct, 3.3 MB, the VPN on; paused at 67 %, broken, resumed): "Fresh link (403 at
+  2.2 MB): resumed at 2.2 MB"; plays.
+- VK 18+ (Direct, 22 MB): "Fresh link (403 at 8.5 MB): started over (the file changed)"; plays.
+- HLS page: first the hls.js demo (`https://hlsjs.video-dev.org/demo/`, 720p; its player loads the
+  stream by JavaScript, so the page's HTML names no stream) → `ACCESS_DENIED`, CONNECT 403, "Fresh
+  link: the page read again has no player data (a notice or a check)", "Link expired"; Retry → the
+  same. E-D8 as designed (an unsuitable test page), not a fail. Retest: a Home lookup of
+  `https://test-streams.mux.dev/` → `x36xhzz.m3u8` (Big Buck Bunny) 720p → "Fresh link (403 at
+  49.8 MB): resumed at 49.8 MB" (HLS); plays.
+
+### 2. The network dropped and came back (E-D5') — PASS
+- No Wi-Fi, so Airplane mode on for 20–30 s, then off, on mobile data. YFT Preview, YouTube 261 MB:
+  "No connection · Downloads resume when you're online" and "Waiting for network" → went on at 27 %
+  (71 of 261 MB) without Retry → finished; plays with sound. YFT Preview shows no Details, so
+  whether a fresh link was needed is not visible.
+
+### 3. Pause, then Resume after a break — PASS
+- Covered by TikTok in item 1 (Pause, Break, Resume → a fresh link, resumed at 2.2 MB).
+
+### 4. Two downloads, one broken; Cancel during "Getting a fresh link…" — PASS
+- Cancelled, no file; the other finished (the owner: all fine).
+
+### 5. No "Download failed" notification during a renewal — PASS
+- None during the renewals (the owner: all fine).
+
+### 6. "YouTube refused" (B1) as today — PASS
+- The `YOUTUBE_REFUSED` row as before: the hint, Details, Reset YouTube session, Retry.
+
+### For v1.0.2's backlog (not E4's work; `docs/TRACK_E_PLAN.md` §9)
+- (a) "Link expired" after a re-read with no player data still says "Tap Retry to get a fresh link",
+  though Retry reads the same page again: say "reopen the page in the browser" there.
+- (b) The 1080p row (itag 299) finished as "960p": fine if the video is 1920×960; check only if
+  not.
+
+### Verdict
+- Track E's phone test: PASS, all six items. Next: the PR `work/phase-track-e-403` → `main` (a
+  merge commit), merged only with the owner's OK; no tag, Release draft or version change.
