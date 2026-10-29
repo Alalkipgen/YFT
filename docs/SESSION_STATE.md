@@ -1731,7 +1731,8 @@ Keep at least the heading and one blank line between sections, so Git merges the
   shows the runner's Kotlin compiler out of memory ("Not enough memory to run compilation") in
   `:core-download:compileDebugUnitTestKotlin` and `:app:compileDebugUnitTestKotlin`; the step's
   tasks — every module's lint and unit tests, the debug build — pass locally on this branch's
-  tree with items 15–20 in it, so the next code push's run is its record.
+  tree with items 15–20 in it, so the next code push's run is its record: item 15's checkpoint
+  validation 40917475005, green.
 - Item 15 (TikTok's HEAD skip), checked first: since P45 the Download sheet's resolver
   (`DefaultVariantResolver`) asks a range GET after any HEAD error, so the step that failed was
   the Download tap's probe (`DirectRangeProbe`: after a HEAD 4xx other than 405 and 501 it fails,
@@ -1742,7 +1743,23 @@ Keep at least the heading and one blank line between sections, so Git merges the
   failing as before. The lookup: TikTok's adapter only marks the rows it checked (the same
   requests, rows and checks), so S5 must cover TikTok (decision 26). Tests: additions to
   `DirectRangeProbeTest`, `DownloadEnqueuerTest`, `SiteLinkRenewalTest` and `TikTokExtractorTest`.
-- Next: item 18.
+  `c84655bc`, CI: checkpoint validation 40917475005, emulator smoke 40917475015 and minified check
+  40917475033 green; Preview APK 40917475008 (#131) failed, not in the code: its log (from the
+  owner) shows R8 out of memory in `:app:minifyPreviewWithR8` ("Java heap space", the Gradle
+  heap of `gradle.properties`), while the minified check built the same two previews from this
+  commit; so the next code push's Preview run is its record.
+- Item 18 (TikTok's T1 pacing): T1's asks (the embed player) are at least 10 s apart in the app's
+  session (`SocialBudget.gapMillis`, TikTok's 10 000; `SocialCooldown.pace`, the memory of the
+  30-minute cooldown, the process's through the app's one `SocialLadder.cooldown`): a lookup
+  within the gap waits the rest when T1's ask still fits its 30 s after the wait (its line:
+  "paced, waited N s"), else T1 is not asked ("paced …; not asked", the census's "time budget")
+  and T2 still reads; a lookup that waits leaves less of Master's 20 s to T3. After a 429 or a
+  bot check T1's host cools for 30 minutes, as before (S7). The 10 s: in S5's run 3 the embed
+  player answered 429 after one or two asks a few seconds apart (the census's posts in a row); in
+  runs 1 and 2 six such asks got none. The social ladder is the debug builds' only, so no
+  CHANGELOG line; S5 must cover TikTok (decision 26). Tests: `SocialCooldownTest`, additions to
+  `TikTokLadderTest`.
+- Next: item 19.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 

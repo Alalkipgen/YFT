@@ -36,6 +36,8 @@ import com.alal.yft.extractor.sites.facebook.FacebookExtractor
 import com.alal.yft.extractor.sites.tiktok.TikTokExtractor
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
@@ -309,6 +311,92 @@ class TikTokLadderTest {
         assertEquals(MasterStage.PAGE_DATA, success.stage)
         assertTrue(success.result.details.toString(), "$T1: over the lookup's request budget; not asked" in success.result.details)
         assertEquals(20, SocialBudget.TIKTOK.requests)
+    }
+
+    /**
+     * v1.0.2 (item 18): T1's asks at least 10 s apart across lookups (S5's run 3: the embed
+     * player's 429 after one or two asks in a row): a lookup within the gap waits the rest, one
+     * whose time would not hold T1's ask after the wait does not ask (T2 reads, no turn taken);
+     * the census reads them as T1's rows and "not run (time budget)".
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `v1_0_2 - T1's asks are 10 s apart across lookups, within the gap it waits`() = runTest {
+        val cooldown = SocialCooldown({ testScheduler.currentTime })
+        val embed = answering(EMBED_URL to EMBED, contentType = HTML)
+        val ladder = TikTokLadder(embed, ::identifyOrNull, cooldown = cooldown)
+        assertEquals(10_000L, SocialBudget.TIKTOK.gapMillis)
+
+        val first = lookup(PAGE, main(VIDEO_PAGE), embed, ladder = ladder).result
+        assertEquals(MasterStage.CONTRACT, (first as MasterResult.Success).stage)
+        assertFalse(first.result.details.toString(), first.result.details.any { "paced" in it })
+
+        // 3 s later: T1 waits the gap's other 7 s, then asks.
+        delay(3_000)
+        val second = lookup(PAGE, main(VIDEO_PAGE), embed, ladder = ladder).result
+        assertEquals(10_000L, testScheduler.currentTime)
+        val waited = (second as MasterResult.Success).result.details
+        assertEquals(MasterStage.CONTRACT, second.stage)
+        assertTrue(waited.toString(), "$T1: paced, waited 7 s (10 s between its asks)" in waited)
+        assertEquals(listOf(EMBED_URL, EMBED_URL), embed.requestedUrls)
+        assertEquals(
+            listOf("T1 rows", "T2 not reached", "T3 not reached"),
+            LadderRungs.of(SITE, second)?.map { it.text() },
+        )
+
+        // At once again, the lookup's time too short for T1's ask after the wait: not asked.
+        val budget = SocialBudget.TIKTOK.copy(millis = 12_000)
+        val short = TikTokLadder(embed, ::identifyOrNull, cooldown = cooldown, budget = budget)
+        val third = lookup(PAGE, main(VIDEO_PAGE), embed, ladder = short).result
+        val notAsked = (third as MasterResult.Success).result.details
+        assertEquals(MasterStage.PAGE_DATA, third.stage)
+        assertTrue(
+            notAsked.toString(),
+            "$T1: paced (10 s between its asks), its wait over the lookup's time budget; " +
+                "not asked" in notAsked,
+        )
+        assertEquals(2, embed.requestedUrls.size)
+        assertEquals(
+            listOf("T1 not run (time budget)", "T2 rows", "T3 not reached"),
+            LadderRungs.of(SITE, third)?.map { it.text() },
+        )
+
+        // The gap after the second ask (the third took no turn): asked at once.
+        delay(10_000)
+        val fourth = lookup(PAGE, main(VIDEO_PAGE), embed, ladder = ladder).result
+        assertEquals(MasterStage.CONTRACT, (fourth as MasterResult.Success).stage)
+        assertFalse(fourth.result.details.toString(), fourth.result.details.any { "paced" in it })
+        assertEquals(3, embed.requestedUrls.size)
+        assertBare(waited + notAsked)
+    }
+
+    /**
+     * v1.0.2 (item 18): after T1's 429 T1 is not asked for the 30-minute cooldown (S7),
+     * then it is.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `v1_0_2 - after T1's 429 T1 is skipped for the cooldown, then asked again`() = runTest {
+        val cooldown = SocialCooldown({ testScheduler.currentTime })
+        val refusal = ExtractorHttpResult.Failure(SiteExtractionFailure.RATE_LIMITED, 429)
+        val limited = FakeExtractorHttpClient(responses = mapOf(EMBED_URL to refusal))
+        val stopped = TikTokLadder(limited, ::identifyOrNull, cooldown = cooldown)
+        lookup(PAGE, main(VIDEO_PAGE), limited, ladder = stopped)
+        assertEquals(listOf(EMBED_URL), limited.requestedUrls)
+        val embed = answering(EMBED_URL to EMBED, contentType = HTML)
+        val ladder = TikTokLadder(embed, ::identifyOrNull, cooldown = cooldown)
+
+        delay(SocialCooldown.COOLDOWN_MILLIS - 1)
+        val cooling = lookup(PAGE, main(VIDEO_PAGE), embed, ladder = ladder).result
+        val details = (cooling as MasterResult.Success).result.details
+        val line = "$T1: cooling down after a 429 or a bot check; not asked"
+        assertTrue(details.toString(), line in details)
+        assertTrue(embed.requestedUrls.isEmpty())
+
+        delay(1)
+        val again = lookup(PAGE, main(VIDEO_PAGE), embed, ladder = ladder).result
+        assertEquals(MasterStage.CONTRACT, (again as MasterResult.Success).stage)
+        assertEquals(listOf(EMBED_URL), embed.requestedUrls)
     }
 
     @Test

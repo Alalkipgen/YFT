@@ -8,8 +8,16 @@ package com.alal.yft.extractor.master.social
  * waits at most the time left) and Master's answers in the lookup hold fewer than [bytes]
  * characters (a rung reads at most the characters left). Main's pages are main's: F2 reads them
  * with no request, so they count only as main's asks.
+ *
+ * v1.0.2 (item 18): [gapMillis], the least time between two asks of the site's rung across lookups
+ * in the app's session ([SocialCooldown.pace]); 0, none.
  */
-data class SocialBudget(val requests: Int, val bytes: Long, val millis: Long) {
+data class SocialBudget(
+    val requests: Int,
+    val bytes: Long,
+    val millis: Long,
+    val gapMillis: Long = 0,
+) {
     companion object {
         /**
          * Facebook's (the pilot): main asks at most three pages for a link (the public page, the
@@ -24,8 +32,18 @@ data class SocialBudget(val requests: Int, val bytes: Long, val millis: Long) {
          * service and its 8; each file check is an ask in the record), so T1's one ask (the embed
          * player) fits after main's most; T1's answer is at most 3 MiB (its recipe's bound). Main's
          * pages take long (two pages, the file checks, the service), so the lookup's time is 30 s.
+         *
+         * v1.0.2 (item 18): T1's asks at least 10 s apart. In S5's run 3 the embed player answered
+         * 429 after one or two asks a few seconds apart (the census's posts in a row; in runs 1
+         * and 2 six such asks got none). A lookup within the gap waits the rest when T1's ask still
+         * fits its 30 s after the wait, else T1 is not asked ([TikTokLadder]).
          */
-        val TIKTOK = SocialBudget(requests = 20, bytes = 4L * 1024 * 1024, millis = 30_000)
+        val TIKTOK = SocialBudget(
+            requests = 20,
+            bytes = 4L * 1024 * 1024,
+            millis = 30_000,
+            gapMillis = 10_000,
+        )
 
         /**
          * S2c, X's, sized by X's main and V (not copied from TikTok's): main asks once in a lookup
@@ -62,12 +80,18 @@ data class SocialBudget(val requests: Int, val bytes: Long, val millis: Long) {
  * while it cools (F1, the plugin player); main's asks and the rungs that read without a request
  * (F2, the tab's own playback) are not stopped by it. Memory only (the process's: an app start
  * forgets it), hosts only (lowercase), never a link, an ID or a page's words; nothing is logged.
+ *
+ * v1.0.2 (item 18): the same memory paces a rung's asks to a host ([pace]): each at least a gap
+ * after the one before, across lookups (TikTok's T1, [SocialBudget.gapMillis]).
  */
 class SocialCooldown(
     private val clock: () -> Long = System::currentTimeMillis,
     private val millis: Long = COOLDOWN_MILLIS,
 ) {
     private val until = HashMap<String, Long>()
+
+    /** v1.0.2: per host, the earliest time a paced rung may ask it again ([pace]). */
+    private val nextAsk = HashMap<String, Long>()
 
     /** [hosts] stopped now: each cools until [millis] from now (a later stop extends it). */
     fun note(hosts: Collection<String>) {
@@ -87,6 +111,25 @@ class SocialCooldown(
         val key = keyOf(host) ?: return false
         val now = clock()
         return synchronized(until) { until[key]?.let { now < it } == true }
+    }
+
+    /**
+     * v1.0.2 (item 18): a rung's next ask to [hosts], at least [gapMillis] after its last one: the
+     * millis to wait before it (0: at once), its turn then taken, so a lookup at the same time
+     * waits for the turn after it; null, nothing taken, when the wait would be over
+     * [maxWaitMillis] (the rung does not ask). A gap of 0 paces nothing. It does not cool a host.
+     */
+    fun pace(hosts: Collection<String>, gapMillis: Long, maxWaitMillis: Long): Long? {
+        val keys = hosts.mapNotNull { keyOf(it) }.distinct()
+        if (gapMillis <= 0 || keys.isEmpty()) return 0L
+        val now = clock()
+        synchronized(until) {
+            nextAsk.values.removeAll { it <= now }
+            val wait = keys.maxOf { (nextAsk[it] ?: now) - now }
+            if (wait > 0 && wait > maxWaitMillis) return null
+            for (key in keys) nextAsk[key] = now + wait + gapMillis
+            return wait
+        }
     }
 
     override fun toString(): String = synchronized(until) { "SocialCooldown(hosts=${until.size})" }

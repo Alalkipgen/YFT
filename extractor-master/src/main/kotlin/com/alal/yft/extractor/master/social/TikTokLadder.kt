@@ -22,6 +22,7 @@ import java.util.WeakHashMap
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.coroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -61,6 +62,11 @@ import kotlinx.coroutines.withTimeoutOrNull
  * ([SocialBudget.TIKTOK]: main's and Master's asks, the lookup's time, Master's answers'
  * characters); else T1 is not asked and T2 still reads. A short link: the video main's resolved
  * link names ([MainPages.resolved]), else nothing is asked.
+ *
+ * v1.0.2 (item 18): T1's asks paced in the app's session, at least the budget's gap apart
+ * ([SocialBudget.gapMillis], 10 s; [cooldown]'s [SocialCooldown.pace], across lookups): a lookup
+ * within the gap waits the rest when T1's ask still fits the lookup's time after it, else T1 is
+ * not asked (T2 still reads); after a 429 or a bot check T1's host cools for 30 minutes (S7).
  *
  * S4: a rung the signed recipe config turns off ([RungsOff]: T1, T2, T3) is not run, its line
  * says so (the photo check is no rung: it still reads); the config is asked for (when due, on
@@ -171,6 +177,20 @@ class TikTokLadder(
             details += "$T1: $why; not asked"
             return null
         }
+        // v1.0.2 (item 18): T1's turn after its last ask; a stop while it waited: not asked.
+        val gap = "${budget.gapMillis / MILLIS_PER_SECOND} s between its asks"
+        val waited = pace(record, policy) ?: run {
+            details += "$T1: paced ($gap), its wait over the lookup's time budget; not asked"
+            return null
+        }
+        if (waited > 0) {
+            val seconds = (waited + MILLIS_PER_SECOND - 1) / MILLIS_PER_SECOND
+            details += "$T1: paced, waited $seconds s ($gap)"
+            stopped(record)?.let { why ->
+                details += "$T1: $why; not asked"
+                return null
+            }
+        }
         val read = request.copy(
             identity = identity,
             expectedContentId = request.expectedContentId?.let { identity.contentId },
@@ -233,6 +253,21 @@ class TikTokLadder(
             bytesLeft(record) <= 0 -> "over the lookup's byte budget"
             else -> null
         }
+    }
+
+    /**
+     * v1.0.2 (item 18): T1's turn, at least [SocialBudget.gapMillis] after its last ask in the
+     * process ([SocialCooldown.pace]): the millis it waited, or null when the wait would leave
+     * T1's ask (its share of the lookup, R8's) no room in the lookup's time budget: not asked, no
+     * turn taken. After a 429 in this lookup route B refuses the ask: nothing goes out, no turn.
+     */
+    private suspend fun pace(record: LookupRecord, policy: MasterPolicy): Long? {
+        if (record.rateLimited) return 0L
+        val ask = minOf(policy.contractTimeoutMillis, policy.timeoutMillis)
+        val room = minOf(budget.gapMillis, record.timeLeftMillis(budget.millis) - ask)
+        val wait = cooldown.pace(hosts(), budget.gapMillis, room) ?: return null
+        if (wait > 0) delay(wait)
+        return wait
     }
 
     /** T1's hosts: its recipe's answer hosts (its endpoint is one of them), lowercase. */
@@ -428,6 +463,8 @@ class TikTokLadder(
 
         /** S4: T3, the visible tab's own playback (its line only when the config turns it off). */
         internal const val T3 = "master: tiktok T3"
+
+        private const val MILLIS_PER_SECOND = 1_000L
 
         /**
          * A TikTok photo address: a TikTok host whose path names a photo post (`/photo/{id}`,
