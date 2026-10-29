@@ -49,6 +49,17 @@ interface DownloadServiceStarter {
 /** Narrow boundary the preview layer uses so it never depends on transfer internals. */
 interface PreviewDownloadStarter {
     suspend fun enqueue(asset: MediaAsset, variant: MediaVariant): EnqueueResult
+
+    /**
+     * Track E: like [enqueue], with where the file came from ([origin]: the page's file, the
+     * file before its conversion, who looked it up), so a link that dies after the download
+     * started can be renewed; null when the screen does not know.
+     */
+    suspend fun enqueue(
+        asset: MediaAsset,
+        variant: MediaVariant,
+        origin: DownloadOrigin?,
+    ): EnqueueResult = enqueue(asset, variant)
 }
 
 sealed interface EnqueueResult {
@@ -80,8 +91,17 @@ class DownloadEnqueuer(
     private val taskIds: () -> String = { UUID.randomUUID().toString() },
     private val clock: () -> Long = System::currentTimeMillis,
     private val storage: StorageSpace = StorageSpace.Unknown,
+    /** Track E: each queued download's source, for a fresh link (memory only). */
+    private val sources: DownloadSources? = null,
 ) : PreviewDownloadStarter {
-    override suspend fun enqueue(asset: MediaAsset, variant: MediaVariant): EnqueueResult {
+    override suspend fun enqueue(asset: MediaAsset, variant: MediaVariant): EnqueueResult =
+        enqueue(asset, variant, origin = null)
+
+    override suspend fun enqueue(
+        asset: MediaAsset,
+        variant: MediaVariant,
+        origin: DownloadOrigin?,
+    ): EnqueueResult {
         val taskId = taskIds()
         val planned = DownloadPlanFactory.create(
             asset = asset,
@@ -100,29 +120,62 @@ class DownloadEnqueuer(
         // A streaming size is only trusted when the manifest stated it exactly.
         val exactStreamBytes = variant.sizeBytes
             ?.takeIf { variant.sizeAccuracy == MediaSizeAccuracy.EXACT }
+        // Track E: the source is remembered just before the queue gets the task, so no failure
+        // of its first run comes before it; a task the queue never got leaves none.
+        val remember = Remember(taskId, origin, asset, variant)
         return when (request) {
-            is DownloadRequest.Direct -> enqueueDirect(request, target)
+            is DownloadRequest.Direct -> enqueueDirect(request, target, remember)
             is DownloadRequest.Hls ->
-                enqueueStream(request, target, exactStreamBytes) { name, destination, spec ->
-                    queue.enqueue(request.plan.copy(suggestedFileName = name), destination, spec)
+                enqueueStream(request, target, exactStreamBytes) { name, dest, spec ->
+                    remember.around(name) {
+                        queue.enqueue(request.plan.copy(suggestedFileName = name), dest, spec)
+                    }
                 }
 
             is DownloadRequest.Dash ->
-                enqueueStream(request, target, exactStreamBytes) { name, destination, spec ->
-                    queue.enqueue(request.plan.copy(suggestedFileName = name), destination, spec)
+                enqueueStream(request, target, exactStreamBytes) { name, dest, spec ->
+                    remember.around(name) {
+                        queue.enqueue(request.plan.copy(suggestedFileName = name), dest, spec)
+                    }
                 }
 
             // Both tracks and the merged file sit on the phone together before the merge ends.
             is DownloadRequest.Mux ->
                 enqueueStream(request, target, variant.sizeBytes?.times(2)) { name, dest, spec ->
-                    queue.enqueue(request.plan.copy(suggestedFileName = name), dest, spec)
+                    remember.around(name) {
+                        queue.enqueue(request.plan.copy(suggestedFileName = name), dest, spec)
+                    }
                 }
+        }
+    }
+
+    /**
+     * Track E: remembers a download's source under the name it is saved as, just before the
+     * queue gets the task; forgets it again when queueing fails.
+     */
+    private inner class Remember(
+        private val taskId: String,
+        private val origin: DownloadOrigin?,
+        private val asset: MediaAsset,
+        private val variant: MediaVariant,
+    ) {
+        suspend fun <T> around(fileName: String, enqueue: suspend () -> T): T {
+            val sources = sources ?: return enqueue()
+            val origin = origin ?: return enqueue()
+            sources.remember(taskId, origin, asset, variant, fileName)
+            return try {
+                enqueue()
+            } catch (error: Throwable) {
+                sources.forget(taskId)
+                throw error
+            }
         }
     }
 
     private suspend fun enqueueDirect(
         request: DownloadRequest.Direct,
         target: DownloadLocation,
+        remember: Remember,
     ): EnqueueResult {
         val metadata = when (val result = probe.probe(request.plan)) {
             is DirectProbeResult.Failure -> return EnqueueResult.Rejected(
@@ -138,12 +191,14 @@ class DownloadEnqueuer(
             ?: return storageUnavailable()
 
         policy.ensureApplied()
-        queue.enqueue(
-            plan = request.plan.copy(suggestedFileName = prepared.fileName),
-            metadata = metadata,
-            destination = prepared.destination,
-            destinationSpec = prepared.spec,
-        )
+        remember.around(prepared.fileName) {
+            queue.enqueue(
+                plan = request.plan.copy(suggestedFileName = prepared.fileName),
+                metadata = metadata,
+                destination = prepared.destination,
+                destinationSpec = prepared.spec,
+            )
+        }
         serviceStarter.start()
         return EnqueueResult.Started(request.plan.taskId, prepared.fileName)
     }

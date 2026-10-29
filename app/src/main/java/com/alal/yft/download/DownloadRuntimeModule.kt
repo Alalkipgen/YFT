@@ -3,6 +3,8 @@ package com.alal.yft.download
 import android.content.Context
 import android.os.Process
 import android.os.SystemClock
+import com.alal.yft.BuildConfig
+import com.alal.yft.core.browser.detection.HeadlessPageFetcher
 import com.alal.yft.core.data.db.DownloadRecordDao
 import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
 import com.alal.yft.core.download.AndroidMp3Transcoder
@@ -26,14 +28,21 @@ import com.alal.yft.core.download.PlaylistTrackTransferRunner
 import com.alal.yft.core.download.LocalMp3Transcoder
 import com.alal.yft.core.download.Mp3ConvertingTransferDispatcher
 import com.alal.yft.core.download.RoomDownloadTaskStore
+import com.alal.yft.core.media.resolver.VariantResolver
 import com.alal.yft.core.model.media.BrowserReads
 import com.alal.yft.core.model.settings.DownloadLocation
+import com.alal.yft.detection.BrowserPageReader
+import com.alal.yft.detection.HeadlessIdentity
+import com.alal.yft.detection.SiteAdapterCoordinator
+import com.alal.yft.detection.TabPageReader
+import com.alal.yft.detection.tiktok.TikTokPageSettings
 import com.alal.yft.download.policy.ConnectivityNetworkMonitor
 import com.alal.yft.download.policy.DownloadNetworkStatus
 import com.alal.yft.download.policy.DownloadPolicyController
 import com.alal.yft.download.policy.DownloadPolicyGate
 import com.alal.yft.download.policy.NetworkStatusSource
 import com.alal.yft.thumbnail.DownloadThumbnails
+import dagger.Lazy
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -46,6 +55,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 
 @Qualifier
@@ -60,10 +70,20 @@ object DownloadRuntimeModule {
     fun provideDownloadTaskStore(dao: DownloadRecordDao): DownloadTaskStore =
         RoomDownloadTaskStore(dao)
 
+    /**
+     * Track E (E-D9): the trial's "Break this download's link"; in every other build it is off
+     * and the downloads' client is the app's own.
+     */
     @Provides
     @Singleton
-    fun provideDirectTransferRunner(client: OkHttpClient): DirectTransferRunner =
-        DirectTransferEngine(client)
+    fun provideTrialLinkBreak(): TrialLinkBreak = TrialLinkBreak(BuildConfig.SOCIAL_TRIAL)
+
+    @Provides
+    @Singleton
+    fun provideDirectTransferRunner(
+        client: OkHttpClient,
+        trial: TrialLinkBreak,
+    ): DirectTransferRunner = DirectTransferEngine(trial.around(client))
 
     @Provides
     @Singleton
@@ -71,8 +91,9 @@ object DownloadRuntimeModule {
         client: OkHttpClient,
         @ApplicationContext context: Context,
         browserReads: BrowserReads,
+        trial: TrialLinkBreak,
     ): HlsTransferRunner = HlsTransferEngine(
-        client = client,
+        client = trial.around(client),
         workspaceRoot = File(context.noBackupFilesDir, HLS_WORKSPACE_DIRECTORY),
         browserReads = browserReads,
     )
@@ -82,8 +103,9 @@ object DownloadRuntimeModule {
     fun provideDashTransferRunner(
         client: OkHttpClient,
         @ApplicationContext context: Context,
+        trial: TrialLinkBreak,
     ): DashTransferRunner = DashTransferEngine(
-        client = client,
+        client = trial.around(client),
         workspaceRoot = File(context.noBackupFilesDir, DASH_WORKSPACE_DIRECTORY),
     )
 
@@ -139,17 +161,90 @@ object DownloadRuntimeModule {
     fun provideDownloadScope(): CoroutineScope =
         CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    /** Track E: whose sign-in a fresh link's lookup sends, by the lookup's owner. */
+    @Provides
+    @Singleton
+    fun provideLookupSessions(tikTok: TikTokPageSettings): LookupSessions =
+        AndroidLookupSessions(tikTok)
+
+    /** Track E (E-D5'): the phone's network changes, for "YouTube refused". */
+    @Provides
+    @Singleton
+    fun provideNetworkChanges(
+        network: NetworkStatusSource,
+        @DownloadApplicationScope scope: CoroutineScope,
+    ): NetworkChanges = NetworkChanges(network, scope)
+
+    /**
+     * Track E: each queued download's source, in memory only (E-D2). A page an adapter reads
+     * renews only the adapter's video (E3).
+     */
+    @Provides
+    @Singleton
+    fun provideDownloadSources(
+        sessions: LookupSessions,
+        changes: NetworkChanges,
+        coordinator: Lazy<SiteAdapterCoordinator>,
+    ): DownloadSources = DownloadSources(
+        sessions = sessions,
+        adapterPage = { pageUrl -> coordinator.get().handles(pageUrl) },
+        networkChanges = { changes.value },
+    )
+
+    /**
+     * Track E: fresh links from the site's page. The lookup's parts are made when a link first
+     * dies, so the queue never waits for them and no cycle runs through them. E3 (E-D8): a page
+     * no adapter reads is read again as its owner read it: the browser's re-read (the tab's
+     * agent and cookies, P37), or Home's (Home's agent, no cookie).
+     */
+    @Provides
+    @Singleton
+    fun provideSiteLinkRenewal(
+        sources: DownloadSources,
+        coordinator: Lazy<SiteAdapterCoordinator>,
+        resolver: Lazy<VariantResolver>,
+        probe: DirectMetadataProbe,
+        sessions: LookupSessions,
+        changes: NetworkChanges,
+        browserPages: BrowserPageReader,
+        client: OkHttpClient,
+    ): SiteLinkRenewal = SiteLinkRenewal(
+        sources = sources,
+        coordinator = { coordinator.get() },
+        resolver = { resolver.get() },
+        probe = probe,
+        sessions = sessions,
+        networkChanges = { changes.value },
+        pageReaders = PageReaders(
+            browser = browserPages,
+            home = TabPageReader(
+                fetch = HeadlessPageFetcher(
+                    client,
+                    userAgent = HeadlessIdentity.USER_AGENT,
+                    navigationHeaders = HeadlessIdentity.NAVIGATION_HEADERS,
+                )::fetchForTab,
+                cookies = { null },
+            ),
+        ),
+    )
+
     @Provides
     @Singleton
     fun provideDownloadQueue(
         store: DownloadTaskStore,
         dispatcher: DownloadTransferDispatcher,
         @DownloadApplicationScope scope: CoroutineScope,
+        renewal: SiteLinkRenewal,
+        sources: DownloadSources,
     ): DownloadQueue = DownloadQueue(
         store = store,
         transferDispatcher = dispatcher,
         scope = scope,
-    )
+        linkRenewal = renewal,
+    ).also { queue ->
+        // A source goes when its download completes, is cancelled or removed (E-D2).
+        scope.launch { queue.tasks.collect(sources::prune) }
+    }
 
     @Provides
     @Singleton
@@ -236,6 +331,7 @@ object DownloadRuntimeModule {
         policy: DownloadPolicyGate,
         preferences: DownloadPreferencesRepository,
         storage: StorageSpace,
+        sources: DownloadSources,
     ): DownloadEnqueuer = DownloadEnqueuer(
         queue = queue,
         probe = probe,
@@ -244,6 +340,7 @@ object DownloadRuntimeModule {
         policy = policy,
         location = { preferences.preferences.first().location },
         storage = storage,
+        sources = sources,
     )
 
     @Provides

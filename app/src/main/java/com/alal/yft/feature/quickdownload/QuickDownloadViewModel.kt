@@ -31,6 +31,7 @@ import com.alal.yft.detection.BrowserPageReader
 import com.alal.yft.detection.PageReread
 import com.alal.yft.detection.SiteLookupCache
 import com.alal.yft.detection.VideoPlaybackSupport
+import com.alal.yft.download.DownloadOrigin
 import com.alal.yft.download.EnqueueResult
 import com.alal.yft.download.PreviewDownloadStarter
 import com.alal.yft.download.policy.DownloadNetworkPolicy
@@ -1217,7 +1218,11 @@ class QuickDownloadViewModel @Inject constructor(
                     PreviewDownloadStatus.Rejected(prepared.message)
                 }
                 is Prepared.Ready -> when (
-                    val result = downloadStarter.enqueue(prepared.asset, prepared.variant)
+                    val result = downloadStarter.enqueue(
+                        prepared.asset,
+                        prepared.variant,
+                        origin(option, prepared.base),
+                    )
                 ) {
                     is EnqueueResult.Started -> {
                         // P19: Downloads shows the video's picture until the file has a frame.
@@ -1310,7 +1315,30 @@ class QuickDownloadViewModel @Inject constructor(
             else -> Mp3Variants.of(sound, kbps, resolved.durationMillis)
                 ?: return Prepared.Failed(MP3_UNAVAILABLE)
         }
-        return Prepared.Ready(resolved.copy(title = title ?: resolved.title), named(variant))
+        return Prepared.Ready(
+            resolved.copy(title = title ?: resolved.title),
+            named(variant),
+            base = file,
+        )
+    }
+
+    /**
+     * Track E: where [option]'s file came from, for a fresh link if it dies after the download
+     * started: the page's file, the file before its conversion ([base]), who looked the video
+     * up (the page's or the lookup's owner; the browser's when neither is this page's) and the
+     * agent of the browser's requests.
+     */
+    private fun origin(option: SheetOption, base: MediaVariant): DownloadOrigin {
+        val candidate = option.source.candidate
+        val owner = store.page.value?.takeIf { it.pageUrl == candidate.pageUrl }?.owner
+            ?: store.lookup.value?.takeIf { it.pageUrl == candidate.pageUrl }?.owner
+            ?: LookupOwner.BROWSER
+        return DownloadOrigin(
+            candidate = candidate,
+            base = base,
+            owner = owner,
+            userAgent = store.browserUserAgent,
+        )
     }
 
     /**
@@ -1406,7 +1434,12 @@ class QuickDownloadViewModel @Inject constructor(
     }
 
     private sealed interface Prepared {
-        data class Ready(val asset: MediaAsset, val variant: MediaVariant) : Prepared
+        /** [base]: the file before its conversion (Track E: the quality a fresh link keeps). */
+        data class Ready(
+            val asset: MediaAsset,
+            val variant: MediaVariant,
+            val base: MediaVariant = variant,
+        ) : Prepared
         data class Failed(
             val message: String,
             val details: List<String> = emptyList(),

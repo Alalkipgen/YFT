@@ -5,6 +5,7 @@ import com.alal.yft.core.data.history.BrowserHistoryRepository
 import com.alal.yft.core.download.DownloadQueue
 import com.alal.yft.core.media.session.PreviewSelectionStore
 import com.alal.yft.detection.SiteLookupCache
+import com.alal.yft.download.DownloadSources
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import dagger.Module
 import dagger.Provides
@@ -24,10 +25,11 @@ object SettingsModule {
         previewSelection: PreviewSelectionStore,
         lookups: SiteLookupCache,
         browserHistory: BrowserHistoryRepository,
+        downloadSources: DownloadSources,
     ): BrowsingDataCleaner = CompositeBrowsingDataCleaner(
         listOf(
             WebViewBrowsingDataCleaner(context),
-            SessionMediaCleaner(detectedMedia, previewSelection, lookups),
+            SessionMediaCleaner(detectedMedia, previewSelection, lookups, downloadSources),
             BrowserHistoryCleaner(browserHistory),
         ),
     )

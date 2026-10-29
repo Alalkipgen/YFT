@@ -21,6 +21,7 @@ import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.core.model.settings.pick
+import com.alal.yft.download.DownloadOrigin
 import com.alal.yft.download.EnqueueResult
 import com.alal.yft.download.PreviewDownloadStarter
 import com.alal.yft.download.policy.DownloadNetworkPolicy
@@ -189,7 +190,7 @@ class PreviewViewModel @Inject constructor(
         preferences: DownloadPreferences,
     ) {
         val status = try {
-            when (val result = downloadStarter.enqueue(asset, variant)) {
+            when (val result = downloadStarter.enqueue(asset, variant, origin(asset, variant))) {
                 is EnqueueResult.Started -> PreviewDownloadStatus.Queued(
                     fileName = result.fileName,
                     waitingForUnmetered = DownloadNetworkPolicy.stateFor(
@@ -206,6 +207,27 @@ class PreviewViewModel @Inject constructor(
             PreviewDownloadStatus.Rejected("The download could not be queued. Try again.")
         }
         updateDownloadStatus(variant.id, status)
+    }
+
+    /**
+     * Track E: the selected page file [asset] came from and [variant]'s file before its
+     * conversion, so a link that dies after the download started can be renewed. Who looked
+     * it up is not known here: the browser's rule. Null without a selection.
+     */
+    private fun origin(asset: MediaAsset, variant: MediaVariant): DownloadOrigin? {
+        val candidate = selectionStore.selection.value ?: return null
+        // An MP3 is made from its AAC file, an M4A from its video: the quality is that file's.
+        val sound = variant.mp3?.let { mp3 ->
+            asset.variants.firstOrNull { it.id == mp3.sourceVariantId } ?: return null
+        } ?: variant
+        val file = if (sound.audioFromVideo) {
+            asset.variants.firstOrNull {
+                it.playbackUrl == sound.playbackUrl && !it.audioFromVideo && it.mp3 == null
+            } ?: return null
+        } else {
+            sound
+        }
+        return DownloadOrigin(candidate = candidate, base = file)
     }
 
     private suspend fun currentPreferences(): DownloadPreferences = try {

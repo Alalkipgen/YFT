@@ -1655,6 +1655,67 @@ Keep at least the heading and one blank line between sections, so Git merges the
   doc or Master YouTube file); `VkClientSource` heals the client id and the API version only,
   never the secret; no live network in tests; no real VK value printed or committed.
 
+## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
+
+- Plan: `docs/TRACK_E_PLAN.md` (the owner's go, 2026-10-27, while S5's run 3 waits). Branch from
+  `main` `a27b2c9c` (PR #8's merge: the code of S5's census APK). Not for v1.0.1: nothing reaches
+  `main`, and no APK from this branch reaches the owner's phone, before v1.0.1 is published.
+- State: E0 done (docs only, 2026-10-27): plan §2 checked on `a27b2c9c`, §6's questions
+  answered, gaps G1–G5, the final names and the test list in plan §4.5. The owner's answers
+  (2026-10-27, plan §3): the defaults, E-D5' (network change from the app's own monitor only; one
+  "YouTube refused" renewal per download, within the three), E-D6 as clarified, E-D7 confirmed
+  (`core-media`'s resolver and parsers locked too), §4.5's extra files OK with limits, G2 extended
+  to rows without a source.
+- E1 done (plan §4.6): `core-download` (`DownloadLinkRenewal`, `LinkRenewalRequest`,
+  `LinkRenewal`, `DownloadRequestTag`, the queue's renewal in the task's job, E-D3's cap, G1–G4)
+  and `RENEWING_LINK`'s app plumbing (Downloads sets and chip, notification line, the service's
+  foreground set (G5), `BackgroundWork`). Tests: `DownloadLinkRenewalTest`,
+  `FreshLinkSameFileTest`, `RenewingLinkStatusTest`; all `core-download` and `core-model` tests
+  and the touched app tests pass locally (JDK 17 and the Android SDK now run in this sandbox); CI
+  runs on the E1 checkpoint. No source is wired yet: the app's queue still has
+  `DownloadLinkRenewal.None`, so the app behaves as before except G1–G3's fixes (the resume point
+  kept, a "Link expired" row's partial file cleaned up, a merge's kept track checked).
+- E2 done (plan §4.7): `app`'s `DownloadSources` (every enqueue path, memory only; dropped on
+  complete, cancel, delete and Clear browsing data), `SiteLinkRenewal` (adapter sites: a `fresh`
+  lookup in the owner's context, the same video and quality, the conversion, the task id and
+  file name kept; declines a 400 off VK and "YouTube refused" without a tap or a network change),
+  `LookupSessions`, `NetworkChanges`, the wiring (the queue's `linkRenewal`), Retry on a
+  renewable "Link expired" row, Details lines ("Fresh link (403 at 41.0 MB): resumed at
+  41.0 MB"), `core-download`'s `wentOn`. Tests: `DownloadSourcesTest`, `SiteLinkRenewalTest`,
+  `DownloadRenewalRowsTest` and additions to five existing ones; all app, `core-download` and
+  `core-model` tests pass locally. The sandbox was reset once: `/data/setup-tools.sh` re-creates
+  JDK 17 and the SDK (local only, not in the repo).
+- E3 done (plan §4.8): VK's 400 (E2's rule, tests), pages without an adapter (`DownloadSources`
+  keeps the file's address without its query; `SiteLinkRenewal` reads the page again with P37's
+  `BrowserPageReader` by its owner, `PageReaders`), the trial's "Break this download's link"
+  (`TrialLinkBreak` on the engines' client, Downloads ⋮ in the trial build only; the release
+  verifier's marker), YouTube's B1 and F8 unchanged (tests). Tests: `PageRereadRenewalTest`,
+  `TrialLinkBreakTest`, `BreakLinkMenuTest` (also in a trial build), additions to
+  `SiteLinkRenewalTest` and `DownloadSourcesTest`, the script test; all app, `core-download` and
+  `core-model` tests pass locally.
+- E3 ended at STOP: READY FOR PHONE TEST (after v1.0.1); no APK from this branch reached the
+  owner's phone before v1.0.1 was published.
+- E4 (2026-10-29, the owner: v1.0.1 published): `main` `3b339e8` merged in (sync PR #12, as #7:
+  `9c99e4dc`), `CHANGELOG.md` `[1.0.2]`'s Track E lines, the minified check on this branch (CI
+  green: checkpoint validation 40860514570 and 40860750524, emulator smoke 40860514638, Preview
+  APK 40860514633 = #123, minified check 40860750542).
+- **The owner's phone test (plan §7): PASS, all six items** (2026-10-29 17:45–18:40 MMT; #123's
+  YFT Trial `1.0.1-trial.123` and YFT Preview `1.0.1-preview.123`; HyperOS, Android 16; mobile
+  data; the VPN for TikTok only): the break at about 30 % on YouTube ("YouTube refused", then
+  Retry: resumed), Facebook and VK (started over), TikTok (resumed after Pause) and HLS (mux.dev's
+  test stream: resumed), each file plays; the hls.js demo page E-D8 as designed (no player data,
+  not a fail); the network dropped and came back → it went on without Retry; Cancel during a
+  renewal → no file; no "Download failed"; "YouTube refused" as before. Notes:
+  `docs/PHONE_TEST_NOTES.md`; the row: `docs/TEST_MATRIX.md`. `CHANGELOG.md`: the menu item is
+  **Details**.
+- v1.0.2 backlog from the test (not E4's work; plan §9): (a) "Link expired" after a re-read with no
+  player data: say "reopen the page in the browser", not "Tap Retry"; (b) itag 299 finished as
+  "960p": check only if the video is not 1920×960.
+- **STOP: the PR `work/phase-track-e-403` → `main` (a merge commit), merged only with the owner's
+  OK.** No tag, Release draft or version change (`1.0.1` / `1000100`).
+- This section sits above the wiring agent's (D) so Git merges it cleanly with that branch's S5
+  notes; keep Track E's state here only.
+
 ## VK-Master wiring agent (D) — `work/phase-vk-master-wire`
 
 - Plan: `docs/VK_MASTER_PLAN.md` §8 (wave 2, the wiring for v1.0.1). Branch from `df3cc10f`

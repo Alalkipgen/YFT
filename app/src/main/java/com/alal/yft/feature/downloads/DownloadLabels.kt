@@ -25,6 +25,9 @@ internal val PROGRESS_STATUSES = setOf(
     DownloadTaskStatus.VERIFYING,
 )
 
+/** Track E: a download whose link died while its page is looked up again for the same file. */
+internal const val RENEWING_LINK_LABEL = "Getting a fresh link\u2026"
+
 /** A status pill on a card that has no progress bar. */
 internal data class DownloadStatusChip(
     val text: String,
@@ -212,6 +215,8 @@ internal fun statusChip(
     )
 
     DownloadTaskStatus.CANCELLED -> DownloadStatusChip("Cancelled", YftStatusTone.Neutral)
+    DownloadTaskStatus.RENEWING_LINK ->
+        DownloadStatusChip(RENEWING_LINK_LABEL, YftStatusTone.Active, YftIcons.Refresh)
     else -> null
 }
 
@@ -313,6 +318,7 @@ internal fun failureDetailsText(
             ?.removePrefix("start:")
             ?.trim()
             ?.let { "Start: $it" },
+        *renewalLines(row).toTypedArray(),
         "Download type: ${planKindLabel(row)}",
         "Saved to: ${destinationKindLabel(row.destinationKind)}",
         "App: YFT ${appVersion.ifBlank { UNKNOWN }}",
@@ -328,11 +334,48 @@ internal val DownloadRowUiState.showsFailureDetails: Boolean
     get() = status == DownloadTaskStatus.FAILED || status == DownloadTaskStatus.NEEDS_REFRESH
 
 /**
+ * Track E: a download that got a fresh link shows Details too while it runs, is paused or after
+ * it completed: how each fresh link went on ([downloadDetailsText]).
+ */
+internal val DownloadRowUiState.showsDetails: Boolean
+    get() = showsFailureDetails || renewalLines.isNotEmpty()
+
+/** The Details text: a failure's ([failureDetailsText]), else the fresh links' (Track E). */
+internal fun downloadDetailsText(
+    row: DownloadRowUiState,
+    appVersion: String,
+    androidRelease: String,
+    sdkInt: Int,
+): String {
+    if (row.showsFailureDetails) {
+        return failureDetailsText(row, appVersion, androidRelease, sdkInt)
+    }
+    return (
+        listOf("YFT download", "Status: ${row.status.name}") +
+            renewalLines(row) +
+            listOf(
+                "Download type: ${planKindLabel(row)}",
+                "Saved to: ${destinationKindLabel(row.destinationKind)}",
+                "App: YFT ${appVersion.ifBlank { UNKNOWN }}",
+                "Android: ${androidRelease.ifBlank { UNKNOWN }} (API $sdkInt)",
+            )
+        ).joinToString("\n")
+}
+
+/** Track E: one line per fresh link, cleaned once more like a failure's detail. */
+private fun renewalLines(row: DownloadRowUiState): List<String> =
+    row.renewalLines.mapNotNull(DownloadFailureDetails::sanitize)
+
+/**
  * A download that needs a fresh link without a recorded failure was never tried with its link:
  * the app keeps a download's link only while it runs, so after a restart the link is gone.
  */
 private fun unknownReason(row: DownloadRowUiState): String =
     if (row.status == DownloadTaskStatus.NEEDS_REFRESH) NOT_TRIED_REASON else UNKNOWN
+
+/** Track E (E-D6): a "Link expired" row whose page YFT can look up again. */
+internal const val RENEWABLE_LINK_NOTE =
+    "Tap Retry to get a fresh link, or reopen the page in the browser."
 
 internal const val NOT_TRIED_REASON =
     "Link not tried (the app was closed or restarted, and YFT keeps a download's link only " +

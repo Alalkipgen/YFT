@@ -269,6 +269,14 @@ enum class DownloadTaskStatus {
     COMPLETED,
     FAILED,
     CANCELLED,
+
+    /**
+     * Track E: the file's link died after the download started (401, 403, 410, an expired link;
+     * VK's 400 after the link gave bytes) and a fresh lookup of its page runs for the same file
+     * and quality. The task keeps its place in the queue; Pause and Cancel stop the lookup. After
+     * the app was closed it reads back as [NEEDS_REFRESH].
+     */
+    RENEWING_LINK,
 }
 
 enum class DownloadFailureReason {

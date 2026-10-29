@@ -32,6 +32,7 @@ import com.alal.yft.detection.SiteAdapterOutcome
 import com.alal.yft.detection.SiteLookupCache
 import com.alal.yft.detection.SiteLookupKey
 import com.alal.yft.detection.VideoPlaybackSupport
+import com.alal.yft.download.DownloadOrigin
 import com.alal.yft.download.EnqueueResult
 import com.alal.yft.download.PreviewDownloadStarter
 import com.alal.yft.download.policy.NetworkSnapshot
@@ -165,6 +166,53 @@ class QuickDownloadViewModelTest {
         assertEquals(Mp3Conversion(192, "direct-0"), queued.mp3)
         assertEquals("audio/mpeg", queued.mimeType)
         assertEquals("https://media.example.test/audio-128.m4a", queued.playbackUrl)
+    }
+
+    /** Track E: an MP3's source is its M4A, from the browser's page with the tab's agent. */
+    @Test
+    fun theMp3RowTellsWhereItsFileCameFrom() = runTest {
+        store.browserUserAgent = TAB_AGENT
+        select(QuickDownloadFixtures.youtube())
+        val viewModel = viewModel()
+
+        val mp3 = viewModel.uiState.value.choices!!.audio.single { it.title == "MP3 · 192 kbps" }
+        viewModel.select(mp3.id)
+        viewModel.download()
+        advanceUntilIdle()
+
+        val origin = requireNotNull(starter.origins.single())
+        assertEquals(resolver.requested.single().mediaUrl, origin.candidate.mediaUrl)
+        assertEquals(QuickDownloadFixtures.PAGE, origin.candidate.pageUrl)
+        assertEquals("direct-0", origin.base.id)
+        assertNull(origin.base.mp3)
+        assertEquals(starter.variants.single().playbackUrl, origin.base.playbackUrl)
+        assertEquals(LookupOwner.BROWSER, origin.owner)
+        assertEquals(TAB_AGENT, origin.userAgent)
+    }
+
+    /** Track E: the sound kept from a video keeps the video as its source, Home's lookup's. */
+    @Test
+    fun theSoundKeptFromAVideoTellsTheVideoAndHomeAsItsSource() = runTest {
+        val file = video(360, 11 * MIB, videoId = "facebook:1")
+        store.publish(
+            QuickDownloadFixtures.PAGE,
+            "Ocean waves",
+            listOf(file),
+            owner = LookupOwner.HOME,
+        )
+        store.select(MediaGroups.of(listOf(file)).single())
+        val viewModel = viewModel()
+
+        viewModel.select(viewModel.uiState.value.choices!!.audio.first().id)
+        viewModel.download()
+        advanceUntilIdle()
+
+        val origin = requireNotNull(starter.origins.single())
+        assertEquals(file, origin.candidate)
+        assertFalse(origin.base.audioFromVideo)
+        assertEquals(MediaTrackType.AUDIO_VIDEO, origin.base.trackType)
+        assertEquals(file.mediaUrl, origin.base.playbackUrl)
+        assertEquals(LookupOwner.HOME, origin.owner)
     }
 
     @Test
@@ -1575,7 +1623,17 @@ class QuickDownloadViewModelTest {
     private class FakeStarter : PreviewDownloadStarter {
         val variants = mutableListOf<MediaVariant>()
         val assets = mutableListOf<MediaAsset>()
+        val origins = mutableListOf<DownloadOrigin?>()
         var rejection: EnqueueResult.Rejected? = null
+
+        override suspend fun enqueue(
+            asset: MediaAsset,
+            variant: MediaVariant,
+            origin: DownloadOrigin?,
+        ): EnqueueResult {
+            origins += origin
+            return enqueue(asset, variant)
+        }
 
         override suspend fun enqueue(asset: MediaAsset, variant: MediaVariant): EnqueueResult {
             assets += asset

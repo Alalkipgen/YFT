@@ -209,13 +209,14 @@ class DownloadsUiStateTest {
             directTask(id = "t$index", status = status, downloaded = 10, total = 100)
         }
 
-        assertEquals(4, tasks.activeDownloadCount())
+        assertEquals(5, tasks.activeDownloadCount())
         assertEquals(
             setOf(
                 DownloadTaskStatus.PROBING,
                 DownloadTaskStatus.RUNNING,
                 DownloadTaskStatus.PAUSING,
                 DownloadTaskStatus.VERIFYING,
+                DownloadTaskStatus.RENEWING_LINK,
             ),
             ACTIVE_STATUSES,
         )
@@ -236,6 +237,7 @@ class DownloadsUiStateTest {
             DownloadTaskStatus.COMPLETED to DownloadsFilter.DONE,
             DownloadTaskStatus.FAILED to DownloadsFilter.FAILED,
             DownloadTaskStatus.CANCELLED to null,
+            DownloadTaskStatus.RENEWING_LINK to DownloadsFilter.ACTIVE,
         )
 
         DownloadTaskStatus.entries.forEach { status ->

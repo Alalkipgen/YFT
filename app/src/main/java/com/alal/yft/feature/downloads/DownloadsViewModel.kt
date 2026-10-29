@@ -9,11 +9,13 @@ import com.alal.yft.download.BackgroundHealthStore
 import com.alal.yft.download.BackgroundSystemState
 import com.alal.yft.download.BackgroundSystemStatus
 import com.alal.yft.download.DownloadServiceStarter
+import com.alal.yft.download.DownloadSources
 import com.alal.yft.download.DownloadStorageSource
 import com.alal.yft.download.DownloadedFileDeleter
 import com.alal.yft.download.FileDeletion
 import com.alal.yft.download.InMemoryBackgroundHealthStore
 import com.alal.yft.download.SavedDownloadFile
+import com.alal.yft.download.TrialLinkBreak
 import com.alal.yft.download.policy.DownloadNetworkStatus
 import com.alal.yft.feature.settings.YouTubeSessionReset
 import com.alal.yft.feature.settings.YouTubeSessionResetResult
@@ -55,6 +57,10 @@ class DownloadsViewModel @Inject constructor(
     private val fileDeleter: DownloadedFileDeleter = DownloadedFileDeleter.Unavailable,
     /** "Reset YouTube session" (item 7 Track B3); tests of other controls leave it out. */
     private val youTubeSession: YouTubeSessionReset = YouTubeSessionReset.Unavailable,
+    /** Track E: which rows a Retry renews, and their fresh links' lines. */
+    private val sources: DownloadSources = DownloadSources(),
+    /** Track E (E-D9): the trial's "Break this download's link"; off in every other build. */
+    private val trialBreak: TrialLinkBreak = TrialLinkBreak(available = false),
 ) : ViewModel() {
     /** Without a network policy or storage, for tests that only exercise the queue. */
     constructor(queue: DownloadQueue) : this(queue, DownloadNetworkStatus.AlwaysAllowed)
@@ -144,8 +150,9 @@ class DownloadsViewModel @Inject constructor(
                 networkStatus.state,
                 storage(),
                 background(),
-            ) { (tasks, rates), network, storage, background ->
-                DownloadsUiState.from(tasks, rates).copy(
+                sources.renewals,
+            ) { (tasks, rates), network, storage, background, renewals ->
+                DownloadsUiState.from(tasks, rates, renewals).copy(
                     network = network,
                     storage = storage,
                     background = background,
@@ -248,6 +255,12 @@ class DownloadsViewModel @Inject constructor(
     fun pauseAll() {
         viewModelScope.launch { queue.pauseAll() }
     }
+
+    /**
+     * Track E (E-D9), the trial only: the download's current link answers 403 from now on, so
+     * its next request finds it dead and the queue gets a fresh one.
+     */
+    fun breakLink(id: String) = trialBreak.breakLink(id)
 
     /** Reads the battery and notification state again: YFT is back on the screen (P34). */
     fun refreshBackground() {

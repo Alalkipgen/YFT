@@ -10,8 +10,35 @@ one.
 
 ## [1.0.2]
 
-Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.md` §5). Nothing
-yet.
+Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.md` §5).
+
+### Added
+
+- A fresh link for a download whose link dies after it started (Track E): when a site's file
+  answers 401, 403 or 410 or its link expired, also after the phone moved between Wi-Fi and mobile
+  data, the row shows **Getting a fresh link…** (no **Download failed** notification meanwhile)
+  while YFT looks the page up again as the first lookup did (from Home or the browser, with the
+  same sign-in), finds the same video in the same quality (and makes the same MP3 or M4A), and
+  the download goes on where it stopped, or starts over when the file changed. YouTube, Facebook,
+  Instagram, TikTok, X, VK and Vimeo through their own lookups; a page without one is read again
+  quietly. At most three tries per download, in the same app session; never another quality.
+- **Retry** on a **Link expired** or **YouTube refused** row whose page YFT can look up again (in
+  the same app session): one fresh lookup per tap.
+- With Show details on, **Details** on a running, paused or finished download that got a fresh
+  link, with its lines ("Fresh link (403 at 41.0 MB): resumed at 41.0 MB"); never an address.
+
+### Changed
+
+- **YouTube refused** keeps its hint and **Reset YouTube session**; YFT asks for a fresh link by
+  itself only after the phone's network changed (once per download), else on Retry.
+
+### Fixed
+
+- VK: a file that answers 400 after it gave bytes (VK's answer on a new network) is a dead link
+  too and gets a fresh link; a 400 before any byte fails as before.
+- A download stopped at **Link expired** keeps its progress for the fresh link, and its Cancel or
+  Delete removes its partial file in the same app session; a merged download keeps a finished
+  track only when the fresh link's track has its length.
 
 ## [1.0.1] - 2026-10-29
 

@@ -5,6 +5,7 @@ import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.download.policy.TransferNetworkState
 import com.alal.yft.feature.downloads.DownloadStage
+import com.alal.yft.feature.downloads.RENEWING_LINK_LABEL
 import com.alal.yft.feature.downloads.failureLabel
 import com.alal.yft.feature.downloads.mergeStageLabel
 import com.alal.yft.feature.downloads.speedLabel
@@ -138,6 +139,7 @@ private fun stateText(task: StoredDownloadTask, network: TransferNetworkState): 
     when (task.status) {
         DownloadTaskStatus.QUEUED -> "Queued"
         DownloadTaskStatus.PAUSING -> "Pausing"
+        DownloadTaskStatus.RENEWING_LINK -> RENEWING_LINK_LABEL
         DownloadTaskStatus.WAITING_FOR_NETWORK -> when (network) {
             TransferNetworkState.WAITING_FOR_UNMETERED -> "Waiting for Wi-Fi"
             TransferNetworkState.OFFLINE, TransferNetworkState.ALLOWED -> "Waiting for network"

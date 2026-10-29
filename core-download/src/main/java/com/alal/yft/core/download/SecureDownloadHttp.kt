@@ -7,6 +7,7 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
 import okhttp3.Callback
@@ -41,6 +42,8 @@ internal class SecureDownloadHttp(
     ): Result {
         var currentUrl = initialUrl
         var redirectCount = 0
+        // Track E: the download and its link this request belongs to, set by the queue.
+        val tag = currentCoroutineContext()[DownloadRequestTag]
         while (true) {
             val request = Request.Builder()
                 .url(currentUrl)
@@ -51,6 +54,7 @@ internal class SecureDownloadHttp(
                         }
                     header("Accept-Encoding", "identity")
                     configure()
+                    if (tag != null) tag(DownloadRequestTag::class.java, tag)
                 }
                 .build()
             val response = client.newCall(request).await()

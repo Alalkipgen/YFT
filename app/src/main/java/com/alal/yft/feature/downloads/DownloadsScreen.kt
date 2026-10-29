@@ -184,6 +184,7 @@ fun DownloadsRoute(
         },
         snackbarHostState = snackbarHostState,
         onResetYouTubeSession = viewModel::resetYouTubeSession,
+        onBreakLink = viewModel::breakLink,
     )
 }
 
@@ -222,6 +223,8 @@ fun DownloadsScreen(
     deleteFileActions: DeleteFileActions = DeleteFileActions.None,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     onResetYouTubeSession: () -> Unit = {},
+    /** Track E (E-D9): the trial's tool that breaks a download's link; only the trial has it. */
+    onBreakLink: (String) -> Unit = {},
 ) {
     val colors = YftTheme.colors
     var filter by rememberSaveable { mutableStateOf(DownloadsFilter.ALL) }
@@ -288,6 +291,7 @@ fun DownloadsScreen(
                     onPlay = onPlay,
                     onDeleteFile = deleteFileActions.onDeleteFile,
                     onResetYouTube = { youTubeResetAsked = true },
+                    onBreakLink = onBreakLink,
                 )
             }
         }
@@ -406,6 +410,7 @@ private fun LazyListScope.downloadItems(
     onPlay: (DownloadRowUiState) -> Unit,
     onDeleteFile: (String) -> Unit,
     onResetYouTube: () -> Unit,
+    onBreakLink: (String) -> Unit,
 ) {
     val visible = uiState.rowsFor(filter)
     if (visible.isEmpty()) {
@@ -424,6 +429,7 @@ private fun LazyListScope.downloadItems(
                 onPlay = onPlay,
                 onDeleteFile = onDeleteFile,
                 onResetYouTube = onResetYouTube,
+                onBreakLink = onBreakLink,
                 modifier = Modifier.padding(start = 16.dp, top = 8.dp, end = 16.dp),
             )
         }
@@ -631,7 +637,8 @@ private fun cardActions(
     onDeleteFile: (String) -> Unit,
     onDetails: () -> Unit,
     onResetYouTube: () -> Unit,
-    showDetails: Boolean = row.showsFailureDetails,
+    showDetails: Boolean = row.showsDetails,
+    onBreakLink: ((String) -> Unit)? = null,
 ): List<CardAction> = buildList {
     if (row.status == DownloadTaskStatus.COMPLETED) {
         add(CardAction("Play", "download-menu-play-${row.id}", YftIcons.Play) { onPlay(row) })
@@ -661,7 +668,7 @@ private fun cardActions(
     if (showDetails) {
         add(
             CardAction(
-                label = "Failure details",
+                label = if (row.showsFailureDetails) "Failure details" else "Details",
                 tag = "download-menu-details-${row.id}",
                 icon = YftIcons.Info,
                 run = onDetails,
@@ -678,7 +685,22 @@ private fun cardActions(
             ),
         )
     }
+    // Track E (E-D9): the trial's own tool for the phone test, on a running or paused download.
+    // Every other build drops it with its label (BuildConfig.SOCIAL_TRIAL is false there; the
+    // release check rejects the label anywhere but the trial).
+    if (BuildConfig.SOCIAL_TRIAL && onBreakLink != null && row.status in BREAKABLE_STATUSES) {
+        add(
+            CardAction(
+                label = "Break this download's link",
+                tag = "download-menu-break-link-${row.id}",
+                icon = YftIcons.Link,
+            ) { onBreakLink(row.id) },
+        )
+    }
 }
+
+/** Track E (E-D9): the downloads whose link the trial's tool breaks: they are using one. */
+private val BREAKABLE_STATUSES = setOf(DownloadTaskStatus.RUNNING, DownloadTaskStatus.PAUSED)
 
 @DrawableRes
 private fun actionIcon(action: DownloadAction): Int = when (action) {
@@ -698,6 +720,7 @@ private fun DownloadCard(
     onPlay: (DownloadRowUiState) -> Unit,
     onDeleteFile: (String) -> Unit,
     onResetYouTube: () -> Unit,
+    onBreakLink: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = YftTheme.colors
@@ -705,7 +728,9 @@ private fun DownloadCard(
     var detailsOpen by remember { mutableStateOf(false) }
     // Decision 30 (v): a quiet build shows a failure's Details only with Show details on; the
     // failed download's Retry stays (a function).
-    val showDetails = row.showsFailureDetails && !LocalQuietRelease.current
+    val showDetails = row.showsDetails && !LocalQuietRelease.current
+    // Track E (E-D9): the trial's tool, as the trial's VK value break (never in a quiet build).
+    val trialTools = BuildConfig.SOCIAL_TRIAL && !LocalQuietRelease.current
     val actions = cardActions(
         row = row,
         onAction = onAction,
@@ -715,6 +740,7 @@ private fun DownloadCard(
         onDetails = { detailsOpen = true },
         onResetYouTube = onResetYouTube,
         showDetails = showDetails,
+        onBreakLink = onBreakLink.takeIf { trialTools },
     )
     Box(modifier = modifier.fillMaxWidth()) {
         YftCard(
@@ -778,8 +804,9 @@ private fun DownloadCard(
 }
 
 /**
- * What failed, where and on which phone (P21), with Copy details for a bug report. The text
- * holds no file name, link or address ([failureDetailsText]).
+ * What failed, where and on which phone (P21), with Copy details for a bug report; Track E: or,
+ * for a download that got a fresh link, how it went on. The text holds no file name, link or
+ * address ([downloadDetailsText]).
  */
 @Composable
 internal fun FailureDetailsDialog(
@@ -793,12 +820,17 @@ internal fun FailureDetailsDialog(
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val text = remember(row, appVersion, androidRelease, sdkInt) {
-        failureDetailsText(row, appVersion, androidRelease, sdkInt)
+        downloadDetailsText(row, appVersion, androidRelease, sdkInt)
     }
     AlertDialog(
         onDismissRequest = onDismiss,
         modifier = Modifier.testTag("download-failure-dialog"),
-        title = { Text("Failure details", color = colors.textPrimary) },
+        title = {
+            Text(
+                text = if (row.showsFailureDetails) "Failure details" else "Download details",
+                color = colors.textPrimary,
+            )
+        },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 SelectionContainer {
@@ -959,10 +991,11 @@ private fun StatusRow(
             }
             if (row.requiresLinkRefresh || row.status == DownloadTaskStatus.NEEDS_REFRESH) {
                 Text(
-                    text = if (row.isYouTubeRefusal()) {
-                        YOUTUBE_REFUSED_HINT
-                    } else {
-                        "Reopen the page in the browser to get a fresh link."
+                    text = when {
+                        row.isYouTubeRefusal() -> YOUTUBE_REFUSED_HINT
+                        // Track E (E-D6): Retry looks the page up again while YFT has its source.
+                        DownloadAction.RETRY in row.availableActions -> RENEWABLE_LINK_NOTE
+                        else -> "Reopen the page in the browser to get a fresh link."
                     },
                     modifier = Modifier
                         .padding(top = 6.dp)

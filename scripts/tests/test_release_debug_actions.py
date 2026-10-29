@@ -55,6 +55,19 @@ class ReleaseDebugActionsTest(unittest.TestCase):
         self.assertEqual(1, script.count("--allow-trial-tools"))
         self.assertIn('verify-release-debug-actions.py" ${trial_tools[@]+"${trial_tools[@]}"} "$apk"', script)
 
+    def test_the_downloads_link_break_is_a_trial_tool_only_the_trial_shows(self):
+        label = b"Break this download's link"
+        self.assertIn(label, GUARD.TRIAL_TOOL_MARKERS)
+        screen = (
+            ROOT.parent / "app/src/main/java/com/alal/yft/feature/downloads/DownloadsScreen.kt"
+        ).read_text()
+        literal = '"' + label.decode() + '"'
+        self.assertEqual(1, screen.count(literal))
+        gate = "if (BuildConfig.SOCIAL_TRIAL && onBreakLink != null"
+        self.assertIn(gate, screen)
+        self.assertLess(screen.index(gate), screen.index(literal))
+        self.assertIn("BuildConfig.SOCIAL_TRIAL && !LocalQuietRelease.current", screen)
+
     def test_one_apk_is_required(self):
         with self.assertRaises(IndexError):
             GUARD.main(["--allow-trial-tools"])
