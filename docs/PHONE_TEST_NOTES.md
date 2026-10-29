@@ -1096,3 +1096,83 @@ data; signed out; the VPN for TikTok only.
   10:51 UTC); the same way; no code change and no recipes publish meanwhile (one restarts the
   counts). After run 3 the owner brings this branch's docs (runs 1–3) to `main`; then the v1.0.1
   release (plan §12.4).
+
+## 2026-10-29 — S5's run 3 on the census APK of `a27b2c9c` (VK-Master wave 2)
+Rebuilt from the owner's census reports in the session; the phone's own notes, links and posts stay
+on the phone. The census APK of runs 1 and 2 (`yft-vk-census-a27b2c9c.apk`; no code change since);
+mobile data; signed out; the VPN for TikTok only. Recorded in the owner's session at the owner's
+request (docs only).
+
+### S5's run 3 — the census, every site — PASS on four sites; TikTok's waived
+- Facebook, no VPN, 2026-10-27 21:29 UTC (the first try; not counted: the network): 13 rows, 92
+  requests, 5.3 MB, 258 s; CHANGED (5) against 03:59 UTC (run 2), the trials only: slots 3, 4, 6, 7
+  and 8 gave rows 6, 4, 8, 6 and 8 (run 2: 2 each) — F1 not run (time budget) on slots 3, 7 and 8
+  after main's lookups of 20.6, 38.7 and 41.9 s, and no answer in time on slots 4 and 6 (the plugin
+  player 4.6 and 6.0 s), so F2's rows; each the same video, V pass, wrong 0; main's rows unchanged.
+  The owner's line was back after a 5–6 h outage but still poor (TikTok's try at 19:21 UTC: 249 s);
+  run again on 2026-10-29.
+- Facebook, no VPN, 2026-10-29 06:38 UTC: 13 rows, 73 requests, 5.4 MB, 63 s; CHANGED (5) against
+  2026-10-27 21:29 UTC (the last run whose main phase completed): the same five slots' trials back
+  to F1's 2 rows; against run 2 (03:59 UTC) the same parts, rows, rungs, requests and bytes (F1's
+  rows on slots 1–8 and 11; slots 9 and 10 needs playback; slot 12 sign-in-only RESPONSE_CHANGED,
+  ambiguous (no session); slot 13 removed PRIVATE_OR_UNAVAILABLE, as expected); not as expected 0;
+  main's V pass 11; ladder: parts 13, rows 9, the same video 9, V pass 9, wrong 0, unknown 0.
+- Instagram, no VPN, signed out, 06:40 UTC: 10 rows, 46 requests, 2.0 MB, 33 s; NO CHANGE against
+  2026-10-27 04:01 UTC (run 2); not as expected 1 (slot 5 reel LOGIN_REQUIRED [browser], = baseline,
+  main's known signed-out gap), ambiguous 1 (slot 10 removed, no session); main's V pass 6; ladder:
+  parts 7, rows 6, the same item 6, V pass 6, wrong 0, unknown 0.
+- X, no VPN, 06:41 UTC: 8 rows, 36 requests, 0.1 MB, 13 s; NO CHANGE against 2026-10-27 04:02 UTC
+  (run 2); all 8 as expected; main's V pass 6; ladder: parts 8, rows 6, the same item 6, V pass 6,
+  wrong 0, unknown 0 (slots 7 and 8: route B needs playback).
+- VK, no VPN, 06:42 UTC: 6 rows, 52 requests, 0.3 MB, 36 s; NO CHANGE against 2026-10-27 04:03 UTC
+  (run 2); not as expected 0, ambiguous 0; main's V pass 5; ladder: parts 5, rows 5, the same video
+  5, V pass 5, wrong 0, unknown 0 (V1's rows: Master's 6, 6, 6, 8 and 5 against main's 9, 9, 9, 13
+  and 9, as in run 2); slot 5 not looked up (not handled), as before. The 52 requests against B0's
+  50 (plan §12.1: B0's count and time the ceiling) are main's, by design: VK answered its SPA shell
+  (`embed page GET 200 no data h26215c4f`, not in the earlier runs' notes) to main's first embed ask
+  on slots 3 and 4, and main asked once more (`VkExtractor`: only VK's SPA shell earns a second ask
+  on the same host; `repeats 1` on both slots; then slot 3's `video.get`, slot 4's embed page with
+  data). Master's own asks 31, as in run 2; the time, 36 s against B0's 35 s, about the two repeats
+  (0.6 s each). Counted, with this note.
+- VK's slot 4 rung reads `V1 run` (rows 8, V pass), not `V1 rows` as in run 2: the census's label
+  only. With two answers `VkLadder` ends V1's line `next: CHECK_ROWS; 2 answers, the deciding one
+  shown`, and `LadderRungs`'s `next:` pattern wants `next:` at the line's end, so the label falls
+  back to `run`; slot 3's deciding answer (`video.get`) was a single one, so `V1 rows`. The rows,
+  the file check and the counts are right; the fix waits (an engine change restarts S5's counts).
+- TikTok, VPN on — five tries, none counted:
+  - 2026-10-27 19:21 UTC: 9 rows, 64 requests, 1.4 MB, 249 s; CHANGED (3) against 04:51 UTC (run 2),
+    the network's: slot 1's main rows 1 (tallest 1024; run 2: 4, tallest 1920; six of its seven file
+    checks `PROBE NETWORK` at 5 s); slots 1 and 3's T1 not run (time budget), T2's phone page 403
+    (`HTTP_STATUS`); slot 10's trial NETWORK (time limit); all 9 as expected; main's V pass 6;
+    ladder: parts 9, rows 3, wrong 0.
+  - 2026-10-27 21:27 UTC: Master in the cooldown (the next try's diff: `trials incomplete (cooldown
+    → 429)`; this try's report not in the session); its main phase completed.
+  - 2026-10-29 06:35 UTC (New York): 42 requests, 51 s; the embed player (T1) answered 429 on slot
+    2; Master stopped (429, 30 min) on slots 3, 4, 5 and 10.
+  - 07:11 UTC (New York, another server and IP): 42 requests, 43 s; the same, the 429 on slot 2.
+  - 07:56 UTC (Dallas): 45 requests, 49 s; T1's rows on slots 1 and 2, the 429 on slot 3, Master
+    stopped on slots 4, 5 and 10; ladder: parts 6, rows 2, wrong 0.
+  - 2026-10-29's three diffs NO CHANGE (main's part as in run 2: all 9 as expected, slot 1's rows 4,
+    tallest 1920; main's V pass 6); wrong 0 in all five tries.
+- **The owner's decision (2026-10-29): TikTok's run 3 waived** — an exception to decision 26. The
+  reason: TikTok's embed player answers 429 after one or two asks on every exit tried (New York
+  twice, Dallas), not the code's (the code and recipes unchanged since runs 1 and 2, both PASS); the
+  census asks six posts in a row, a user one link at a time; main's part works (the same rows as in
+  runs 1 and 2). Recorded in `docs/VK_MASTER_PLAN.md` §12.3.
+- Recipes: TikTok's note `recipes: bundled (no answer in time)` in every try (the ask over the VPN
+  not answered in time, as in runs 1 and 2); the other four `recipes: remote version 10, signed`.
+  Version 10 is `defaults`: the same recipes either way.
+- Counted for S5 (decision 26): Master ran on Facebook, Instagram, X and VK, on the final code
+  (`a27b2c9c`), the census APK of runs 1 and 2; no code change and no recipes publish since run 1.
+
+### Verdict of S5's run 3
+- S5: complete. Facebook, Instagram, X and VK: runs 1–3 PASS, counted (2026-10-26 18:21–18:24,
+  2026-10-27 03:59–04:03 and 2026-10-29 06:38–06:42 UTC: each ≥ 6 h after the previous, the first
+  and the last ≥ 24 h apart). TikTok: runs 1 and 2 PASS, counted (2026-10-26 18:18 and 2026-10-27
+  04:51 UTC); run 3 waived by the owner. Wrong rows 0 in every counted run.
+- Next: the owner brings this branch's docs (runs 1–3) to `main` (a PR, with the owner's OK); then
+  the v1.0.1 release (plan §12.4).
+- Backlog (after v1.0.1; each a code change): the census's TikTok T1, its embed asks paced (the 429
+  after one or two asks; watch users' lookups); the census's rung label after `; N answers, the
+  deciding one shown` (`LadderRungs`'s `next:` pattern); VK's SPA shell `h26215c4f` on the embed
+  page (watch).

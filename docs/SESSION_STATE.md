@@ -2081,12 +2081,27 @@ Keep at least the heading and one blank line between sections, so Git merges the
   as run 1. VK 50 requests, 44 s (B0: 50, 35 s): the time over B0 is the network's (the first file
   check of Master's part 1.9–2.8 s on four slots; Facebook 54 s → 77 s in the same session);
   counted, with the note. Details in `docs/PHONE_TEST_NOTES.md`.
-- Next: S5's run 3 per site from 24 h after run 1 (2026-10-27 18:18–18:24 UTC; 2026-10-28
-  00:48–00:54 MMT; more than 6 h after run 2 by then); the same way; no code change and no recipes
-  publish meanwhile (one restarts the counts). After run 3 the owner brings this branch's docs (runs
-  1–3) to `main`; then the v1.0.1 release (plan §12.4).
+- **S5's run 3: PASS on Facebook, Instagram, X and VK, counted; TikTok's waived by the owner**
+  (2026-10-29 06:38–06:42 UTC; the census APK of runs 1 and 2; mobile data; signed out): against run
+  2 the same parts, rows and rungs, wrong rows 0. Facebook's first try (2026-10-27 21:29 UTC, a poor
+  network: 258 s, F1's time budget → F2's rows) not counted. VK 52 requests, 36 s (B0: 50, 35 s):
+  VK's SPA shell (`h26215c4f`) to main's first embed ask on slots 3 and 4, main's designed second
+  ask (`VkExtractor`); Master's own asks 31, as in run 2; slot 4's `V1 run` is the census's label
+  (`LadderRungs`'s `next:` pattern after `; 2 answers, the deciding one shown`), its rows 8 and V
+  pass; counted, with the note. TikTok (VPN): five tries not counted (2026-10-27 19:21 UTC a poor
+  network; 21:27 UTC Master in the cooldown; 2026-10-29 06:35 and 07:11 UTC New York, 07:56 UTC
+  Dallas: the embed player's 429 after one or two asks); main's part as in run 2. **The owner's
+  decision (2026-10-29): TikTok's run 3 waived** — an exception to decision 26 (the 429 on every
+  exit tried, not the code's; the code and recipes unchanged since runs 1 and 2; plan §12.3). **S5
+  complete.** Details in `docs/PHONE_TEST_NOTES.md`.
+- Next: the owner brings this branch's docs (runs 1–3) to `main` (a PR, with the owner's OK); then
+  the v1.0.1 release (plan §12.4).
 - Backlog for v1.0.2 (the owner, 2026-10-27): track E (a file's 403: a fresh lookup and a restart,
   every site); the Downloads list's rows swap places, flashing, during 2–3 downloads at once —
   `DownloadsUiState.from` orders the active rows by `updatedAtEpochMs`, which every progress write
-  moves (fix: a stable order, such as when the download was added).
+  moves (fix: a stable order, such as when the download was added). Added after S5's run 3
+  (2026-10-29): the census's TikTok T1, its embed asks paced (the 429 after one or two asks; watch
+  users' lookups); the census's rung label after `; N answers, the deciding one shown`
+  (`LadderRungs`'s `next:` pattern wants the line's end); VK's SPA shell `h26215c4f` on the embed
+  page (watch).
 
