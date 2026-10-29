@@ -63,6 +63,47 @@ class PreviewSourceFactoryTest {
     }
 
     @Test
+    fun `plays an HLS video's audio rendition as HLS and a file's companion as a file`() {
+        val hls = variant(MediaKind.HLS).copy(
+            trackType = MediaTrackType.AUDIO_VIDEO,
+            audioCompanion = companion("https://media.example.test/audio/index.m3u8?token=a"),
+        )
+        // P50: the rendition played as one progressive file, so the preview never started.
+        val sources = factory.sources(hls)
+        assertEquals(2, sources.size)
+        assertTrue(sources[0] is HlsMediaSource)
+        assertTrue(sources[1] is HlsMediaSource)
+        assertTrue(factory.create(hls) is MergingMediaSource)
+
+        // A playlist by its MIME type alone, as the HLS pairing names it.
+        val byMime = companion("https://media.example.test/audio/rendition?id=7")
+            .copy(mimeType = "application/x-mpegURL")
+        assertTrue(factory.sources(hls.copy(audioCompanion = byMime))[1] is HlsMediaSource)
+
+        val file = variant(MediaKind.DIRECT).copy(audioCompanion = companion())
+        assertTrue(factory.sources(file)[1] is ProgressiveMediaSource)
+        assertEquals(1, factory.sources(variant(MediaKind.HLS)).size)
+    }
+
+    @Test
+    fun `tells a playlist companion from a file by its MIME type or its path`() {
+        fun kind(url: String, mime: String?) =
+            PreviewSourceFactory.companionKind("https://media.example.test/$url", mime)
+
+        assertEquals(MediaKind.HLS, kind("a/index.m3u8", "audio/mp4"))
+        assertEquals(MediaKind.HLS, kind("a/INDEX.M3U8?x=1.m4a", null))
+        assertEquals(MediaKind.HLS, kind("a/audio", "application/vnd.apple.mpegurl"))
+        assertEquals(MediaKind.HLS, kind("a/audio", " Application/X-MpegURL; charset=utf-8"))
+        assertEquals(MediaKind.HLS, kind("a/audio", "audio/mpegurl"))
+        assertEquals(MediaKind.HLS, kind("a/audio", "audio/x-mpegurl"))
+        // Only the path counts, not a query that names a playlist.
+        assertEquals(MediaKind.DIRECT, kind("a/audio?next=index.m3u8", "audio/mp4"))
+        assertEquals(MediaKind.DIRECT, kind("a/audio.m4a", "audio/mp4"))
+        assertEquals(MediaKind.DIRECT, kind("a/audio.m4a", null))
+        assertEquals(MediaKind.DIRECT, kind("a/audio.mp3", "audio/mpeg"))
+    }
+
+    @Test
     fun `rejects a variant marked with unsupported codec`() {
         assertThrows(IllegalArgumentException::class.java) {
             factory.create(

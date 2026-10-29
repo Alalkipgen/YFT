@@ -161,6 +161,13 @@ def label(name):
     return {"github": {**github, "event": event}}
 
 
+def scheduled(cron):
+    """A scheduled run: GitHub starts it on the default branch's last commit only."""
+    event = {"schedule": cron}
+    github = {"event_name": "schedule", "ref": "refs/heads/main", "sha": "main-commit"}
+    return {"github": {**github, "event": event}}
+
+
 EVENTS = {
     "push": push(),
     "manual": manual(),
@@ -246,6 +253,18 @@ class CanaryLabelTest(LabelTriggerTest):
 
     def test_another_label_never_cancels_a_running_canary(self):
         self.assert_label_groups(CANARY, "own-solver-canary-")
+
+    def test_a_weekly_schedule_runs_the_canary_on_mains_last_commit(self):
+        # v1.0.2 (item 17): one weekday, off the hour; GitHub runs a schedule from main only.
+        cron = one(r'^    - cron: "([^"]+)"$', trigger(CANARY, "schedule"))
+        minute, hour, day, month, weekday = cron.split()
+        self.assertEqual(("*", "*"), (day, month))
+        self.assertIn(weekday, [str(number) for number in range(7)])
+        self.assertTrue(minute.isdigit() and hour.isdigit() and minute != "0")
+        context = scheduled(cron)
+        self.assertTrue(truthy(evaluate(job_if(CANARY), context)))
+        self.assertEqual("main-commit", render(checkout_ref(CANARY), context))
+        self.assertEqual("own-solver-canary-refs/heads/main", render(group(CANARY), context))
 
 
 class OptInApkLabelTest(LabelTriggerTest):
@@ -422,7 +441,10 @@ class WorkflowYamlTest(unittest.TestCase):
                 document = yaml.safe_load(source)
                 triggers = document.get("on", document.get(True))  # YAML 1.1 reads `on` as true
                 self.assertEqual({"types": ["labeled"]}, triggers["pull_request"])
-                self.assertEqual({"push", "workflow_dispatch", "pull_request"}, set(triggers))
+                weekly = {"schedule"} if name == "canary" else set()
+                self.assertEqual({"push", "workflow_dispatch", "pull_request"} | weekly, set(triggers))
+                if weekly:
+                    self.assertEqual(1, len(triggers["schedule"]))
                 jobs = document["jobs"]
                 self.assertEqual(["build", "d7-matrix"] if name == "apk" else list(jobs)[:1], list(jobs))
                 self.assertIn("github.event.label.name", next(iter(jobs.values()))["if"])

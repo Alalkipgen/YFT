@@ -13,6 +13,7 @@ import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaVariant
 import java.io.IOException
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -28,6 +29,16 @@ class PreviewSourceFactory @Inject constructor(
      * plays both files together, each fetched with its own request context.
      */
     fun create(variant: MediaVariant): MediaSource {
+        val sources = sources(variant)
+        return sources.singleOrNull() ?: MergingMediaSource(*sources.toTypedArray())
+    }
+
+    /**
+     * The video's source, then its companion audio's when [variant] has one. The companion plays
+     * as HLS when it is a playlist (an HLS video's audio rendition), else as a progressive file
+     * (P50: an HLS audio rendition read as one file did not play).
+     */
+    internal fun sources(variant: MediaVariant): List<MediaSource> {
         require(variant.isPreviewable) { "Unsupported variants cannot be previewed" }
         val video = source(
             url = variant.playbackUrl,
@@ -35,14 +46,14 @@ class PreviewSourceFactory @Inject constructor(
             kind = variant.kind,
             mimeType = variant.mimeType,
         )
-        val companion = variant.audioCompanion ?: return video
+        val companion = variant.audioCompanion ?: return listOf(video)
         val audio = source(
             url = companion.mediaUrl,
             requestContext = companion.requestContext,
-            kind = MediaKind.DIRECT,
+            kind = companionKind(companion.mediaUrl, companion.mimeType),
             mimeType = companion.mimeType,
         )
-        return MergingMediaSource(video, audio)
+        return listOf(video, audio)
     }
 
     private fun source(
@@ -99,5 +110,26 @@ class PreviewSourceFactory @Inject constructor(
         MediaKind.DIRECT,
         MediaKind.UNKNOWN,
         -> observedMimeType
+    }
+
+    internal companion object {
+        /** Playlist MIME types, as the variant resolver reads them (parameters dropped). */
+        private val HLS_MIME_TYPES = setOf(
+            "application/vnd.apple.mpegurl",
+            "application/x-mpegurl",
+            "audio/mpegurl",
+            "audio/x-mpegurl",
+        )
+
+        /**
+         * HLS when the companion is a playlist, by its MIME type or its path's `.m3u8` (the rule
+         * the variant resolver and the download plan use); else a progressive file.
+         */
+        fun companionKind(url: String, mimeType: String?): MediaKind {
+            val mime = mimeType?.substringBefore(';')?.trim()?.lowercase(Locale.US)
+            val playlist = mime in HLS_MIME_TYPES ||
+                url.substringBefore('?').endsWith(".m3u8", ignoreCase = true)
+            return if (playlist) MediaKind.HLS else MediaKind.DIRECT
+        }
     }
 }

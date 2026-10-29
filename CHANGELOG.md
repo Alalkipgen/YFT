@@ -55,6 +55,8 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   vkvideo.ru.
 - A TikTok download no longer fails at its start with 404 when TikTok's file host refuses the first
   check of a file that TikTok's lookup already opened.
+- **Play preview** of an HLS quality whose sound comes as a separate playlist plays with its
+  sound; it was silent (its download already had the sound).
 
 ## [1.0.1] - 2026-10-29
 

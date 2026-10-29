@@ -5,13 +5,17 @@ name: Own solver canary (spike)
 # recorded vectors (own P, then own B alone); the change simulator's quick run (the phone build of
 # each corpus player, every class, one seed: ejs, own P and own B). Any wrong value, a P or B miss
 # or a check that cannot run fails the job. It needs www.youtube.com (today's player and the
-# corpus downloads, kept on the runner only). GitHub runs `schedule` only from the default
-# branch, so on the spike it runs on pushes that touch the solver files and by hand; a daily
-# schedule on main is the owner's decision. GitHub shows "Run workflow" only for workflows on the
-# default branch, so a manual run is the label run-canary on draft PR #2 (spike → main): it tests
-# the PR head itself, not its merge with main; any other label skips the job. The log and the job
-# summary name players, builds, classes and verdicts only; the scripts' stderr stays on the
-# runner. Uses no repository secret.
+# corpus downloads, kept on the runner only). The release's solvers are among these: main's ejs
+# (Backup finder off) and the own solver's strategy P (Backup finder on; releaseMaster sets
+# OWN_SOLVER_ENABLED true and OWN_SOLVER_NEXT_ENABLED false, so no ladder). Weekly (v1.0.2):
+# Mondays 03:17 UTC on main's head. GitHub runs `schedule` only from the default branch, so it
+# starts once this file is on main; it sends a failed scheduled run's notice to whoever last
+# changed the cron line, and in a public repository it turns the schedule off after 60 days
+# without repository activity. On the spike it runs on pushes that touch the solver files and by
+# hand. GitHub shows "Run workflow" only for workflows on the default branch, so a manual run is
+# the label run-canary on draft PR #2 (spike → main): it tests the PR head itself, not its merge
+# with main; any other label skips the job. The log and the job summary name players, builds,
+# classes and verdicts only; the scripts' stderr stays on the runner. Uses no repository secret.
 on:
   push:
     branches: ["spike/master-extractor-backup"]
@@ -25,6 +29,9 @@ on:
       - "scripts/verify-own-solver.mjs"
       - "scripts/verify-own-solver-mutations.mjs"
       - "scripts/youtube-solver-vectors.json"
+  # Weekly, off the hour (GitHub may delay or drop runs at an hour's start); from main only.
+  schedule:
+    - cron: "17 3 * * 1"
   workflow_dispatch:
   # Manual runs from the owner's phone: the label run-canary on draft PR #2 (no paths filter).
   pull_request:

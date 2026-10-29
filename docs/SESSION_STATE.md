@@ -1867,8 +1867,42 @@ Keep at least the heading and one blank line between sections, so Git merges the
   letter kept (a body with a fence's info string aside) and no mark outside its text; a body of
   2000 items) and `UpdatesScreenTest` (the notes' heading, 80 bullets, bold as a span,
   scrolling). CHANGELOG: Changed.
-- Next: item 7's checkpoint through the connector and its CI; then items 17, 50, 4, 5, 11, 13;
-  the backlog lines in a last docs-only commit; READY FOR PHONE TEST.
+  Pushed as `4d2b2615` (identical trees). Its CI: checkpoint validation 40970575128 (#580),
+  emulator smoke 40970575121 (#168), Preview APK 40970575096 (#135), minified check
+  40970575079 (#26): all green.
+- Item 17 (a, the HLS preview's sound): core-media's `PreviewSourceFactory` played a quality's
+  companion sound always as one progressive file, so an HLS video whose sound is an HLS playlist
+  of its own (P50, `HlsAudioPairing`) previewed silent. The companion now plays by its own kind:
+  HLS when it is a playlist (MIME type `application/vnd.apple.mpegurl`, `application/x-mpegurl`,
+  `audio/mpegurl` or `audio/x-mpegurl`, parameters aside, or a `.m3u8` path: the variant
+  resolver's and the download plan's rule), else a progressive file as before; merged with the
+  video as today (`MergingMediaSource`). Downloads unchanged (`DownloadPlanFactory` fetches both
+  as playlists already). Tests: `PreviewSourceFactoryTest` (+2: an HLS rendition, by its path
+  and by its MIME type, is an `HlsMediaSource`, a file's companion stays progressive; the kind
+  rule, where a query naming `.m3u8` is no playlist). CHANGELOG: Fixed.
+- Item 17 (b, the solver canary's schedule). Confirmed first: the release (`releaseMaster`,
+  `app/build.gradle.kts` lines 208–214: `OWN_SOLVER_ENABLED` true, `OWN_SOLVER_NEXT_ENABLED`
+  false) solves with main's ejs while Backup finder is off and with the own solver's strategy P
+  alone while it is on (`OwnPlayerScriptRunner` with `next = null`, no ladder:
+  `SiteAdapterModule.kt` lines 124–138). The canary checks both already — today's player
+  through ejs (`app/src/main/assets/youtube-solver`) and through own P
+  (`extractor-master-android/src/main/assets/yft-own-solver`; `STRATEGIES`,
+  `scripts/own-solver-canary.mjs` line 64), besides own B, the corpus and the change simulator
+  — so no check is added. `own-solver-canary.yml` gets `schedule: cron "17 3 * * 1"` (Mondays
+  03:17 UTC, 09:47 MMT; off the hour, as GitHub may delay or drop runs at an hour's start), and
+  its header comment says what it checks and the schedule's rules. The job's `if`, checkout ref
+  and concurrency group take a scheduled run as they are (main's last commit; the group
+  `own-solver-canary-refs/heads/main`). GitHub runs a schedule only from the default branch, so
+  it starts once v1.0.2 is merged to main. A failure reaches the owner as a failed run in Actions
+  and as GitHub's notice to the user who last changed the cron line (the owner's account, which
+  makes this commit), on the web or by email as his notification settings for Actions say. In a
+  public repository GitHub turns a schedule off after 60 days without repository activity; it is
+  turned on again with Enable workflow in Actions or by a commit that changes the cron line.
+  Tests: `scripts/tests/test_spike_label_triggers.py` (+1: one weekly cron off the hour; a
+  scheduled run's job runs on main's last commit in its own group; the YAML check takes the
+  schedule). Script tests: 86, all pass (4 skipped here). No CHANGELOG line for (b): CI only.
+- Next: item 17's checkpoint through the connector and its CI; then items 50, 4, 5, 11, 13; the
+  backlog lines in a last docs-only commit; READY FOR PHONE TEST.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
