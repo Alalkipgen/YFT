@@ -212,7 +212,7 @@ private fun Available(
             color = colors.textPrimary,
             style = MaterialTheme.typography.titleMedium,
         )
-        // The release's body as plain text: Markdown's marks dropped, no link opened.
+        // The release's body with its Markdown rendered (ReleaseNotesView); no link opened.
         Box(
             modifier = Modifier
                 .padding(top = 12.dp)
@@ -224,12 +224,7 @@ private fun Available(
                 .padding(12.dp)
                 .testTag("updates-notes"),
         ) {
-            val notes = remember(update.notes) { ReleaseNotes.plain(update.notes) }
-            Text(
-                text = notes.ifBlank { "No release notes." },
-                color = colors.textPrimary,
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            ReleaseNotesView(notes = update.notes)
         }
         when (install) {
             is InstallState.Downloading -> Downloading(install.percent, actions.onCancel)

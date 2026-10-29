@@ -35,6 +35,8 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   itself only after the phone's network changed (once per download), else on Retry.
 - Home's **Your sites** shows every site, three to a row in your order with **Add** last, instead
   of four and a sideways swipe for the rest.
+- **Updates** shows the release notes with their headings, lists, bold, italic and code as such,
+  instead of as plain text; a link still shows only its text and opens nothing.
 
 ### Fixed
 

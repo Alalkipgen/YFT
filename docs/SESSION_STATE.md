@@ -1833,10 +1833,42 @@ Keep at least the heading and one blank line between sections, so Git merges the
   repository's values (`-Xmx1536m`, the Kotlin daemon's `-Xmx768m`), which the report flagged, as
   it should. No app change: no CHANGELOG line. Tests: `scripts/tests/test_ci_gradle_memory.py`
   (14: the two values written and merged, every setup-gradle followed by the script, the paths
-  filters, the watch and the report on a made-up `/proc`). All 85 script tests pass (5 skipped); `git diff --check` clean. Next: push this checkpoint
-  through the connector, verify identical trees, and wait for every triggered CI workflow;
-  inspect the memory annotations before starting item 4. No release, spike or publish workflow
-  is run.
+  filters, the watch and the report on a made-up `/proc`). All 85 script tests pass (5 skipped); `git diff --check` clean.
+  Pushed as `0d68b1d9` (identical trees). Its CI, as the owner recorded it: checkpoint
+  validation 40945896086 (#579; its annotations show every Gradle daemon with `-Xmx4g` and
+  `MaxMetaspaceSize=1g`, every Kotlin daemon with `-Xmx2g` and `512m`), emulator smoke
+  40945896151 (#167), Preview APK 40945895979 (#134), minified check 40945895982 (#25): all
+  green. No release, spike or publish workflow is run. The other items: the agent below.
+- Continued (the owner, 2026-10-29) by another agent: items 4, 5, 7, 11, 13, 17 and 50. Start
+  `0d68b1d9`, confirmed as the branch's head; folder `/data/yft`; pushes as above.
+- Baseline on `0d68b1d9` (local, JDK 17, one Gradle build, 14 min):
+  `:app:testDebugUnitTest :extractor-master:test` → app 1388 tests (66 skipped),
+  `extractor-master` 1118 (2 skipped): all pass. Against Part 1's on `dfbfb21a` (app 1363, 66
+  skipped; Master 1113, 2 skipped): 25 more app tests and 5 more Master tests, from Part 1's
+  items (its item 20 counts 1118); the same skips. The other modules: the partial baseline above.
+  Why the first try never ended: with the repository's Kotlin daemon size (`-Xmx768m`)
+  `:app:compileDebugKotlin` ran out of heap (old generation full, thousands of full GCs, no
+  progress for over an hour). This computer's Gradle user home gives the Kotlin daemon CI's value
+  (`kotlin.daemon.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m`, item 0's); `gradle.properties` is
+  unchanged.
+- Item 7 (the release notes' Markdown): `ReleaseNotes.blocks` reads a small CommonMark subset
+  into blocks — `#` to `###` headings, paragraphs (two spaces or a backslash keep a line break),
+  `- `, `* ` and `1. ` items nested by their indent, fenced code as written (its info string,
+  such as `sh`, not shown) — and `ReleaseNotes.inline` the marks inside one: `**`/`__` bold,
+  `*`/`_` italic (CommonMark's flanking rules, so `2 * 3` and `snake_case` stay), `` ` `` code,
+  backslash escapes. A link shows its text and an image its alt text; nothing opens (U3). The
+  rest stays as written: `####`, rules, tables, quotes, HTML, a bare address, an autolink, a
+  mark without its other half. The new `ReleaseNotesView` shows each block as an AnnotatedString
+  in the same 240 dp scroll box: headings as headings (TalkBack), a list's markers in a hanging
+  column, code on a card-coloured block; nothing clickable. No new dependency. Tests:
+  `ReleaseNotesTest` (13: docs/release/1.0.1.md — every letter kept, no mark left, its
+  headings, its Install section block by block; the release body with its download lines;
+  broken Markdown kept character for character; two seeded random runs of 3000 bodies, every
+  letter kept (a body with a fence's info string aside) and no mark outside its text; a body of
+  2000 items) and `UpdatesScreenTest` (the notes' heading, 80 bullets, bold as a span,
+  scrolling). CHANGELOG: Changed.
+- Next: item 7's checkpoint through the connector and its CI; then items 17, 50, 4, 5, 11, 13;
+  the backlog lines in a last docs-only commit; READY FOR PHONE TEST.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
