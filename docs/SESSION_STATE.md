@@ -1747,7 +1747,8 @@ Keep at least the heading and one blank line between sections, so Git merges the
   40917475033 green; Preview APK 40917475008 (#131) failed, not in the code: its log (from the
   owner) shows R8 out of memory in `:app:minifyPreviewWithR8` ("Java heap space", the Gradle
   heap of `gradle.properties`), while the minified check built the same two previews from this
-  commit; so the next code push's Preview run is its record.
+  commit; so the next code push's Preview run is its record: item 18's Preview APK 40921605072
+  (#132), green.
 - Item 18 (TikTok's T1 pacing): T1's asks (the embed player) are at least 10 s apart in the app's
   session (`SocialBudget.gapMillis`, TikTok's 10 000; `SocialCooldown.pace`, the memory of the
   30-minute cooldown, the process's through the app's one `SocialLadder.cooldown`): a lookup
@@ -1758,8 +1759,16 @@ Keep at least the heading and one blank line between sections, so Git merges the
   player answered 429 after one or two asks a few seconds apart (the census's posts in a row); in
   runs 1 and 2 six such asks got none. The social ladder is the debug builds' only, so no
   CHANGELOG line; S5 must cover TikTok (decision 26). Tests: `SocialCooldownTest`, additions to
-  `TikTokLadderTest`.
-- Next: item 19.
+  `TikTokLadderTest`. `5084936a`, CI green: checkpoint validation 40921605018, emulator smoke
+  40921605347, Preview APK 40921605072 (#132), minified check 40921605061.
+- Item 19 (the census's rung label): a judged line that names its answer before its class (VK's
+  `embed: `, `video.get: `) or carries a note after its next step (VK's `; 2 answers, the
+  deciding one shown`, V2's `; refused by the lookup's rules (…)`) reads by its class and its
+  next step (`LadderRungs`'s `JUDGED` and `NEXT`): S5's run 3, VK's slot 4, labelled V1 plain
+  `run` for its rows; now `V1 rows`, and a 429 `V1 run (RATE_LIMITED)`, not its next step
+  (`STOP_SITE`). The census's reading only (the debug builds' census): no lookup changes, no
+  CHANGELOG line; S5's VK census shows it. Tests: additions to `SiteCensusLadderTest`.
+- Next: item 20.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 

@@ -365,6 +365,32 @@ class SiteCensusLadderTest {
                 ),
             ),
         )
+        // v1.0.2: VK's lines name the answer before its class and may end with a note.
+        assertEquals(
+            listOf("V1 rows", "V2 not reached", "V3 not reached"),
+            texts(
+                "vk",
+                failed(
+                    "${VkLadder.LINE} after NO_MEDIA_FOUND; main's answers re-read, no new ask",
+                    "${VkLadder.V1} embed: PARTIAL (rows 4 by the shape scan, " +
+                        "bound to the video); next: CHECK_ROWS; 2 answers, the deciding one shown",
+                ),
+            ),
+        )
+        assertEquals(
+            listOf("V1 run (RATE_LIMITED)", "V2 rows", "V3 not reached"),
+            texts(
+                "vk",
+                failed(
+                    "${VkLadder.V1} embed: RATE_LIMITED (status 429); next: STOP_SITE; " +
+                        "2 answers, the deciding one shown",
+                    "${VkLadder.V2} login.vk.ru: answered, held in memory for this ask only",
+                    "${VkLadder.V2} video.get: DIRECT (rows 4, bound to the video); " +
+                        "next: CHECK_ROWS; refused by the lookup's rules " +
+                        "(asked already, or after a 429)",
+                ),
+            ),
+        )
         assertEquals(listOf("X1 unknown (time limit)", "X3 unknown (time limit)"), texts("x", failed("master: bounded lookup timed out")))
         assertEquals(listOf("X1 unknown (error)", "X3 unknown (error)"), texts("x", null))
         assertEquals(listOf("X1 not reached", "X3 not reached"), texts("x", MasterResult.Skipped(SiteExtractionFailure.NO_MEDIA_FOUND)))

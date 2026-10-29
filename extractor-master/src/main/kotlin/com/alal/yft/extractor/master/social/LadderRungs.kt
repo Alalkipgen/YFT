@@ -56,8 +56,18 @@ internal object LadderRungs {
     private const val NOTHING = "nothing to read"
     private const val CHECK_ROWS = "CHECK_ROWS"
     private const val PHOTO_ONLY = "PHOTO_ONLY"
-    private val JUDGED = Regex("""^([A-Z][A-Z_]*) \(.*\); next: ([A-Z_]+)$""")
-    private val NEXT = Regex("""(?:^|; )next: ([A-Z_]+)$""")
+
+    /**
+     * A judged line: the answer's class, its evidence and the next step. Before the class a line
+     * may name the answer it judged ([WHAT]: VK's `embed: `, `video.get: `); after the next step it
+     * may carry a note ([NOTE]: VK's `; 2 answers, the deciding one shown`, V2's `; refused by the
+     * lookup's rules (…)`). Until v1.0.2 a noted line read as plain `run` (S5's run 3, VK's slot 4)
+     * and a named one by its next step, not its class.
+     */
+    private const val WHAT = """(?:[a-z][^:;]*: )?"""
+    private const val NOTE = """(?:; [^;]+)*"""
+    private val JUDGED = Regex("""^$WHAT([A-Z][A-Z_]*) \(.*\); next: ([A-Z_]+)$NOTE$""")
+    private val NEXT = Regex("""(?:^|; )next: ([A-Z_]+)$NOTE$""")
     private val REFUSED = Regex("""; refused (\d+)$""")
 
     /** A site's ladder: its line ([line]) and its rungs, each with its label (null: the tab's playback). */
