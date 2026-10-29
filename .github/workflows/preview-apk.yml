@@ -16,6 +16,7 @@ on:
       - "gradle.properties"
       - "build.gradle.kts"
       - "settings.gradle.kts"
+      - "scripts/ci-gradle-memory.sh"
       - "scripts/verify-release-apk.sh"
       - "scripts/verify-release-debug-actions.py"
       - ".github/workflows/preview-apk.yml"
@@ -49,6 +50,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
+      # v1.0.2 item 0: the runner's Gradle memory, from one place (scripts/ci-gradle-memory.sh).
+      - name: CI Gradle memory
+        shell: bash
+        run: bash scripts/ci-gradle-memory.sh
       # Each run makes its own test key, so a newer preview does not install over an older one:
       # uninstall the old preview first (docs/RELEASE.md).
       - name: Build, verify and stage the preview APKs with a fresh test key

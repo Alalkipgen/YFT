@@ -46,6 +46,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
+      # v1.0.2 item 0: the runner's Gradle memory, from one place (scripts/ci-gradle-memory.sh).
+      - name: CI Gradle memory
+        shell: bash
+        run: bash scripts/ci-gradle-memory.sh
       - name: Resolve version and tag
         id: version
         shell: bash

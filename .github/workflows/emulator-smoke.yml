@@ -11,6 +11,7 @@ on:
       - "gradle.properties"
       - "build.gradle.kts"
       - "settings.gradle.kts"
+      - "scripts/ci-gradle-memory.sh"
       - "scripts/ci-emulator-smoke.sh"
       - "scripts/ci-smoke-diagnostics.py"
       - "scripts/tests/test_ci_smoke_diagnostics.py"
@@ -38,6 +39,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
+      # v1.0.2 item 0: the runner's Gradle memory, from one place (scripts/ci-gradle-memory.sh).
+      - name: CI Gradle memory
+        shell: bash
+        run: bash scripts/ci-gradle-memory.sh
       - name: Install compile SDK, NDK and CMake
         shell: bash
         run: |

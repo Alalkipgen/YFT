@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths:
       - "spikes/phase0-media/**"
+      - "scripts/ci-gradle-memory.sh"
       - ".github/workflows/phase0-validation.yml"
   pull_request:
     paths:
       - "spikes/phase0-media/**"
+      - "scripts/ci-gradle-memory.sh"
       - ".github/workflows/phase0-validation.yml"
   workflow_dispatch:
 
@@ -35,5 +37,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
+      # v1.0.2 item 0: the runner's Gradle memory, from one place (scripts/ci-gradle-memory.sh).
+      - name: CI Gradle memory
+        shell: bash
+        run: bash scripts/ci-gradle-memory.sh
       - name: Lint, unit tests and debug build
         run: gradle -p spikes/phase0-media --no-daemon lintDebug testDebugUnitTest assembleDebug

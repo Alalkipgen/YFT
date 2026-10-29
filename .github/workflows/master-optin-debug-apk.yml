@@ -101,6 +101,21 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
+      # v1.0.2 item 0: the runner's Gradle memory, from one place (scripts/ci-gradle-memory.sh). A
+      # label build may check out an older PR head without the script: read that one file from
+      # the workflow's own commit instead, without changing the code the APK is built from.
+      - name: CI Gradle memory
+        shell: bash
+        env:
+          CI_MEMORY_SHA: ${{ github.workflow_sha }}
+        run: |
+          if [[ -f scripts/ci-gradle-memory.sh ]]; then
+            bash scripts/ci-gradle-memory.sh
+          else
+            git fetch --no-tags --depth=1 origin "$CI_MEMORY_SHA"
+            git show "$CI_MEMORY_SHA:scripts/ci-gradle-memory.sh" > "$RUNNER_TEMP/ci-gradle-memory.sh"
+            bash "$RUNNER_TEMP/ci-gradle-memory.sh"
+          fi
       - name: Toolkit drift check (R3)
         shell: bash
         run: |
@@ -329,6 +344,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
+      # v1.0.2 item 0: the runner's Gradle memory, from one place (scripts/ci-gradle-memory.sh).
+      - name: CI Gradle memory
+        shell: bash
+        run: bash scripts/ci-gradle-memory.sh
       - name: Spike debug key (required for every D7 APK)
         shell: bash
         run: |

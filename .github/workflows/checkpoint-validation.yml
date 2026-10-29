@@ -102,6 +102,17 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
+      # v1.0.2 item 0: the runner's Gradle memory, from one place (scripts/ci-gradle-memory.sh).
+      - name: CI Gradle memory
+        shell: bash
+        run: bash scripts/ci-gradle-memory.sh
+      # The proof that the values reach the build: each Gradle and Kotlin daemon this job starts is
+      # noted with its memory flags in the background, and the job's last step reports them.
+      - name: Note the Gradle and Kotlin daemons' memory (background)
+        shell: bash
+        run: |
+          nohup bash scripts/ci-gradle-memory.sh --watch "$RUNNER_TEMP/gradle-daemons.tsv" \
+            >/dev/null 2>&1 </dev/null &
       - name: Validate production checkpoint
         shell: bash
         run: |
@@ -147,3 +158,7 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           retention-days: 14
           if-no-files-found: ignore
+      - name: The Gradle and Kotlin daemons' memory
+        if: always()
+        shell: bash
+        run: bash scripts/ci-gradle-memory.sh --report "$RUNNER_TEMP/gradle-daemons.tsv"

@@ -17,6 +17,7 @@ on:
       - "gradle.properties"
       - "build.gradle.kts"
       - "settings.gradle.kts"
+      - "scripts/ci-gradle-memory.sh"
       - "scripts/ci-minified-check.sh"
       - ".github/workflows/minified-check.yml"
 
@@ -48,6 +49,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
+      # v1.0.2 item 0: the runner's Gradle memory, from one place (scripts/ci-gradle-memory.sh).
+      - name: CI Gradle memory
+        shell: bash
+        run: bash scripts/ci-gradle-memory.sh
       - name: Build the shrunk previews with a fresh test key, and the check's test APK
         shell: bash
         run: |

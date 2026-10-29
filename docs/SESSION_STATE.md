@@ -1645,8 +1645,9 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - Backlog (out of scope here):
   - A healed ID or secret is memory only (§8): after an app restart the same day, V2 falls back to
     the bundled value and the alternates until the next day's read (the read clock is stored).
-    Fine for now; revisit if the phone proof shows it hurts.
-  - One page read for both VK values (today each heal read reads the page: 2 requests a value).
+    Fine for now; revisit if the phone proof shows it hurts — done before v1.0.2 (agent D, wave 2).
+  - One page read for both VK values (today each heal read reads the page: 2 requests a value) —
+    done before v1.0.2 (agent D, wave 2).
   - CI: the work-branch workflow does not run `:extractor-master:test` or the script tests; they
     run locally before each checkpoint — done in v1.0.2 (`f0ff7193`).
 - Rules: Appendix C's "Never" list (no push to `main`, `spike/*` or another agent's branch; no PR;
@@ -1784,6 +1785,58 @@ Keep at least the heading and one blank line between sections, so Git merges the
   §7, IN_APP_UPDATE_PLAN §10, TRACK_E_PLAN §9, this file's backlog lines).
 - Next: the owner's phone test (Preview APK #133), then S5 for items 10, 15, 18 and 19 (VK and
   TikTok); no PR before it.
+
+## v1.0.2 part 2 agent — `work/phase-v102-easy`
+
+- Task (the owner, 2026-10-29): the v1.0.2 backlog, part 2 — 0 CI memory, 4 a share target, 5
+  deleting several finished downloads at once, 7 the release notes' Markdown, 11 VK's other
+  qualities as rows of their own, 13 Lookup details where they are still missing, 17 the HLS
+  preview's sound and the solver canary's schedule, 50 the running row's quality. Item 12 was
+  done before (agent D's wave 2: `VkClientValues.healing`). Start: Part 1's head `3af55506`
+  (confirmed), folder `/data/yft-part2`. Each item its own commit with unit tests; CI green
+  before the next item's checkpoint; at the end STOP: READY FOR PHONE TEST (no PR).
+- Lookup files allowed: `VkPageData.kt`, `MasterMainSelection.kt` and VK's budget (11); for 13
+  only passing existing lines on. Another lookup change → a hand-off line here and a STOP.
+- The start's CI (Part 1's record): checkpoint validation 40924924598, emulator smoke
+  40924924635, Preview APK 40924924600 (#133) and minified check 40924924694 on `95d50ec0`, and
+  checkpoint validation 40928294965 on `f0ff7193`: all green.
+- Baseline on `3af55506` (local, JDK 17): the existing Gradle unit-test run is still
+  compiling `:app:compileDebugUnitTestKotlin` and `:extractor-master:compileTestKotlin` (one
+  Gradle build only; `/data/baseline-tests.log`). Completed: core-download 313 (Part 1's
+  pre-item baseline 312, its changes add one), core-model 142, extractor-api 36,
+  extractor-generic 23, extractor-sites 366; all pass. Also core-browser 150, core-data 35,
+  core-media 39, extractor-master-android 84, all pass. App and Master counts are pending, not
+  claimed passed. Existing scripts on the start: 71 pass, 5 skipped; with item 0: 85 pass,
+  5 skipped. Next: finish the baseline and compare app/Master with Part 1's counts.
+- How this agent pushes: the computer has no Git credentials. Each checkpoint is made by
+  `scripts/checkpoint.sh` (its checks, its tests, its commit; its `git push` fails for want of
+  credentials), then the same files go to the branch through the GitHub connector (one commit,
+  the same message); the remote commit's tree is checked to be the local commit's tree, and the
+  local branch is reset to the remote commit. The SHAs below are the remote commits.
+- Item 0 (CI memory): `scripts/ci-gradle-memory.sh` holds the CI values in one place and writes
+  them to the runner's Gradle user home `gradle.properties` (`${GRADLE_USER_HOME:-~/.gradle}`),
+  whose values win over the project's: `org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g
+  -Dfile.encoding=UTF-8` and `kotlin.daemon.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m`; it keeps
+  every other line of that file (an older value of either key goes) and changes no other Gradle
+  setting. `gradle.properties` stays as it is (the agents' 4 GiB sizes). Every setup-gradle step
+  is followed by the step "CI Gradle memory" (`bash scripts/ci-gradle-memory.sh`): checkpoint
+  validation, emulator smoke, Preview APK and the minified check (a push here starts them), and,
+  edited only and never run: `release-draft.yml` (a tag push), `phase0-validation.yml` (main and
+  pull requests) and `master-optin-debug-apk.yml`'s two jobs (the spike branch; its label build
+  checks out PR #2's head, which may not have the script yet: there the step reads that one file
+  from the workflow's own commit, without changing the APK's source checkout). The workflows with a paths filter (emulator smoke,
+  Preview APK, minified check, phase 0) also start when the script changes. The proof: checkpoint
+  validation notes every Gradle and Kotlin daemon its job starts, with its `-Xmx`,
+  `-XX:MaxMetaspaceSize` and `-Dfile.encoding` (`--watch`, in the background, reading
+  `/proc/<pid>/cmdline`), and its last step reports them as annotations (`--report`; a daemon
+  with other sizes fails the job). Locally the watch saw this computer's own build with the
+  repository's values (`-Xmx1536m`, the Kotlin daemon's `-Xmx768m`), which the report flagged, as
+  it should. No app change: no CHANGELOG line. Tests: `scripts/tests/test_ci_gradle_memory.py`
+  (14: the two values written and merged, every setup-gradle followed by the script, the paths
+  filters, the watch and the report on a made-up `/proc`). All 85 script tests pass (5 skipped); `git diff --check` clean. Next: push this checkpoint
+  through the connector, verify identical trees, and wait for every triggered CI workflow;
+  inspect the memory annotations before starting item 4. No release, spike or publish workflow
+  is run.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
