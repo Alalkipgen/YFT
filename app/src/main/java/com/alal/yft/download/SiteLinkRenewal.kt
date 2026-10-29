@@ -138,6 +138,8 @@ class SiteLinkRenewal(
             }
             lookUp(request, source, lookups)
         }
+        // v1.0.2: a page read again without player data is read the same way on Retry.
+        sources.pageWithoutPlayer(request.taskId, answer == LinkRenewal.Unavailable(NO_PLAYER))
         if (answer is LinkRenewal.Fresh) {
             sources.renewed(request.taskId)
             pending[request.taskId] = headOf(request)

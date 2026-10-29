@@ -45,6 +45,8 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   track only when the fresh link's track has its length.
 - The Downloads list keeps its rows in place while several downloads run: unfinished ones in the
   order they were added, the newest first; finished, failed and stopped ones below.
+- **Link expired** on a page that, read again, had no player (a notice or a check) says only to
+  reopen the page in the browser, since **Retry** would read the same page again.
 
 ## [1.0.1] - 2026-10-29
 

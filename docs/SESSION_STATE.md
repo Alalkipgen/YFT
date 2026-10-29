@@ -1700,7 +1700,16 @@ Keep at least the heading and one blank line between sections, so Git merges the
   updater's state and makes no request of its own; a build that never checks shows none, and it
   goes when a check finds none or the installed version reaches the found one. Tests:
   `HomeUpdateCardTest`, additions to `HomeScreenTest` and `YftNavigationSmokeTest`.
-- Next: item 8.
+  `2ccd7cfd`, CI green: checkpoint validation 40899527476, emulator smoke 40899527622, Preview APK
+  40899527418 (#127), minified check 40899528002.
+- Item 8 (the "no player data" hint): a "Link expired" row whose page, read again for its fresh
+  link, had no player data (`PageReread.NoPlayer`, E-D8: a notice, a check) says only "Reopen the
+  page in the browser to get a fresh link." (`REOPEN_PAGE_NOTE`), since Retry reads the same page
+  again; Retry stays, and every other row's hint is as before. `DownloadSources` keeps the mark
+  (`pageWithoutPlayer`) in memory with the row's source until a renewal answers otherwise, and
+  drops it with the source. Tests: additions to `DownloadSourcesTest`, `PageRereadRenewalTest`,
+  `DownloadRenewalRowsTest` and `DownloadsScreenTest`.
+- Next: item 9.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 

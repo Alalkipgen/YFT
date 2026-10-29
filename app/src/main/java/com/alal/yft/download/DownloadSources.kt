@@ -221,11 +221,13 @@ data class DownloadSource(
 
 /**
  * Track E: what Downloads shows of the renewals: the rows that a Retry renews (E-D6: only while
- * the app has the row's source) and each download's renewal lines for its Details.
+ * the app has the row's source), each download's renewal lines for its Details, and (v1.0.2) the
+ * downloads whose page, read again for a fresh link, had no player data ([noPlayer]).
  */
 data class DownloadRenewals(
     val renewable: Set<String> = emptySet(),
     val notes: Map<String, List<String>> = emptyMap(),
+    val noPlayer: Set<String> = emptySet(),
 ) {
     companion object {
         val None = DownloadRenewals()
@@ -250,6 +252,9 @@ class DownloadSources(
     /** The tasks [prune] saw in the queue, so a source remembered first is not dropped. */
     private val seen = mutableSetOf<String>()
     private val notes = LinkedHashMap<String, List<String>>()
+
+    /** The downloads whose page, read again for their last fresh link, had no player data. */
+    private val noPlayer = mutableSetOf<String>()
     private val mutableRenewals = MutableStateFlow(DownloadRenewals.None)
     val renewals: StateFlow<DownloadRenewals> = mutableRenewals.asStateFlow()
 
@@ -317,11 +322,25 @@ class DownloadSources(
         }
     }
 
+    /**
+     * v1.0.2: whether [taskId]'s page, read again for a fresh link, had no player data (a notice,
+     * a check). Retry would read the same page again, so Downloads says to reopen it in the
+     * browser instead; the next answer of a renewal replaces it.
+     */
+    fun pageWithoutPlayer(taskId: String, without: Boolean) {
+        synchronized(lock) {
+            if (taskId !in sources) return
+            val changed = if (without) noPlayer.add(taskId) else noPlayer.remove(taskId)
+            if (changed) publishLocked()
+        }
+    }
+
     fun forget(taskId: String) {
         synchronized(lock) {
             sources.remove(taskId)
             notes.remove(taskId)
             seen.remove(taskId)
+            noPlayer.remove(taskId)
             publishLocked()
         }
     }
@@ -332,6 +351,7 @@ class DownloadSources(
             sources.clear()
             notes.clear()
             seen.clear()
+            noPlayer.clear()
             publishLocked()
         }
     }
@@ -353,16 +373,19 @@ class DownloadSources(
                         sources.remove(id)
                         notes.remove(id)
                         seen.remove(id)
+                        noPlayer.remove(id)
                         changed = true
                     }
                     task.status == DownloadTaskStatus.CANCELLED -> {
                         sources.remove(id)
                         notes.remove(id)
                         seen.remove(id)
+                        noPlayer.remove(id)
                         changed = true
                     }
                     task.status == DownloadTaskStatus.COMPLETED -> {
                         seen += id
+                        noPlayer.remove(id)
                         if (sources.remove(id) != null) changed = true
                     }
                     else -> seen += id
@@ -376,6 +399,7 @@ class DownloadSources(
         mutableRenewals.value = DownloadRenewals(
             renewable = sources.filterValues(DownloadSource::renewable).keys.toSet(),
             notes = notes.toMap(),
+            noPlayer = noPlayer.toSet(),
         )
     }
 

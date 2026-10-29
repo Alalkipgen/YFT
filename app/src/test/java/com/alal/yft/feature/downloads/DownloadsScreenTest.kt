@@ -857,6 +857,40 @@ class DownloadsScreenTest {
         assertEquals(listOf(DownloadAction.RETRY to "renew"), actions)
     }
 
+    /**
+     * v1.0.2: a "Link expired" download whose page, read again, had no player data (a notice, a
+     * check) says to reopen the page in the browser, since Retry would read it the same way;
+     * Retry stays.
+     */
+    @Test
+    fun anExpiredLinkWhosePageHadNoPlayerSaysToReopenThePage() {
+        val actions = mutableListOf<Pair<DownloadAction, String>>()
+        setScreen(
+            DownloadsUiState(
+                listOf(
+                    row(
+                        id = "notice",
+                        status = DownloadTaskStatus.NEEDS_REFRESH,
+                        downloaded = 1_024,
+                        total = 4_096,
+                        progressPercent = 25,
+                        requiresLinkRefresh = true,
+                        failureReason = DownloadFailureReason.EXPIRED_URL,
+                    ).copy(canRenew = true, noPlayerOnPage = true),
+                ),
+            ),
+            onAction = { action, id -> actions += action to id },
+        )
+
+        composeRule.onNodeWithText("Link expired").assertIsDisplayed()
+        composeRule.onNodeWithTag("download-refresh-note-notice", useUnmergedTree = true)
+            .assertIsDisplayed()
+            .assertTextEquals(REOPEN_PAGE_NOTE)
+        composeRule.onNodeWithTag("download-action-retry-notice").performClick()
+
+        assertEquals(listOf(DownloadAction.RETRY to "notice"), actions)
+    }
+
     /** Track E: a download that got a fresh link offers Details while it runs, without links. */
     @Test
     fun aDownloadThatGotAFreshLinkShowsItsDetailsWhileItRuns() {

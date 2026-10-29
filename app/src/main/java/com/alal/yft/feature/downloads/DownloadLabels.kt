@@ -377,6 +377,12 @@ private fun unknownReason(row: DownloadRowUiState): String =
 internal const val RENEWABLE_LINK_NOTE =
     "Tap Retry to get a fresh link, or reopen the page in the browser."
 
+/**
+ * A "Link expired" row YFT cannot renew, or (v1.0.2) one whose page, read again, had no player
+ * data (a notice, a check): Retry would read the same page.
+ */
+internal const val REOPEN_PAGE_NOTE = "Reopen the page in the browser to get a fresh link."
+
 internal const val NOT_TRIED_REASON =
     "Link not tried (the app was closed or restarted, and YFT keeps a download's link only " +
         "while it runs)"

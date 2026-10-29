@@ -288,6 +288,40 @@ class PageRereadRenewalTest {
         assertEquals(2, browser.reads.size)
     }
 
+    /**
+     * v1.0.2: a page read again without its player data (a notice, a check) leaves "Link
+     * expired" with Retry, and its row says to reopen the page; a read that finds the player
+     * takes that back.
+     */
+    @Test
+    fun `a page read again without its player is marked until a read finds the player`() =
+        runTest {
+            browser.answer = { PageReread.NoPlayer }
+            val transfers = ScriptedTransfers { run -> (41 * MIB).takeIf { run == 0 } }
+            val harness = EnqueueHarness(this, sources, probe, transfers, renewal)
+            val id = download(harness, pageFiles(0)[1]).taskId
+            runCurrent()
+
+            val stopped = harness.queue.tasks.value.single()
+            assertEquals(DownloadTaskStatus.NEEDS_REFRESH, stopped.status)
+            val row = rowOf(harness)
+            assertTrue(row.noPlayerOnPage)
+            assertTrue(DownloadAction.RETRY in row.availableActions)
+            harness.queue.resume(id)
+            runCurrent()
+            val again = harness.queue.tasks.value.single()
+            assertEquals(DownloadTaskStatus.NEEDS_REFRESH, again.status)
+            assertTrue(rowOf(harness).noPlayerOnPage)
+
+            browser.answer = { read -> PageReread.Found(pageFiles(read), facts = null) }
+            harness.queue.resume(id)
+            runCurrent()
+
+            assertEquals(DownloadTaskStatus.COMPLETED, harness.queue.tasks.value.single().status)
+            assertFalse(id in sources.renewals.value.noPlayer)
+            assertEquals(3, browser.reads.size)
+        }
+
     /** What the sheet queues for [candidate]: the file [pick] takes of its resolved ones. */
     private suspend fun download(
         harness: EnqueueHarness,

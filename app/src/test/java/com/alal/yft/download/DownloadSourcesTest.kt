@@ -170,6 +170,43 @@ class DownloadSourcesTest {
         assertTrue(sources.renewals.value.notes.isEmpty())
     }
 
+    /** v1.0.2: a page read again without its player data is marked until the next answer. */
+    @Test
+    fun `a page read again without its player stays marked until the next answer`() {
+        val sources = DownloadSources()
+        listOf("notice", "done", "cancelled", "deleted").forEach { id -> remember(sources, id) }
+        listOf("notice", "done", "cancelled", "deleted", "unknown").forEach { id ->
+            sources.pageWithoutPlayer(id, without = true)
+        }
+        // Only a download YFT has the source of is marked.
+        assertEquals(
+            setOf("notice", "done", "cancelled", "deleted"),
+            sources.renewals.value.noPlayer,
+        )
+        sources.pageWithoutPlayer("notice", without = false)
+        assertEquals(setOf("done", "cancelled", "deleted"), sources.renewals.value.noPlayer)
+        sources.pageWithoutPlayer("notice", without = true)
+
+        sources.prune(
+            listOf(
+                task("notice", DownloadTaskStatus.NEEDS_REFRESH),
+                task("done", DownloadTaskStatus.COMPLETED),
+                task("cancelled", DownloadTaskStatus.CANCELLED),
+                task("deleted", DownloadTaskStatus.NEEDS_REFRESH),
+            ),
+        )
+        assertEquals(setOf("notice", "deleted"), sources.renewals.value.noPlayer)
+        sources.prune(listOf(task("notice", DownloadTaskStatus.NEEDS_REFRESH)))
+        assertEquals(setOf("notice"), sources.renewals.value.noPlayer)
+        sources.forget("notice")
+        assertTrue(sources.renewals.value.noPlayer.isEmpty())
+
+        remember(sources, "again")
+        sources.pageWithoutPlayer("again", without = true)
+        sources.clear()
+        assertEquals(DownloadRenewals.None, sources.renewals.value)
+    }
+
     @Test
     fun `clear browsing data drops every source and line`() {
         val sources = DownloadSources()

@@ -42,6 +42,26 @@ class DownloadRenewalRowsTest {
         assertFalse(DownloadAction.RETRY in rows.getValue("running").availableActions)
     }
 
+    /** v1.0.2: a row whose page, read again, had no player data is marked; Retry stays. */
+    @Test
+    fun aRowWhosePageReadAgainHadNoPlayerIsMarkedAndKeepsRetry() {
+        val state = DownloadsUiState.from(
+            listOf(
+                task("notice", DownloadTaskStatus.NEEDS_REFRESH),
+                task("renewable", DownloadTaskStatus.NEEDS_REFRESH),
+            ),
+            renewals = DownloadRenewals(
+                renewable = setOf("notice", "renewable"),
+                noPlayer = setOf("notice"),
+            ),
+        )
+
+        val rows = state.rows.associateBy(DownloadRowUiState::id)
+        assertTrue(rows.getValue("notice").noPlayerOnPage)
+        assertTrue(DownloadAction.RETRY in rows.getValue("notice").availableActions)
+        assertFalse(rows.getValue("renewable").noPlayerOnPage)
+    }
+
     @Test
     fun aDownloadKeepsItsFreshLinkLinesWhileItRunsAndAfterItCompleted() {
         val line = "Fresh link (403 at 41.0 MB): resumed at 41.0 MB"

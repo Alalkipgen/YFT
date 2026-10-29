@@ -174,6 +174,11 @@ data class DownloadRowUiState(
     val canRenew: Boolean = false,
     /** Track E: this download's fresh links ("Fresh link (403 at 41.0 MB): resumed at …"). */
     val renewalLines: List<String> = emptyList(),
+    /**
+     * v1.0.2: the page, read again for this download's last fresh link, had no player data (a
+     * notice, a check); Retry would read it the same way, so the hint says to reopen it.
+     */
+    val noPlayerOnPage: Boolean = false,
 ) {
     /** The file name without its extension, as the cards show it. */
     val title: String = YftFormat.title(displayName)
@@ -303,6 +308,7 @@ data class DownloadsUiState(
                         stage = stage,
                         canRenew = task.id in renewals.renewable,
                         renewalLines = renewals.notes[task.id].orEmpty(),
+                        noPlayerOnPage = task.id in renewals.noPlayer,
                     )
                 },
         )

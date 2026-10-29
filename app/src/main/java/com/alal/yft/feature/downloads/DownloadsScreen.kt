@@ -993,9 +993,11 @@ private fun StatusRow(
                 Text(
                     text = when {
                         row.isYouTubeRefusal() -> YOUTUBE_REFUSED_HINT
-                        // Track E (E-D6): Retry looks the page up again while YFT has its source.
-                        DownloadAction.RETRY in row.availableActions -> RENEWABLE_LINK_NOTE
-                        else -> "Reopen the page in the browser to get a fresh link."
+                        // Track E (E-D6): Retry looks the page up again while YFT has its source;
+                        // a page read again without player data would be read the same way.
+                        DownloadAction.RETRY in row.availableActions && !row.noPlayerOnPage ->
+                            RENEWABLE_LINK_NOTE
+                        else -> REOPEN_PAGE_NOTE
                     },
                     modifier = Modifier
                         .padding(top = 6.dp)
