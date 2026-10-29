@@ -274,6 +274,11 @@ agent's `SESSION_STATE` section and its report, not an edit.
    VK's count. One session runs all five sites together (the shared-code changes restart the four
    sites' counts too, so all five re-pass in one census session; TikTok via the VPN, decision 25).
    Each run: wrong rows 0, no regression against each site's baseline.
+   **The owner's decision (2026-10-29): TikTok's run 3 waived** (an exception to decision 26):
+   TikTok's embed player answered 429 after one or two asks on every exit tried (New York twice,
+   Dallas); the code and recipes unchanged since TikTok's runs 1 and 2 (PASS); main's part the same.
+   S5 is complete with Facebook, Instagram, X and VK at 3 runs and TikTok at 2
+   (`docs/PHONE_TEST_NOTES.md`, 2026-10-29).
 4. **v1.0.1 release:** two previews (normal + trial) of one release commit, then the signed APK's
    install and upgrade on the owner's phone — as every release, VK or not.
 
