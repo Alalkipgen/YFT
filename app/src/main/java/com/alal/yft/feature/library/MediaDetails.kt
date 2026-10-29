@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import com.alal.yft.ui.format.YftQualityNames
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -30,7 +31,7 @@ data class MediaDetails(
     val height: Int? = null,
     val image: ImageBitmap? = null,
 ) {
-    /** "4K", "1080p" or "720p" from the picture's short side; null for audio or unknown. */
+    /** "4K", "1080p" or "720p", the sheet's name for the picture; null for audio or unknown. */
     val qualityLabel: String?
         get() = qualityLabel(width, height)
 
@@ -108,13 +109,19 @@ class RetrieverMediaDetailsSource internal constructor(
     }
 }
 
+/**
+ * v1.0.2: a file's quality by the name its row had on the Download sheet (P25: the standard
+ * height nearest to the picture's short side), not the short side itself, so a finished download
+ * keeps the name the user picked: YouTube's 1080p of a 2:1 video is 1920 × 960, "1080p", not
+ * "960p". "4K" and "8K" for 2160 and 4320.
+ */
 internal fun qualityLabel(width: Int?, height: Int?): String? {
     if (width == null || height == null || width <= 0 || height <= 0) return null
-    val shortSide = minOf(width, height)
+    val standard = YftQualityNames.standardHeight(width, height)
     return when {
-        shortSide >= EIGHT_K_SHORT_SIDE -> "8K"
-        shortSide >= FOUR_K_SHORT_SIDE -> "4K"
-        else -> "${shortSide}p"
+        standard >= EIGHT_K_HEIGHT -> "8K"
+        standard >= FOUR_K_HEIGHT -> "4K"
+        else -> "${standard}p"
     }
 }
 
@@ -206,8 +213,8 @@ private const val FRAME_AT_FRACTION = 10L
 private const val MAX_FRAME_AT_MS = 10_000L
 private const val MICROS_PER_MILLI = 1_000L
 private const val HALF_TURN_DEGREES = 180L
-private const val FOUR_K_SHORT_SIDE = 2_160
-private const val EIGHT_K_SHORT_SIDE = 4_320
+private const val FOUR_K_HEIGHT = 2_160
+private const val EIGHT_K_HEIGHT = 4_320
 private const val CACHE_SHARE_OF_HEAP = 16L
 private const val MIN_CACHE_BYTES = 4L * 1024 * 1024
 private const val MAX_CACHE_BYTES = 32L * 1024 * 1024

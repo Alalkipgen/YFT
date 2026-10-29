@@ -1,6 +1,7 @@
 package com.alal.yft.feature.library
 
 import androidx.compose.ui.graphics.ImageBitmap
+import com.alal.yft.ui.format.YftQualityNames
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -19,14 +20,27 @@ import org.robolectric.annotation.GraphicsMode
 // Native graphics draws real bitmaps and hit-tests the mini player's top-rounded shape.
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class MediaDetailsTest {
+    /**
+     * v1.0.2: a file is named as the Download sheet named its row, by the standard height nearest
+     * to its short side: YouTube's 1080p (itag 299) of a 2:1 video, 1920 × 960, stays "1080p".
+     */
     @Test
-    fun qualityComesFromThePicturesShortSide() {
+    fun qualityIsTheNameTheSheetGaveThePicture() {
         assertEquals("720p", qualityLabel(1280, 720))
         assertEquals("720p", qualityLabel(720, 1280))
         assertEquals("1080p", qualityLabel(1920, 1080))
+        assertEquals("1080p", qualityLabel(1920, 960))
+        assertEquals("1080p", qualityLabel(960, 1920))
+        assertEquals("480p", qualityLabel(848, 478))
         assertEquals("360p", qualityLabel(640, 360))
         assertEquals("4K", qualityLabel(3840, 2160))
         assertEquals("8K", qualityLabel(7680, 4320))
+        // The sheet's row name (without its frame rate) for the same picture.
+        val pictures = listOf(1920 to 960, 848 to 478, 1280 to 544, 3840 to 1600, 1080 to 1350)
+        pictures.forEach { (width, height) ->
+            val sheet = YftQualityNames.quality(YftQualityNames.standardHeight(width, height))
+            assertEquals("$width × $height", sheet, qualityLabel(width, height))
+        }
         assertNull(qualityLabel(null, 720))
         assertNull(qualityLabel(1280, 0))
         assertNull(MediaDetails.Unknown.qualityLabel)

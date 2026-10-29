@@ -1708,8 +1708,18 @@ Keep at least the heading and one blank line between sections, so Git merges the
   again; Retry stays, and every other row's hint is as before. `DownloadSources` keeps the mark
   (`pageWithoutPlayer`) in memory with the row's source until a renewal answers otherwise, and
   drops it with the source. Tests: additions to `DownloadSourcesTest`, `PageRereadRenewalTest`,
-  `DownloadRenewalRowsTest` and `DownloadsScreenTest`.
-- Next: item 9.
+  `DownloadRenewalRowsTest` and `DownloadsScreenTest`. `3be32ff8`, CI green: checkpoint
+  validation 40904079022, emulator smoke 40904078907, Preview APK 40904078922 (#128), minified
+  check 40904079197.
+- Item 9 (the "960p" check), checked first: the sheet names a video row by YFT's standard height
+  (P25, `YftQualityNames.standardHeight`: the one nearest to the picture's short side), so
+  YouTube's itag 299 of a 2:1 video, 1920 × 960, was "1080p60 · Full HD" (its detail line says
+  1920 × 960); the finished row and the Library read the saved file's short side
+  (`MediaDetails.qualityLabel`): "960p". So the row showed the file's real height, not a label
+  right for another reason: the finished row and the Library now name a file by the same standard
+  height, so it keeps the name the user picked ("1080p"; 848 × 478 "480p"; "4K" and "8K" as
+  before). Tests: `MediaDetailsTest`.
+- Next: item 10.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 

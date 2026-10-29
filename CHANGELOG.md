@@ -47,6 +47,8 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   order they were added, the newest first; finished, failed and stopped ones below.
 - **Link expired** on a page that, read again, had no player (a notice or a check) says only to
   reopen the page in the browser, since **Retry** would read the same page again.
+- A finished download and the Library name a video's quality as the Download sheet did: a
+  1920 × 960 file picked as **1080p** says 1080p, not 960p.
 
 ## [1.0.1] - 2026-10-29
 
