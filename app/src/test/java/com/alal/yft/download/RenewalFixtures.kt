@@ -67,13 +67,17 @@ internal class MemoryTaskStore : DownloadTaskStore {
 /** A file probe that answers each plan with its own link's facts, unless told otherwise. */
 internal class RecordingProbe : DirectMetadataProbe {
     val plans = CopyOnWriteArrayList<DirectDownloadPlan>()
+
+    /** Whether each probe asked the HEAD first (v1.0.2: not for a file its adapter checked). */
+    val askedHead = CopyOnWriteArrayList<Boolean>()
     var answer: (DirectDownloadPlan) -> DirectProbeResult = { plan ->
         DirectProbeResult.Success(RenewalFixtures.metadata(plan.sourceUrl))
     }
     var thrown: Exception? = null
 
-    override suspend fun probe(plan: DirectDownloadPlan): DirectProbeResult {
+    override suspend fun probe(plan: DirectDownloadPlan, askHead: Boolean): DirectProbeResult {
         plans += plan
+        askedHead += askHead
         thrown?.let { throw it }
         return answer(plan)
     }

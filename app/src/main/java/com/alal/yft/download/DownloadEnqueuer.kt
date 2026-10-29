@@ -38,7 +38,11 @@ interface DownloadDestinationProvider {
 
 /** Narrow probe boundary so enqueue logic stays testable without network access. */
 interface DirectMetadataProbe {
-    suspend fun probe(plan: DirectDownloadPlan): DirectProbeResult
+    /**
+     * [askHead] false (v1.0.2): the row's file was already got by its adapter's one-byte check
+     * (`MediaCandidate.fileChecked`, TikTok), so only the range GET asks it.
+     */
+    suspend fun probe(plan: DirectDownloadPlan, askHead: Boolean = true): DirectProbeResult
 }
 
 /** Starts the foreground transfer service once work is actually queued. */
@@ -124,7 +128,13 @@ class DownloadEnqueuer(
         // of its first run comes before it; a task the queue never got leaves none.
         val remember = Remember(taskId, origin, asset, variant)
         return when (request) {
-            is DownloadRequest.Direct -> enqueueDirect(request, target, remember)
+            is DownloadRequest.Direct -> enqueueDirect(
+                request = request,
+                target = target,
+                remember = remember,
+                // v1.0.2: a file TikTok's adapter already got skips the HEAD (its host may 404).
+                askHead = origin?.candidate?.fileChecked != true,
+            )
             is DownloadRequest.Hls ->
                 enqueueStream(request, target, exactStreamBytes) { name, dest, spec ->
                     remember.around(name) {
@@ -176,8 +186,9 @@ class DownloadEnqueuer(
         request: DownloadRequest.Direct,
         target: DownloadLocation,
         remember: Remember,
+        askHead: Boolean,
     ): EnqueueResult {
-        val metadata = when (val result = probe.probe(request.plan)) {
+        val metadata = when (val result = probe.probe(request.plan, askHead)) {
             is DirectProbeResult.Failure -> return EnqueueResult.Rejected(
                 result.failure.reason,
                 messageFor(result.failure.reason),

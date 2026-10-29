@@ -262,7 +262,7 @@ class SiteLinkRenewal(
             is DownloadPlanResult.Ready -> planned.request.planNamed(source.fileName)
         }
         if (plan !is DirectDownloadPlan) return LinkRenewal.Fresh(plan)
-        return when (val probed = probeSafely(plan)) {
+        return when (val probed = probeSafely(plan, askHead = !match.fileChecked)) {
             is DirectProbeResult.Success -> LinkRenewal.Fresh(plan, probed.metadata)
             is DirectProbeResult.Failure -> LinkRenewal.Unavailable(
                 "the fresh file did not answer (${failureWords(probed.failure)})",
@@ -313,7 +313,7 @@ class SiteLinkRenewal(
                 .firstOrNull()
                 ?.first
                 ?: continue
-            return Match(asset, best)
+            return Match(asset, best, candidate.fileChecked)
         }
         return null
     }
@@ -326,15 +326,23 @@ class SiteLinkRenewal(
         null
     }
 
-    private suspend fun probeSafely(plan: DirectDownloadPlan): DirectProbeResult = try {
-        probe.probe(plan)
+    private suspend fun probeSafely(
+        plan: DirectDownloadPlan,
+        askHead: Boolean,
+    ): DirectProbeResult = try {
+        probe.probe(plan, askHead)
     } catch (cancellation: CancellationException) {
         throw cancellation
     } catch (_: Exception) {
         DirectProbeResult.Failure(DownloadFailure(DownloadFailureReason.NETWORK))
     }
 
-    private data class Match(val asset: MediaAsset, val variant: MediaVariant) {
+    /** [fileChecked]: the fresh file was got by its adapter's one-byte check (v1.0.2, TikTok). */
+    private data class Match(
+        val asset: MediaAsset,
+        val variant: MediaVariant,
+        val fileChecked: Boolean = false,
+    ) {
         override fun toString(): String = "Match(variant=$variant)"
     }
 

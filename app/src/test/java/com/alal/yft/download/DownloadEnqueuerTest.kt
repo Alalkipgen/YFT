@@ -21,8 +21,10 @@ import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.download.RemoteFileMetadata
 import com.alal.yft.core.model.download.TransferCheckpoint
 import com.alal.yft.core.model.media.BrowserRequestContext
+import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.CompanionAudio
 import com.alal.yft.core.model.media.MediaAsset
+import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaSizeAccuracy
 import com.alal.yft.core.model.media.MediaTrackType
@@ -62,6 +64,23 @@ class DownloadEnqueuerTest {
         assertEquals(DownloadPlanType.DIRECT, task.planType)
         assertEquals(4_096L, task.totalBytes)
         assertEquals(1, harness.serviceStarter.starts)
+    }
+
+    /**
+     * v1.0.2: a file TikTok's adapter already got with its one-byte check is probed without the
+     * HEAD (TikTok's host answers some HEADs 404); every other file, and a download without its
+     * origin, asks the HEAD first.
+     */
+    @Test
+    fun `a file its adapter already checked is probed without the HEAD`() = runTest {
+        val harness = Harness(this)
+        val file = variant(kind = MediaKind.DIRECT, label = "540p")
+
+        harness.enqueuer.enqueue(asset(), file, DownloadOrigin(candidate(checked = true), file))
+        harness.enqueuer.enqueue(asset(), file, DownloadOrigin(candidate(checked = false), file))
+        harness.enqueuer.enqueue(asset(), file)
+
+        assertEquals(listOf(false, true, true), harness.probe.askedHead)
     }
 
     @Test
@@ -344,9 +363,11 @@ class DownloadEnqueuerTest {
         ),
     ) : DirectMetadataProbe {
         var calls = 0
+        val askedHead = mutableListOf<Boolean>()
 
-        override suspend fun probe(plan: DirectDownloadPlan): DirectProbeResult {
+        override suspend fun probe(plan: DirectDownloadPlan, askHead: Boolean): DirectProbeResult {
             calls += 1
+            askedHead += askHead
             return result
         }
     }
@@ -421,6 +442,15 @@ class DownloadEnqueuerTest {
 
         override suspend fun discard(plan: DownloadPlan) = Unit
     }
+
+    private fun candidate(checked: Boolean) = MediaCandidate(
+        pageUrl = "https://www.tiktok.com/@fixture/video/1",
+        mediaUrl = "https://media.example.test/clip",
+        sources = setOf(CandidateSource.MANIFEST),
+        kind = MediaKind.DIRECT,
+        videoId = "tiktok:1",
+        fileChecked = checked,
+    )
 
     private fun asset() = MediaAsset(
         sourcePageUrl = "https://page.example.test/watch",

@@ -573,6 +573,8 @@ class TikTokExtractorTest {
             )
             assertEquals(listOf(720, 576, 576), result.candidates.map { it.width })
             assertEquals(listOf(1280, 1024, 1024), result.candidates.map { it.height })
+            // v1.0.2: each row's file was got by its one-byte check: its download skips the HEAD.
+            assertEquals(listOf(true, true, true), result.candidates.map { it.fileChecked })
             result.candidates.forEach { candidate ->
                 assertTrue(candidate.mediaUrl.startsWith("https://$TIKTOK_MEDIA_HOST/video/tos/"))
                 assertEquals(DESKTOP_AGENT, candidate.requestContext.userAgent)
@@ -620,6 +622,8 @@ class TikTokExtractorTest {
         )
         assertEquals("post id: missing", result.details[2])
         assertTrue(result.details.contains("file check: not available"))
+        // No file was checked, so no row is marked: each download asks the HEAD first.
+        assertTrue(result.candidates.none { it.fileChecked })
     }
 
     @Test

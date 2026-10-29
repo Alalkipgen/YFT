@@ -1725,8 +1725,24 @@ Keep at least the heading and one blank line between sections, so Git merges the
   (the same page, clip and layer shapes, the same vk.com address); no other host: look-alikes
   (`vksport.vkvideo.ru.example.org`, `evilvkvideo.ru`) and vk.com's or vk.ru's other subdomains
   stay the generic detector's. Main's lookup changes, so S5 must cover VK (decision 26). Tests:
-  additions to `VkUrlsTest` and `VkAdapterSetTest`.
-- Next: item 15.
+  additions to `VkUrlsTest` and `VkAdapterSetTest`. `1dc19fc8`, CI: emulator smoke 40911946085,
+  Preview APK 40911946206 (#130) and minified check 40911946212 green; checkpoint validation
+  40911946099 failed in its Gradle step after 7 minutes, not in a test: its log (from the owner)
+  shows the runner's Kotlin compiler out of memory ("Not enough memory to run compilation") in
+  `:core-download:compileDebugUnitTestKotlin` and `:app:compileDebugUnitTestKotlin`; the step's
+  tasks — every module's lint and unit tests, the debug build — pass locally on this branch's
+  tree with items 15–20 in it, so the next code push's run is its record.
+- Item 15 (TikTok's HEAD skip), checked first: since P45 the Download sheet's resolver
+  (`DefaultVariantResolver`) asks a range GET after any HEAD error, so the step that failed was
+  the Download tap's probe (`DirectRangeProbe`: after a HEAD 4xx other than 405 and 501 it fails,
+  the owner's rule). Now a row whose file TikTok's adapter already got with its one-byte range
+  request (its file check: `MediaCandidate.fileChecked`) is probed with the range GET alone, no
+  HEAD (`askHead` false), on the tap and on a fresh link (Track E's `SiteLinkRenewal`); every
+  other row, and a TikTok row whose check was not available, asks the HEAD first, a 4xx HEAD
+  failing as before. The lookup: TikTok's adapter only marks the rows it checked (the same
+  requests, rows and checks), so S5 must cover TikTok (decision 26). Tests: additions to
+  `DirectRangeProbeTest`, `DownloadEnqueuerTest`, `SiteLinkRenewalTest` and `TikTokExtractorTest`.
+- Next: item 18.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 

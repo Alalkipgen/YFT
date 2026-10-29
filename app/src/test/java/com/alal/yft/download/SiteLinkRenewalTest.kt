@@ -189,9 +189,15 @@ class SiteLinkRenewalTest {
         assertEquals(link(instagram, "720", 1), plan.sourceUrl)
     }
 
+    /**
+     * v1.0.2: TikTok's adapter marks the files its one-byte check got, so neither the downloads'
+     * probes nor the fresh links' ask the HEAD (TikTok's host answers some HEADs 404).
+     */
     @Test
     fun `TikTok's H264 and H265 files of one height stay apart`() = runTest {
-        tiktok.answer = { found(tikTokFiles(it)) }
+        tiktok.answer = { lookup ->
+            found(tikTokFiles(lookup).map { file -> file.copy(fileChecked = true) })
+        }
         val harness = harness()
         val h264 = download(harness, lookUp(tiktok).single { "h264" in it.mediaUrl })
         val h265 = download(harness, lookUp(tiktok).single { "h265" in it.mediaUrl })
@@ -201,6 +207,7 @@ class SiteLinkRenewalTest {
 
         assertEquals(link(tiktok, "h264", 1), (first.plan as DirectDownloadPlan).sourceUrl)
         assertEquals(link(tiktok, "h265", 2), (second.plan as DirectDownloadPlan).sourceUrl)
+        assertEquals(listOf(false, false, false, false), probe.askedHead)
     }
 
     @Test
@@ -212,6 +219,8 @@ class SiteLinkRenewalTest {
         val plan = renew(harness, low, x).plan as DirectDownloadPlan
 
         assertEquals(link(x, "720-low", 1), plan.sourceUrl)
+        // Every other site's file asks the HEAD first (v1.0.2: only checked files skip it).
+        assertEquals(listOf(true, true), probe.askedHead)
     }
 
     @Test

@@ -133,7 +133,13 @@ class TikTokExtractor(
         ) : PageRead
     }
 
-    private class Working(val quality: TikTokQuality, val address: String, val totalBytes: Long?)
+    /** [checked]: the one-byte check got [address] (v1.0.2: its download then skips the HEAD). */
+    private class Working(
+        val quality: TikTokQuality,
+        val address: String,
+        val totalBytes: Long?,
+        val checked: Boolean = false,
+    )
 
     private class Checked(val answer: PageRead.Parsed, val working: List<Working>)
 
@@ -521,7 +527,9 @@ class TikTokExtractor(
             return Checked(
                 answer,
                 checks.mapNotNull { check ->
-                    check.found?.let { Working(check.quality, it, check.totalBytes) }
+                    check.found?.let { found ->
+                        Working(check.quality, found, check.totalBytes, checked = true)
+                    }
                 },
             )
         }
@@ -568,7 +576,9 @@ class TikTokExtractor(
                 details += "file check (${answer.which.label}): ${quality.label} " +
                     check.trail.joinToString(" → ") + outcome
             }
-            return listOfNotNull(check.found?.let { Working(quality, it, check.totalBytes) })
+            return listOfNotNull(
+                check.found?.let { Working(quality, it, check.totalBytes, checked = true) },
+            )
         }
 
         private fun candidate(answer: PageRead.Parsed, working: Working): MediaCandidate {
@@ -597,6 +607,7 @@ class TikTokExtractor(
                 width = quality.width,
                 height = quality.height,
                 bitrateBitsPerSecond = quality.bitrateBitsPerSecond,
+                fileChecked = working.checked,
             )
         }
 

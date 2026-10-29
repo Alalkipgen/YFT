@@ -92,6 +92,13 @@ data class MediaCandidate(
      * nothing did. Set with [PageMediaRole.PREVIEW].
      */
     val adSign: AdSign? = null,
+    /**
+     * v1.0.2: the site's adapter already got [mediaUrl] with a one-byte range request before it
+     * became a row (TikTok's adapter checks every file so), so the download's probe asks it with
+     * the range GET and skips the HEAD: TikTok's file host answers some HEADs 404 or 504 for a
+     * file the range GET gets. False for every other file: its HEAD is asked first.
+     */
+    val fileChecked: Boolean = false,
 ) {
     override fun toString(): String = buildString {
         append("MediaCandidate(pageUrl=")

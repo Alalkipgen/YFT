@@ -43,8 +43,13 @@ class DirectRangeProbe(
         callTimeoutSeconds = policy.callTimeoutSeconds,
     )
 
-    suspend fun probe(plan: DirectDownloadPlan): DirectProbeResult = try {
-        probeSafely(plan)
+    /**
+     * [askHead] false (v1.0.2): the file's lookup already got it with a one-byte range request
+     * (`MediaCandidate.fileChecked`, TikTok's adapter), so the range GET asks it at once, without
+     * the HEAD. With the HEAD, a 4xx answer other than 405 and 501 fails, as before.
+     */
+    suspend fun probe(plan: DirectDownloadPlan, askHead: Boolean = true): DirectProbeResult = try {
+        probeSafely(plan, askHead)
     } catch (cancellation: CancellationException) {
         throw cancellation
     } catch (_: IOException) {
@@ -53,33 +58,39 @@ class DirectRangeProbe(
         failure(DownloadFailureReason.INVALID_URL)
     }
 
-    private suspend fun probeSafely(plan: DirectDownloadPlan): DirectProbeResult {
+    private suspend fun probeSafely(plan: DirectDownloadPlan, askHead: Boolean): DirectProbeResult {
         val initialUrl = plan.sourceUrl.toSafeDownloadUrl()
             ?: return failure(DownloadFailureReason.INVALID_URL)
         if (plan.expiresAtEpochMs?.let { it <= clock() } == true) {
             return failure(DownloadFailureReason.EXPIRED_URL)
         }
 
-        val headExecution = when (
-            val execution = execute(
-                credentialOrigin = initialUrl,
-                initialUrl = initialUrl,
-                context = plan.requestContext,
-                method = ProbeMethod.HEAD,
-            )
-        ) {
-            is Execution.Failed -> return execution.asResult()
-            is Execution.Completed -> execution
+        val headExecution = if (!askHead) {
+            null
+        } else {
+            when (
+                val execution = execute(
+                    credentialOrigin = initialUrl,
+                    initialUrl = initialUrl,
+                    context = plan.requestContext,
+                    method = ProbeMethod.HEAD,
+                )
+            ) {
+                is Execution.Failed -> return execution.asResult()
+                is Execution.Completed -> execution
+            }
         }
 
-        val headMetadata = headExecution.response.use { response ->
-            when {
-                response.code in HEAD_FALLBACK_CODES -> null
-                response.code !in SUCCESS_CODES -> return response.toFailure()
-                else -> response.toMetadata(
-                    finalUrl = headExecution.finalUrl,
-                    rangeRequested = false,
-                )
+        val headMetadata = headExecution?.let { head ->
+            head.response.use { response ->
+                when {
+                    response.code in HEAD_FALLBACK_CODES -> null
+                    response.code !in SUCCESS_CODES -> return response.toFailure()
+                    else -> response.toMetadata(
+                        finalUrl = head.finalUrl,
+                        rangeRequested = false,
+                    )
+                }
             }
         }
 
@@ -98,7 +109,7 @@ class DirectRangeProbe(
         val rangeExecution = when (
             val execution = execute(
                 credentialOrigin = initialUrl,
-                initialUrl = if (headGaveWebPage) initialUrl else headExecution.finalUrl,
+                initialUrl = headExecution?.finalUrl?.takeUnless { headGaveWebPage } ?: initialUrl,
                 context = plan.requestContext,
                 method = ProbeMethod.RANGE_GET,
             )

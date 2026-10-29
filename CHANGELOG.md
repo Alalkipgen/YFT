@@ -51,6 +51,8 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   1920 × 960 file picked as **1080p** says 1080p, not 960p.
 - VK videos on a channel's own vkvideo.ru address (such as vksport.vkvideo.ru) are found as on
   vkvideo.ru.
+- A TikTok download no longer fails at its start with 404 when TikTok's file host refuses the first
+  check of a file that TikTok's lookup already opened.
 
 ## [1.0.1] - 2026-10-29
 

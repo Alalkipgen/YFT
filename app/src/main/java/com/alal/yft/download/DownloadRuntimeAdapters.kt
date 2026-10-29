@@ -9,7 +9,8 @@ import com.alal.yft.core.model.download.DirectProbeResult
 class DirectRangeMetadataProbe(
     private val probe: DirectRangeProbe,
 ) : DirectMetadataProbe {
-    override suspend fun probe(plan: DirectDownloadPlan): DirectProbeResult = probe.probe(plan)
+    override suspend fun probe(plan: DirectDownloadPlan, askHead: Boolean): DirectProbeResult =
+        probe.probe(plan, askHead)
 }
 
 /** Starts the foreground transfer service from application context. */
