@@ -3,14 +3,16 @@
 Status: E0 done (§4.5); the owner's answers 2026-10-27 (§3); E1 done (§4.6: `core-download` and
 the new status's app plumbing); E2 done (§4.7: the app's renewal source for adapter sites, rows,
 Retry, Details); E3 done (§4.8: VK's 400, pages without an adapter, the trial's "Break this
-download's link", YouTube unchanged; CI per checkpoint). **STOP: READY FOR PHONE TEST (after
-v1.0.1).** E4 (§6, §7) only after v1.0.1 is published and with the owner's OK.
+download's link", YouTube unchanged; CI per checkpoint). E4 started 2026-10-29 (the owner:
+v1.0.1 is published): `main` `3b339e8` merged in (sync PR #12: `9c99e4dc`), previews (normal +
+trial). **STOP: the owner's phone test (§7)**; the PR to `main` only after its PASS, merged with
+the owner's OK.
 Planning: the owner's go, 2026-10-27, while S5's run 3 waits. Branch
 `work/phase-track-e-403` from `main` `a27b2c9c` (PR #8's merge: the code of S5's census APK).
 E1's to E3's code is on this branch: the app renews the links of adapter sites' downloads and of
-pages without an adapter; the trial can break a link. **Not for v1.0.1:** nothing here reaches
-`main`, and
-no APK from this branch reaches the owner's phone, before v1.0.1 is published.
+pages without an adapter; the trial can break a link. **Not for v1.0.1:** nothing here reached
+`main`, and no APK from this branch reached the owner's phone, before v1.0.1 was published
+(2026-10-29 10:08 UTC, tag `v1.0.1` on `f9a587ca`, release 427683089).
 
 ## 0. အကျဉ်းချုပ် (ပိုင်ရှင်အတွက်)
 
@@ -559,7 +561,11 @@ Built as §4.3, §4.5 and E-D1, E-D8, E-D9 name them; what differs or was decide
 | E1 | core-download: the interface, the state, the cap, resume or start over, cleanup, races; all four plan types; unit tests | — (CI green) | 4–6 h |
 | E2 | app: the renewal source (adapter sites), the same video and quality, wiring, rows, Retry (E-D6), notifications, Details; unit tests with fakes | — (CI green) | 6–9 h |
 | E3 | VK's 400 (E-D1), pages without an adapter (E-D8), the trial hook (E-D9), YouTube's B1/F8 unchanged (tests) | STOP: "READY FOR PHONE TEST (after v1.0.1)" | 3–5 h |
-| E4 | Only after the owner says v1.0.1 is published: merge `main` in, `[1.0.2]` in `CHANGELOG.md`, previews, the owner's phone test (§7), a PR with the owner's OK, v1.0.2 by `docs/RELEASE.md` | the owner's OKs | 1–2 h + the phone |
+| E4 | Only after the owner says v1.0.1 is published: merge `main` in (CI green), previews (normal + trial), the owner's phone test (§7), the results in `TEST_MATRIX` / `PHONE_TEST_NOTES` / `SESSION_STATE`, `[1.0.2]` lines in `CHANGELOG.md` (no date), a PR to `main`, merged with the owner's OK | STOP: the owner's OKs | 1–2 h + the phone |
+
+E4 has no tag, no Release draft and no versionName / versionCode change (`gradle.properties`
+stays `1.0.1` / `1000100`). E-D7: Track E needs no S5. A failed phone test is fixed on this
+branch, with new previews and the failed items tested again; no PR before PASS.
 
 E0's questions:
 
@@ -580,12 +586,12 @@ E0's questions:
 
 ## 7. Phone test (after v1.0.1 is published; never on the census phone before that)
 
-On E3's previews (normal + trial; uninstall the old preview first):
+On E4's previews (`main` merged in; normal + trial; uninstall the old preview first):
 
 1. Trial: start long downloads — a YouTube merged 1080p, a Facebook or X file, a TikTok, a VK 18+
    video, an HLS page — and "Break this download's link" at about 30 %: "Getting a fresh link…",
    then the download goes on; Details "resumed at …" or "started over"; the file plays, its size
-   right.
+   right. YouTube: "YouTube refused" (B1), then Retry, unless the network changed (§4.8).
 2. Real: start a download on Wi-Fi, switch to mobile data halfway (a new IP: YouTube's 403, VK's
    400) → it goes on.
 3. Pause, then Resume after the link's expiry (or after a break) → a fresh link.
@@ -613,6 +619,8 @@ On E3's previews (normal + trial; uninstall the old preview first):
   moves (the owner's note, 2026-10-27: a stable order, such as when the download was added). Its
   own branch and agent (Appendix B), in parallel with E; it touches that sort only, E that file's
   status sets.
+- After E4's merge the backlog phase starts on the new `main`; v1.0.2 is released later by
+  `docs/RELEASE.md`.
 
 ## Appendix A — prompt for the Track E agent
 

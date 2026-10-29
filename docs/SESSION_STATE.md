@@ -1695,6 +1695,9 @@ Keep at least the heading and one blank line between sections, so Git merges the
   `core-model` tests pass locally.
 - **STOP: READY FOR PHONE TEST (after v1.0.1).** Next: E4 (plan §6, §7) only after the owner says
   v1.0.1 is published and gives the OK; no APK from this branch before that.
+- E4 (2026-10-29, the owner: v1.0.1 published): `main` `3b339e8` merged in (sync PR #12, as #7:
+  `9c99e4dc`), `CHANGELOG.md` `[1.0.2]`'s Track E lines, the minified check on this branch;
+  **STOP: the owner's phone test** (plan §7) on the merge's previews; no PR to `main` before PASS.
 - This section sits above the wiring agent's (D) so Git merges it cleanly with that branch's S5
   notes; keep Track E's state here only.
 
