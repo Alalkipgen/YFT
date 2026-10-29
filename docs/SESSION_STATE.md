@@ -2113,9 +2113,14 @@ Keep at least the heading and one blank line between sections, so Git merges the
   `CHANGELOG.md` `## [1.0.1]` filled (not dated: the owner dates it when he publishes); the notes
   `docs/release/1.0.1.md`; `docs/RELEASE.md`'s identity row. No code change against `a27b2c9c` (S5's
   census APK's code).
-- Next: CI on the release commit (checkpoint validation, emulator smoke, Preview APK, minified
-  check); the owner's phone test of its two previews (YFT Preview and YFT Trial, one run, one
-  commit); then the PR to `main` with the owner's OK; the tag `v1.0.1` → Release draft (signed, a
-  draft); the owner's install and upgrade from 1.0.0 (`docs/RELEASE.md` §4); publishing only by the
-  owner (`ALLOW_RELEASE`, §5).
+- Release commit `2e98c46`; CI all green: checkpoint validation 40841257582, emulator smoke
+  40841257719, Preview APK 40841257516 (#122: `yft-preview-apk` 12882494953, `yft-preview-trial-apk`
+  12882529994), minified check 40841257526.
+- **The previews' phone test: PASS** (the owner, 2026-10-29; HyperOS, Android 16):
+  `1.0.1-preview.122` and `1.0.1-trial.122` (1000100); six sites' lookups and downloads fine; one
+  YouTube download `YOUTUBE_REFUSED` (403×3 at 11 MiB; Track B1, as in 1.0.0) — not a blocker; the
+  trial-only checks not run again (the owner). Details in `docs/PHONE_TEST_NOTES.md`.
+- Next: the PR to `main` with the owner's OK; then the Release draft `v1.0.1` (the tag or a manual
+  run on `main`, `publish` unticked); the owner's install over 1.0.0 (`docs/RELEASE.md` §4);
+  publishing only by the owner (`ALLOW_RELEASE`, §5).
 
