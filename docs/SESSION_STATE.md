@@ -1684,7 +1684,15 @@ Keep at least the heading and one blank line between sections, so Git merges the
   which now looks where the app is when it runs, so the Updates screen waits for the next open
   instead of covering Downloads. Tests: `TabRequestsTest`, additions to
   `DownloadNotificationFactoryTest`, `YftNavigationSmokeTest` and `UpdateAutoOpenTest`.
-- Next: item 3.
+  `68105531`, CI green: checkpoint validation 40887758026, emulator smoke 40887758227, Preview
+  APK 40887758091 (#125), minified check 40887758041.
+- Item 3 (Home's site tiles): "Your sites" shows every site, three to a row in the user's order,
+  then Add; as many rows as needed, no sideways swipe (six sites and Add: rows of 3, 3 and 1). Each
+  tile sits in its third of the row, so the columns line up and a short last row keeps them; edit
+  mode drops Add and keeps the rows. Tests: `HomeScreenTest` (the rows, their order, the columns,
+  no sideways scroll; edit mode). Other ways for the owner to choose: four to a row with today's
+  spacing, or as many as the screen's width takes.
+- Next: item 6.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 

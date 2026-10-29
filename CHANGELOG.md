@@ -32,6 +32,8 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
 
 - **YouTube refused** keeps its hint and **Reset YouTube session**; YFT asks for a fresh link by
   itself only after the phone's network changed (once per download), else on Retry.
+- Home's **Your sites** shows every site, three to a row in your order with **Add** last, instead
+  of four and a sideways swipe for the rest.
 
 ### Fixed
 

@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -22,8 +21,6 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
@@ -33,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
@@ -360,24 +358,36 @@ private fun SitesSection(
                 .takeIf { sites.isNotEmpty() || editing },
             actionTestTag = "home-sites-edit",
         )
-        // Four tiles fill the row as in the design; more scroll sideways.
-        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-            val gap = ((maxWidth - SITE_TILE_WIDTH * VISIBLE_TILES) / (VISIBLE_TILES - 1))
-                .coerceAtLeast(8.dp)
-            LazyRow(
-                modifier = Modifier.fillMaxWidth().testTag("home-sites"),
-                horizontalArrangement = Arrangement.spacedBy(gap),
-            ) {
-                items(sites, key = { it.url }) { site ->
-                    SiteTile(
-                        site = site,
-                        editing = editing,
-                        onOpen = { onOpenSite(site) },
-                        onRemove = { onAction(HomeAction.RemoveSite(site)) },
-                    )
-                }
-                if (!editing) {
-                    item(key = "add") { AddSiteTile(onClick = { onAction(HomeAction.AddSite) }) }
+        // v1.0.2: three tiles a row and as many rows as the sites need, so every site shows
+        // without a sideways swipe; the sites in their order, then Add (null here).
+        val cells: List<HomeSite?> = if (editing) sites else sites + null
+        Column(
+            modifier = Modifier.fillMaxWidth().testTag("home-sites"),
+            verticalArrangement = Arrangement.spacedBy(SITE_ROW_GAP),
+        ) {
+            cells.chunked(SITES_PER_ROW).forEach { row ->
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    row.forEach { site ->
+                        Box(
+                            modifier = Modifier.weight(1f),
+                            contentAlignment = Alignment.TopCenter,
+                        ) {
+                            if (site == null) {
+                                AddSiteTile(onClick = { onAction(HomeAction.AddSite) })
+                            } else {
+                                key(site.url) {
+                                    SiteTile(
+                                        site = site,
+                                        editing = editing,
+                                        onOpen = { onOpenSite(site) },
+                                        onRemove = { onAction(HomeAction.RemoveSite(site)) },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    // A short last row keeps the columns of the rows above.
+                    repeat(SITES_PER_ROW - row.size) { Spacer(modifier = Modifier.weight(1f)) }
                 }
             }
         }
@@ -658,7 +668,8 @@ private val SITE_TILE_WIDTH = 72.dp
 private val SITE_CIRCLE = 64.dp
 private val SITE_LOGO = 30.dp
 private const val NIGHT_LETTER_LIGHTEN = 0.6f
-private const val VISIBLE_TILES = 4
+private const val SITES_PER_ROW = 3
+private val SITE_ROW_GAP = 12.dp
 private const val THUMBNAIL_RATIO = 16f / 9f
 
 /** Key on Home's back stack entry for a link the browser hands over to look up (T13). */

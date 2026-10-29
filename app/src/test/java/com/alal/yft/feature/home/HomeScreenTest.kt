@@ -8,6 +8,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasContentDescription
@@ -278,19 +280,56 @@ class HomeScreenTest {
         val docs = HomeSite("Docs", "https://docs.test")
         setContent(HomeUiState(sites = HomeSites.DEFAULTS + docs))
 
-        // D4: Instagram and X are defaults too; four tiles fill the row, the rest scroll sideways.
+        // D4: Instagram and X are defaults too; v1.0.2: every tile shows without a swipe.
         val slugs = listOf("youtube", "facebook", "tiktok", "instagram", "x")
         HomeSites.DEFAULTS.zip(slugs).forEach { (site, slug) ->
-            composeRule.onNodeWithTag("home-sites")
-                .performScrollToNode(hasTestTag("home-site-${site.url}"))
-            composeRule.onNodeWithTag("site-logo-$slug", useUnmergedTree = true).assertExists()
+            composeRule.onNodeWithTag("site-logo-$slug", useUnmergedTree = true).assertIsDisplayed()
             composeRule.onNodeWithTag("home-site-${site.url}")
+                .assertIsDisplayed()
                 .assert(hasContentDescription(site.name))
         }
         assertEquals(listOf("Instagram", "X"), HomeSites.DEFAULTS.takeLast(2).map { it.name })
+        composeRule.onNodeWithText("D", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun sitesFillRowsOfThreeInTheirOrderWithAddLast() {
+        val docs = HomeSite("Docs", "https://docs.test")
+        setContent(HomeUiState(sites = HomeSites.DEFAULTS + docs))
+
+        val tags = (HomeSites.DEFAULTS + docs).map { "home-site-${it.url}" } + "home-site-add"
+        val rows = tags
+            .map { tag ->
+                composeRule.onNodeWithTag(tag).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            }
+            .chunked(3)
+
+        assertEquals(listOf(3, 3, 1), rows.map { it.size })
+        rows.forEach { row ->
+            assertTrue(row.all { it.top == row.first().top })
+            assertTrue(row.zipWithNext().all { (left, right) -> right.left > left.right })
+            // The columns line up from row to row.
+            row.forEachIndexed { column, tile -> assertEquals(rows[0][column].left, tile.left) }
+        }
+        rows.zipWithNext().forEach { (upper, lower) ->
+            assertTrue(lower.first().top >= upper.first().bottom)
+        }
+        // No sideways scrolling is left.
         composeRule.onNodeWithTag("home-sites")
-            .performScrollToNode(hasTestTag("home-site-${docs.url}"))
-        composeRule.onNodeWithText("D", useUnmergedTree = true).assertExists()
+            .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.HorizontalScrollAxisRange))
+    }
+
+    @Test
+    fun editModeKeepsTheRowsOfThreeWithoutAdd() {
+        val sites = HomeSites.DEFAULTS.take(4)
+        setContent(HomeUiState(sites = sites, editingSites = true))
+
+        composeRule.onNodeWithTag("home-site-add").assertDoesNotExist()
+        val tops = sites.map { site ->
+            composeRule.onNodeWithTag("home-site-${site.url}").fetchSemanticsNode().boundsInRoot.top
+        }
+        assertEquals(tops[0], tops[2])
+        assertTrue(tops[3] > tops[0])
     }
 
     @Test
