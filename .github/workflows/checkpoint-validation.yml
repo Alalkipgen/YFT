@@ -120,6 +120,18 @@ jobs:
             echo "No supported Gradle project was found." >&2
             exit 1
           fi
+      # v1.0.2: the Master engine's and the scripts' tests run here too, each in its own step (they
+      # ran only on the agents' machines before a checkpoint).
+      - name: Master engine tests (extractor-master)
+        shell: bash
+        run: ./gradlew --no-daemon :extractor-master:test
+      - name: Script tests (scripts/tests)
+        shell: bash
+        env:
+          # The publish dry runs start Python with a temporary HOME: without the user's own
+          # packages here too, a package those runs cannot import skips its tests in both.
+          PYTHONNOUSERSITE: "1"
+        run: python3 -m unittest discover -s scripts/tests -p 'test_*.py'
       - name: Build and check the unsigned release APK
         shell: bash
         run: |

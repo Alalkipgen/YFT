@@ -1768,7 +1768,15 @@ Keep at least the heading and one blank line between sections, so Git merges the
   `run` for its rows; now `V1 rows`, and a 429 `V1 run (RATE_LIMITED)`, not its next step
   (`STOP_SITE`). The census's reading only (the debug builds' census): no lookup changes, no
   CHANGELOG line; S5's VK census shows it. Tests: additions to `SiteCensusLadderTest`.
-- Next: item 20.
+  `95d50ec0`, CI green: checkpoint validation 40924924598, emulator smoke 40924924635, Preview APK
+  40924924600 (#133), minified check 40924924694.
+- Item 20 (CI runs the Master engine's and the scripts' tests): checkpoint validation's job, after
+  its Gradle step, runs "Master engine tests (extractor-master)" (`:extractor-master:test`, 1118
+  tests here) and "Script tests (scripts/tests)" (`unittest discover`, 71 tests here, 5 skipped),
+  each its own step; until now they ran only on the agents' machines before a checkpoint. The
+  scripts' step sets `PYTHONNOUSERSITE=1`, as the publish dry runs start Python with a temporary
+  HOME: a package they cannot import skips its tests in both. No app change: no CHANGELOG line.
+- Next: the backlog lines marked done in v1.0.2 (docs only), then the phone test.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
