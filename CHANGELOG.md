@@ -49,6 +49,8 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   reopen the page in the browser, since **Retry** would read the same page again.
 - A finished download and the Library name a video's quality as the Download sheet did: a
   1920 × 960 file picked as **1080p** says 1080p, not 960p.
+- VK videos on a channel's own vkvideo.ru address (such as vksport.vkvideo.ru) are found as on
+  vkvideo.ru.
 
 ## [1.0.1] - 2026-10-29
 

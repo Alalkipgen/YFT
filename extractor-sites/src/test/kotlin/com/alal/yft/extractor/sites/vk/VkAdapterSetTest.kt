@@ -38,6 +38,7 @@ class VkAdapterSetTest {
         listOf(
             "https://vk.com/video-50883936_456244102",
             "https://vkvideo.ru/video-50883936_456244102",
+            "https://vksport.vkvideo.ru/video-50883936_456244102",
             "https://m.vk.ru/clip30014565_456240946",
             "https://vk.com/feed?z=video-50883936_456244102%2Fpl_post_-50883936_1",
             "https://vk.com/video_ext.php?oid=-50883936&id=456244102&hash=0123abcd",
@@ -71,6 +72,7 @@ class VkAdapterSetTest {
             "https://vk.com/away.php?to=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DYft0Fixture",
             "https://vk.com/club50883936",
             "https://vkvideo.ru/",
+            "https://vksport.vkvideo.ru/",
         ).forEach { url ->
             assertTrue(url, registry.select(url) is SiteAdapterSelection.None)
         }

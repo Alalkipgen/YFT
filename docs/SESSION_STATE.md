@@ -1718,8 +1718,15 @@ Keep at least the heading and one blank line between sections, so Git merges the
   (`MediaDetails.qualityLabel`): "960p". So the row showed the file's real height, not a label
   right for another reason: the finished row and the Library now name a file by the same standard
   height, so it keeps the name the user picked ("1080p"; 848 × 478 "480p"; "4K" and "8K" as
-  before). Tests: `MediaDetailsTest`.
-- Next: item 10.
+  before). Tests: `MediaDetailsTest`. `a7357ba3`, CI green: checkpoint validation 40908400428,
+  emulator smoke 40908400832, Preview APK 40908400664 (#129), minified check 40908400818.
+- Item 10 (VK's subdomains): `VkUrls` takes vkvideo.ru with any subdomain (www., m., a channel's
+  own such as `vksport.vkvideo.ru`: B0's slot 5, `not handled`), its links read as vkvideo.ru's
+  (the same page, clip and layer shapes, the same vk.com address); no other host: look-alikes
+  (`vksport.vkvideo.ru.example.org`, `evilvkvideo.ru`) and vk.com's or vk.ru's other subdomains
+  stay the generic detector's. Main's lookup changes, so S5 must cover VK (decision 26). Tests:
+  additions to `VkUrlsTest` and `VkAdapterSetTest`.
+- Next: item 15.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 

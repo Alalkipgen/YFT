@@ -10,9 +10,9 @@ import java.util.Locale
  *
  * Claimed: `/video{oid}_{id}` and `/clip{oid}_{id}` pages, a `z=video…` or `z=clip…` layer on
  * any page, and `video_ext.php?oid=…&id=…` embeds, on vk.com (www., m.), vk.ru (m.) and vkvideo.ru
- * (www., m.). Everything else — messenger posts, VK's link-out page, look-alike hosts, ids that
- * are not bounded numbers — stays with the generic detector. Matching never throws and never
- * touches the network.
+ * with any subdomain (www., m., a channel's own such as `vksport.vkvideo.ru`; v1.0.2). Everything
+ * else — messenger posts, VK's link-out page, look-alike hosts, ids that are not bounded numbers —
+ * stays with the generic detector. Matching never throws and never touches the network.
  */
 internal object VkUrls {
     const val SITE_ID = "vk"
@@ -27,10 +27,10 @@ internal object VkUrls {
         "m.vk.com",
         "vk.ru",
         "m.vk.ru",
-        "vkvideo.ru",
-        "www.vkvideo.ru",
-        "m.vkvideo.ru",
     )
+
+    /** vkvideo.ru takes every subdomain (B0's finding: a channel's `vksport.vkvideo.ru`). */
+    private const val VKVIDEO_HOST = "vkvideo.ru"
     private const val MAX_PAGE_URL_CHARS = 4_096
     private const val MAX_MEDIA_URL_CHARS = 8_192
     private const val EMBED_PATH = "/video_ext.php"
@@ -174,7 +174,7 @@ internal object VkUrls {
         if (uri.rawUserInfo != null) return null
         if (uri.port != -1 && uri.port != 443) return null
         val host = uri.host?.lowercase(Locale.US) ?: return null
-        if (host !in PAGE_HOSTS) return null
+        if (!isPageHost(host)) return null
         val path = uri.rawPath.orEmpty()
         if (path.equals(AWAY_PATH, ignoreCase = true)) return null
         val query = queryOf(uri.rawQuery) ?: return null
@@ -193,6 +193,9 @@ internal object VkUrls {
         if (segments.size != 1) return null
         return item(segments.single())?.copy(list = list, hash = hash)
     }
+
+    private fun isPageHost(host: String): Boolean =
+        host in PAGE_HOSTS || host == VKVIDEO_HOST || host.endsWith(".$VKVIDEO_HOST")
 
     private fun item(text: String): VkLink? {
         val match = ITEM.matchEntire(text) ?: return null

@@ -21,6 +21,11 @@ class VkUrlsTest {
             "https://vkvideo.ru/video-50883936_456244102" to video,
             "https://www.vkvideo.ru/video-50883936_456244102" to video,
             "https://m.vkvideo.ru/video-50883936_456244102" to video,
+            // v1.0.2: a channel's own vkvideo.ru subdomain (the census's B0, slot 5).
+            "https://vksport.vkvideo.ru/video-50883936_456244102" to video,
+            "https://VKSport.vkvideo.ru/video-50883936_456244102?list=ln-x" to
+                "$video?list=ln-x",
+            "https://vksport.vkvideo.ru/clip30014565_456240946" to clip,
             "https://VK.com:443/video-50883936_456244102/" to video,
             " https://vk.com/video-50883936_456244102?t=1m2s " to video,
             "https://vk.com/clip30014565_456240946" to clip,
@@ -44,6 +49,8 @@ class VkUrlsTest {
             "https://vk.com/wall-140332_1?z=clip30014565_456240946" to
                 "https://vk.com/clip30014565_456240946",
             "https://vkvideo.ru/@club50883936?z=video-50883936_456244102%2Fclub50883936" to
+                "https://vk.com/video-50883936_456244102",
+            "https://vksport.vkvideo.ru/?z=video-50883936_456244102" to
                 "https://vk.com/video-50883936_456244102",
             "https://vk.com/im?sel=1&z=video-140332_456239111" to
                 "https://vk.com/video-140332_456239111",
@@ -99,6 +106,15 @@ class VkUrlsTest {
             "https://evilvk.com/video-1_2",
             "https://vk.co/video-1_2",
             "https://vkvideo.ru.example.org/video-1_2",
+            // Only vkvideo.ru itself takes any subdomain: no look-alike, no other VK host.
+            "https://vksport.vkvideo.ru.example.org/video-1_2",
+            "https://evilvkvideo.ru/video-1_2",
+            "https://vksport-vkvideo.ru/video-1_2",
+            "https://vkvideo.rus/video-1_2",
+            "https://vkvideo.ru.evil/video-1_2",
+            "https://sport.vk.ru/video-1_2",
+            "http://vksport.vkvideo.ru/video-1_2",
+            "https://vksport.vkvideo.ru/videos-50883936",
             "https://video.vk.com/video-1_2",
             "http://vk.com/video-1_2",
             "https://user@vk.com/video-1_2",
