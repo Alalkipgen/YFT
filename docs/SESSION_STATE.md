@@ -2084,6 +2084,40 @@ Keep at least the heading and one blank line between sections, so Git merges the
   items 10, 19 and 11; TikTok: items 15 and 18) on a census APK of the final code; no PR before
   it.
 
+## v1.0.2 part 3 — `work/phase-v102-easy`
+
+- Task (the owner, 2026-10-29): the v1.0.2 backlog, part 3 — 70 a private Instagram reel's
+  message, 26 AV1 merges as a test switch, 59 DASH `SegmentBase`/SIDX on pages without an
+  adapter, 51 all the items of a post (Instagram, X); before 70, one CHANGELOG line for Part 1's
+  item 18. Start: `5450eed5` (Part 2's docs-only commit), confirmed as the branch's head; its code
+  is `501f8143`'s, whose four runs are green (checked again): checkpoint validation 41013896197
+  (#586), emulator smoke 41013896187 (#174), Preview APK 41013896183 (#141), minified check
+  41013896184 (#32). Part 2's Next line: the owner's phone test. Folder `/data/yft`. Each item its
+  own commit with unit tests; CI green before the next item; at the end STOP: READY FOR PHONE TEST
+  (no PR).
+- Lookup files allowed: main's Instagram and X adapters (51); for 70 only passing on a signal
+  already read. Another lookup change → a hand-off line here and a STOP.
+- How this agent pushes: as Part 2's — `scripts/checkpoint.sh` (its checks, its tests, its commit;
+  its `git push` fails for want of credentials), then the same files through the GitHub connector
+  as one commit with the same message; the remote commit's tree is checked to be the local
+  commit's tree, and the local branch is moved to the remote commit. The SHAs here are the remote
+  commits.
+- Item 18's CHANGELOG line (the owner's decision, 2026-10-30: the release ships T1's pacing;
+  `app/build.gradle.kts`'s `releaseMaster` sets `SOCIAL_LADDER` true, only `socialTrial` is
+  debug-only). Checked against `TikTokLadder.kt` (lines 180–190 and 259–271),
+  `SocialStops.kt` (`SocialBudget.TIKTOK`: `gapMillis` 10 000, `millis` 30 000;
+  `SocialCooldown.pace`) and Part 1's item 18 entry. The example's wording, corrected where the
+  code says otherwise: the 10 s count from the backup finder's last ask of TikTok's player (T1),
+  not from any lookup (a lookup main answers asks no player); when the wait would not fit in the
+  lookup's 30 s, T1 is not asked ("paced (10 s between its asks), its wait over the lookup's time
+  budget; not asked"; T2 still reads). The line, under Changed after VK's: "Backup finder for
+  TikTok: it asks TikTok's player at most once in 10 seconds, since TikTok refuses quick
+  repeats: a TikTok lookup less than 10 s after the last ask waits the rest, or does not ask the
+  player when that wait would not fit in the lookup's time; with Show details on, Lookup details
+  say "paced, waited N s" (or "not asked")." Docs only (this commit): no CI run is expected. Part
+  1's section is not edited.
+- Next: item 70 (checked first), then 26, 59 and 51.
+
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
 - Plan: `docs/TRACK_E_PLAN.md` (the owner's go, 2026-10-27, while S5's run 3 waits). Branch from
