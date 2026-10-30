@@ -60,6 +60,12 @@ internal object InstagramUrls {
         item?.let { append("?img_index=").append(it) }
     }
 
+    /**
+     * v1.0.2 item 70b: whether [code] is a private post's code — longer than a public post's 11
+     * characters (its media ID, [mediaIdOf]): the one hint of a private post a link carries.
+     */
+    fun isPrivateCode(code: String): Boolean = code.length > MEDIA_ID_CHARS
+
     /** The 1-based carousel item a canonical address names, or null. */
     fun itemOf(canonicalPageUrl: String): Int? =
         imageIndexOf(canonicalPageUrl.substringAfter('?', ""))

@@ -21,6 +21,10 @@ class InstagramExtractorTest {
         /** 2023-11-14: after `oe=5F000000` (2020), before `oe=7A000000` (2034). */
         const val NOW = 1_700_000_000_000L
 
+        /** v1.0.2 item 70b: a private post's code, longer than a public post's 11 characters. */
+        const val PRIVATE_CODE = "C9fixtREEL1AbCdEfGhIjKlMnOpQrStUv"
+        const val PRIVATE_REEL = "https://www.instagram.com/reel/$PRIVATE_CODE/"
+
         /**
          * v1.0.2 item 51: a carousel of a video, a photo, a video without files, a video and a
          * video whose link expired. Here, not under `fixtures/`: Master's offline parity reads
@@ -309,6 +313,48 @@ class InstagramExtractorTest {
             as SiteExtractionResult.Failure
 
         assertEquals(SiteExtractionFailure.LOGIN_REQUIRED, failure.reason)
+    }
+
+    /**
+     * v1.0.2 item 70b: a lookup that ends unread on a private post's code (longer than 11
+     * characters) says the post is private, with a line saying why; the reason, the other lines,
+     * an 11-character code and the login wall stay as they were.
+     */
+    @Test
+    fun `a private post's code left unread says the post is private`() = runTest {
+        fun unread() = client(
+            graphQl = json("graphql_null.json"),
+            page = html("embed_no_video.html"),
+            embed = html("embed_no_video.html"),
+        )
+
+        val private = InstagramExtractor(unread()).extract(request(PRIVATE_REEL))
+            as SiteExtractionResult.Failure
+        val public = InstagramExtractor(unread()).extract(
+            request("https://www.instagram.com/reel/C9fixtREEL1/"),
+        ) as SiteExtractionResult.Failure
+
+        assertEquals(SiteExtractionFailure.RESPONSE_CHANGED, private.reason)
+        assertEquals("This Instagram post is private or no longer available.", private.message)
+        assertEquals(
+            public.details + "link: a private post's code (longer than 11 characters)",
+            private.details,
+        )
+        assertTrue(private.details.none { PRIVATE_CODE in it })
+        assertEquals(public.allowsGenericFallback, private.allowsGenericFallback)
+        assertEquals(public.httpStatusCode, private.httpStatusCode)
+        // An 11-character code: the app's words for a changed answer, as before; no line.
+        assertEquals(SiteExtractionFailure.RESPONSE_CHANGED, public.reason)
+        assertNull(public.message)
+        assertTrue(public.details.none { "private" in it })
+
+        // The login wall stays the wall's, also on a private post's code.
+        val wall = InstagramExtractor(
+            client(graphQl = json("graphql_login.json"), page = html("embed_no_video.html")),
+        ).extract(request(PRIVATE_REEL)) as SiteExtractionResult.Failure
+        assertEquals(SiteExtractionFailure.LOGIN_REQUIRED, wall.reason)
+        assertEquals(InstagramExtractor.LOGIN_MESSAGE, wall.message)
+        assertTrue(wall.details.none { "private" in it })
     }
 
     @Test

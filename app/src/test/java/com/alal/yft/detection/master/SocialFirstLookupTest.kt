@@ -198,6 +198,37 @@ class SocialFirstLookupTest {
         assertTrue(mains.canRetry)
     }
 
+    @Test
+    fun aPrivatePostsCodeLeftUnreadKeepsThePrivateWordsAfterTheLadder() = runTest {
+        // v1.0.2 item 70b: main ends unread (GraphQL: no post; the pages 404) on a private post's
+        // code (longer than 11 characters). With the ladder (the release), no video in the tab:
+        // main's words, now the private ones, the reason main's, Try again; an 11-character code:
+        // today's words.
+        val private = Fixture(PRIVATE_REEL, socialTrial = false, graphQl = NO_POST).lookup()
+            as SiteAdapterOutcome.Failed
+        assertEquals(SiteExtractionFailure.RESPONSE_CHANGED, private.reason)
+        assertEquals(private.details.toString(), InstagramExtractor.PRIVATE_MESSAGE, private.message)
+        assertTrue(private.canRetry)
+        assertTrue(private.details.toString(), InstagramExtractor.PRIVATE_CODE_LINE in private.details)
+
+        val public = Fixture(REEL, socialTrial = false, graphQl = NO_POST).lookup() as SiteAdapterOutcome.Failed
+        assertEquals(SiteExtractionFailure.RESPONSE_CHANGED, public.reason)
+        assertEquals(
+            public.details.toString(),
+            "Instagram's page could not be read. Tap Details to see why, or Try again.",
+            public.message,
+        )
+        assertTrue(public.canRetry)
+
+        // Master without the ladder: its playback words for both codes, as before.
+        for (page in listOf(PRIVATE_REEL, REEL)) {
+            val failed = Fixture(page, socialLadder = false, socialTrial = false, graphQl = NO_POST).lookup()
+                as SiteAdapterOutcome.Failed
+            assertEquals(page, "Play the video on this page, then tap Try again.", failed.message)
+            assertTrue(failed.canRetry)
+        }
+    }
+
     /** The engine runs on a background thread; the test thread runs the browser's coroutines. */
     private fun TestScope.settle(done: () -> Boolean) {
         repeat(500) {
@@ -329,6 +360,12 @@ class SocialFirstLookupTest {
 
         /** Instagram's made-up reel (the code and media ID of the sites' fixtures). */
         const val REEL = "https://www.instagram.com/reel/C9fixtREEL1/"
+
+        /** v1.0.2 item 70b: a made-up private post's code (longer than 11 characters). */
+        const val PRIVATE_REEL = "https://www.instagram.com/reel/C9fixtREEL1AbCdEfGhIjKlMnOpQrStUv/"
+
+        /** Instagram's GraphQL answer for a post it does not show. */
+        const val NO_POST = "{\"data\":{\"xdt_shortcode_media\":null},\"status\":\"ok\"}"
         const val INSTAGRAM_MEDIA_ID = "3310536259357233439"
         const val INSTAGRAM_FILE = "https://scontent.cdninstagram.com/o1/v/t16/f2/m86/fixture_720.mp4?oe=7A000000"
         const val INSTAGRAM_MILLIS = 15_200L

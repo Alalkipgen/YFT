@@ -111,6 +111,14 @@ class InstagramExtractor(
             lastFailure != null && lastFailure.reason in LINE_FAILURES -> SiteExtractionResult
                 .Failure(lastFailure.reason, lastFailure.statusCode, details)
 
+            // v1.0.2 item 70b: unread on a private post's code (the link's own hint): the
+            // private words instead of "could not be read"; the reason stays.
+            InstagramUrls.isPrivateCode(code) -> SiteExtractionResult.Failure(
+                SiteExtractionFailure.RESPONSE_CHANGED,
+                details = details + PRIVATE_CODE_LINE,
+                message = PRIVATE_MESSAGE,
+            )
+
             else -> SiteExtractionResult.Failure(
                 SiteExtractionFailure.RESPONSE_CHANGED,
                 details = details,
@@ -446,5 +454,14 @@ class InstagramExtractor(
             "Instagram did not show this post to your account. Open it in YFT's browser " +
                 "and play the video, then try again."
         const val PHOTOS_MESSAGE = "This post has photos only, no video."
+
+        /**
+         * v1.0.2 item 70b: a lookup that ends unread on a private post's code, in the words the
+         * app gives every site's private or removed post.
+         */
+        const val PRIVATE_MESSAGE = "This Instagram post is private or no longer available."
+
+        /** v1.0.2 item 70b: its Details line; the link itself is never shown. */
+        const val PRIVATE_CODE_LINE = "link: a private post's code (longer than 11 characters)"
     }
 }

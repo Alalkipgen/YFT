@@ -2294,8 +2294,54 @@ Keep at least the heading and one blank line between sections, so Git merges the
     `SiteLinkRenewalTest` (another item's fresh link). Local totals: app 1453 (66 skipped),
     core-model 150, extractor-sites 367, extractor-master 1119 (2 skipped); 0 failures.
   - CHANGELOG `[1.0.2]`: one line under Added.
-- Next: item 51's CI (checkpoint, emulator smoke, Preview APK, minified check), then the owner's
-  three more items (2026-10-30), in order: 70b, 28, 5b.
+- Item 51's CI (commit `bf515f01`): checkpoint validation 41049072808 (#589) success, Preview APK
+  41049072868 (#144) success, minified check 41049072940 (#35) success; emulator smoke 41049072849
+  (#177) **failure** with no instrumentation result: its annotations "Instrumentation results:
+  tests=0 failures=0 errors=0 skipped=0", "Emulator screenshot missing: 01-browser-empty.png"
+  (and 02, 03), "Emulator logcat FATAL EXCEPTION count: 0", "The process '/usr/bin/sh' failed with
+  exit code 1" — no test ran (its step ended after 6.5 min; the green runs took 10–13). Its log
+  could not be read here: the API answers "Must have admin rights to Repository." for a job's log,
+  and the artifact needs sign-in. Why it is taken as outside the code: the same commit's minified
+  check installed the app on the same API 34 emulator and drove it through its screens, green;
+  `:app:assembleDebug :app:assembleDebugAndroidTest` build here; every unit test and lint passed.
+  By the owner's rule the next code push's emulator smoke (70b's) is its record.
+- Task (the owner, 2026-10-30): three more items after 51, each its own commit with unit tests,
+  CI green before the next: 70b (a private Instagram reel's message, read from the link — the
+  one lookup change allowed), 28 (choose the save folder), 5b (Library select mode); phone
+  checklist lines for 70b, 28, 5b and 22 (a measurement only); no S5 for 28 or 5b, Instagram's S5
+  for 51 covers 70b.
+- Item 70b (a private Instagram reel's message, read from the link) — checked first: not in the
+  code (`InstagramUrls.kt` lines 67–71 only described the longer private codes in `mediaIdOf`'s
+  KDoc; `InstagramExtractor.extract` ended every unread lookup in `RESPONSE_CHANGED` without a
+  message, so the coordinator's words "Instagram's page could not be read. Tap Details to see why,
+  or Try again." showed). Done, in main's Instagram adapter only:
+  - `InstagramUrls.isPrivateCode(code)` (new): longer than 11 characters (`MEDIA_ID_CHARS`).
+  - `InstagramExtractor`: a lookup that ends in `RESPONSE_CHANGED` (no login wall, no photos, no
+    network or rate-limit failure) on a private post's code carries the message "This Instagram
+    post is private or no longer available." (the words the coordinator gives every site's
+    `PRIVATE_OR_UNAVAILABLE`, `SiteAdapterCoordinator.kt` lines 484–485) and one more Details line,
+    "link: a private post's code (longer than 11 characters)" (never the link). The reason stays
+    `RESPONSE_CHANGED`, so Try again stays, as on other sites' private words
+    (`PRIVATE_OR_UNAVAILABLE` is not among the final reasons, `SiteAdapterCoordinator.kt` lines
+    53–54 and 64–69) — item 70's rule. No new request.
+  - What the user sees: main's own lookup (Home, no Master) shows the private words; in the
+    release (Master's Instagram ladder after main) the ladder's "no video in the tab" pick shows
+    main's words, now the private ones; the ladder's own picks (the tab plays a video, a wall) and
+    Master without the ladder keep their words ("Play the video on this page, then tap Try
+    again."), as before.
+  - Unchanged: the reason, the other Details lines, an 11-character code, the login wall (and the
+    signed-in refusal), photos only, lookups that succeed, Master's ladders and every other site.
+  - Tests: `InstagramExtractorTest` (a long code: the private words and the line, the other lines
+    as an 11-character code's, the link never in them; an 11-character code: no message; the login
+    wall on a long code: the wall's words), `InstagramPrivateCodeTest` (new: main's real adapter
+    through the coordinator — the private words with Try again and the same three requests;
+    today's words for an 11-character code; the wall), `SocialFirstLookupTest` (the release's
+    ladder path: the private words with Try again, today's for an 11-character code; Master
+    without the ladder: its playback words for both, as before).
+  - CHANGELOG `[1.0.2]`: one line under Changed.
+- Next: item 70b's CI (checkpoint, emulator smoke — also item 51's record — Preview APK, minified
+  check). Then stopped on the owner's word (2026-10-30, "after 70b, stop"): 28 and 5b, the
+  backlog marks and the READY FOR PHONE TEST report wait for his go.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
