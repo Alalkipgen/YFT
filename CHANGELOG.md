@@ -77,8 +77,10 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   the player when that wait would not fit in the lookup's time; with Show details on, Lookup
   details say "paced, waited N s" (or "not asked").
 - Instagram: a link to a private post (its code is longer than a public post's) that YFT could
-  not read says **This Instagram post is private or no longer available.**, instead of
-  **Instagram's page could not be read. Tap Details to see why, or Try again.**; Try again stays.
+  not read, also when Instagram shows its login wall for it, says **This Instagram post is private
+  or no longer available.**, instead of **Instagram's page could not be read. Tap Details to see
+  why, or Try again.** or the sign-in words; Try again stays. A public post's link behind the
+  login wall still says where to sign in.
 - With Show details on, **Lookup details** (with **Copy details**) also show on Home's download
   sheet when a site's own lookup failed before the page itself gave the video, under the error
   when no format of a found video can be read, with the file TikTok's player plays when TikTok's

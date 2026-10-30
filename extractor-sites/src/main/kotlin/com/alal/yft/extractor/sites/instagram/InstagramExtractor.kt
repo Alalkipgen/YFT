@@ -102,6 +102,18 @@ class InstagramExtractor(
                 message = PHOTOS_MESSAGE,
             )
 
+            // v1.0.2 item 70b: unread on a private post's code (the link's own hint): the
+            // private words instead of "could not be read"; the reason stays. Fix F2 (phone test
+            // 70b): also behind the login wall, which Instagram shows for a private post; only a
+            // line failure (no answer at all) keeps its own words.
+            InstagramUrls.isPrivateCode(code) &&
+                (loginWall || lastFailure == null || lastFailure.reason !in LINE_FAILURES) ->
+                SiteExtractionResult.Failure(
+                    SiteExtractionFailure.RESPONSE_CHANGED,
+                    details = details + PRIVATE_CODE_LINE,
+                    message = PRIVATE_MESSAGE,
+                )
+
             loginWall -> SiteExtractionResult.Failure(
                 SiteExtractionFailure.LOGIN_REQUIRED,
                 details = details,
@@ -110,14 +122,6 @@ class InstagramExtractor(
 
             lastFailure != null && lastFailure.reason in LINE_FAILURES -> SiteExtractionResult
                 .Failure(lastFailure.reason, lastFailure.statusCode, details)
-
-            // v1.0.2 item 70b: unread on a private post's code (the link's own hint): the
-            // private words instead of "could not be read"; the reason stays.
-            InstagramUrls.isPrivateCode(code) -> SiteExtractionResult.Failure(
-                SiteExtractionFailure.RESPONSE_CHANGED,
-                details = details + PRIVATE_CODE_LINE,
-                message = PRIVATE_MESSAGE,
-            )
 
             else -> SiteExtractionResult.Failure(
                 SiteExtractionFailure.RESPONSE_CHANGED,

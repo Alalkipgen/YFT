@@ -2633,6 +2633,27 @@ Keep at least the heading and one blank line between sections, so Git merges the
     core-media 45, core-download 330; 0 failures.
   - CHANGELOG `[1.0.2]`: one line under Fixed.
 
+- F1's commit: `d65ba4f7`.
+- F2 (70b: a private reel's link, a code longer than 11 characters, showed the login words).
+  The cause: `InstagramExtractor.extract` put the login wall (a 401 or 403, the login page,
+  GraphQL's `require_login`) before 70b's private code, and Instagram answers a post it hides
+  from a signed-out visitor with exactly that wall. Done: on a private post's code the private
+  words (RESPONSE_CHANGED, `PRIVATE_MESSAGE`, `PRIVATE_CODE_LINE` last in the details, Try again)
+  come before the wall's, behind the wall as well; only a line failure (NETWORK, RATE_LIMITED)
+  with no wall keeps its own words. An 11-character code keeps the wall's words
+  (LOGIN_REQUIRED, `LOGIN_MESSAGE`, or the signed-in refusal); photos only stays first.
+  - Tests: `InstagramExtractorTest` (+1: the wall's 401 and login page on a private post's code
+    → the private words, the wall's lines kept, then the code's; GraphQL's login answer the same;
+    an 11-character code behind the wall → the login words; no answer at all → NETWORK as before;
+    70b's test no longer says the wall stays the wall's), `InstagramPrivateCodeTest` (+1 through
+    the coordinator: 401 on a private post's code → the private words, Try again, the same three
+    asks; the wall's own test now on an 11-character code), `SocialFirstLookupTest` (70b's
+    ladder test: GraphQL's login answer on a private post's code → the private words with Try
+    again, on an 11-character code → the login words). Local: extractor-sites
+    `InstagramExtractorTest` 11, app `InstagramPrivateCodeTest` 3 and `SocialFirstLookupTest` 6;
+    0 failures.
+  - CHANGELOG `[1.0.2]`: 70b's line under Changed now names the login wall.
+
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
 - Plan: `docs/TRACK_E_PLAN.md` (the owner's go, 2026-10-27, while S5's run 3 waits). Branch from

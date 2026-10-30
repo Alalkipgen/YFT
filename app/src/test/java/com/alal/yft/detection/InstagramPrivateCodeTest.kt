@@ -17,7 +17,8 @@ import org.junit.Test
  * v1.0.2 item 70b: an Instagram lookup that ends unread (RESPONSE_CHANGED) on a link whose code is
  * a private post's (longer than 11 characters) shows the private words the app gives every site's
  * private or removed post, with Try again as those words have it; an 11-character code keeps
- * today's words and the login wall its own. Main's real adapter through the coordinator; every
+ * today's words and the login wall its own. Fix F2: a private post's code behind the login wall
+ * (Instagram's answer to a private post) shows the private words too. Main's real adapter through the coordinator; every
  * request answers as Instagram answers a post it does not show (404, or the login status).
  */
 class InstagramPrivateCodeTest {
@@ -50,10 +51,28 @@ class InstagramPrivateCodeTest {
         assertTrue(public.canRetry)
         assertTrue(public.details.none { "private post's code" in it })
 
-        val wall = lookUp(Answers(ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 401)), PRIVATE_REEL)
+        val wall = lookUp(Answers(ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 401)), PUBLIC_REEL)
         assertEquals(SiteExtractionFailure.LOGIN_REQUIRED, wall.reason)
         assertEquals(InstagramExtractor.LOGIN_MESSAGE, wall.message)
         assertTrue(wall.details.none { "private post's code" in it })
+    }
+
+    @Test
+    fun `a private post's code behind the login wall shows the private words with Try again`() = runTest {
+        // v1.0.2 fix F2 (phone test 70b): Instagram answers a private post with its login wall.
+        val http = Answers(ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 401))
+
+        val private = lookUp(http, PRIVATE_REEL)
+
+        assertEquals(SiteExtractionFailure.RESPONSE_CHANGED, private.reason)
+        assertEquals("This Instagram post is private or no longer available.", private.message)
+        assertTrue(private.canRetry)
+        assertTrue(
+            private.details.toString(),
+            "link: a private post's code (longer than 11 characters)" in private.details,
+        )
+        assertTrue(private.details.none { PRIVATE_CODE in it })
+        assertEquals("no new request: the same three asks", 3, http.asked.get())
     }
 
     private suspend fun lookUp(http: ExtractorHttpClient, page: String): SiteAdapterOutcome.Failed {

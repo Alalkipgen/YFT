@@ -220,6 +220,19 @@ class SocialFirstLookupTest {
         )
         assertTrue(public.canRetry)
 
+        // v1.0.2 fix F2 (phone test 70b): GraphQL's login answer, the wall Instagram shows for a
+        // private post: on a private post's code the private words all the same, Try again; an
+        // 11-character code keeps the wall's words.
+        val walled = Fixture(PRIVATE_REEL, socialTrial = false, graphQl = LOGIN).lookup()
+            as SiteAdapterOutcome.Failed
+        assertEquals(SiteExtractionFailure.RESPONSE_CHANGED, walled.reason)
+        assertEquals(walled.details.toString(), InstagramExtractor.PRIVATE_MESSAGE, walled.message)
+        assertTrue(walled.canRetry)
+        assertTrue(walled.details.toString(), InstagramExtractor.PRIVATE_CODE_LINE in walled.details)
+        val wall = Fixture(REEL, socialTrial = false, graphQl = LOGIN).lookup() as SiteAdapterOutcome.Failed
+        assertEquals(SiteExtractionFailure.LOGIN_REQUIRED, wall.reason)
+        assertEquals(wall.details.toString(), InstagramExtractor.LOGIN_MESSAGE, wall.message)
+
         // Master without the ladder: its playback words for both codes, as before.
         for (page in listOf(PRIVATE_REEL, REEL)) {
             val failed = Fixture(page, socialLadder = false, socialTrial = false, graphQl = NO_POST).lookup()
@@ -366,6 +379,10 @@ class SocialFirstLookupTest {
 
         /** Instagram's GraphQL answer for a post it does not show. */
         const val NO_POST = "{\"data\":{\"xdt_shortcode_media\":null},\"status\":\"ok\"}"
+
+        /** v1.0.2 fix F2: GraphQL's login answer (Instagram's own words). */
+        const val LOGIN = "{\"message\":\"Please wait a few minutes before you try again.\"," +
+            "\"require_login\":true,\"status\":\"fail\"}"
         const val INSTAGRAM_MEDIA_ID = "3310536259357233439"
         const val INSTAGRAM_FILE = "https://scontent.cdninstagram.com/o1/v/t16/f2/m86/fixture_720.mp4?oe=7A000000"
         const val INSTAGRAM_MILLIS = 15_200L
