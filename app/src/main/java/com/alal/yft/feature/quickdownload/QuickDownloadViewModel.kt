@@ -154,8 +154,34 @@ data class QuickDownloadUiState(
      */
     val postItems: List<PostItemChoice> = emptyList(),
     val postItemKey: String? = null,
+    /**
+     * v1.0.2 item 25: "Use original title" is on: the sheet shows, and a Download takes, the
+     * Zawgyi title the sheet's Unicode title was converted from ([QuickChoices.zawgyi]).
+     */
+    val useOriginalTitle: Boolean = false,
 ) {
     val selectedOption: SheetOption? get() = choices?.option(selectedId)
+
+    /** v1.0.2 item 25: the header's title: its own, or the original ([useOriginalTitle]). */
+    val shownTitle: String?
+        get() = choices?.zawgyi?.takeIf { useOriginalTitle }?.original ?: header?.title
+
+    /**
+     * The title a Download (and Download as) takes once the rows came: the sheet's, which is
+     * Unicode for a Zawgyi title (v1.0.2 item 25), or the original with [useOriginalTitle].
+     */
+    val downloadTitle: String?
+        get() = choices?.let { it.zawgyi?.takeIf { useOriginalTitle }?.original ?: it.title }
+
+    /** v1.0.2 item 25: the sheet offers "Use original title" (not while a Download is queued). */
+    val offersOriginalTitle: Boolean get() = choices?.zawgyi != null
+
+    /**
+     * The sheet's Lookup details: the lookup's own lines ([lookupDetails]), then (v1.0.2 item 25)
+     * "Title converted from Zawgyi (p=0.9999)" when the sheet's title was converted.
+     */
+    val lookupDetailLines: List<String>
+        get() = lookupDetails + listOfNotNull(choices?.zawgyi?.detailLine)
 
     /** P18: the sheet still says "Getting qualities…"; Download then queues [earlySection]. */
     val waitsForQualities: Boolean
@@ -355,6 +381,23 @@ class QuickDownloadViewModel @Inject constructor(
     }
 
     /**
+     * v1.0.2 item 25: "Use original title" switches the next Download (and Download as) to the
+     * Zawgyi title the sheet's Unicode title was converted from, and back again. Like another
+     * row, it clears the last Download's line; a download already queued keeps its name.
+     * Ignored while a Download is being queued.
+     */
+    fun toggleOriginalTitle() {
+        mutableUiState.update { state ->
+            if (!state.canChangeSelection || !state.offersOriginalTitle) return@update state
+            state.copy(
+                useOriginalTitle = !state.useOriginalTitle,
+                downloadStatus = PreviewDownloadStatus.Idle,
+                startedNote = null,
+            )
+        }
+    }
+
+    /**
      * v1.0.2 item 51: shows another video item of the post ([QuickDownloadUiState.postItems]):
      * its own header, qualities and sizes, read as the first item's were; each item downloads as
      * a file of its own. Ignored while a Download is being queued.
@@ -415,8 +458,10 @@ class QuickDownloadViewModel @Inject constructor(
         val state = mutableUiState.value
         val option = state.selectedOption ?: state.choices?.options?.firstOrNull() ?: return false
         val candidate = option.source.candidate
-        // v1.0.2 item 51: Download as names a post's item as the sheet does ("Video 2 of 4").
-        val title = state.choices?.title?.takeIf { candidate.postItem != null }
+        // v1.0.2 item 51: Download as names a post's item as the sheet does ("Video 2 of 4");
+        // v1.0.2 item 25: and a title the sheet converted from Zawgyi as it is chosen there.
+        val title = state.downloadTitle
+            ?.takeIf { candidate.postItem != null || state.offersOriginalTitle }
         selectionStore.select(if (title != null) candidate.copy(title = title) else candidate)
         return true
     }
@@ -1337,7 +1382,8 @@ class QuickDownloadViewModel @Inject constructor(
      * resolved file. The asset is named after the video and the variant after its quality.
      */
     private suspend fun prepare(option: SheetOption): Prepared {
-        val title = mutableUiState.value.choices?.title
+        // v1.0.2 item 25: the Unicode title, or the original after "Use original title".
+        val title = mutableUiState.value.downloadTitle
         val resolved = when (val result = resolveForDownload(option.source.candidate)) {
             is VariantResolutionResult.Failure -> {
                 if (result.httpStatusCode in LINK_GONE_STATUSES ||

@@ -48,4 +48,23 @@ class OpenSourceNoticesTest {
         assertTrue("CC0 1.0" in icons)
         assertTrue("YFT is not affiliated with them." in icons)
     }
+
+    @Test
+    fun myanmarToolsIsListedAtTheVersionYftIsBuiltWith() {
+        // v1.0.2 item 25: the Zawgyi detector's library, at gradle/libs.versions.toml's version.
+        val catalog = listOf("../gradle/libs.versions.toml", "gradle/libs.versions.toml")
+            .map(::File)
+            .first(File::isFile)
+            .readText()
+        val built = Regex("^myanmar-tools = \"([^\"]+)\"$", RegexOption.MULTILINE)
+            .find(catalog)!!
+            .groupValues[1]
+        val notice = OpenSourceNotices.all.single { it.id == "myanmar-tools" }
+
+        assertEquals("1.2.0", built)
+        assertEquals(built, notice.version)
+        assertEquals("Myanmar Tools", notice.name)
+        assertEquals("Apache License 2.0", notice.license)
+        assertTrue("Apache License" in notice.noticeText)
+    }
 }

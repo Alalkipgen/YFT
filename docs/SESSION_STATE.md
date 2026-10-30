@@ -2478,8 +2478,71 @@ Keep at least the heading and one blank line between sections, so Git merges the
     BUILD SUCCESSFUL, 3855 tests, 0 failures — app 1519 (66 skipped), the rest as item 28's;
     lint clean.
   - CHANGELOG `[1.0.2]`: one line under Added.
-- Next: item 5b's CI (checkpoint validation, emulator smoke, Preview APK, minified check), then
-  item 25 (Zawgyi titles); then the docs commit and the READY FOR PHONE TEST report.
+- Item 5b's CI (commit `9dea8cf4`), item 5b's record: checkpoint validation 41088325499 (#593)
+  success, emulator smoke 41088325528 (#181) success ("Instrumentation results: tests=71
+  failures=0 errors=0 skipped=6", "Emulator logcat FATAL EXCEPTION count: 0"), Preview APK
+  41088325628 (#148) success, minified check 41088325674 (#39) success.
+- Item 25 (this commit): a video title written in Zawgyi is shown and saved in Unicode, only
+  when the detector is sure; a Unicode title never changes.
+  - The library: Google's Myanmar Tools 1.2.0 (`com.google.myanmartools:myanmar-tools`, Apache
+    License 2.0; AlalPDF's `ZawgyiDetector` and `TransliterateZ2U`). Settings › About ›
+    Licenses lists "Myanmar Tools" 1.2.0 (its version checked against
+    `gradle/libs.versions.toml`); `docs/THIRD_PARTY_NOTICES.md` names it.
+  - The one point: `QuickDownloadChoices.of`, where the lookup's title (the video's, else its
+    looked-up file's) becomes the sheet's title (`QuickChoices.title`): the header once the rows
+    come, and the Download's title, so its file name (`DownloadPlanFactory.fileName`), an MP3's
+    title tag (`Mp3Encoding.title`) and the Downloads and Library rows (named after the file).
+    No extractor, lookup, store or database change; finished downloads are not renamed.
+  - The rule (`ZawgyiTitles.unicode`): at least 10 Myanmar code points (U+1000..U+109F), the
+    detector's Zawgyi probability >= 0.999, and a converted text that differs; else the title
+    stays exactly as it is. The detector is made only for a title long enough, the converter
+    only for one the detector is sure of; if either cannot be made, nothing is converted.
+  - The detector's probabilities (`ZawgyiTitlesTest`). Converted: the owner's Zawgyi
+    "ျမန္မာ သီခ်င္း အသစ္မ်ား" (21 Myanmar code points) 1.0 → "မြန်မာ သီချင်း အသစ်များ", the
+    owner's code points exactly; the same with " | Official MV 2024" 1.0, the Latin part kept;
+    Zawgyi "ေမာင္ေမာင္" (10) 1.0 → "မောင်မောင်". Kept by the detector, all Unicode, each of
+    which the converter alone would change: ထွဏ်းထွဏ်း (10) 1.1e-11, ဒါဟာအချစ်လား (12) 3.4e-6,
+    ဇော်ပိုင် ချောစုခင် (18) 4.2e-31, "မြန်မာ သီချင်း အသစ်များ" (21) 4.0e-19, မြန်မာပြည် (10)
+    9.0e-14, ရွှေမြန်မာ (10) 3.7e-8, မောင်မောင် (10) 1.8e-19. Kept by the length rule: အချစ်ရူး
+    (8) 6.4e-8; the mistyped "ေကျးရွာ" (7) 0.504 here (0.9999 in AlalPDF, the owner's note);
+    Zawgyi ျမန္မာ (6) 0.99996 and ေရႊျမန္မာ (9) 0.9999999. English, Thai, Hindi and emoji
+    titles have no Myanmar code point (the detector: −∞). No Unicode string would be converted.
+  - The sheet: under a converted title, "Use original title" (off at first; a checkbox to
+    screen readers; not while a Download is being queued or asks about mobile data). On, the
+    header shows, and the next Download (and Download as) takes, the title as the video gave
+    it; off, the Unicode title again. Like another row, it clears the last Download's line; a
+    download already queued keeps its name. Lookup details gets "Title converted from Zawgyi
+    (p=1.0000)" (four decimals, never rounded up; a quiet build only with Show details).
+  - New words (the owner decides): "Use original title"; "Title converted from Zawgyi (p=…)".
+  - Limits: before the rows come, the header shows the title as the page or the video gave it
+    (the page's title while the lookup waits; the video's own until its first rows: at once
+    for a site's lookup, after the file is read for a page's own file or while an ad check
+    holds the rows); then the Unicode title. The first converted title of an app session makes
+    the detector and the converter on the main thread (on this computer about 25 ms, 55 ms
+    without the JIT); the sheet asks once per title. With "Use original title" the file's name
+    is made from the original title by D3's rules (`FileNames.keepWords`), as before.
+  - Release build (local: `:app:assemblePreview`, R8 on, a throwaway test key, as the Preview
+    APK workflow makes it): it builds, and the model is in the APK (`unzip -l`:
+    `com/google/myanmartools/zawgyiUnicodeModel.dat`, 27,988 bytes; 21,992 packed). No R8 keep
+    rule: R8 renames the library's classes (`E4.*`), but the library reads its model only by
+    the absolute path `/com/google/myanmartools/zawgyiUnicodeModel.dat` (in the shrunk dex as
+    it is) and uses no reflection. APK size: 7,586,639 → 7,625,183 bytes (+38,544, +0.5%; the
+    model 21,992 and the code 8,907 of it, packed), against item 5b's code built the same way.
+    The shrunk build's screens run in the minified check (CI); its conversion on the phone (the
+    Preview APK is shrunk as well).
+  - Tests: `ZawgyiTitlesTest` (7, new: the conversion and its code points, the Latin part, the
+    last answer kept, the Unicode titles, titles without Myanmar letters, the length rule, the
+    detail line), `ZawgyiTitleSheetTest` (5, new: the real view model end to end — the header,
+    Lookup details, the 720p MP4's and the MP3's names and the MP3's title tag through
+    `DownloadPlanFactory`, the switch there and back for both, Download as, a Unicode title
+    with no switch, the switch held while mobile data is asked about),
+    `QuickDownloadChoicesTest` (+2), `QuickDownloadScreenTest` (+1: the switch under the header,
+    a tap switches the header's text, disabled while queued, none for a title not converted),
+    `OpenSourceNoticesTest` (+1). Local totals: BUILD SUCCESSFUL, 3871 tests, 0 failures — app
+    1535 (66 skipped), the rest as item 5b's; lint clean.
+  - CHANGELOG `[1.0.2]`: one line under Added.
+- Next: item 25's CI (checkpoint validation, emulator smoke, Preview APK, minified check), then
+  the docs commit and the READY FOR PHONE TEST report.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 

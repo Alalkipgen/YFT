@@ -429,6 +429,8 @@ dependencies {
     implementation(libs.androidx.webkit)
     implementation(libs.hilt.android)
     implementation(libs.okhttp)
+    // v1.0.2 item 25: Zawgyi video titles become Unicode (ZawgyiDetector, TransliterateZ2U).
+    implementation(libs.myanmar.tools)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.ui)
     kapt(libs.hilt.compiler)

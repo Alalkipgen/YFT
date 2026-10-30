@@ -18,6 +18,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.getBoundsInRoot
@@ -36,6 +38,8 @@ import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.feature.browser.SiteCheck
 import com.alal.yft.feature.preview.PreviewDownloadStatus
+import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.UNICODE_TITLE
+import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.ZAWGYI_TITLE
 import com.alal.yft.thumbnail.LocalRemoteThumbnails
 import com.alal.yft.thumbnail.RemoteThumbnails
 import com.alal.yft.thumbnail.testPicture
@@ -1064,6 +1068,63 @@ class QuickDownloadScreenTest {
         state = SAMPLE_QUICK_DOWNLOAD
         composeRule.waitForIdle()
         composeRule.onAllNodesWithTag(POST_ITEMS_TAG).assertCountEquals(0)
+    }
+
+    @Test
+    fun aTitleConvertedFromZawgyiOffersUseOriginalTitleAndATapSwitchesTheHeader() {
+        // v1.0.2 item 25: the header shows the Unicode title; "Use original title" under it
+        // shows (and the next Download takes) the title the video gave, and back again.
+        val rows = QuickDownloadFixtures.youtubeTitled(ZAWGYI_TITLE)
+        val choices = QuickDownloadFixtures.choices(rows)!!
+        var state by mutableStateOf(
+            SAMPLE_QUICK_DOWNLOAD.copy(
+                header = SAMPLE_QUICK_DOWNLOAD.header!!.copy(title = choices.title),
+                choices = choices,
+            ),
+        )
+        var toggles = 0
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                QuickDownloadScreen(
+                    state = state,
+                    onSelect = {},
+                    onDownload = {},
+                    onToggleOriginalTitle = {
+                        toggles++
+                        state = state.copy(useOriginalTitle = !state.useOriginalTitle)
+                    },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(HEADER_TITLE_TAG).assertTextEquals(UNICODE_TITLE)
+        composeRule.onNodeWithTag(ORIGINAL_TITLE_TAG)
+            .assertIsDisplayed()
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Checkbox))
+            .assert(hasText("Use original title"))
+            .assertIsOff()
+        val header = composeRule.onNodeWithTag("quick-header").getBoundsInRoot()
+        val toggle = composeRule.onNodeWithTag(ORIGINAL_TITLE_TAG).getBoundsInRoot()
+        assertTrue("the switch sits under the header", toggle.top >= header.bottom)
+
+        composeRule.onNodeWithTag(ORIGINAL_TITLE_TAG).performClick()
+        composeRule.runOnIdle { assertEquals(1, toggles) }
+        composeRule.onNodeWithTag(HEADER_TITLE_TAG).assertTextEquals(ZAWGYI_TITLE)
+        composeRule.onNodeWithTag(ORIGINAL_TITLE_TAG).assertIsOn().performClick()
+        composeRule.runOnIdle { assertEquals(2, toggles) }
+        composeRule.onNodeWithTag(HEADER_TITLE_TAG).assertTextEquals(UNICODE_TITLE)
+        composeRule.onNodeWithTag(ORIGINAL_TITLE_TAG).assertIsOff()
+
+        // Not while a Download is being queued.
+        state = state.copy(downloadStatus = PreviewDownloadStatus.Enqueuing)
+        composeRule.onNodeWithTag(ORIGINAL_TITLE_TAG).assertIsNotEnabled()
+
+        // A title that was not converted offers no switch.
+        state = SAMPLE_QUICK_DOWNLOAD
+        composeRule.waitForIdle()
+        composeRule.onAllNodesWithTag(ORIGINAL_TITLE_TAG).assertCountEquals(0)
+        composeRule.onAllNodesWithText("Use original title").assertCountEquals(0)
+        composeRule.onNodeWithTag(HEADER_TITLE_TAG).assertTextEquals("Ocean waves")
     }
 
     private fun hasText(text: String) = SemanticsMatcher.expectValue(

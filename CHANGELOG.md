@@ -53,6 +53,10 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
 - **Library**: hold a file to select it, tap more (or **Select all**), then **Delete files** to
   delete them all at once, with one question (**Delete 3 files?**) and, when Android asks first,
   one Android request for all of them; **Cancel**, Back or another filter or search leaves.
+- The download sheet shows a video title written in Zawgyi in Unicode, and the download is named
+  so (its file, an MP3's title, Downloads and the Library), only when YFT is sure the title is
+  Zawgyi; a Unicode title never changes. **Use original title** under the title switches the
+  download back to the title as the video gave it, and again, before it starts.
 
 ### Changed
 

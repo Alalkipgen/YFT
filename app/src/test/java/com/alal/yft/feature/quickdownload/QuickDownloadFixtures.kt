@@ -19,6 +19,23 @@ internal object QuickDownloadFixtures {
     const val LENGTH = 252_000L
     const val MIB = 1_048_576L
 
+    /**
+     * v1.0.2 item 25: "New Myanmar songs" as Zawgyi types it (ျမန္မာ သီခ်င္း အသစ္မ်ား); the
+     * detector's Zawgyi probability is 1.0.
+     */
+    const val ZAWGYI_TITLE = "\u103B\u1019\u1014\u1039\u1019\u102C " +
+        "\u101E\u102E\u1001\u103A\u1004\u1039\u1038 " +
+        "\u1021\u101E\u1005\u1039\u1019\u103A\u102C\u1038"
+
+    /** v1.0.2 item 25: [ZAWGYI_TITLE] in Unicode (မြန်မာ သီချင်း အသစ်များ); p = 4.0e-19. */
+    const val UNICODE_TITLE = "\u1019\u103C\u1014\u103A\u1019\u102C " +
+        "\u101E\u102E\u1001\u103B\u1004\u103A\u1038 " +
+        "\u1021\u101E\u1005\u103A\u1019\u103B\u102C\u1038"
+
+    /** v1.0.2 item 25: [youtube]'s lookup for a video named [title]. */
+    fun youtubeTitled(title: String): List<MediaCandidate> =
+        youtube().map { it.copy(title = it.title?.replace(TITLE, title)) }
+
     /** A whole MP4 a site adapter named; [merged] ones carry their sound as a companion. */
     fun video(
         height: Int?,

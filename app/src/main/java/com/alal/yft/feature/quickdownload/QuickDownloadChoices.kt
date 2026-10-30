@@ -62,6 +62,11 @@ data class SheetOption(
  */
 data class QuickChoices(
     val title: String,
+    /**
+     * v1.0.2 item 25: when [title] is the Unicode form of the video's Zawgyi title, that title
+     * and the detector's probability; the sheet's "Use original title" takes it instead.
+     */
+    val zawgyi: ZawgyiTitle? = null,
     /** The site, for example "facebook.com". */
     val source: String?,
     val durationMillis: Long?,
@@ -135,10 +140,15 @@ object QuickDownloadChoices {
         if (videos.isEmpty() && audios.isEmpty()) return null
         val durationMillis = group.durationMillis
             ?: sources.firstNotNullOfOrNull { it.asset?.durationMillis?.takeIf { d -> d > 0 } }
+        val named = group.title
+            ?: sources.firstNotNullOfOrNull { MediaGroups.baseTitle(it.asset?.title) }
+        // v1.0.2 item 25: here the lookup's title becomes YFT's (the sheet's, the download's, so
+        // its file name, tags and Downloads row): a Zawgyi title in Unicode, when the detector
+        // is sure ([ZawgyiTitles]); every other title as it is.
+        val zawgyi = named?.let(ZawgyiTitles::unicode)
         return QuickChoices(
-            title = group.title
-                ?: sources.firstNotNullOfOrNull { MediaGroups.baseTitle(it.asset?.title) }
-                ?: if (videos.isEmpty()) "Audio" else "Video",
+            title = zawgyi?.unicode ?: named ?: if (videos.isEmpty()) "Audio" else "Video",
+            zawgyi = zawgyi,
             source = host(group.pageUrl),
             durationMillis = durationMillis,
             audio = audios,

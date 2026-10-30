@@ -85,18 +85,26 @@ object OpenSourceNotices {
         apache("okhttp", "OkHttp", "HTTPS client for probes and downloads."),
         apache("hilt", "Dagger Hilt", "Dependency injection."),
         apache("kotlin", "Kotlin and kotlinx.coroutines", "Language runtime and coroutines."),
+        // v1.0.2 item 25.
+        apache(
+            "myanmar-tools",
+            "Myanmar Tools",
+            "Finds video titles written in Zawgyi and converts them to Unicode.",
+            version = "1.2.0",
+        ),
     )
 
     val all: List<OpenSourceNotice> get() = bundled + libraries
 
-    private fun apache(id: String, name: String, usage: String) = OpenSourceNotice(
-        id = id,
-        name = name,
-        version = null,
-        license = "Apache License 2.0",
-        usage = usage,
-        noticeText = APACHE_2,
-    )
+    private fun apache(id: String, name: String, usage: String, version: String? = null) =
+        OpenSourceNotice(
+            id = id,
+            name = name,
+            version = version,
+            license = "Apache License 2.0",
+            usage = usage,
+            noticeText = APACHE_2,
+        )
 }
 
 const val LAME_LICENSE_ASSET = "licenses/LAME-COPYING.txt"

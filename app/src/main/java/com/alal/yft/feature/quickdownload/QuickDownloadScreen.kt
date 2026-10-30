@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -85,6 +86,7 @@ fun QuickDownloadRoute(
         state = state,
         onSelect = viewModel::select,
         onSelectPostItem = viewModel::selectPostItem,
+        onToggleOriginalTitle = viewModel::toggleOriginalTitle,
         onPickEarly = viewModel::pickEarly,
         onDownload = {
             requestNotificationPermission()
@@ -130,6 +132,7 @@ fun QuickDownloadScreen(
     onPickEarly: (OptionSection) -> Unit = {},
     onShowCheck: () -> Unit = {},
     onSelectPostItem: (String) -> Unit = {},
+    onToggleOriginalTitle: () -> Unit = {},
 ) {
     val quiet = LocalQuietRelease.current
     if (state.downloadStatus == PreviewDownloadStatus.ConfirmMetered) {
@@ -187,7 +190,15 @@ fun QuickDownloadScreen(
             )
             return@Column
         }
-        Header(header)
+        Header(header, title = state.shownTitle ?: header.title)
+        if (state.offersOriginalTitle) {
+            // v1.0.2 item 25: the header's title was converted from Zawgyi.
+            OriginalTitleToggle(
+                on = state.useOriginalTitle,
+                enabled = state.canChooseRow,
+                onToggle = onToggleOriginalTitle,
+            )
+        }
         if (state.postItems.size > 1) {
             PostItems(
                 items = state.postItems,
@@ -250,7 +261,7 @@ fun QuickDownloadScreen(
                     // VK-Master wave 2: the lookup's own lines after a success, as a failed
                     // lookup's Details (Copy details too); a quiet build only with Show details.
                     FailureDetails(
-                        lines = state.lookupDetails,
+                        lines = state.lookupDetailLines,
                         tag = LOOKUP_DETAILS_TAG,
                         copyTag = LOOKUP_COPY_TAG,
                         label = LOOKUP_DETAILS,
@@ -299,7 +310,7 @@ fun QuickDownloadScreen(
                 onRetry = onRetry.takeIf { state.canRetry },
                 details = state.failureDetails,
                 onReload = onReload.takeIf { state.canReload },
-                lookupDetails = state.lookupDetails,
+                lookupDetails = state.lookupDetailLines,
             )
         }
     }
@@ -365,7 +376,7 @@ private fun PostItems(
 }
 
 @Composable
-private fun Header(header: SheetHeader) {
+private fun Header(header: SheetHeader, title: String = header.title) {
     val colors = YftTheme.colors
     Row(
         modifier = Modifier
@@ -393,7 +404,8 @@ private fun Header(header: SheetHeader) {
                 .padding(start = 14.dp),
         ) {
             Text(
-                text = header.title,
+                text = title,
+                modifier = Modifier.testTag(HEADER_TITLE_TAG),
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
@@ -419,6 +431,40 @@ private fun Header(header: SheetHeader) {
                 }
             }
         }
+    }
+}
+
+/**
+ * v1.0.2 item 25: "Use original title" under a title converted from Zawgyi. On, the header shows
+ * and the next Download takes the title as the video gave it; off again, its Unicode form. A
+ * checkbox to screen readers; not while a Download is being queued.
+ */
+@Composable
+private fun OriginalTitleToggle(on: Boolean, enabled: Boolean, onToggle: () -> Unit) {
+    val colors = YftTheme.colors
+    Row(
+        modifier = Modifier
+            .padding(bottom = 4.dp)
+            .clip(YftShapes.pill)
+            .toggleable(
+                value = on,
+                enabled = enabled,
+                role = Role.Checkbox,
+                onValueChange = { onToggle() },
+            )
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 8.dp)
+            .testTag(ORIGINAL_TITLE_TAG),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        YftRadioMark(selected = on)
+        Text(
+            text = USE_ORIGINAL_TITLE,
+            color = if (enabled) colors.link else colors.textSecondary,
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+            maxLines = 1,
+        )
     }
 }
 
@@ -946,6 +992,11 @@ internal const val RELOAD_AND_RETRY = "Reload page and try again"
 
 /** VK-Master wave 2: the success sheet's toggle of the lookup's own lines. */
 internal const val LOOKUP_DETAILS = "Lookup details"
+
+/** v1.0.2 item 25: the switch under a title converted from Zawgyi. */
+internal const val USE_ORIGINAL_TITLE = "Use original title"
+internal const val ORIGINAL_TITLE_TAG = "quick-original-title"
+internal const val HEADER_TITLE_TAG = "quick-header-title"
 
 /** VK-Master wave 2: the Lookup details toggle (its lines: `quick-lookup-detail-text`). */
 internal const val LOOKUP_DETAILS_TAG = "quick-lookup-details"

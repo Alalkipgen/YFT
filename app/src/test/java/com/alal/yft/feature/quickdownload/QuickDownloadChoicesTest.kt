@@ -7,6 +7,8 @@ import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.detection.VideoPlaybackSupport
 import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.LENGTH
 import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.MIB
+import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.UNICODE_TITLE
+import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.ZAWGYI_TITLE
 import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.audio
 import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.choices
 import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.group
@@ -669,5 +671,37 @@ class QuickDownloadChoicesTest {
         // Nothing at or below the ceiling: the lowest there is.
         assertEquals("720p · HD", pick(tall, QualityPreference.UP_TO_480P))
         assertEquals("M4A", pick(music, QualityPreference.HIGHEST))
+    }
+
+    @Test
+    fun aZawgyiTitleBecomesTheSheetsTitleInUnicode() {
+        // v1.0.2 item 25: the lookup's title becomes the sheet's (the header, the download, its
+        // file name) here; the title the video gave stays for "Use original title".
+        val choices = choices(QuickDownloadFixtures.youtubeTitled(ZAWGYI_TITLE))!!
+
+        assertEquals(UNICODE_TITLE, choices.title)
+        assertEquals(ZAWGYI_TITLE, choices.zawgyi?.original)
+        assertEquals(UNICODE_TITLE, choices.zawgyi?.unicode)
+        assertEquals(1.0, choices.zawgyi!!.probability, 0.0)
+
+        // A title only the looked-up files name, as when the page's rows have none.
+        val untitled = QuickDownloadFixtures.youtube().map { it.copy(title = null) }
+        val named = QuickDownloadChoices.of(
+            group(untitled),
+            sources(untitled).map { it.copy(asset = it.asset?.copy(title = ZAWGYI_TITLE)) },
+        )!!
+        assertEquals(UNICODE_TITLE, named.title)
+        assertEquals(ZAWGYI_TITLE, named.zawgyi?.original)
+    }
+
+    @Test
+    fun aUnicodeOrLatinTitleStaysAsItIs() {
+        val unicode = choices(QuickDownloadFixtures.youtubeTitled(UNICODE_TITLE))!!
+        val latin = choices(QuickDownloadFixtures.youtube())!!
+
+        assertEquals(UNICODE_TITLE, unicode.title)
+        assertNull(unicode.zawgyi)
+        assertEquals("Ocean waves", latin.title)
+        assertNull(latin.zawgyi)
     }
 }

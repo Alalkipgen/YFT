@@ -21,6 +21,7 @@ androidx-test-ext-junit = "1.2.1"
 androidx-test-uiautomator = "2.3.0"
 robolectric = "4.14.1"
 androidx-webkit = "1.12.1"
+myanmar-tools = "1.2.0"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidx-core" }
@@ -63,6 +64,7 @@ androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "a
 androidx-test-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version.ref = "androidx-test-uiautomator" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 androidx-webkit = { module = "androidx.webkit:webkit", version.ref = "androidx-webkit" }
+myanmar-tools = { module = "com.google.myanmartools:myanmar-tools", version.ref = "myanmar-tools" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
