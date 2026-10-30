@@ -34,6 +34,7 @@ internal object DashManifestParser {
 
         val durationMillis = root.attribute("mediaPresentationDuration")
             .toDurationMillis()
+        val static = !root.attribute("type").equals("dynamic", ignoreCase = true)
         val variants = mutableListOf<MediaVariant>()
         var representationIndex = 0
         root.descendantElements("AdaptationSet").forEach { adaptation ->
@@ -90,6 +91,7 @@ internal object DashManifestParser {
                         VariantSupport.UNSUPPORTED_CODEC
                     },
                     expiresAtEpochMs = expiresAtEpochMs,
+                    dashOneFile = static && isOneFile(representation, adaptation),
                 )
                 representationIndex += 1
             }
@@ -111,6 +113,29 @@ internal object DashManifestParser {
             setAttribute("http://javax.xml.XMLConstants/property/accessExternalDTD", "")
             setAttribute("http://javax.xml.XMLConstants/property/accessExternalSchema", "")
         }
+
+    /**
+     * v1.0.2 item 59: whether [representation] is one file: a `SegmentBase` (its own, its
+     * adaptation set's or its period's) with the representation's own `BaseURL` and no
+     * initialization in another file, and no `SegmentList` or `SegmentTemplate` beside it. Only
+     * noted here: the download asks such a file in ranges, and a page's video quality of this
+     * kind is offered with its manifest's sound.
+     */
+    private fun isOneFile(representation: Element, adaptation: Element): Boolean {
+        val levels = listOfNotNull(adaptation.parentNode as? Element, adaptation, representation)
+        val bases = levels.flatMap { it.childElements("SegmentBase") }
+        if (bases.isEmpty()) return false
+        if (levels.any { it.childElements("SegmentList").isNotEmpty() }) return false
+        if (levels.any { it.childElements("SegmentTemplate").isNotEmpty() }) return false
+        if (bases.any { base ->
+                base.childElements("Initialization").any { it.attribute("sourceURL") != null }
+            }
+        ) {
+            return false
+        }
+        return representation.childElements("BaseURL").singleOrNull()
+            ?.textContent?.trim()?.isNotEmpty() == true
+    }
 
     private fun trackType(
         contentType: String?,

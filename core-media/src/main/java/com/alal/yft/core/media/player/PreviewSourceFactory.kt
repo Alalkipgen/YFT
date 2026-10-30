@@ -36,7 +36,9 @@ class PreviewSourceFactory @Inject constructor(
     /**
      * The video's source, then its companion audio's when [variant] has one. The companion plays
      * as HLS when it is a playlist (an HLS video's audio rendition), else as a progressive file
-     * (P50: an HLS audio rendition read as one file did not play).
+     * (P50: an HLS audio rendition read as one file did not play). A DASH page's sound, a
+     * representation of the same manifest ([CompanionAudio.representationId], v1.0.2 item 59),
+     * adds no source: the manifest plays its own sound.
      */
     internal fun sources(variant: MediaVariant): List<MediaSource> {
         require(variant.isPreviewable) { "Unsupported variants cannot be previewed" }
@@ -47,6 +49,7 @@ class PreviewSourceFactory @Inject constructor(
             mimeType = variant.mimeType,
         )
         val companion = variant.audioCompanion ?: return listOf(video)
+        if (companion.representationId != null) return listOf(video)
         val audio = source(
             url = companion.mediaUrl,
             requestContext = companion.requestContext,

@@ -208,7 +208,10 @@ object DownloadPlanFactory {
     /**
      * Plans a video-only file and its companion audio as two whole-file tracks merged into one
      * MP4. Each track is fetched in bounded byte ranges with its own request context; the pair is
-     * rejected up front when the phone's muxer cannot combine the codecs.
+     * rejected up front when the phone's muxer cannot combine the codecs. P50: or an HLS video
+     * quality with its HLS audio rendition, both fetched as playlists. v1.0.2 item 59: or a DASH
+     * video representation with its manifest's sound ([CompanionAudio.representationId]), each
+     * one read from the manifest (a `SegmentBase` file is asked in ranges).
      */
     private fun mergedRequest(
         variant: MediaVariant,
@@ -219,12 +222,17 @@ object DownloadPlanFactory {
         sdkInt: Int,
         av1Enabled: Boolean,
     ): DownloadPlanResult {
-        // P50: or an HLS video quality with its HLS audio rendition, both fetched as playlists.
         val playlists = variant.kind == MediaKind.HLS
-        if (
-            (variant.kind != MediaKind.DIRECT && !playlists) ||
-            companion.isHlsPlaylist() != playlists
-        ) {
+        val dashVideo = variant.manifestVariantId?.takeIf(String::isNotBlank)
+        val dashAudio = companion.representationId
+        val dash = variant.kind == MediaKind.DASH
+        val paired = when (variant.kind) {
+            MediaKind.DIRECT -> !companion.isHlsPlaylist() && dashAudio == null
+            MediaKind.HLS -> companion.isHlsPlaylist() && dashAudio == null
+            MediaKind.DASH -> dashVideo != null && dashAudio != null
+            MediaKind.UNKNOWN -> false
+        }
+        if (!paired) {
             return rejected(
                 DownloadFailureReason.UNSUPPORTED_SOURCE,
                 "YFT can only merge audio into a single video file.",
@@ -252,14 +260,14 @@ object DownloadPlanFactory {
             video = DashDownloadPlan(
                 taskId = "$taskId-video",
                 manifestUrl = variant.playbackUrl,
-                representationId = "video",
+                representationId = if (dash && dashVideo != null) dashVideo else "video",
                 trackType = MediaTrackType.VIDEO,
                 suggestedFileName = if (webm) "$stem.video.webm" else "$stem.video.mp4",
                 requestContext = variant.requestContext,
                 mimeType = variant.mimeType,
                 codecs = variant.codecs.filter(String::isNotBlank),
                 expiresAtEpochMs = variant.expiresAtEpochMs,
-                wholeFile = if (playlists) {
+                wholeFile = if (playlists || dash) {
                     null
                 } else {
                     WholeFileTrack(totalBytes = statedLengthOf(variant.playbackUrl))
@@ -270,14 +278,14 @@ object DownloadPlanFactory {
             audio = DashDownloadPlan(
                 taskId = "$taskId-audio",
                 manifestUrl = companion.mediaUrl,
-                representationId = "audio",
+                representationId = dashAudio ?: "audio",
                 trackType = MediaTrackType.AUDIO,
                 suggestedFileName = if (webm) "$stem.audio.webm" else "$stem.audio.m4a",
                 requestContext = companion.requestContext,
                 mimeType = companion.mimeType,
                 codecs = companion.codecs,
                 expiresAtEpochMs = companion.expiresAtEpochMs,
-                wholeFile = if (playlists) {
+                wholeFile = if (playlists || dash) {
                     null
                 } else {
                     val stated = companion.contentLengthBytes

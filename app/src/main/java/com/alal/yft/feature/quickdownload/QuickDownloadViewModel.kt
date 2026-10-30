@@ -28,6 +28,7 @@ import com.alal.yft.core.model.media.VideoProof
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.detection.BrowserPageReader
+import com.alal.yft.detection.DashSoundPairing
 import com.alal.yft.detection.PageReread
 import com.alal.yft.detection.SiteLookupCache
 import com.alal.yft.detection.VideoPlaybackSupport
@@ -1196,7 +1197,8 @@ class QuickDownloadViewModel @Inject constructor(
             )
         }
         return try {
-            resolver.resolve(candidate)
+            // v1.0.2 item 59: a page's one-file DASH video qualities with their manifest's sound.
+            DashSoundPairing.pair(resolver.resolve(candidate), candidate)
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (error: Exception) {

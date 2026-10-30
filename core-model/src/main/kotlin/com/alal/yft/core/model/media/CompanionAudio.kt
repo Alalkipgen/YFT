@@ -16,6 +16,11 @@ data class CompanionAudio(
     val contentLengthBytes: Long? = null,
     val bitrateBitsPerSecond: Long? = null,
     val expiresAtEpochMs: Long? = null,
+    /**
+     * v1.0.2 item 59: the sound's representation in the DASH manifest [mediaUrl] (a page's
+     * `SegmentBase` sound, one file); null for a sound file or an HLS playlist.
+     */
+    val representationId: String? = null,
 ) {
     init {
         require(mediaUrl.isNotBlank())
@@ -23,6 +28,7 @@ data class CompanionAudio(
         require(codecs.none(String::isBlank))
         require(contentLengthBytes == null || contentLengthBytes > 0)
         require(bitrateBitsPerSecond == null || bitrateBitsPerSecond > 0)
+        require(representationId == null || representationId.isNotBlank())
     }
 
     override fun toString(): String = buildString {
@@ -36,6 +42,8 @@ data class CompanionAudio(
         append(bitrateBitsPerSecond)
         append(", expiresAtEpochMs=")
         append(expiresAtEpochMs)
+        append(", representationId=")
+        append(if (representationId == null) "null" else "[REDACTED]")
         append(')')
     }
 }

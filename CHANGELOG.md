@@ -34,6 +34,11 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
 - **Downloads**: hold a finished download to select it, tap more (or **Select all**), then
   **Remove from list** or **Delete file** for all of them at once, with one question
   (**Delete 3 files?**); **Cancel** or Back leaves.
+- DASH streams on websites without their own lookup whose qualities are one file each (on-demand
+  streams with a `SegmentBase` index) download: each file in parts, resumed where it stopped, and
+  a video quality comes with the stream's sound in one file, merged as other merges are (AVC with
+  AAC into an MP4; VP9 with Opus into a WebM from Android 10), instead of a **No sound** row whose
+  download failed.
 
 ### Changed
 

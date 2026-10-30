@@ -65,7 +65,14 @@ internal object DashDownloadManifestParser {
 
         val chunks = try {
             when {
-                hierarchy.hasChild(SEGMENT_BASE) -> return Result.Unsupported
+                hierarchy.hasChild(SEGMENT_BASE) -> return oneFile(
+                    hierarchy = hierarchy,
+                    resolvedBase = resolvedBase,
+                    manifestUrl = manifestUrl,
+                    trackType = trackType,
+                    mimeType = mimeType,
+                    codecs = codecs,
+                )
                 hierarchy.hasChild(SEGMENT_LIST) -> parseSegmentList(
                     hierarchy = hierarchy,
                     baseUrl = resolvedBase.url,
@@ -104,6 +111,54 @@ internal object DashDownloadManifestParser {
                 trackType = trackType,
                 chunks = chunks,
             ),
+            trackType = trackType,
+            mimeType = mimeType,
+            codecs = codecs,
+        )
+    }
+
+    /**
+     * v1.0.2 item 59: a `SegmentBase` representation is one file, named by its own `BaseURL`;
+     * its initialization and its index (the `sidx`) are byte ranges inside it, as the nearest
+     * `SegmentBase` states them. The engine asks the file in ranges, as a whole file, so the
+     * index is never read for pieces. Still unsupported: a file named by no `BaseURL` of the
+     * representation's own, an initialization in another file, or `SegmentBase` beside a
+     * `SegmentList` or `SegmentTemplate` (as before).
+     */
+    private fun oneFile(
+        hierarchy: List<Element>,
+        resolvedBase: ResolvedBase,
+        manifestUrl: HttpUrl,
+        trackType: MediaTrackType,
+        mimeType: String?,
+        codecs: List<String>,
+    ): Result {
+        if (hierarchy.hasChild(SEGMENT_LIST) || hierarchy.hasChild(SEGMENT_TEMPLATE)) {
+            return Result.Unsupported
+        }
+        if (!resolvedBase.representationSpecific) return Result.Unsupported
+        val levels = hierarchy.asReversed().mapNotNull { element ->
+            val bases = element.childElements(SEGMENT_BASE)
+            if (bases.size > 1) return Result.Malformed
+            bases.singleOrNull()
+        }
+        val index = levels.firstNotNullOfOrNull { it.attribute("indexRange") }
+            ?.let { it.toByteRange() ?: return Result.Malformed }
+        val initialization = levels.firstNotNullOfOrNull { level ->
+            val initializations = level.childElements(INITIALIZATION)
+            if (initializations.size > 1) return Result.Malformed
+            initializations.singleOrNull()
+        }
+        initialization?.attribute("sourceURL")?.let { source ->
+            val target = resolve(resolvedBase.url, manifestUrl, source) ?: return Result.Malformed
+            if (target != resolvedBase.url) return Result.Unsupported
+        }
+        val initializationRange = initialization?.attribute("range")
+            ?.let { it.toByteRange() ?: return Result.Malformed }
+        return Result.OneFile(
+            url = resolvedBase.url,
+            initialization = initializationRange,
+            index = index,
             trackType = trackType,
             mimeType = mimeType,
             codecs = codecs,
@@ -565,6 +620,45 @@ internal object DashDownloadManifestParser {
             val mimeType: String?,
             val codecs: List<String>,
         ) : Result
+
+        /**
+         * v1.0.2 item 59: a `SegmentBase` representation, one file at [url]; its
+         * [initialization] and its [index] (the `sidx`) are byte ranges inside it, null where
+         * the manifest states none.
+         */
+        data class OneFile(
+            val url: HttpUrl,
+            val initialization: ResolvedByteRange?,
+            val index: ResolvedByteRange?,
+            val trackType: MediaTrackType,
+            val mimeType: String?,
+            val codecs: List<String>,
+        ) : Result {
+            /** The last byte the manifest places in the file: its initialization's or index's. */
+            val statedEndInclusive: Long?
+                get() = listOfNotNull(initialization?.endInclusive, index?.endInclusive).maxOrNull()
+
+            /** What the manifest says of the file's bytes, for its ranges' fingerprint. */
+            val layoutProof: String
+                get() = "|one-file|init ${initialization.text()}|index ${index.text()}"
+
+            private fun ResolvedByteRange?.text(): String =
+                this?.let { "${it.offset}-${it.endInclusive}" } ?: "none"
+
+            override fun toString(): String = buildString {
+                append("OneFile(url=[REDACTED], initialization=")
+                append(initialization)
+                append(", index=")
+                append(index)
+                append(", trackType=")
+                append(trackType)
+                append(", mimeType=")
+                append(mimeType)
+                append(", codecs=")
+                append(codecs)
+                append(')')
+            }
+        }
 
         data object DrmProtected : Result
         data object Unsupported : Result

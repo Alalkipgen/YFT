@@ -60,6 +60,12 @@ data class MediaVariant(
     val audioFromVideo: Boolean = false,
     /** The bitrate of the sound inside a video file, when the file states it. */
     val audioBitrateBitsPerSecond: Long? = null,
+    /**
+     * v1.0.2 item 59: a DASH representation that is one file — a `SegmentBase` with its own
+     * `BaseURL` —, downloaded as one file in ranges. A page's video quality of this kind can be
+     * offered with its manifest's sound ([CompanionAudio.representationId]).
+     */
+    val dashOneFile: Boolean = false,
 ) {
     init {
         require(id.isNotBlank())
@@ -77,6 +83,7 @@ data class MediaVariant(
                     audioCompanion == null),
         ) { "Only the sound of one whole video file is kept as audio" }
         require(audioBitrateBitsPerSecond == null || audioBitrateBitsPerSecond > 0)
+        require(!dashOneFile || kind == MediaKind.DASH) { "Only a DASH representation is one file" }
         require(width == null || width > 0)
         require(height == null || height > 0)
         require(framesPerSecond == null || framesPerSecond > 0)

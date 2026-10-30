@@ -204,6 +204,8 @@ class DashTransferEngine(
             val wholeFile = plan.wholeFile
             // A live stream's file is asked piece by piece, sq 0 to the newest (run 4f).
             val live = wholeFile != null && LiveOriginFile.matches(credentialOrigin)
+            // A whole file's length is known before its ranges; so is a SegmentBase file's (59).
+            var lengthKnown = wholeFile != null && !live
             val parsed = if (live) {
                 start.lengthKnown(StartLengthSource.UNTIL_END)
                 liveLayout(plan, credentialOrigin)
@@ -212,9 +214,10 @@ class DashTransferEngine(
                 firstRange = layout.firstRange
                 layout.parsed
             } else {
-                manifestLayout(plan, credentialOrigin).also {
-                    start.lengthKnown(StartLengthSource.NONE)
-                }
+                val layout = manifestLayout(plan, credentialOrigin, resumeFrom, start)
+                firstRange = layout.firstRange
+                lengthKnown = layout.oneFile
+                layout.parsed
             }
             val initial = reconcileCheckpoint(
                 workspace = workspace,
@@ -224,8 +227,10 @@ class DashTransferEngine(
             start.planned()
             val activeTracker = DashCheckpointTracker(
                 initial = initial,
-                totalBytes = plan.wholeFile?.takeUnless { live }?.let {
+                totalBytes = if (lengthKnown) {
                     parsed.chunks.sumOf { chunk -> chunk.byteRange?.length ?: 0L }
+                } else {
+                    null
                 },
                 progressIntervalMillis = policy.progressIntervalMillis,
                 elapsedMillis = elapsedMillis,
@@ -394,7 +399,9 @@ class DashTransferEngine(
     private suspend fun manifestLayout(
         plan: DashDownloadPlan,
         credentialOrigin: HttpUrl,
-    ): DashDownloadManifestParser.Result.Parsed {
+        saved: DashTransferCheckpoint?,
+        start: StartTimelineRecorder,
+    ): WholeFileLayout {
         val fetched = fetchManifest(plan, credentialOrigin)
         return when (
             val result = DashDownloadManifestParser.parse(
@@ -413,8 +420,56 @@ class DashTransferEngine(
                 throw DashAbort(DownloadFailureReason.UNSUPPORTED_SOURCE, stage = READ_SOURCE)
             DashDownloadManifestParser.Result.Malformed ->
                 throw DashAbort(DownloadFailureReason.MALFORMED_RESPONSE, stage = READ_SOURCE)
-            is DashDownloadManifestParser.Result.Parsed -> result
+            is DashDownloadManifestParser.Result.Parsed -> {
+                start.lengthKnown(StartLengthSource.NONE)
+                WholeFileLayout(result)
+            }
+            is DashDownloadManifestParser.Result.OneFile ->
+                oneFileLayout(plan, result, credentialOrigin, saved, start)
         }
+    }
+
+    /**
+     * v1.0.2 item 59: a `SegmentBase` representation is one file
+     * ([DashDownloadManifestParser.Result.OneFile]), asked in byte ranges as a whole file is
+     * ([wholeFileLayout]: its length from the first range's answer, a resume's from a one-byte
+     * request; the checkpoint's ranges kept while the file's length and its manifest's byte
+     * layout stay the same), each request sent as from the manifest ([credentialOrigin]). Its
+     * index (`sidx`) is not read: the ranges need none. A file that ends before the
+     * initialization or the index its manifest places in it is not the manifest's file:
+     * INTEGRITY_MISMATCH before any range is kept.
+     */
+    private suspend fun oneFileLayout(
+        plan: DashDownloadPlan,
+        file: DashDownloadManifestParser.Result.OneFile,
+        credentialOrigin: HttpUrl,
+        saved: DashTransferCheckpoint?,
+        start: StartTimelineRecorder,
+    ): WholeFileLayout {
+        val layout = wholeFileLayout(
+            plan = plan,
+            track = WholeFileTrack(),
+            fileUrl = file.url,
+            saved = saved,
+            start = start,
+            credentialOrigin = credentialOrigin,
+            proof = file.layoutProof,
+        )
+        val totalBytes = layout.parsed.chunks.sumOf { it.byteRange?.length ?: 0L }
+        val statedEnd = file.statedEndInclusive
+        if (statedEnd != null && statedEnd >= totalBytes) {
+            layout.firstRange?.closeUnused()
+            val part = if (file.index?.endInclusive == statedEnd) "index" else "initialization"
+            throw DashAbort(
+                DownloadFailure(
+                    reason = DownloadFailureReason.INTEGRITY_MISMATCH,
+                    stage = VERIFY,
+                    detail = "the file is $totalBytes bytes; its manifest's $part ends at " +
+                        "byte $statedEnd",
+                ),
+            )
+        }
+        return WholeFileLayout(layout.parsed, layout.firstRange, oneFile = true)
     }
 
     /**
@@ -432,6 +487,10 @@ class DashTransferEngine(
         fileUrl: HttpUrl,
         saved: DashTransferCheckpoint?,
         start: StartTimelineRecorder,
+        /** Whose request a range is: the file's own, or a SegmentBase file's manifest (59). */
+        credentialOrigin: HttpUrl = fileUrl,
+        /** More of the file's facts for its fingerprint (59: its manifest's byte layout). */
+        proof: String? = null,
     ): WholeFileLayout {
         val chunkBytes = minOf(track.maxRequestBytes, policy.maxChunkBytes)
         val firstBytes = if (policy.fastStart) {
@@ -442,18 +501,18 @@ class DashTransferEngine(
         track.totalBytes?.let { totalBytes ->
             start.lengthKnown(StartLengthSource.KNOWN)
             return WholeFileLayout(
-                wholeFileChunks(plan, fileUrl, totalBytes, chunkBytes, firstBytes, saved),
+                wholeFileChunks(plan, fileUrl, totalBytes, chunkBytes, firstBytes, saved, proof),
             )
         }
         val resumesRanges = saved?.chunks?.any(StreamChunkCheckpoint::completed) == true
         if (!policy.fastStart || resumesRanges) {
-            val totalBytes = probeLength(plan, fileUrl)
+            val totalBytes = probeLength(plan, fileUrl, credentialOrigin)
             start.lengthKnown(StartLengthSource.PROBE)
             return WholeFileLayout(
-                wholeFileChunks(plan, fileUrl, totalBytes, chunkBytes, firstBytes, saved),
+                wholeFileChunks(plan, fileUrl, totalBytes, chunkBytes, firstBytes, saved, proof),
             )
         }
-        val opened = openFirstRange(plan, fileUrl, firstBytes)
+        val opened = openFirstRange(plan, fileUrl, firstBytes, credentialOrigin)
         start.lengthKnown(StartLengthSource.FIRST_RANGE)
         return try {
             WholeFileLayout(
@@ -464,6 +523,7 @@ class DashTransferEngine(
                     chunkBytes = chunkBytes,
                     firstBytes = firstBytes,
                     saved = null,
+                    proof = proof,
                 ),
                 firstRange = opened,
             )
@@ -720,9 +780,11 @@ class DashTransferEngine(
         chunkBytes: Long,
         firstBytes: Long,
         saved: DashTransferCheckpoint?,
+        proof: String? = null,
     ): DashDownloadManifestParser.Result.Parsed {
         val equalFingerprint = sha256(
-            "whole-file|${plan.representationId}|${plan.trackType}|$totalBytes|$chunkBytes",
+            "whole-file|${plan.representationId}|${plan.trackType}|$totalBytes|$chunkBytes" +
+                proof.orEmpty(),
         )
         val first = if (saved?.manifestFingerprint == equalFingerprint) chunkBytes else firstBytes
         val fingerprint = if (first == chunkBytes) {
@@ -730,7 +792,7 @@ class DashTransferEngine(
         } else {
             sha256(
                 "whole-file-v2|${plan.representationId}|${plan.trackType}|$totalBytes|" +
-                    "$first|$chunkBytes",
+                    "$first|$chunkBytes" + proof.orEmpty(),
             )
         }
         val firstLength = minOf(first, totalBytes)
@@ -770,11 +832,12 @@ class DashTransferEngine(
         plan: DashDownloadPlan,
         fileUrl: HttpUrl,
         firstBytes: Long,
+        credentialOrigin: HttpUrl = fileUrl,
     ): OpenedRange {
         var lastReason = DownloadFailureReason.NETWORK
         repeat(policy.maxAttempts) { attempt ->
             try {
-                return openFirstRangeOnce(plan, fileUrl, firstBytes)
+                return openFirstRangeOnce(plan, fileUrl, firstBytes, credentialOrigin)
             } catch (retry: RetryableDashFailure) {
                 lastReason = retry.reason
                 if (attempt == policy.maxAttempts - 1) throw DashAbort(retry.failure())
@@ -788,10 +851,11 @@ class DashTransferEngine(
         plan: DashDownloadPlan,
         fileUrl: HttpUrl,
         firstBytes: Long,
+        credentialOrigin: HttpUrl,
     ): OpenedRange {
         val execution = try {
             http.execute(
-                credentialOrigin = fileUrl,
+                credentialOrigin = credentialOrigin,
                 initialUrl = fileUrl,
                 context = plan.requestContext,
             ) {
@@ -833,11 +897,15 @@ class DashTransferEngine(
     }
 
     /** Reads a whole file's length from the answer to a one-byte ranged request. */
-    private suspend fun probeLength(plan: DashDownloadPlan, fileUrl: HttpUrl): Long {
+    private suspend fun probeLength(
+        plan: DashDownloadPlan,
+        fileUrl: HttpUrl,
+        credentialOrigin: HttpUrl = fileUrl,
+    ): Long {
         var lastReason = DownloadFailureReason.NETWORK
         repeat(policy.maxAttempts) { attempt ->
             try {
-                return probeLengthOnce(plan, fileUrl)
+                return probeLengthOnce(plan, fileUrl, credentialOrigin)
             } catch (retry: RetryableDashFailure) {
                 lastReason = retry.reason
                 if (attempt == policy.maxAttempts - 1) throw DashAbort(retry.failure())
@@ -847,10 +915,14 @@ class DashTransferEngine(
         throw DashAbort(lastReason, stage = CONNECT)
     }
 
-    private suspend fun probeLengthOnce(plan: DashDownloadPlan, fileUrl: HttpUrl): Long {
+    private suspend fun probeLengthOnce(
+        plan: DashDownloadPlan,
+        fileUrl: HttpUrl,
+        credentialOrigin: HttpUrl,
+    ): Long {
         val execution = try {
             http.execute(
-                credentialOrigin = fileUrl,
+                credentialOrigin = credentialOrigin,
                 initialUrl = fileUrl,
                 context = plan.requestContext,
             ) {
@@ -1594,10 +1666,14 @@ class DashTransferEngine(
         val body: String,
     )
 
-    /** A whole file's ranges, with the first range's answer when it gave the length. */
+    /**
+     * A whole file's ranges, with the first range's answer when it gave the length; [oneFile]:
+     * a manifest's `SegmentBase` file (59), whose length is then known too.
+     */
     private class WholeFileLayout(
         val parsed: DashDownloadManifestParser.Result.Parsed,
         val firstRange: OpenedRange? = null,
+        val oneFile: Boolean = false,
     )
 
     /** The open answer to a whole file's first range (P41), written by the first worker. */

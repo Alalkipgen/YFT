@@ -86,6 +86,35 @@ class MediaAssetTest {
     }
 
     @Test
+    fun `only a DASH representation is one file and a manifest's sound names its representation`() {
+        val dash = MediaVariant(
+            id = "dash:5",
+            playbackUrl = "https://cdn.example.test/stream.mpd?token=secret",
+            kind = MediaKind.DASH,
+            trackType = MediaTrackType.VIDEO,
+            requestContext = requestContext,
+            dashOneFile = true,
+        )
+        val sound = CompanionAudio(
+            mediaUrl = "https://cdn.example.test/stream.mpd?token=secret",
+            mimeType = "audio/mp4",
+            codecs = listOf("mp4a.40.5"),
+            requestContext = requestContext,
+            representationId = "1",
+        )
+
+        assertTrue(dash.dashOneFile)
+        assertFalse(sound.toString().contains("secret"))
+        assertTrue(sound.toString().contains("representationId=[REDACTED]"))
+        assertThrows(IllegalArgumentException::class.java) {
+            dash.copy(kind = MediaKind.HLS)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            sound.copy(representationId = " ")
+        }
+    }
+
+    @Test
     fun `asset rejects duplicate variant IDs`() {
         val variant = MediaVariant(
             id = "duplicate",

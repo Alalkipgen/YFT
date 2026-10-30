@@ -4,8 +4,10 @@ import android.media.MediaCodecList
 import android.os.Build
 import com.alal.yft.core.download.AudioVideoMuxCompatibility
 import com.alal.yft.core.download.MuxCompatibility
+import com.alal.yft.core.model.media.CompanionAudio
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.MediaVariant
 import java.util.Locale
 
 /**
@@ -38,10 +40,35 @@ class DeviceMergeSupport(
 
     override fun canMerge(candidate: MediaCandidate): Boolean {
         val audio = candidate.audioCompanion ?: return true
-        if (AudioVideoMuxCompatibility.outputMimeTypeFor(candidate.mimeType) == WEBM) {
+        return merges(
+            videoMimeType = candidate.mimeType,
+            videoCodecs = candidate.codecs,
+            hls = candidate.kind == MediaKind.HLS,
+            audio = audio,
+        )
+    }
+
+    /**
+     * v1.0.2 item 59: the same answer for a page's DASH video quality and its manifest's sound
+     * ([DashSoundPairing]); a DASH track is a file of its own, never a playlist.
+     */
+    fun canMerge(video: MediaVariant, audio: CompanionAudio): Boolean = merges(
+        videoMimeType = video.mimeType,
+        videoCodecs = video.codecs,
+        hls = video.kind == MediaKind.HLS,
+        audio = audio,
+    )
+
+    private fun merges(
+        videoMimeType: String?,
+        videoCodecs: List<String>,
+        hls: Boolean,
+        audio: CompanionAudio,
+    ): Boolean {
+        if (AudioVideoMuxCompatibility.outputMimeTypeFor(videoMimeType) == WEBM) {
             return AudioVideoMuxCompatibility.evaluateWebm(
-                videoMimeType = candidate.mimeType,
-                videoCodecs = candidate.codecs,
+                videoMimeType = videoMimeType,
+                videoCodecs = videoCodecs,
                 audioMimeType = audio.mimeType,
                 audioCodecs = audio.codecs,
                 sdkInt = sdkInt,
@@ -51,10 +78,9 @@ class DeviceMergeSupport(
         // offers only the merges the download makes: the owner's retest of 7e101aa4 (VK,
         // 2026-10-26) had a 1080p row whose sound named no codecs offered, then refused. Backlog
         // item 5: VP9 HLS video and its AAC sound go into one MP4 by the stream copy.
-        val hls = candidate.kind == MediaKind.HLS
         val compatible = AudioVideoMuxCompatibility.evaluateMp4(
-            videoMimeType = candidate.mimeType,
-            videoCodecs = candidate.codecs,
+            videoMimeType = videoMimeType,
+            videoCodecs = videoCodecs,
             videoHlsPlaylist = hls,
             audioMimeType = audio.mimeType,
             audioCodecs = audio.codecs,
@@ -62,7 +88,7 @@ class DeviceMergeSupport(
             sdkInt = sdkInt,
             av1Enabled = av1Enabled(),
         ) == MuxCompatibility.Compatible
-        return compatible && candidate.codecs.all { codec ->
+        return compatible && videoCodecs.all { codec ->
             !codec.trim().lowercase(Locale.US).startsWith(AV1_CODEC_PREFIX) || playsAv1
         }
     }

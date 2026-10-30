@@ -21,6 +21,7 @@ import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.core.model.settings.pick
+import com.alal.yft.detection.DashSoundPairing
 import com.alal.yft.download.DownloadOrigin
 import com.alal.yft.download.EnqueueResult
 import com.alal.yft.download.PreviewDownloadStarter
@@ -267,7 +268,8 @@ class PreviewViewModel @Inject constructor(
         mutableUiState.value = PreviewUiState.Loading
         quality = currentPreferences().defaultQuality
         val result = try {
-            resolver.resolve(candidate)
+            // v1.0.2 item 59: a page's one-file DASH video qualities with their manifest's sound.
+            DashSoundPairing.pair(resolver.resolve(candidate), candidate)
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (_: Exception) {

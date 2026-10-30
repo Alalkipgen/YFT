@@ -291,6 +291,77 @@ class DownloadPlanFactoryTest {
     }
 
     @Test
+    fun `a DASH quality with its manifest's sound becomes a merge of two representations`() {
+        // v1.0.2 item 59: a page's one-file (SegmentBase) quality and its manifest's sound.
+        val manifest = "https://media.example.test/dash/stream.mpd"
+        val sound = companion().copy(
+            mediaUrl = manifest,
+            contentLengthBytes = null,
+            representationId = "a1",
+        )
+        val quality = variant(
+            url = manifest,
+            kind = MediaKind.DASH,
+            label = "360p",
+            container = "DASH",
+        ).copy(
+            manifestVariantId = "v5",
+            codecs = listOf("avc1.42401e"),
+            audioCompanion = sound,
+            dashOneFile = true,
+        )
+
+        val request = (factory(quality) as DownloadPlanResult.Ready).request as DownloadRequest.Mux
+
+        val plan = request.plan
+        assertEquals("Fixture 360p.mp4", request.fileName)
+        assertEquals("video/mp4", plan.outputMimeType)
+        assertEquals(manifest, plan.video.manifestUrl)
+        assertEquals("v5", plan.video.representationId)
+        assertEquals(MediaTrackType.VIDEO, plan.video.trackType)
+        assertFalse(plan.video.hlsPlaylist)
+        assertNull(plan.video.wholeFile)
+        assertEquals("Fixture 360p.video.mp4", plan.video.suggestedFileName)
+        assertEquals(manifest, plan.audio.manifestUrl)
+        assertEquals("a1", plan.audio.representationId)
+        assertEquals(MediaTrackType.AUDIO, plan.audio.trackType)
+        assertFalse(plan.audio.hlsPlaylist)
+        assertNull(plan.audio.wholeFile)
+        assertEquals(listOf("mp4a.40.2"), plan.audio.codecs)
+        assertEquals("Fixture 360p.audio.m4a", plan.audio.suggestedFileName)
+
+        // VP9 with its Opus sound: one WebM from Android 10, as other merges.
+        val webm = quality.copy(
+            mimeType = "video/webm",
+            codecs = listOf("vp09.00.21.08"),
+            audioCompanion = sound.copy(mimeType = "audio/webm", codecs = listOf("opus")),
+        )
+        val webmRequest = (factory(webm, sdkInt = 29) as DownloadPlanResult.Ready).request
+            as DownloadRequest.Mux
+        assertEquals("video/webm", webmRequest.plan.outputMimeType)
+        assertEquals("Fixture 360p.webm", webmRequest.fileName)
+        assertEquals("Fixture 360p.audio.webm", webmRequest.plan.audio.suggestedFileName)
+        assertEquals(
+            DownloadFailureReason.INCOMPATIBLE_TRACKS,
+            (factory(webm, sdkInt = 28) as DownloadPlanResult.Rejected).reason,
+        )
+
+        // A DASH video merges only with its manifest's sound, and a file never with one.
+        val fileSound = quality.copy(audioCompanion = companion())
+        val noRepresentation = quality.copy(manifestVariantId = null)
+        val fileWithManifestSound = variant(label = "720p").copy(
+            codecs = listOf("avc1.64001f"),
+            audioCompanion = sound,
+        )
+        for (refused in listOf(fileSound, noRepresentation, fileWithManifestSound)) {
+            assertEquals(
+                DownloadFailureReason.UNSUPPORTED_SOURCE,
+                (factory(refused) as DownloadPlanResult.Rejected).reason,
+            )
+        }
+    }
+
+    @Test
     fun `YouTube tracks carry the length their address states`() {
         val merged = variant(
             url = "https://rr3---sn-a.googlevideo.com/videoplayback?itag=136&clen=52428800&sig=x",

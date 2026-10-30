@@ -86,6 +86,20 @@ class PreviewSourceFactoryTest {
     }
 
     @Test
+    fun `plays a DASH page's sound from the manifest itself`() {
+        // v1.0.2 item 59: the sound is another representation of the same manifest, which
+        // plays its own sound; a second source would fetch the manifest twice.
+        val dash = variant(MediaKind.DASH).copy(
+            audioCompanion = companion("https://media.example.test/manifest.mpd")
+                .copy(mimeType = "audio/mp4", representationId = "audio-1"),
+        )
+        val sources = factory.sources(dash)
+        assertEquals(1, sources.size)
+        assertTrue(sources.single() is DashMediaSource)
+        assertTrue(factory.create(dash) is DashMediaSource)
+    }
+
+    @Test
     fun `tells a playlist companion from a file by its MIME type or its path`() {
         fun kind(url: String, mime: String?) =
             PreviewSourceFactory.companionKind("https://media.example.test/$url", mime)

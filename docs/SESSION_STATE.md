@@ -2178,8 +2178,63 @@ Keep at least the heading and one blank line between sections, so Git merges the
     failure ends INCOMPATIBLE_TRACKS, nothing published; off again: refused),
     `DownloadLabelsTest` (the decoder line only on a merge, last; absent: the text as before).
   - CHANGELOG: no line (debug only; the release is unchanged).
-- Next: item 26's CI (checkpoint, emulator smoke with the AV1 probe line, Preview APK, minified
-  check), then 59 and 51.
+- Item 26's CI (commit `26ccd4c0`), all green: checkpoint validation 41027686832 (#587), emulator
+  smoke 41027686884 (#175; instrumentation 66 tests, 0 failures, 6 skipped), Preview APK
+  41027686899 (#142), minified check 41027686923 (#33). The emulator's probe line (the run's "Site
+  page diagnostics av1-mux" annotation): `av1-mux probe sdk=34 decoder=true kinds=software
+  result=Failure step=samples` — the API 34 emulator has a software AV1 decoder and its muxer still
+  fails AV1 + AAC at the samples, as in P4; the release stays off, the owner's phone decides with
+  the box.
+- Item 59 (DASH `SegmentBase`/SIDX on pages without an adapter) — checked first: not in the code
+  (`DashDownloadManifestParser.kt` returned `Unsupported` for every `SegmentBase`; such a page's
+  video was a **No sound** row whose download failed, and its sound's download failed too). Done:
+  - `core-download`: `DashDownloadManifestParser` reads a `SegmentBase` representation (no
+    `SegmentList` or `SegmentTemplate` beside it, named by its own `BaseURL`, its `Initialization`
+    in that file) as `Result.OneFile`: the file and its initialization and index ranges, as the
+    nearest `SegmentBase` states them (ranges that are none → `Malformed`; another file's
+    initialization or no `BaseURL` of its own → `Unsupported`). `DashTransferEngine` downloads it
+    as it downloads a whole file today (FAST_START's first range, the length from its answer or,
+    on a resume, from a one-byte request; equal ranges; a resume keeps the ranges done while the
+    file's length and the manifest's byte layout stay the same — the layout is part of the
+    fingerprint, so another length or layout starts over), each request sent as from the
+    manifest. The `sidx` is not read: the ranges need no pieces. The progress has the total. A
+    file that ends before its manifest's index or initialization: `INTEGRITY_MISMATCH` at Verify
+    ("the file is N bytes; its manifest's index ends at byte M"), before any range is kept.
+  - The merge, on the generic page path only: `core-media`'s `DashManifestParser` notes
+    `MediaVariant.dashOneFile` (a manifest that is not live, the same rules); the app's
+    `DashSoundPairing` (new) gives a page's (no `videoId`) one-file video quality its manifest's
+    sound — the first language, at its highest bitrate the phone merges
+    (`DeviceMergeSupport.canMerge(video, audio)`, the candidate's gates: AVC + AAC → MP4, VP9 +
+    Opus → WebM from Android 10, AV1 only with item 26's switch) — as `CompanionAudio` with
+    `representationId`; a video the phone cannot merge stays **No sound**. Applied where a
+    lookup's qualities are resolved: the sheet (`QuickDownloadViewModel.resolveSafely`), the
+    preview screen (`PreviewViewModel.resolve`) and the fresh link (`SiteLinkRenewal`).
+    `DownloadPlanFactory.mergedRequest` plans it as today's merge of two manifest tracks (the two
+    representations, no whole file), with the same names (`.video.mp4`/`.audio.m4a`, WebM for
+    VP9) and the same gate; `PreviewSourceFactory` plays such a sound from the manifest itself.
+  - Unchanged: `SegmentTemplate` and `SegmentList`; no adapter, Master, ladder, coordinator or
+    `SocialRowCheck` change (VK still refuses manifest rows); a site adapter's rows are never
+    paired (an adapter's `SegmentBase` representation, if one came, now downloads video-only
+    instead of failing).
+  - Tests: `DashOneFileTest` (new; a made-up manifest with video and sound, files of `ftyp` +
+    `moov`, `sidx`, `moof` + `mdat`: the ranges; what stays unsupported or malformed; the file
+    byte for byte with no request for the index alone and with its total; a resume keeps the
+    ranges done; another length or another layout starts over; a short file → INTEGRITY_MISMATCH;
+    both tracks merged with the real engine), `DefaultVariantResolverTest` (`dashOneFile`),
+    `PreviewSourceFactoryTest`, `DashSoundPairingTest` (new), `DashOneFileSheetTest` (new: the
+    test stream's sheet and plans), `MergeSupportTest`, `DownloadPlanFactoryTest`,
+    `MediaAssetTest` (the two new rules). Local totals: app 1445 (66 skipped), core-download 321,
+    core-media 43, core-model 143; 0 failures.
+  - The phone test's stream (public and legal; checked signed out, 3 requests, no body kept):
+    DASH-IF's (Netflix) on-demand test vector
+    `https://dash.akamaized.net/dash264/TestCases/1a/netflix/exMPD_BIP_TC1.mpd` — Elephants Dream
+    (CC BY), 10:54; four 480 × 360 AVC qualities at 24 fps (150–750 kbps) and one HE-AAC sound
+    (72 kbps, en), each one `SegmentBase` file with its `sidx`; the files answer ranges. Pasted on
+    Home, the sheet should show Video **360p** (480 × 360 · 24 fps · MP4) without **No sound**,
+    **~64 MB**, and Audio **M4A** (72 kbps · en, ~5.6 MB); Download → one MP4 with sound, about
+    44 MB (46.2 million bytes); M4A → about 5.1 MB.
+  - CHANGELOG `[1.0.2]`: one line under Added.
+- Next: item 59's CI (checkpoint, emulator smoke, Preview APK, minified check), then 51.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 

@@ -5,6 +5,8 @@ import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.CompanionAudio
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.MediaTrackType
+import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SiteExtractionRequest
 import com.alal.yft.extractor.api.SiteExtractionResult
@@ -118,6 +120,46 @@ class MergeSupportTest {
         on = false
         assertFalse(android16.canMerge(av1))
         assertFalse(DeviceMergeSupport(sdkInt = 36, hasDecoder = { true }).canMerge(av1))
+    }
+
+    /**
+     * v1.0.2 item 59: a page's DASH video representation and its manifest's sound take the
+     * candidate's gates: AVC with AAC anywhere, VP9 with Opus in WebM from Android 10, AV1 only
+     * with the switch, from Android 14 and with a decoder.
+     */
+    @Test
+    fun aDashVideoAndItsManifestsSoundTakeTheSameGates() {
+        fun dash(candidate: MediaCandidate) = MediaVariant(
+            id = "dash-video-0",
+            playbackUrl = "https://cdn.fixture.test/stream.mpd",
+            kind = MediaKind.DASH,
+            trackType = MediaTrackType.VIDEO,
+            requestContext = BrowserRequestContext(PAGE, null, null),
+            manifestVariantId = "v1",
+            mimeType = candidate.mimeType,
+            codecs = candidate.codecs,
+            dashOneFile = true,
+        )
+        fun sound(candidate: MediaCandidate) = requireNotNull(candidate.audioCompanion).copy(
+            mediaUrl = "https://cdn.fixture.test/stream.mpd",
+            representationId = "a1",
+        )
+        val android9 = DeviceMergeSupport(sdkInt = 28, hasDecoder = { true }, av1Enabled = { true })
+        val android10 = DeviceMergeSupport(sdkInt = 29, hasDecoder = { false }, av1Enabled = { false })
+        val android14 = DeviceMergeSupport(sdkInt = 34, hasDecoder = { true }, av1Enabled = { true })
+        val android14Off = DeviceMergeSupport(sdkInt = 34, hasDecoder = { true }, av1Enabled = { false })
+        val webm = webmCandidate(listOf("vp9"), listOf("opus"))
+        for (phone in listOf(android9, android10, android14, android14Off)) {
+            for (candidate in listOf(avc, av1, vp9, webm)) {
+                assertEquals(phone.canMerge(candidate), phone.canMerge(dash(candidate), sound(candidate)))
+            }
+        }
+        assertTrue(android9.canMerge(dash(avc), sound(avc)))
+        assertTrue(android10.canMerge(dash(webm), sound(webm)))
+        assertFalse(android9.canMerge(dash(webm), sound(webm)))
+        assertTrue(android14.canMerge(dash(av1), sound(av1)))
+        assertFalse(android14Off.canMerge(dash(av1), sound(av1)))
+        assertFalse(android14.canMerge(dash(vp9), sound(vp9)))
     }
 
     @Test

@@ -388,6 +388,65 @@ class DefaultVariantResolverTest {
     }
 
     @Test
+    fun `DASH notes each representation that is one file`() = runTest {
+        // v1.0.2 item 59: a SegmentBase with the representation's own BaseURL, in a manifest
+        // that is not live, is one file; pieces, another file's initialization or a live
+        // manifest are not.
+        val manifest = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <MPD mediaPresentationDuration="PT10S" xmlns="urn:mpeg:dash:schema:mpd:2011">
+              <Period>
+                <AdaptationSet contentType="video" mimeType="video/mp4" codecs="avc1.4d401e">
+                  <Representation id="one" bandwidth="400000" width="640" height="360">
+                    <BaseURL>video-360.mp4</BaseURL>
+                    <SegmentBase indexRange="700-799"><Initialization range="0-699"/></SegmentBase>
+                  </Representation>
+                  <Representation id="pieces" bandwidth="800000" width="1280" height="720">
+                    <SegmentTemplate media="v720-${'$'}Number${'$'}.m4s" duration="2" startNumber="1"/>
+                  </Representation>
+                  <Representation id="elsewhere" bandwidth="600000" width="854" height="480">
+                    <BaseURL>video-480.mp4</BaseURL>
+                    <SegmentBase indexRange="700-799">
+                      <Initialization sourceURL="init-480.mp4" range="0-699"/>
+                    </SegmentBase>
+                  </Representation>
+                </AdaptationSet>
+                <AdaptationSet contentType="audio" mimeType="audio/mp4" codecs="mp4a.40.2" lang="en">
+                  <SegmentBase indexRange="500-579"><Initialization range="0-499"/></SegmentBase>
+                  <Representation id="sound" bandwidth="128000">
+                    <BaseURL>audio-en.m4a</BaseURL>
+                  </Representation>
+                </AdaptationSet>
+              </Period>
+            </MPD>
+        """.trimIndent()
+        server.enqueue(manifestResponse(manifest, "application/dash+xml"))
+        server.enqueue(
+            manifestResponse(
+                manifest.replace("<MPD ", "<MPD type=\"dynamic\" "),
+                "application/dash+xml",
+            ),
+        )
+
+        fun oneFile(result: VariantResolutionResult): Map<String?, Boolean> =
+            (result as VariantResolutionResult.Success).asset.variants
+                .associate { it.manifestVariantId to it.dashOneFile }
+
+        val static = oneFile(
+            resolver.resolve(candidate(server.url("/manifest.mpd").toString(), MediaKind.DASH)),
+        )
+        assertEquals(
+            mapOf("one" to true, "pieces" to false, "elsewhere" to false, "sound" to true),
+            static,
+        )
+        val live = oneFile(
+            resolver.resolve(candidate(server.url("/live.mpd").toString(), MediaKind.DASH)),
+        )
+        assertTrue(live.isNotEmpty())
+        assertTrue(live.values.none { it })
+    }
+
+    @Test
     fun `range probe keeps size unknown when server omits total length`() = runTest {
         server.enqueue(MockResponse().setResponseCode(405))
         server.enqueue(

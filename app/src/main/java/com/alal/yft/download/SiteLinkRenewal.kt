@@ -21,6 +21,7 @@ import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.Mp3Variants
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.detection.BrowserPageReader
+import com.alal.yft.detection.DashSoundPairing
 import com.alal.yft.detection.HeadlessIdentity
 import com.alal.yft.detection.InstagramHomeSession
 import com.alal.yft.detection.PageReread
@@ -319,7 +320,8 @@ class SiteLinkRenewal(
     }
 
     private suspend fun resolveSafely(candidate: MediaCandidate): VariantResolutionResult? = try {
-        resolver().resolve(candidate)
+        // v1.0.2 item 59: the same sound for a page's one-file DASH video as its sheet gave it.
+        DashSoundPairing.pair(resolver().resolve(candidate), candidate)
     } catch (cancellation: CancellationException) {
         throw cancellation
     } catch (_: Exception) {
