@@ -49,6 +49,10 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
 - Backup finder for VK: a video it finds through the page's own video data offers each quality VK
   names for it (such as 1080p, 720p, 480p, 360p, 240p and 144p) as rows of that one video, the
   tallest first, instead of the tallest alone.
+- With Show details on, **Lookup details** (with **Copy details**) also show on Home's download
+  sheet when a site's own lookup failed before the page itself gave the video, under the error
+  when no format of a found video can be read, with the file TikTok's player plays when TikTok's
+  page could not be read, and after the backup finder found a video on any other website.
 
 ### Fixed
 

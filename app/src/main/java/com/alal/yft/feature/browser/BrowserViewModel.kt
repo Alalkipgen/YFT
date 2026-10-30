@@ -725,7 +725,9 @@ class BrowserViewModel(
                             mutableUiState.update {
                                 it.copy(siteNotice = PlayerFileFallback.NOTICE)
                             }
-                            showFocusedVideo(fallback, sheet)
+                            // v1.0.2 item 13 (c): the failed lookup's lines are the sheet's
+                            // Lookup details (why the player's file is the row).
+                            showFocusedVideo(fallback, sheet, outcome.details)
                         }
 
                         sheet != null -> showFocusedFailure(
@@ -977,7 +979,10 @@ class BrowserViewModel(
                             )
                         }
                         candidateStore.submit(fallback)
-                        showPageVideo(key, livePageUrl, lookupTitle(title), listOf(fallback))
+                        // v1.0.2 item 13 (c): the failed lookup's lines go with the row.
+                        showPageVideo(
+                            key, livePageUrl, lookupTitle(title), listOf(fallback), outcome.details,
+                        )
                         return@launch
                     }
                     // One automatic retry per page; after that the user decides with Try again.
@@ -1245,7 +1250,8 @@ class BrowserViewModel(
                 if (video != null) {
                     candidateStore.submitAll(outcome.candidates)
                     if (mainMore != null) mutableUiState.update { it.copy(sitePage = false) }
-                    detectedMediaStore.select(video)
+                    // v1.0.2 item 13 (d): Master's own lines are the sheet's Lookup details.
+                    detectedMediaStore.select(video, lookupDetails = outcome.details)
                     detectedMediaStore.clearLookup(LookupOwner.BROWSER)
                     masterLookupKey = null
                     return@launch

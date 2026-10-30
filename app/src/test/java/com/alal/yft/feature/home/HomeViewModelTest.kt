@@ -372,6 +372,47 @@ class HomeViewModelTest {
     }
 
     @Test
+    fun theLookupsLinesGoWithTheFoundVideoToTheSheetAndViewKeepsThem() = runTest {
+        // v1.0.2 item 13 (a): Home's sheet shows its lookup's lines as Lookup details: a site
+        // reader's failure lines before the page itself gave the video, cleaned once more.
+        val viewModel = viewModel()
+        val collector = launch { viewModel.quickDownloadRequests.collect {} }
+        val lines = listOf("adapter fixture: RESPONSE_CHANGED", "page read: RESPONSE_CHANGED")
+        inspector.answer = { found(1).copy(details = lines + "Cookie: redaction-fixture") }
+
+        viewModel.onAction(HomeAction.LinkChanged("https://a.test/watch"))
+        viewModel.onAction(HomeAction.Submit)
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.quickDownload)
+        assertEquals(lines, store.lookupDetailsOf(store.selection.value))
+
+        // View after the browser found another page: the video again, its lines with it.
+        store.publish("https://b.test/other", "Other", found(1).candidates)
+        assertTrue(store.lookupDetailsOf(store.selection.value).isEmpty())
+        viewModel.selectFoundVideo()
+        assertEquals(lines, store.lookupDetailsOf(store.selection.value))
+
+        // A find without lines (a site reader's own success, a page alone): none.
+        inspector.answer = { found(1) }
+        viewModel.onAction(HomeAction.Submit)
+        advanceUntilIdle()
+        assertNotNull(store.selection.value)
+        assertTrue(store.lookupDetailsOf(store.selection.value).isEmpty())
+        viewModel.selectFoundVideo()
+        assertTrue(store.lookupDetailsOf(store.selection.value).isEmpty())
+
+        // P16: the sheet that waits on a site's link takes the first video with the lines.
+        inspector.siteVideo = { SiteVideoLink(VIDEO_KEY, "https://a.test/watch") }
+        inspector.answer = { found(2).copy(details = lines) }
+        viewModel.onAction(HomeAction.Submit)
+        advanceUntilIdle()
+        assertEquals(PromptboxStatus.Found(2), viewModel.uiState.value.status)
+        assertNull(store.lookup.value)
+        assertEquals(lines, store.lookupDetailsOf(store.selection.value))
+        collector.cancel()
+    }
+
+    @Test
     fun aSupportedSitesLinkOpensItsSheetBeforeTheLookupEndsAndTheLookupFillsIt() = runTest {
         val viewModel = viewModel()
         val opened = mutableListOf<Unit>()

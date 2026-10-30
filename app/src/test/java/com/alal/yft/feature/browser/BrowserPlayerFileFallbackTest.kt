@@ -12,6 +12,7 @@ import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import com.alal.yft.testing.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
@@ -58,6 +59,9 @@ class BrowserPlayerFileFallbackTest {
         assertEquals(VIDEO_PAGE, row.pageUrl)
         assertEquals("tt_chain_token=fixture", row.requestContext.cookie)
         assertEquals("https://www.tiktok.com/", row.requestContext.observedHeaders["Referer"])
+        // v1.0.2 item 13 (c): the failed lookup's own lines go with the player's file to the
+        // sheet (its Lookup details), the same lines its failure shows without a file.
+        assertEquals(failureLines(), store.lookupDetailsOf(store.selection.value))
     }
 
     @Test
@@ -82,6 +86,8 @@ class BrowserPlayerFileFallbackTest {
             store.selection.value?.candidates?.map { it.mediaUrl },
         )
         assertEquals(PlayerFileFallback.NOTICE, viewModel.uiState.value.siteNotice)
+        // v1.0.2 item 13 (c): the video on screen's file comes with its failed lookup's lines.
+        assertEquals(failureLines(), store.lookupDetailsOf(store.selection.value))
     }
 
     @Test
@@ -112,6 +118,18 @@ class BrowserPlayerFileFallbackTest {
 
     private fun adapters(extractor: SiteExtractor) =
         SiteAdapterCoordinator(SiteExtractorRegistry(listOf(extractor)))
+
+    /** The lines the failed lookup's sheet shows when the page's player fetched no file. */
+    private fun TestScope.failureLines(): List<String> {
+        val store = DetectedMediaStore()
+        val viewModel = BrowserViewModel(OkHttpClient(), adapters(TikTokShapedExtractor()), store)
+        viewModel.onPageStarted(VIDEO_PAGE)
+        viewModel.onPageFinished(VIDEO_PAGE, "Sunrise | TikTok")
+        runCurrent()
+        val lines = store.lookup.value?.details.orEmpty()
+        assertTrue(lines.toString(), lines.containsAll(TikTokShapedExtractor.DETAILS))
+        return lines
+    }
 
     private fun playerRequest(url: String, page: String) = RequestObservation(
         pageUrl = page,

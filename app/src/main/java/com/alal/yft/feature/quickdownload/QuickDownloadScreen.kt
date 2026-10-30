@@ -288,6 +288,7 @@ fun QuickDownloadScreen(
                 onRetry = onRetry.takeIf { state.canRetry },
                 details = state.failureDetails,
                 onReload = onReload.takeIf { state.canReload },
+                lookupDetails = state.lookupDetails,
             )
         }
     }
@@ -645,6 +646,8 @@ private fun PlaceholderBar(color: Color, modifier: Modifier) {
  * The sheet's failure: its message and Details, then Try again and the reload. Social plan task 15
  * (F3): the message and the Details scroll, and Try again and the reload stay pinned under them,
  * so long Details never hide them; the Details, once shown, offer Copy details ([copiedDetails]).
+ * v1.0.2 item 13 (b): a format's failure after the lookup found the video keeps that lookup's
+ * [lookupDetails] under its own Details ("Lookup details", as under a success's rows).
  */
 @Composable
 private fun ColumnScope.Failure(
@@ -652,6 +655,7 @@ private fun ColumnScope.Failure(
     onRetry: (() -> Unit)?,
     details: List<String> = emptyList(),
     onReload: (() -> Unit)? = null,
+    lookupDetails: List<String> = emptyList(),
 ) {
     Column(
         modifier = Modifier
@@ -671,6 +675,12 @@ private fun ColumnScope.Failure(
             textAlign = TextAlign.Center,
         )
         FailureDetails(details, copyTag = "quick-error-copy")
+        FailureDetails(
+            lines = lookupDetails,
+            tag = LOOKUP_DETAILS_TAG,
+            copyTag = LOOKUP_COPY_TAG,
+            label = LOOKUP_DETAILS,
+        )
     }
     // P12: a protected video has no Try again; asking again would not change it.
     onRetry ?: return
@@ -780,7 +790,8 @@ private fun ColumnScope.DownloadAction(
  * the next video ([tag] `quick-next-video-details`), with both attempts. P43: under the line
  * about a skipped ad without a tag ([tag] null). Social plan task 15 (F3): with a [copyTag] (the
  * sheet's failure), the shown Details offer "Copy details" beside "Hide details". VK-Master wave
- * 2: under a success's rows the lookup's own lines, named by [label] ("Lookup details").
+ * 2: under a success's rows the lookup's own lines, named by [label] ("Lookup details"); v1.0.2
+ * item 13: under a format's failure after that success too.
  */
 @Composable
 private fun ColumnScope.FailureDetails(

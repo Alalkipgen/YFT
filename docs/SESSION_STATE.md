@@ -2027,8 +2027,48 @@ Keep at least the heading and one blank line between sections, so Git merges the
   and in the shape scan). Local: `:extractor-master:test` (1119, 2 skipped) and
   `:extractor-master-android:testDebugUnitTest` (85) green. CHANGELOG: Changed (the release has
   the social ladder: `releaseMaster`'s `SOCIAL_LADDER` true). S5 (VK) is needed for it.
-- Next: item 11's checkpoint through the connector and its CI; then item 13; the backlog lines in
-  a last docs-only commit; READY FOR PHONE TEST.
+- Item 11 pushed as `abb75c26` (identical trees). Its CI: checkpoint validation 41011083104
+  (#585), emulator smoke 41011083098 (#173), Preview APK 41011083111 (#140), minified check
+  41011083099 (#31): all green.
+- Item 13 (Lookup details where they were still missing: agent D's "Lookup details after a
+  success", its Backlog line). Checked first, at `abb75c26`: none of the four was in the code.
+  (a) `LinkInspection.Found` had no lines (`LinkInspector.kt` line 29) and `HomeViewModel.kt`
+  selected the found video without any (lines 235, 239 and View's 305); (b) the sheet showed
+  Lookup details only under a success's rows (`QuickDownloadScreen.kt` line 242, the `choices !=
+  null` branch), its failure (line 286) only the failure's own Details; (c) the player-file
+  fallback selected its row without the lookup's lines (`BrowserViewModel.kt` lines 728 and
+  980); (d) Master's on-demand find was selected without lines (line 1248), and its rows carried
+  none (`BrowserMasterFallback.kt` line 351: lines only for route B and the social ladder).
+  Now, with the same `FailureDetails(label = "Lookup details")`, Copy details and rule (debug and
+  trial always; the release only with Show details on): (a) Home's find carries its lookup's own
+  lines (`LinkInspection.Found.details`): a site reader's failure lines (`adapter <id>:
+  <reason>`, its steps), dropped before, when the page's markup or the link's own media answer
+  then gave the video; a site reader's own success, a media link and a page alone have none, as
+  main's own success in the browser (Home has no backup finder). `HomeViewModel` selects the found
+  video with them (also the P16 sheet's first video, and View). (b) Every failure the sheet shows
+  after the lookup found the video (no format could be read, only an ad): the failure's own
+  Details, then Lookup details. (c) The player-file fallback (TikTok, P39) gives its row the failed
+  lookup's lines (`outcome.details`, the ones its failure shows without a file), on the page and
+  for the video on a feed's screen. (d) Master's on-demand rows on a generic page carry Master's
+  own lines (`DiagnosticTextSanitizer.details(result.result.details)`: the capture it asked for,
+  the evidence, the rows it checked); the sheet that waited (and its Try again) takes them; a
+  later Download tap on that page opens the page's files without them, as before (a generic
+  row's key follows its place in the list). Only existing lines passed on: no line made, no
+  ladder, heal, budget, request or value change.
+  Tests: `QuickDownloadScreenTest` (+1: a format's failure after a success: its Details, then
+  Lookup details and Copy details; quiet: neither; a failed lookup: its Details only),
+  `LookupDetailsSheetTest` (+2: the backup's video whose list of qualities cannot be read keeps the
+  lines under the real sheet's failure, shown and copied; Master's on-demand find on a generic
+  page gives the waiting sheet its lines), `BrowserPlayerFileFallbackTest` (+1 check in each of 2:
+  the page's and the feed's player file come with the failure's lines), `BrowserMasterFallbackTest`
+  (+1: on-demand rows carry Master's lines, sanitized; a site failure's rows outside the ladder and
+  route B: none), `HeadlessLinkInspectorTest` (+1 and 2 checks: the reader's failure lines with a
+  page's and a media answer's find, the cookie line dropped; a reader's own success and a page
+  alone: none), `HomeViewModelTest` (+1: the lines go with the found video, View keeps them, a
+  find without lines: none, the P16 sheet's first video too). Local: these classes and
+  `BrowserMasterFlowTest`, `BackupFinderTest` green. CHANGELOG: Changed.
+- Next: item 13's checkpoint through the connector and its CI; the backlog lines in a last
+  docs-only commit; READY FOR PHONE TEST.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 

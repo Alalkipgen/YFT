@@ -144,6 +144,8 @@ class HeadlessLinkInspectorTest {
         assertEquals("Fixture clip", found.pageTitle)
         assertEquals("https://cdn.fixture.test/42.mp4", found.candidates.single().mediaUrl)
         assertTrue(fetched.isEmpty())
+        // v1.0.2 item 13 (a): a site reader's own success has no lines (as in the browser).
+        assertTrue(found.details.isEmpty())
     }
 
     @Test
@@ -293,6 +295,45 @@ class HeadlessLinkInspectorTest {
         assertEquals("Sunset timelapse", candidate.title)
         assertEquals(HeadlessIdentity.USER_AGENT, candidate.requestContext.userAgent)
         assertNull(candidate.requestContext.cookie)
+        // v1.0.2 item 13 (a): a page no site reader reads gives no lines.
+        assertTrue(result.details.isEmpty())
+    }
+
+    @Test
+    fun aSiteReadersFailureBeforeThePagesOwnMediaGoesWithTheFindAsItsLines() = runTest {
+        // v1.0.2 item 13 (a): the site reader failed, then the page's markup gave the video: the
+        // find keeps the reader's lines (Home's sheet shows them as its Lookup details), cleaned.
+        page = { url ->
+            HeadlessPageFetcher.Result.Page(
+                url,
+                "<title>Fixture clip</title><video src=\"https://cdn.fixture.test/42.mp4\"></video>",
+            )
+        }
+        val result = inspector(
+            FixtureExtractor(
+                SiteExtractionResult.Failure(
+                    SiteExtractionFailure.HTTP_STATUS,
+                    503,
+                    details = listOf("page GET 503", "Cookie: redaction-fixture"),
+                ),
+            ),
+        ).inspect("https://fixture.test/video/42") as LinkInspection.Found
+
+        assertEquals("https://cdn.fixture.test/42.mp4", result.candidates.single().mediaUrl)
+        assertEquals(
+            listOf("adapter fixture: HTTP_STATUS", "adapter HTTP 503", "page GET 503"),
+            result.details,
+        )
+        assertFalse(result.details.joinToString("\n").contains("Cookie"))
+
+        // A media answer of the page's own address after the reader failed: the same lines.
+        page = { url ->
+            HeadlessPageFetcher.Result.Media(url, "video/mp4", 4_096)
+        }
+        val media = inspector(
+            FixtureExtractor(SiteExtractionResult.Failure(SiteExtractionFailure.NO_MEDIA_FOUND)),
+        ).inspect("https://fixture.test/video/42") as LinkInspection.Found
+        assertEquals(listOf("adapter fixture: NO_MEDIA_FOUND"), media.details)
     }
 
     @Test

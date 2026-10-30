@@ -32,6 +32,12 @@ sealed interface LinkInspection {
         val candidates: List<MediaCandidate>,
         /** P28: what the page states about its own video: its length, title and picture. */
         val facts: PageVideoFacts? = null,
+        /**
+         * v1.0.2 item 13 (a): the lookup's own detail lines, which Home's sheet shows as its
+         * Lookup details: a site reader's failure lines when the page itself then gave the media;
+         * none for every other find (a site reader's own success, a media link, a page alone).
+         */
+        val details: List<String> = emptyList(),
     ) : LinkInspection
 
     /**
@@ -198,6 +204,8 @@ class HeadlessLinkInspector internal constructor(
                         now = now,
                     ),
                 ),
+                // v1.0.2 item 13 (a): a site reader's failure before the link gave the media.
+                details = DiagnosticTextSanitizer.details(adapterDetails),
             )
 
             is HeadlessPageFetcher.Result.Page -> {
@@ -226,6 +234,8 @@ class HeadlessLinkInspector internal constructor(
                             )
                         },
                         facts = scan.facts.takeUnless { it.isEmpty },
+                        // v1.0.2 item 13 (a): a site reader's failure before the page's markup.
+                        details = DiagnosticTextSanitizer.details(adapterDetails),
                     )
                 }
             }

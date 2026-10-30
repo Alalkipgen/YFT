@@ -763,6 +763,77 @@ class QuickDownloadScreenTest {
     }
 
     @Test
+    fun aFormatsFailureAfterASuccessKeepsTheLookupDetailsUnderItsOwnDetails() {
+        // v1.0.2 item 13 (b): the lookup found the video, then no format of it could be read: the
+        // failure's own Details stay, and the lookup's lines follow them as Lookup details.
+        val details = listOf("Step: list of qualities (manifest)", "Host: stream.example.test")
+        val lines = listOf(
+            "master: fixture ladder after NO_MEDIA_FOUND; main's answers re-read, no new ask",
+            "master: 1 checked candidates via PAGE_DATA",
+        )
+        var quiet by mutableStateOf(false)
+        var state by mutableStateOf(
+            QuickDownloadUiState(
+                header = SAMPLE_QUICK_DOWNLOAD.header,
+                failure = "The list of qualities could not be read.",
+                failureDetails = details,
+                canRetry = true,
+                lookupDetails = lines,
+            ),
+        )
+        composeRule.setContent {
+            CompositionLocalProvider(LocalQuietRelease provides quiet) {
+                YftTheme(themeMode = ThemeMode.LIGHT) {
+                    QuickDownloadScreen(state = state, onSelect = {}, onDownload = {}, onRetry = {})
+                }
+            }
+        }
+
+        composeRule.onNodeWithTag("quick-error")
+            .assert(hasText("The list of qualities could not be read."))
+        composeRule.onNodeWithTag("quick-retry").assertIsDisplayed()
+        composeRule.onAllNodesWithTag("quick-lookup-detail-text").assertCountEquals(0)
+        // The failure's own Details, as before.
+        composeRule.onNodeWithTag("quick-error-details").assert(hasText("Details")).performClick()
+        composeRule.onNodeWithTag("quick-error-detail-text")
+            .assert(hasText(details.joinToString("\n")))
+        composeRule.onNodeWithTag("quick-error-details").performClick()
+        // Then the lookup's lines behind Lookup details, with their own Copy details.
+        composeRule.onNodeWithTag("quick-lookup-details").performScrollTo()
+            .assert(hasText("Lookup details"))
+            .performClick()
+        composeRule.onNodeWithTag("quick-lookup-detail-text").performScrollTo()
+            .assert(hasText(lines.joinToString("\n")))
+        composeRule.onAllNodesWithTag("quick-error-detail-text").assertCountEquals(0)
+        composeRule.onNodeWithTag("quick-lookup-copy").performScrollTo().performClick()
+        val copied = ApplicationProvider.getApplicationContext<Context>()
+            .getSystemService(ClipboardManager::class.java)
+            .primaryClip!!
+            .getItemAt(0)
+            .text
+            .toString()
+        assertEquals(copiedDetails(lines), copied)
+        composeRule.onNodeWithTag("quick-retry").assertIsDisplayed()
+
+        // A quiet build without Show details: its one line, no Details and no Lookup details.
+        quiet = true
+        composeRule.waitForIdle()
+        for (tag in listOf(
+            "quick-error-details", "quick-lookup-details", "quick-lookup-detail-text",
+            "quick-lookup-copy",
+        )) {
+            composeRule.onAllNodesWithTag(tag).assertCountEquals(0)
+        }
+
+        // A failed lookup (no lines of a success): its Details only, as before.
+        quiet = false
+        state = state.copy(lookupDetails = emptyList())
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("quick-error-details").assertIsDisplayed()
+        composeRule.onAllNodesWithTag("quick-lookup-details").assertCountEquals(0)
+    }
+
+    @Test
     fun meteredDownloadsAskFirstAndNoVideoOffersClose() {
         var state by mutableStateOf(
             SAMPLE_QUICK_DOWNLOAD.copy(downloadStatus = PreviewDownloadStatus.ConfirmMetered),

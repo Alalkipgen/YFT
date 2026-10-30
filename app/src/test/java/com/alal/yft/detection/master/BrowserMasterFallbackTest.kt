@@ -1,5 +1,6 @@
 package com.alal.yft.detection.master
 
+import com.alal.yft.core.model.logging.DiagnosticTextSanitizer
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
@@ -629,6 +630,26 @@ class BrowserMasterFallbackTest {
         ) as SiteAdapterOutcome.Detected
         assertNull(result.candidates.single().videoId)
         assertEquals(1, fixture.captures.get())
+    }
+
+    @Test
+    fun aGenericPagesOnDemandRowsCarryMastersOwnLinesAndASitesRowsNoneAsBefore() = runTest {
+        // v1.0.2 item 13 (d): the rows Master finds on demand on a generic page carry its own
+        // lines (the sheet's Lookup details): the capture it asked for, the rows it checked.
+        val fixture = Fixture(generic)
+        val result = fixture.bridge.recover(
+            generic, SiteAdapterOutcome.NotHandled, 100, true,
+        ) as SiteAdapterOutcome.Detected
+        assertEquals("master: one browser-assisted capture requested", result.details.first())
+        assertEquals("master: 1 checked candidates via PLAYBACK_CAPTURE", result.details.last())
+        assertEquals(DiagnosticTextSanitizer.details(result.details), result.details)
+
+        // A site's failure the backup answered, outside the social ladder and route B: no lines.
+        val site = Fixture(tiktok)
+        val rows = site.bridge.recover(
+            tiktok, failed(SiteExtractionFailure.BOT_CHECK), 100,
+        ) as SiteAdapterOutcome.Detected
+        assertTrue(rows.details.isEmpty())
     }
 
     @Test

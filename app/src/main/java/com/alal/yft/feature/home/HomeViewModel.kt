@@ -64,6 +64,12 @@ class HomeViewModel @Inject constructor(
     /** The one video the last lookup found, which View hands to the sheet again. */
     private var foundVideo: MediaGroup? = null
 
+    /**
+     * v1.0.2 item 13 (a): the detail lines of the lookup that found [foundVideo]
+     * ([LinkInspection.Found.details]), the sheet's Lookup details; none when it gave none.
+     */
+    private var foundDetails: List<String> = emptyList()
+
     private var recentJob: Job? = null
 
     /** P29: the page the last lookup found and the link it came from, for Try again. */
@@ -160,6 +166,7 @@ class HomeViewModel @Inject constructor(
         if (link.isEmpty()) return
         stopInspection()
         foundVideo = null
+        foundDetails = emptyList()
         foundPage = null
         foundLink = null
         // P16: a supported site's video opens its sheet now; the lookup below fills it.
@@ -229,15 +236,22 @@ class HomeViewModel @Inject constructor(
                             // P24: the count counts the page's videos, not its previews and
                             // ads; one main video opens its sheet, alone (P45).
                             // P28: with the page's title and picture where it names none.
+                            // v1.0.2 item 13 (a): with the lookup's lines, the sheet's Lookup
+                            // details (none after a site reader's own success).
+                            val lines = DiagnosticTextSanitizer.details(result.details)
                             val list = MediaGroups.ofPage(videos, facts)
+                            foundDetails = lines
                             foundVideo = list.videos.singleOrNull()
                                 ?.let { MediaGroups.withPageFacts(it, facts) }
-                                ?.also { main -> detectedMediaStore.select(main) }
+                                ?.also { main ->
+                                    detectedMediaStore.select(main, lookupDetails = lines)
+                                }
                             quick = foundVideo != null
                             // P16: the open sheet shows the link's video, the list the rest.
                             if (sheet != null && foundVideo == null) {
                                 detectedMediaStore.select(
                                     MediaGroups.withPageFacts(list.videos.first(), facts),
+                                    lookupDetails = lines,
                                 )
                             }
                             PromptboxStatus.Found(count = list.videos.size)
@@ -300,9 +314,12 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** View on one found video: the sheet shows it again, whatever the browser found since. */
+    /**
+     * View on one found video: the sheet shows it again, whatever the browser found since
+     * (v1.0.2 item 13 (a): with its lookup's lines).
+     */
     fun selectFoundVideo() {
-        foundVideo?.let { detectedMediaStore.select(it) }
+        foundVideo?.let { detectedMediaStore.select(it, lookupDetails = foundDetails) }
     }
 
     private fun stopInspection() {

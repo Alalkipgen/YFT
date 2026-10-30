@@ -29,6 +29,8 @@ import com.alal.yft.core.model.media.MediaGroups
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
+import com.alal.yft.core.model.media.ResolutionStep
+import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.detection.MergeSupport
@@ -60,6 +62,7 @@ import kotlinx.coroutines.flow.StateFlow
 import okhttp3.OkHttpClient
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -76,6 +79,8 @@ import org.robolectric.annotation.GraphicsMode
  * real download sheet — on a site's page (Download after the lookup or while it runs) and for the
  * video on a feed's screen — which shows them behind "Lookup details" with Copy details; a quiet
  * build without Show details shows none, and main's own success has none. Made-up lines only.
+ * v1.0.2 item 13: under a format's failure after that success (b), and after Master's on-demand
+ * find on a generic page (d), too.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -196,6 +201,79 @@ class LookupDetailsSheetTest {
     }
 
     @Test
+    fun aFormatsFailureAfterTheBackupsSuccessKeepsItsLookupDetails() {
+        // v1.0.2 item 13 (b): the backup found the page's video, but its list of qualities cannot
+        // be read: the sheet's failure keeps its own Details, and the lookup's lines stay with it.
+        val store = DetectedMediaStore()
+        val playlist = row(SITE, "fixture:11111").copy(
+            mediaUrl = "https://cdn.fixture.test/11111/index.m3u8",
+            kind = MediaKind.HLS,
+            mimeType = "application/vnd.apple.mpegurl",
+            contentLengthBytes = null,
+        )
+        val browser = browser(PageExtractor(), store, FoundByBackup(listOf(playlist)))
+        browser.onPageStarted(SITE)
+        browser.onPageFinished(SITE, "Fixture")
+        settle()
+        assertTrue(browser.openPageVideo())
+        val sheet = sheet(store, resolver = UnreadableList)
+        settle()
+        val state = sheet.uiState.value
+        assertNull(state.choices)
+        assertNotNull(state.failure)
+        assertTrue(state.failureDetails.toString(), state.failureDetails.isNotEmpty())
+        assertEquals(LINES, state.lookupDetails)
+
+        // The real sheet: the failure and its Details, then Lookup details with the lines.
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                QuickDownloadRoute(
+                    onNavigateBack = {},
+                    onOpenDownloads = {},
+                    onOpenDetails = {},
+                    viewModel = sheet,
+                )
+            }
+        }
+        composeRule.onNodeWithTag("quick-error").assertIsDisplayed()
+        composeRule.onNodeWithTag("quick-error-details").assertIsDisplayed()
+        composeRule.onNodeWithTag("quick-lookup-details").performScrollTo().performClick()
+        composeRule.onNodeWithTag("quick-lookup-detail-text")
+            .assertTextEquals(LINES.joinToString("\n"))
+        composeRule.onNodeWithTag("quick-lookup-copy").performScrollTo().performClick()
+        assertEquals(LINES.joinToString("\n"), copied())
+    }
+
+    @Test
+    fun mastersOnDemandFindOnAGenericPageGivesTheSheetItsLookupDetails() {
+        // v1.0.2 item 13 (d): a page no site reads and no video found: Download asks the backup
+        // on demand while the sheet waits; its rows come to the sheet with its own lines.
+        val gate = CompletableDeferred<Unit>()
+        val store = DetectedMediaStore()
+        val backup = FoundByBackup(listOf(row(GENERIC, "fixture:33333").copy(videoId = null)), gate)
+        val browser = browser(PageExtractor(), store, backup)
+        browser.onPageStarted(GENERIC)
+        browser.onPageFinished(GENERIC, "Fixture")
+        settle()
+        assertEquals(0, backup.recovered)
+        assertFalse(browser.openPageVideo())
+        browser.mainVideoScript()
+        browser.onPlayingVideoResult("null")
+        val sheet = sheet(store)
+        settle()
+        assertEquals(1, backup.recovered)
+        assertTrue(backup.onDemand)
+        assertNull(sheet.uiState.value.choices)
+        assertTrue(sheet.uiState.value.lookupDetails.isEmpty())
+
+        gate.complete(Unit)
+        settle()
+        assertNotNull(sheet.uiState.value.choices)
+        assertEquals(LINES, store.lookupDetailsOf(store.selection.value))
+        assertEquals(LINES, sheet.uiState.value.lookupDetails)
+    }
+
+    @Test
     fun mainsOwnSuccessGivesNoLookupDetails() {
         // A page main found: the backup is not asked and the sheet has no lines.
         val pageStore = DetectedMediaStore()
@@ -265,10 +343,13 @@ class LookupDetailsSheetTest {
         masterFallback = backup,
     )
 
-    private fun sheet(store: DetectedMediaStore): QuickDownloadViewModel = QuickDownloadViewModel(
+    private fun sheet(
+        store: DetectedMediaStore,
+        resolver: VariantResolver = WholeFileResolver,
+    ): QuickDownloadViewModel = QuickDownloadViewModel(
         store = store,
         selectionStore = PreviewSelectionStore(),
-        resolver = WholeFileResolver,
+        resolver = resolver,
         downloadStarter = object : PreviewDownloadStarter {
             override suspend fun enqueue(asset: MediaAsset, variant: MediaVariant) =
                 EnqueueResult.Started("task", "fixture.mp4")
@@ -310,6 +391,7 @@ class LookupDetailsSheetTest {
     ) : BrowserMasterFallback {
         override val enabled = true
         var recovered = 0
+        var onDemand = false
 
         override suspend fun recover(
             lookupUrl: String,
@@ -318,6 +400,7 @@ class LookupDetailsSheetTest {
             genericOnDemand: Boolean,
         ): SiteAdapterOutcome {
             recovered++
+            onDemand = genericOnDemand
             gate?.await()
             return SiteAdapterOutcome.Detected("master", rows, details = LINES)
         }
@@ -386,8 +469,21 @@ class LookupDetailsSheetTest {
             )
     }
 
+    /** v1.0.2 item 13 (b): the list of qualities cannot be read (a made-up broken manifest). */
+    private object UnreadableList : VariantResolver {
+        override suspend fun resolve(candidate: MediaCandidate): VariantResolutionResult =
+            VariantResolutionResult.Failure(
+                VariantResolutionFailure.MALFORMED_MANIFEST,
+                step = ResolutionStep.MANIFEST,
+                host = "cdn.fixture.test",
+            )
+    }
+
     private companion object {
         const val SITE = "https://video.fixture.test/watch/11111"
+
+        /** v1.0.2 item 13 (d): a page no site adapter reads. */
+        const val GENERIC = "https://page.fixture.test/clip"
         const val FEED = "https://m.youtube.com/"
         const val FOCUSED = "https://www.youtube.com/watch?v=BBBBBBBBBB2"
         val WATCH = Regex("https://(?:www|m)\\.youtube\\.com/watch\\?v=([A-Za-z0-9_-]{11})(?:&.*)?")
