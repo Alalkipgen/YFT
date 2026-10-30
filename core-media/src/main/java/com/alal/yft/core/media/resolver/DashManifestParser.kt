@@ -8,6 +8,7 @@ import com.alal.yft.core.model.media.VariantSupport
 import java.io.StringReader
 import java.util.Locale
 import javax.xml.parsers.DocumentBuilderFactory
+import javax.xml.parsers.ParserConfigurationException
 import org.w3c.dom.Element
 import org.w3c.dom.Node
 import org.xml.sax.InputSource
@@ -19,6 +20,8 @@ internal object DashManifestParser {
         requestContext: BrowserRequestContext,
         expiresAtEpochMs: Long?,
     ): ManifestParseResult {
+        // v1.0.2 fix F1: no document type, so no entity, on any parser (see the factory).
+        if (DOCUMENT_TYPE.containsMatchIn(manifest)) return ManifestParseResult.Malformed
         val document = runCatching {
             secureDocumentBuilderFactory()
                 .newDocumentBuilder()
@@ -101,18 +104,44 @@ internal object DashManifestParser {
         return ManifestParseResult.Parsed(variants, durationMillis)
     }
 
+    /**
+     * v1.0.2 fix F1: Android's own parser (`org.apache.harmony.xml.parsers`) throws for
+     * `isXIncludeAware`, for every feature but namespaces and validation and for every attribute,
+     * so asking them all at once made every manifest unreadable on a phone (the JVM's parser
+     * knows them all). Each one is asked on its own and one the parser does not know is skipped;
+     * a manifest with a document type is refused before parsing ([DOCUMENT_TYPE]) on every
+     * parser.
+     */
     private fun secureDocumentBuilderFactory(): DocumentBuilderFactory =
         DocumentBuilderFactory.newInstance().apply {
             isNamespaceAware = true
-            isXIncludeAware = false
-            isExpandEntityReferences = false
-            setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
-            setFeature("http://xml.org/sax/features/external-general-entities", false)
-            setFeature("http://xml.org/sax/features/external-parameter-entities", false)
-            setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
-            setAttribute("http://javax.xml.XMLConstants/property/accessExternalDTD", "")
-            setAttribute("http://javax.xml.XMLConstants/property/accessExternalSchema", "")
+            ifKnown { isXIncludeAware = false }
+            ifKnown { isExpandEntityReferences = false }
+            ifKnown { setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) }
+            ifKnown { setFeature("http://xml.org/sax/features/external-general-entities", false) }
+            ifKnown {
+                setFeature("http://xml.org/sax/features/external-parameter-entities", false)
+            }
+            ifKnown {
+                setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+            }
+            ifKnown {
+                setAttribute("http://javax.xml.XMLConstants/property/accessExternalDTD", "")
+            }
+            ifKnown {
+                setAttribute("http://javax.xml.XMLConstants/property/accessExternalSchema", "")
+            }
         }
+
+    /** One hardening setting; a parser that does not know it throws, and it is skipped. */
+    private inline fun ifKnown(setting: () -> Unit) {
+        try {
+            setting()
+        } catch (_: ParserConfigurationException) {
+        } catch (_: IllegalArgumentException) {
+        } catch (_: UnsupportedOperationException) {
+        }
+    }
 
     /**
      * v1.0.2 item 59: whether [representation] is one file: a `SegmentBase` (its own, its
@@ -225,6 +254,9 @@ internal object DashManifestParser {
     }
 
     private const val DASH_MIME_TYPE = "application/dash+xml"
+
+    /** v1.0.2 fix F1: a document type or an entity declaration; such a manifest is refused. */
+    private val DOCUMENT_TYPE = Regex("""<!\s*(?:DOCTYPE|ENTITY)""", RegexOption.IGNORE_CASE)
     private const val MILLIS_PER_SECOND = 1_000.0
     private const val MILLIS_PER_MINUTE = 60 * MILLIS_PER_SECOND
     private const val MILLIS_PER_HOUR = 60 * MILLIS_PER_MINUTE

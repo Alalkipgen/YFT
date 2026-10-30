@@ -2572,6 +2572,67 @@ Keep at least the heading and one blank line between sections, so Git merges the
   items 10, 19 and 11; TikTok: items 15 and 18; Instagram and X: item 51, which also covers 70b)
   on a census APK of the final code; no PR before it.
 
+## v1.0.2 fix batch after #149 — `work/phase-v102-easy`
+
+- Started from `52a5a7ef` (Part 3's docs; its code is `8a24ad7d`'s, Preview APK #149, run
+  41106177311). The owner's phone test of #149 (Xiaomi, HyperOS, large font): PASS 1, 2, 3, 4,
+  5, 5b, 6, 7, 10, 15, 25, 28, 50, 51. 22 (a measurement): a 5:13 2160p WebM (904 MB) merged in
+  20–30 s; the owner keeps it, no change. 11: six qualities through V2's heal ("V2 heal
+  client_id: learned from vkvideo-script" … "6 checked candidates via CONTRACT"); the "VK page
+  data" step was never reached; no change. Not reached, no change: 13 (w3schools' plain video
+  needs no lookup, so no Lookup details, as designed), 17a (the X post had one MP4), 18
+  (TikTok's BOT_CHECK came before T1), 8 and 9 (their conditions did not come up); 19 and 26 not
+  run (they need the census APK, later). FAIL: 59 and 70b (fixes F1 and F2 below). A YouTube M4A
+  of "1 B" once: the owner's bad connection, no change. The owner's list for this batch: F1, F2,
+  N1–N12 and M1, one commit each with its tests; no version, tag, release, PR or merge.
+- F1 (59: DASH-IF's Netflix test vector
+  `https://dash.akamaized.net/dash264/TestCases/1a/netflix/exMPD_BIP_TC1.mpd` → "Couldn't get
+  this video."). Checked first: on the JVM the whole lookup works (the manifest's HEAD and GET,
+  then the sheet's rows: M4A 72 kbps · en ~5.6 MB and 360p 480 × 360 · 24 fps · MP4 ~64 MB), and
+  the sheet never asks a file, so the http `BaseURL` alone could not fail the lookup. The cause
+  on the phone: Android's own `DocumentBuilderFactory` (`org.apache.harmony.xml.parsers`; AOSP
+  `libcore`, android14-release) throws for `setXIncludeAware` (always), for every `setFeature`
+  but namespaces and validation and for every `setAttribute`; both DASH readers set all of them
+  in one `runCatching`, so on a phone every manifest was Malformed (the lookup's
+  MALFORMED_MANIFEST, the quiet "Couldn't get this video."). The JVM's parser (Robolectric too)
+  knows them all, so every test passed. The second cause, the owner's: the manifest's root
+  `BaseURL` is `http://dash.edgesuite.net/…/netflix/` (its https has a certificate for another
+  name); the same files are under the manifest's own https address. The download's reader
+  refused an http address under an https manifest (Malformed, MALFORMED_RESPONSE at READ_SOURCE).
+  - Done: the two DASH readers (`core-media` `DashManifestParser`, the sheet's; `core-download`
+    `DashDownloadManifestParser`, the download's) ask each hardening setting on its own and skip
+    one the parser does not know; a manifest with a document type or an entity declaration
+    (`<!DOCTYPE`, `<!ENTITY`) is refused before parsing on every parser (as Xerces' own
+    `disallow-doctype-decl` refused it). The download: a `BaseURL` at http under an https manifest
+    is never asked: the reader answers `HttpBaseUrlRefused`, then the engine reads the manifest
+    again as the same address at https (`SAME_AS_HTTPS`), then with that `BaseURL` left out, the
+    part below it resolved against the manifest's own address (`UNDER_MANIFEST`; a
+    representation's own http `BaseURL` has nothing below it: malformed), and takes the first
+    whose first file answers one byte as media (200 or 206, not text, HTML, XML or JSON; one
+    request, no retry; a certificate error or a redirect to http is a no). When neither answers:
+    MALFORMED_RESPONSE at READ_SOURCE as before, with the detail "the manifest names its files at
+    an http address (BaseURL); no https copy answered" (Details' **Detail:** line). An https
+    `BaseURL` and a manifest without one (`bbb_30fps.mpd`: `./`, `SegmentTemplate`) are read as
+    before.
+  - Not changed (other lookups, so the owner's to decide): `extractor-sites`
+    `FacebookDashManifest.document` and `extractor-master` `InlineDashReader.read` set the same
+    settings in one `runCatching`, so on a phone Facebook's and Master's inline DASH manifests
+    are unread the same way. The preview (Media3) plays the manifest as it is, so its http
+    `BaseURL` is refused by Android's cleartext rule; not in the batch.
+  - Tests: `DashManifestOnAndroidTest` (`core-media`, new: an `AndroidLikeDocumentBuilderFactory`
+    that answers as Android's does, the JVM's parser underneath, set as the JVM's factory; the
+    test vector's shape is read: 654 s, M4A en 72 kbps, four 480 × 360 qualities at 24 fps, each
+    one file; with the reader of `52a5a7ef` the same test fails: Malformed; a document type stays
+    refused on both parsers), `DashHttpBaseUrlTest` (`core-download`, new: refused, upgraded or
+    left out; the same Android parser; a download from the manifest's address after the https
+    copy's certificate error, the https copy taken when it answers, `SegmentTemplate` pieces from
+    the https copy, neither answers → the detail; no request at http in any of them),
+    `DashManifestInstrumentedTest` (app, emulator, new: on API 34's own parser, the test vector's
+    shape read into its rows through `DefaultVariantResolver`, and its sound downloaded through
+    `DashTransferEngine` from the manifest's https address; an in-memory network). Local totals:
+    core-media 45, core-download 330; 0 failures.
+  - CHANGELOG `[1.0.2]`: one line under Fixed.
+
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
 - Plan: `docs/TRACK_E_PLAN.md` (the owner's go, 2026-10-27, while S5's run 3 waits). Branch from

@@ -403,29 +403,110 @@ class DashTransferEngine(
         start: StartTimelineRecorder,
     ): WholeFileLayout {
         val fetched = fetchManifest(plan, credentialOrigin)
-        return when (
-            val result = DashDownloadManifestParser.parse(
+        val read = { httpBaseUrl: DashDownloadManifestParser.HttpBaseUrl ->
+            DashDownloadManifestParser.parse(
                 manifest = fetched.body,
                 manifestUrl = fetched.finalUrl,
                 representationId = plan.representationId,
                 expectedTrackType = plan.trackType,
                 maxChunks = policy.maxChunks,
+                httpBaseUrl = httpBaseUrl,
             )
+        }
+        val stated = read(DashDownloadManifestParser.HttpBaseUrl.REFUSE)
+        return when (
+            val result = if (stated == DashDownloadManifestParser.Result.HttpBaseUrlRefused) {
+                httpsCopy(plan, credentialOrigin, read)
+            } else {
+                stated
+            }
         ) {
+            DashDownloadManifestParser.Result.HttpBaseUrlRefused,
+            DashDownloadManifestParser.Result.Malformed ->
+                throw DashAbort(DownloadFailureReason.MALFORMED_RESPONSE, stage = READ_SOURCE)
             DashDownloadManifestParser.Result.DrmProtected ->
                 throw DashAbort(DownloadFailureReason.DRM_PROTECTED, stage = READ_SOURCE)
             DashDownloadManifestParser.Result.Unsupported ->
                 throw DashAbort(DownloadFailureReason.UNSUPPORTED_SOURCE, stage = READ_SOURCE)
             DashDownloadManifestParser.Result.TooManyChunks ->
                 throw DashAbort(DownloadFailureReason.UNSUPPORTED_SOURCE, stage = READ_SOURCE)
-            DashDownloadManifestParser.Result.Malformed ->
-                throw DashAbort(DownloadFailureReason.MALFORMED_RESPONSE, stage = READ_SOURCE)
             is DashDownloadManifestParser.Result.Parsed -> {
                 start.lengthKnown(StartLengthSource.NONE)
                 WholeFileLayout(result)
             }
             is DashDownloadManifestParser.Result.OneFile ->
                 oneFileLayout(plan, result, credentialOrigin, saved, start)
+        }
+    }
+
+    /**
+     * v1.0.2 fix F1: an https manifest that names its files under a `BaseURL` at http (DASH-IF's
+     * test vectors): nothing is asked in cleartext. Its files are looked for as the same address
+     * at https first, then as the part below that `BaseURL` under the manifest's own address;
+     * the first whose first file answers as media ([answersAsMedia]) is read. When neither does,
+     * the manifest stays unreadable, as before, with a detail that says why.
+     */
+    private suspend fun httpsCopy(
+        plan: DashDownloadPlan,
+        credentialOrigin: HttpUrl,
+        read: (DashDownloadManifestParser.HttpBaseUrl) -> DashDownloadManifestParser.Result,
+    ): DashDownloadManifestParser.Result {
+        val copies = listOf(
+            DashDownloadManifestParser.HttpBaseUrl.SAME_AS_HTTPS,
+            DashDownloadManifestParser.HttpBaseUrl.UNDER_MANIFEST,
+        )
+        for (copy in copies) {
+            val result = read(copy)
+            val first = when (result) {
+                is DashDownloadManifestParser.Result.OneFile -> result.url to 0L
+                is DashDownloadManifestParser.Result.Parsed -> result.chunks.firstOrNull()
+                    ?.let { chunk -> chunk.url to (chunk.byteRange?.offset ?: 0L) }
+                // The same manifest read the same way, but for its addresses: no other copy helps.
+                DashDownloadManifestParser.Result.DrmProtected,
+                DashDownloadManifestParser.Result.Unsupported,
+                DashDownloadManifestParser.Result.TooManyChunks -> return result
+                DashDownloadManifestParser.Result.Malformed,
+                DashDownloadManifestParser.Result.HttpBaseUrlRefused -> null
+            } ?: continue
+            if (answersAsMedia(plan, first.first, first.second, credentialOrigin)) return result
+        }
+        throw DashAbort(
+            DownloadFailure(
+                reason = DownloadFailureReason.MALFORMED_RESPONSE,
+                stage = READ_SOURCE,
+                detail = HTTP_BASE_URL_DETAIL,
+            ),
+        )
+    }
+
+    /**
+     * v1.0.2 fix F1: whether [fileUrl] answers one byte at [offset] as media: 200 or 206, not a
+     * page, text, XML or JSON. Asked once, as from the manifest; an error (a certificate that
+     * does not fit the host, a redirect to http) is a no.
+     */
+    private suspend fun answersAsMedia(
+        plan: DashDownloadPlan,
+        fileUrl: HttpUrl,
+        offset: Long,
+        credentialOrigin: HttpUrl,
+    ): Boolean {
+        val execution = try {
+            http.execute(
+                credentialOrigin = credentialOrigin,
+                initialUrl = fileUrl,
+                context = plan.requestContext,
+            ) {
+                get()
+                header("Range", "bytes=$offset-$offset")
+            }
+        } catch (_: IOException) {
+            return false
+        }
+        val response = (execution as? SecureDownloadHttp.Result.Completed)?.response
+            ?: return false
+        return response.use { answer ->
+            val type = answer.header("Content-Type").orEmpty().lowercase(Locale.US)
+            answer.code in MEDIA_ANSWERS && NOT_MEDIA_TYPES.none { it in type }
         }
     }
 
@@ -1812,6 +1893,12 @@ class DashTransferEngine(
         val FIRST_RANGE = Regex("""(?i)^bytes\s+0-\d+/(\d+)$""")
         const val MEDIA_HOST = "googlevideo.com"
         const val HTTP_FORBIDDEN = 403
+
+        /** v1.0.2 fix F1: the detail when no https copy of an http `BaseURL`'s files answered. */
+        const val HTTP_BASE_URL_DETAIL =
+            "the manifest names its files at an http address (BaseURL); no https copy answered"
+        val MEDIA_ANSWERS = setOf(200, 206)
+        val NOT_MEDIA_TYPES = listOf("text/", "html", "xml", "json")
         const val MAX_RETRY_AFTER_SECONDS = 60L
         val WHOLE_RANGE = Regex("""(?i)^bytes\s+0-(\d+)/(\d+)$""")
         val MISSING_FIRST_PIECE = setOf(

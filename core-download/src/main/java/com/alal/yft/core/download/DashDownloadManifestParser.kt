@@ -5,6 +5,7 @@ import java.io.StringReader
 import java.security.MessageDigest
 import java.util.Locale
 import javax.xml.parsers.DocumentBuilderFactory
+import javax.xml.parsers.ParserConfigurationException
 import okhttp3.HttpUrl
 import org.w3c.dom.Element
 import org.w3c.dom.Node
@@ -17,9 +18,13 @@ internal object DashDownloadManifestParser {
         representationId: String,
         expectedTrackType: MediaTrackType,
         maxChunks: Int,
+        /** v1.0.2 fix F1: how a `BaseURL` at an http address under an https manifest is read. */
+        httpBaseUrl: HttpBaseUrl = HttpBaseUrl.REFUSE,
     ): Result {
         require(representationId.isNotBlank())
         require(maxChunks > 0)
+        // v1.0.2 fix F1: no document type, so no entity, on any parser (see the factory).
+        if (DOCUMENT_TYPE.containsMatchIn(manifest)) return Result.Malformed
         val document = runCatching {
             secureDocumentBuilderFactory()
                 .newDocumentBuilder()
@@ -52,8 +57,9 @@ internal object DashDownloadManifestParser {
         }
 
         val hierarchy = listOf(root, period, adaptation, representation)
-        val resolvedBase = resolveBaseUrl(manifestUrl, hierarchy)
+        val resolvedBase = resolveBaseUrl(manifestUrl, hierarchy, httpBaseUrl)
             ?: return Result.Malformed
+        if (resolvedBase.cleartext) return Result.HttpBaseUrlRefused
         val mimeType = representation.attribute("mimeType")
             ?: adaptation.attribute("mimeType")
         val codecs = (
@@ -417,9 +423,18 @@ internal object DashDownloadManifestParser {
         return value.toString().padStart(width, '0')
     }
 
+    /**
+     * The address the representation's files are under: each level's `BaseURL` resolved
+     * against the one above it, the manifest's own address at the top. v1.0.2 fix F1: a
+     * `BaseURL` at an http address under an https manifest is never asked as it is; as
+     * [httpBaseUrl] says, it is refused ([ResolvedBase.cleartext]), read as the same address at
+     * https, or left out, so the part below it is resolved against the manifest's own address
+     * (when it is the representation's own, nothing is below it: malformed).
+     */
     private fun resolveBaseUrl(
         manifestUrl: HttpUrl,
         hierarchy: List<Element>,
+        httpBaseUrl: HttpBaseUrl,
     ): ResolvedBase? {
         var current = manifestUrl
         var representationSpecific = false
@@ -428,7 +443,23 @@ internal object DashDownloadManifestParser {
             if (children.size > 1) return null
             val raw = children.singleOrNull()?.textContent?.trim()?.takeIf(String::isNotEmpty)
                 ?: return@forEachIndexed
-            current = resolve(current, manifestUrl, raw) ?: return null
+            val cleartext = current.resolve(raw)
+                ?.takeIf { manifestUrl.isHttps && it.scheme == HTTP }
+            current = if (cleartext != null) {
+                when (httpBaseUrl) {
+                    HttpBaseUrl.REFUSE ->
+                        return ResolvedBase(manifestUrl, representationSpecific, cleartext = true)
+                    HttpBaseUrl.SAME_AS_HTTPS -> cleartext.newBuilder().scheme(HTTPS).build()
+                        .takeIf(HttpUrl::isSafeDownloadUrl)
+                        ?: return null
+                    HttpBaseUrl.UNDER_MANIFEST -> {
+                        if (index == hierarchy.lastIndex) return null
+                        manifestUrl
+                    }
+                }
+            } else {
+                resolve(current, manifestUrl, raw) ?: return null
+            }
             if (index == hierarchy.lastIndex) representationSpecific = true
         }
         return ResolvedBase(current, representationSpecific)
@@ -492,18 +523,44 @@ internal object DashDownloadManifestParser {
         }
     }
 
+    /**
+     * v1.0.2 fix F1: Android's own parser (`org.apache.harmony.xml.parsers`) throws for
+     * `isXIncludeAware`, for every feature but namespaces and validation and for every attribute,
+     * so asking them all at once made every manifest unreadable on a phone (the JVM's parser
+     * knows them all). Each one is asked on its own and one the parser does not know is skipped;
+     * a manifest with a document type is refused before parsing ([DOCUMENT_TYPE]) on every
+     * parser.
+     */
     private fun secureDocumentBuilderFactory(): DocumentBuilderFactory =
         DocumentBuilderFactory.newInstance().apply {
             isNamespaceAware = true
-            isXIncludeAware = false
-            isExpandEntityReferences = false
-            setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
-            setFeature("http://xml.org/sax/features/external-general-entities", false)
-            setFeature("http://xml.org/sax/features/external-parameter-entities", false)
-            setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
-            setAttribute("http://javax.xml.XMLConstants/property/accessExternalDTD", "")
-            setAttribute("http://javax.xml.XMLConstants/property/accessExternalSchema", "")
+            ifKnown { isXIncludeAware = false }
+            ifKnown { isExpandEntityReferences = false }
+            ifKnown { setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) }
+            ifKnown { setFeature("http://xml.org/sax/features/external-general-entities", false) }
+            ifKnown {
+                setFeature("http://xml.org/sax/features/external-parameter-entities", false)
+            }
+            ifKnown {
+                setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+            }
+            ifKnown {
+                setAttribute("http://javax.xml.XMLConstants/property/accessExternalDTD", "")
+            }
+            ifKnown {
+                setAttribute("http://javax.xml.XMLConstants/property/accessExternalSchema", "")
+            }
         }
+
+    /** One hardening setting; a parser that does not know it throws, and it is skipped. */
+    private inline fun ifKnown(setting: () -> Unit) {
+        try {
+            setting()
+        } catch (_: ParserConfigurationException) {
+        } catch (_: IllegalArgumentException) {
+        } catch (_: UnsupportedOperationException) {
+        }
+    }
 
     private fun List<Element>.hasChild(localName: String): Boolean =
         any { it.childElements(localName).isNotEmpty() }
@@ -664,11 +721,32 @@ internal object DashDownloadManifestParser {
         data object Unsupported : Result
         data object TooManyChunks : Result
         data object Malformed : Result
+
+        /**
+         * v1.0.2 fix F1: the representation's files are under a `BaseURL` at an http address
+         * while the manifest is at https; nothing was resolved. Read the manifest again as
+         * [HttpBaseUrl.SAME_AS_HTTPS] or [HttpBaseUrl.UNDER_MANIFEST].
+         */
+        data object HttpBaseUrlRefused : Result
+    }
+
+    /** v1.0.2 fix F1: how a `BaseURL` at an http address under an https manifest is read. */
+    enum class HttpBaseUrl {
+        /** Not at all: the parse answers [Result.HttpBaseUrlRefused]. */
+        REFUSE,
+
+        /** As the same address at https. */
+        SAME_AS_HTTPS,
+
+        /** Left out: the part below it is resolved against the manifest's own address. */
+        UNDER_MANIFEST,
     }
 
     private data class ResolvedBase(
         val url: HttpUrl,
         val representationSpecific: Boolean,
+        /** v1.0.2 fix F1: a `BaseURL` at http was refused ([HttpBaseUrl.REFUSE]). */
+        val cleartext: Boolean = false,
     )
 
     private data class SegmentPoint(
@@ -679,6 +757,11 @@ internal object DashDownloadManifestParser {
     private object TooManyChunksException : RuntimeException(null, null, false, false)
 
     private const val MPD = "MPD"
+    private const val HTTP = "http"
+    private const val HTTPS = "https"
+
+    /** v1.0.2 fix F1: a document type or an entity declaration; such a manifest is refused. */
+    private val DOCUMENT_TYPE = Regex("""<!\s*(?:DOCTYPE|ENTITY)""", RegexOption.IGNORE_CASE)
     private const val PERIOD = "Period"
     private const val ADAPTATION_SET = "AdaptationSet"
     private const val REPRESENTATION = "Representation"
