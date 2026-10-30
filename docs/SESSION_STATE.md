@@ -2234,7 +2234,68 @@ Keep at least the heading and one blank line between sections, so Git merges the
     **~64 MB**, and Audio **M4A** (72 kbps · en, ~5.6 MB); Download → one MP4 with sound, about
     44 MB (46.2 million bytes); M4A → about 5.1 MB.
   - CHANGELOG `[1.0.2]`: one line under Added.
-- Next: item 59's CI (checkpoint, emulator smoke, Preview APK, minified check), then 51.
+- Item 59's CI (commit `79901e76`), all green: checkpoint validation 41036280122 (#588), emulator
+  smoke 41036280119 (#176), Preview APK 41036280104 (#143), minified check 41036280150 (#34).
+- Item 51 (all the items of a post: an Instagram carousel, an X post with several videos) —
+  checked first: not in the code (main's Instagram adapter offered the `img_index` item, else
+  the first video — `InstagramExtractor.offers`; X's the `/video/N` video, else the first —
+  `XExtractor`; the sheet showed that one video). The sheet has no way of its own to show more
+  than one video (Home's and the browser's found lists open one video's sheet each), so a simple
+  item picker. The design: the lookup's answer stays the linked item's rows exactly as before —
+  Master, the census (`PostItem.of` reads the first "answer:"/"item N of M:" line, still the
+  linked item's), the trial compare and the adapters' contract see what they saw — and those
+  rows carry the post's other video items:
+  - `core-model`: `PostVideoItem` (new): the item's place among the post's video items and
+    their count ("Video 2 of 4"), and on the linked item's rows the other video items' rows in
+    the post's order (`others`); `MediaCandidate.postItem` (new last field, default null).
+    `MediaGroups`: an item's title adds its name ("Caption (Video 2 of 4)", the caption cut to
+    50 characters with "…"; the name alone without a caption); `postItems(group, keep)` (the
+    linked item, then each other item as a video of its own on the group's page) and
+    `withPostItems(candidates)` (the rows and the others', for a fresh link).
+  - Main's Instagram adapter: on a post with two or more video items, every other video item's
+    rows from the same answer (its files and its manifest's merged sizes, as the linked item's),
+    named `instagram:{code}:{img_index}`, numbered among the post's video items (a video without
+    files counts; photos do not). Details: the linked item's line as before ("item 4 of 5: …"),
+    then one line per other video item: "also item 1 of 5: 1 files (1280), DASH none", "also
+    item 3 of 5: a video without files, not offered", "also item 5 of 5: 0 files, DASH none,
+    links expired, not offered".
+  - Main's X adapter: on a post with two or more videos (a quoted post's or a card's alike),
+    each other video's rows (`x:{id}:{N}`); Details "answer: video 3, 2 in the post · 1 MP4
+    files (720)" as before, then "also video 2, 2 in the post · 2 MP4 files (1080/270)".
+  - The sheet (`QuickDownloadViewModel`, `QuickDownloadScreen`): with two or more items, chips
+    under the header in a sideways row ("Video 1 of 4"…; `YftFilterChip`), the linked item first
+    and picked; a tap shows that item as the sheet shows one video (its size checks, Details, ad
+    and Try again rules); each download a row and file of its own, "Caption (Video 2 of 4)
+    720p.mp4". The chips wait while a Download is being queued (the metered question). An item
+    none of whose rows this phone may offer (DRM, a merge it cannot make) is left out. Download
+    as names the item too. A broken download of another item forgets the post's lookup (the
+    lookup cache's entry is the post's).
+  - The fresh link (`SiteLinkRenewal`): another item's rows are found among the fresh answer's
+    (`MediaGroups.withPostItems`), by the item's own id and quality.
+  - Requests, before and after the same: Instagram 1–3 signed out (4 signed in; the lookup stops
+    at the first answer holding the post, and that answer holds every item), X 1; the sheet's
+    size checks only for the item shown, as for one video.
+  - Unchanged: Master's ladders (one item, as today: its answer names no other item), the
+    coordinator and the lookup cache's rules; a post of photos only keeps today's words; a post
+    with one video item reads as before (no chips).
+  - Hand-off lines (lookup rules, not changed): (a) a carousel video item the answer gives no
+    file for would need another request — not asked; Details say "also item P of M: a video
+    without files, not offered". (b) `SiteLookupCache`'s key is the post's code, so another link
+    to the same post naming another item, within the cache's time, reuses the first answer (its
+    linked item first; every item still offered). (c) Home's and the browser's found lists still
+    count one video per post.
+  - Tests: `PostVideoItemTest` (new), `InstagramExtractorTest` (a carousel's items and Details;
+    the mixed carousel — video, photo, video without files, video, expired video — is inline in
+    the test, not under `fixtures/`, whose every file Master's offline parity checks against its
+    own baseline, a Master file left as it is), `XExtractorTest` (a mixed post's and a card's
+    videos), `PostItemsSheetTest` (new: the order; picking and downloading each item under its
+    name; the merge filter; a broken download forgets the lookup; Download as; the metered
+    question; a page video's items; one video, no chips), `QuickDownloadScreenTest` (the chips),
+    `SiteLinkRenewalTest` (another item's fresh link). Local totals: app 1453 (66 skipped),
+    core-model 150, extractor-sites 367, extractor-master 1119 (2 skipped); 0 failures.
+  - CHANGELOG `[1.0.2]`: one line under Added.
+- Next: item 51's CI (checkpoint, emulator smoke, Preview APK, minified check), then the owner's
+  three more items (2026-10-30), in order: 70b, 28, 5b.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 

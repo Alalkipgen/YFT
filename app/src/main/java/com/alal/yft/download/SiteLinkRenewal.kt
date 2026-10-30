@@ -182,7 +182,8 @@ class SiteLinkRenewal(
             SiteAdapterOutcome.NotHandled ->
                 return LinkRenewal.Unavailable("the site did not give the video")
         }
-        val savable = candidates.filter { it.drmHint != true }
+        // v1.0.2 item 51: another video item of a post comes with the item its link names.
+        val savable = MediaGroups.withPostItems(candidates).filter { it.drmHint != true }
         val video = MediaGroups.pageVideos(savable, adapterSite = true)
             .firstOrNull { group -> group.candidates.any { it.videoId == source.videoId } }
             ?.takeIf { group -> sameLength(source.durationMillis, group.durationMillis) }

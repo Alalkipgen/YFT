@@ -7,6 +7,7 @@ import com.alal.yft.core.model.media.CompanionAudio
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.PageNavigationHeaders
+import com.alal.yft.core.model.media.PostVideoItem
 import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.ExtractorHttpResult
 import com.alal.yft.extractor.api.SiteExtractionFailure
@@ -181,7 +182,14 @@ class InstagramExtractor(
         }
     }
 
-    /** The rows of the item the link names (a carousel's `img_index`), else its first video. */
+    /**
+     * The rows of the item the link names (a carousel's `img_index`), else its first video.
+     * v1.0.2 item 51: on a post with several video items they carry the rows of the post's other
+     * video items, in the post's order, each item under its own name ([PostVideoItem]: its place
+     * among the post's video items, and `instagram:{code}:{img_index}`), so the sheet offers every
+     * item. Photos are skipped; a video the answer gives no file for is named in Details and not
+     * asked for. The same answer holds every item: no request more.
+     */
     private fun offers(
         post: InstagramPost,
         request: SiteExtractionRequest,
@@ -190,14 +198,58 @@ class InstagramExtractor(
         val wanted = InstagramUrls.itemOf(request.identity.canonicalPageUrl)
         val index = wanted?.minus(1)?.takeIf { post.items.getOrNull(it)?.isPlayable == true }
             ?: post.items.indexOfFirst(InstagramItem::isPlayable)
-        val item = post.items[index]
         val pageUrl = request.identity.canonicalPageUrl
         val context = BrowserRequestContext(pageUrl, request.requestContext.userAgent, null)
-        val now = request.nowEpochMs
+        val title = displayTitle(post)
+        val rowsOf = { item: InstagramItem ->
+            itemRows(item, title, pageUrl, context, request.nowEpochMs)
+        }
+        val linked = rowsOf(post.items[index])
+        val summary = "item ${index + 1} of ${post.items.size}: ${linked.words}"
+        if (linked.rows.isEmpty()) {
+            return SiteExtractionResult.Failure(
+                if (linked.expired) SiteExtractionFailure.EXPIRED_LINK else SiteExtractionFailure
+                    .NO_MEDIA_FOUND,
+                details = details + summary,
+            )
+        }
+        val videos = post.items.indices.filter { post.items[it].isVideo }
+        if (videos.size < 2) return SiteExtractionResult.Success(linked.rows, details + summary)
+        val lines = mutableListOf<String>()
+        val others = videos.filter { it != index }.flatMap { at ->
+            val item = post.items[at]
+            val place = "also item ${at + 1} of ${post.items.size}"
+            val read = if (item.isPlayable) rowsOf(item) else null
+            when {
+                read == null -> lines += "$place: a video without files, not offered"
+                read.rows.isEmpty() -> lines += "$place: ${read.words}, " +
+                    if (read.expired) "links expired, not offered" else "not offered"
+                else -> lines += "$place: ${read.words}"
+            }
+            val postItem = PostVideoItem(videos.indexOf(at) + 1, videos.size)
+            val videoId = "$id:${request.identity.contentId}:${at + 1}"
+            read?.rows.orEmpty().map { it.copy(videoId = videoId, postItem = postItem) }
+        }
+        val postItem = PostVideoItem(videos.indexOf(index) + 1, videos.size, others)
+        return SiteExtractionResult.Success(
+            linked.rows.map { it.copy(postItem = postItem) },
+            details + summary + lines,
+        )
+    }
+
+    /** One item's rows, its Details words ("1 files (1080), DASH none"), and whether it expired. */
+    private class ItemRows(val rows: List<MediaCandidate>, val words: String, val expired: Boolean)
+
+    /** An item's whole files as they are, then its manifest's merged sizes and sound. */
+    private fun itemRows(
+        item: InstagramItem,
+        title: String?,
+        pageUrl: String,
+        context: BrowserRequestContext,
+        now: Long,
+    ): ItemRows {
         val manifest = item.dashManifest?.let(FacebookDashManifests::parse)
         val durationMillis = item.durationMillis ?: manifest?.durationMillis
-        val title = displayTitle(post)
-
         val files = item.files.filterNot { isExpired(it.url, now) }.map { file ->
             MediaCandidate(
                 pageUrl = pageUrl,
@@ -220,26 +272,17 @@ class InstagramExtractor(
         }
         val tracks = manifest?.tracks.orEmpty().filterNot { isExpired(it.url, now) }
         val merged = trackCandidates(tracks, title, item, durationMillis, context, pageUrl, now)
-        val candidates = files + merged
-        val summary = buildString {
-            append("item ${index + 1} of ${post.items.size}: ")
+        val words = buildString {
             append("${files.size} files")
             files.mapNotNull(MediaCandidate::height).takeIf(List<Int>::isNotEmpty)
                 ?.let { append(" (${it.joinToString("/")})") }
             append(", DASH ")
             append(if (manifest == null) "none" else FacebookDashOffers.summary(tracks))
         }
-        if (candidates.isEmpty()) {
-            val expired = (item.files.map(InstagramFile::url) +
-                manifest?.tracks.orEmpty().map(FacebookDashTrack::url))
-                .any { isExpired(it, now) }
-            return SiteExtractionResult.Failure(
-                if (expired) SiteExtractionFailure.EXPIRED_LINK else SiteExtractionFailure
-                    .NO_MEDIA_FOUND,
-                details = details + summary,
-            )
-        }
-        return SiteExtractionResult.Success(candidates, details + summary)
+        val expired = (item.files.map(InstagramFile::url) +
+            manifest?.tracks.orEmpty().map(FacebookDashTrack::url))
+            .any { isExpired(it, now) }
+        return ItemRows(files + merged, words, expired)
     }
 
     /**

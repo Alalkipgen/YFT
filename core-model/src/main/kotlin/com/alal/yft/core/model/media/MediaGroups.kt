@@ -346,6 +346,42 @@ object MediaGroups {
     private fun MediaGroup.lengthGap(length: Long): Long =
         durationMillis?.let { abs(it - length) } ?: Long.MAX_VALUE
 
+    /**
+     * v1.0.2 item 51: the post's video items, each a video of its own: [group] (the item the
+     * link names, else the post's first video), then the post's other video items in the post's
+     * order ([PostVideoItem.others]), on [group]'s page. [keep] says which of their rows this
+     * phone may offer (no DRM, the merges it makes), as the lookup's own rows were chosen; an
+     * item with no row left is not offered. Just [group] when its rows name no other item.
+     */
+    fun postItems(
+        group: MediaGroup,
+        keep: (MediaCandidate) -> Boolean = { true },
+    ): List<MediaGroup> {
+        val item = group.candidates.firstNotNullOfOrNull { it.postItem } ?: return listOf(group)
+        val own = group.candidates.mapNotNullTo(mutableSetOf()) { it.videoId }
+        val others = item.others
+            .filter { other -> other.videoId != null && other.videoId !in own && keep(other) }
+            .map { other -> other.onPage(group.pageUrl) }
+        return listOf(group) + of(others)
+    }
+
+    /**
+     * v1.0.2 item 51: [candidates] and the rows of the post's other video items they carry
+     * ([PostVideoItem.others]), on their page, so a download of another item finds its own rows
+     * in a fresh lookup's answer.
+     */
+    fun withPostItems(candidates: List<MediaCandidate>): List<MediaCandidate> {
+        val carrier = candidates.firstOrNull { it.postItem?.others?.isNotEmpty() == true }
+            ?: return candidates
+        val others = carrier.postItem?.others.orEmpty()
+            .filter { it.videoId != null }
+            .map { it.onPage(carrier.pageUrl) }
+        return candidates + others
+    }
+
+    private fun MediaCandidate.onPage(pageUrl: String): MediaCandidate =
+        if (this.pageUrl == pageUrl) this else copy(pageUrl = pageUrl)
+
     /** The group that holds [candidate], when it is one of [candidates]. */
     fun containing(candidates: List<MediaCandidate>, candidate: MediaCandidate): MediaGroup? =
         of(candidates).firstOrNull { group -> candidate in group.candidates }
@@ -381,14 +417,17 @@ object MediaGroups {
 
     /**
      * A named video drops the adapter's quality suffix, as do qualities that share one base
-     * title; a lone file from a page keeps its whole title.
+     * title; a lone file from a page keeps its whole title. v1.0.2 item 51: one video item of a
+     * post with several adds its name: "Caption (Video 2 of 4)" ([PostVideoItem.title]).
      */
     private fun titleOf(members: List<MediaCandidate>): String? {
+        val item = members.firstNotNullOfOrNull { it.postItem }
         val titled = members.mapNotNull { it.title?.trim()?.takeIf(String::isNotEmpty) }
-        val first = titled.firstOrNull() ?: return null
+        val first = titled.firstOrNull() ?: return item?.label
         val named = members.any { it.videoId != null }
         val bases = titled.map(::baseTitle).distinct()
-        return if (named || (titled.size > 1 && bases.size == 1)) baseTitle(first) else first
+        val title = if (named || (titled.size > 1 && bases.size == 1)) baseTitle(first) else first
+        return item?.title(title) ?: title
     }
 
     private const val LABEL_SEPARATOR = " — "

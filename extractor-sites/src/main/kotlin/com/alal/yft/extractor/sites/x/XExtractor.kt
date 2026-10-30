@@ -5,6 +5,7 @@ import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.PostVideoItem
 import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.ExtractorHttpResult
 import com.alal.yft.extractor.api.SiteExtractionFailure
@@ -22,7 +23,8 @@ import com.alal.yft.extractor.api.SitePageIdentity
  * every size X made (320p to 1080p). It sends no X cookie: the answer is public, and its host is
  * not x.com. A post the answer does not show (age-restricted, protected, deleted) or that has
  * photos only fails with a reason that keeps the generic detector, so the browser's own finds
- * still count.
+ * still count. v1.0.2 item 51: the rows of the video a link names (`/video/N`), else of the
+ * first, carry the post's other videos' rows ([PostVideoItem]), so the sheet offers every one.
  */
 class XExtractor(
     private val http: ExtractorHttpClient,
@@ -69,22 +71,43 @@ class XExtractor(
             ?: post.videos.first()
         val pageUrl = identity.canonicalPageUrl
         val candidates = candidatesOf(post, video, pageUrl, request)
-        val choice = buildString {
-            append("answer: ")
-            append(
-                when {
-                    post.quoted -> "the quoted post's "
-                    post.card -> "the card's "
-                    else -> ""
-                },
-            )
-            append(if (video.type == XMediaType.GIF) "GIF" else "video")
-            append(" ${video.position}, ${post.videos.size} in the post")
-            append(" · ${video.variants.size} MP4 files")
-            video.variants.mapNotNull(XVariant::height).takeIf(List<Int>::isNotEmpty)
-                ?.let { heights -> append(" (${heights.joinToString("/")})") }
+        val choice = "answer: " + words(post, video)
+        if (post.videos.size < 2) {
+            return SiteExtractionResult.Success(candidates, listOf(read, choice))
         }
-        return SiteExtractionResult.Success(candidates, listOf(read, choice))
+        // v1.0.2 item 51: the post's other videos, from the same answer, each under its own name.
+        val count = post.videos.size
+        val others = post.videos.filter { it !== video }.flatMap { other ->
+            val item = PostVideoItem(post.videos.indexOf(other) + 1, count)
+            val videoId = "$id:${identity.contentId}:${other.position}"
+            candidatesOf(post, other, pageUrl, request)
+                .map { it.copy(videoId = videoId, postItem = item) }
+        }
+        val item = PostVideoItem(post.videos.indexOf(video) + 1, count, others)
+        return SiteExtractionResult.Success(
+            candidates.map { it.copy(postItem = item) },
+            listOf(read, choice) + post.videos.filter { it !== video }
+                .map { other -> "also " + words(post, other) },
+        )
+    }
+
+    /**
+     * [video]'s Details words: "[the quoted post's |the card's ](video|GIF) P, M in the post ·
+     * K MP4 files (h/h)".
+     */
+    private fun words(post: XPost, video: XVideo): String = buildString {
+        append(
+            when {
+                post.quoted -> "the quoted post's "
+                post.card -> "the card's "
+                else -> ""
+            },
+        )
+        append(if (video.type == XMediaType.GIF) "GIF" else "video")
+        append(" ${video.position}, ${post.videos.size} in the post")
+        append(" · ${video.variants.size} MP4 files")
+        video.variants.mapNotNull(XVariant::height).takeIf(List<Int>::isNotEmpty)
+            ?.let { heights -> append(" (${heights.joinToString("/")})") }
     }
 
     /**

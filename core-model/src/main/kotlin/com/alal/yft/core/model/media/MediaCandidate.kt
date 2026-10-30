@@ -99,6 +99,12 @@ data class MediaCandidate(
      * file the range GET gets. False for every other file: its HEAD is asked first.
      */
     val fileChecked: Boolean = false,
+    /**
+     * v1.0.2 item 51: which video item of a post [mediaUrl] is, when the post has several
+     * ([PostVideoItem]); null for a video of its own. The rows of the item the link names carry
+     * the post's other video items' rows.
+     */
+    val postItem: PostVideoItem? = null,
 ) {
     override fun toString(): String = buildString {
         append("MediaCandidate(pageUrl=")

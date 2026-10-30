@@ -24,6 +24,7 @@ import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.Mp3Variants
+import com.alal.yft.core.model.media.PostVideoItem
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.detection.HeadlessIdentity
 import com.alal.yft.detection.MergeSupport
@@ -188,6 +189,40 @@ class SiteLinkRenewalTest {
 
         assertEquals(link(instagram, "720", 1), plan.sourceUrl)
     }
+
+    /**
+     * v1.0.2 item 51: another video item of a post is renewed from the rows of that item the
+     * fresh answer carries with the item its link names, by the item's own video id and height.
+     */
+    @Test
+    fun `another video item of a post comes back from the rows the post's answer carries`() =
+        runTest {
+            instagram.answer = { lookup ->
+                val others = postItemFiles(lookup, item = 1).map { file ->
+                    file.copy(
+                        videoId = "instagram:v1:1",
+                        postItem = PostVideoItem(number = 1, count = 2),
+                    )
+                }
+                found(
+                    postItemFiles(lookup, item = 2).map { file ->
+                        file.copy(postItem = PostVideoItem(number = 2, count = 2, others = others))
+                    },
+                )
+            }
+            val harness = harness()
+            val linked = MediaGroups.pageVideos(lookUp(instagram), adapterSite = true).single()
+            val items = MediaGroups.postItems(linked)
+            assertEquals(
+                listOf("Ocean waves (Video 2 of 2)", "Ocean waves (Video 1 of 2)"),
+                items.map { it.title },
+            )
+            val started = download(harness, items[1].candidates.single { it.height == 720 })
+
+            val plan = renew(harness, started, instagram).plan as DirectDownloadPlan
+
+            assertEquals(link(instagram, "item1-720", 1), plan.sourceUrl)
+        }
 
     /**
      * v1.0.2: TikTok's adapter marks the files its one-byte check got, so neither the downloads'
@@ -748,6 +783,14 @@ class SiteLinkRenewalTest {
         file(
             instagram, lookup, "$height", null, height = height, width = height * 9 / 16,
             bitrate = height * 2_000L,
+        )
+    }.inOrderOf(lookup)
+
+    /** One video item of an Instagram post: its files are named after the item. */
+    private fun postItemFiles(lookup: Int, item: Int) = listOf(1080, 720).map { height ->
+        file(
+            instagram, lookup, "item$item-$height", null, height = height,
+            width = height * 9 / 16, bitrate = height * 2_000L,
         )
     }.inOrderOf(lookup)
 

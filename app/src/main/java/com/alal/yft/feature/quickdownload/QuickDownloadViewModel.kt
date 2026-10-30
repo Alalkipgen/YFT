@@ -29,6 +29,7 @@ import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.detection.BrowserPageReader
 import com.alal.yft.detection.DashSoundPairing
+import com.alal.yft.detection.MergeSupport
 import com.alal.yft.detection.PageReread
 import com.alal.yft.detection.SiteLookupCache
 import com.alal.yft.detection.VideoPlaybackSupport
@@ -77,6 +78,9 @@ data class SheetHeader(
     /** P19: the video's picture; the header shows its placeholder until it loads. */
     val thumbnailUrl: String? = null,
 )
+
+/** v1.0.2 item 51: one video item of a post in the sheet's item picker: "Video 2 of 4". */
+data class PostItemChoice(val key: String, val number: Int, val label: String)
 
 data class QuickDownloadUiState(
     /** Null when there is no video to show (the sheet then says so). */
@@ -143,6 +147,13 @@ data class QuickDownloadUiState(
      * lookup gave none. A quiet build shows them only with Show details on (decision 30 (v)).
      */
     val lookupDetails: List<String> = emptyList(),
+    /**
+     * v1.0.2 item 51: the post's video items when it has several (an Instagram carousel, an X
+     * post with more videos): the item the link names first, then the others in the post's
+     * order; empty for a video of its own. [postItemKey] is the one shown.
+     */
+    val postItems: List<PostItemChoice> = emptyList(),
+    val postItemKey: String? = null,
 ) {
     val selectedOption: SheetOption? get() = choices?.option(selectedId)
 
@@ -181,6 +192,8 @@ class QuickDownloadViewModel @Inject constructor(
     private val downloadThumbnails: DownloadThumbnails = DownloadThumbnails.None,
     private val lookups: SiteLookupCache = SiteLookupCache(),
     private val pageReader: BrowserPageReader = BrowserPageReader.None,
+    /** v1.0.2 item 51: the merges this phone makes, for the rows of a post's other items. */
+    private val merges: MergeSupport = MergeSupport { true },
 ) : ViewModel() {
     /**
      * P16: a sheet opened for a lookup (Home's link, a feed's video on screen) waits on it even
@@ -200,6 +213,12 @@ class QuickDownloadViewModel @Inject constructor(
             }
         )?.let(::withPageFacts)
 
+    /**
+     * v1.0.2 item 51: the post's video items when [group]'s rows name several, the item the link
+     * names first ([MediaGroups.postItems]); empty for a video of its own.
+     */
+    private var postItems: List<MediaGroup> = postItemsOf(group)
+
     /** P12: the lookup this sheet waits on, while no video is chosen yet. */
     private var pageLookup: PageVideoLookup? = store.lookup.value.takeIf { group == null }
     private val mutableUiState = MutableStateFlow(
@@ -208,6 +227,8 @@ class QuickDownloadViewModel @Inject constructor(
             maybeAd = store.maybeAd.value && store.selection.value != null,
             // VK-Master wave 2: the lines of the lookup that found the selected video.
             lookupDetails = store.lookupDetailsOf(store.selection.value),
+            postItems = postItemChoices(),
+            postItemKey = group?.key?.takeIf { postItems.isNotEmpty() },
         ),
     )
     val uiState: StateFlow<QuickDownloadUiState> = mutableUiState.asStateFlow()
@@ -333,6 +354,51 @@ class QuickDownloadViewModel @Inject constructor(
         }
     }
 
+    /**
+     * v1.0.2 item 51: shows another video item of the post ([QuickDownloadUiState.postItems]):
+     * its own header, qualities and sizes, read as the first item's were; each item downloads as
+     * a file of its own. Ignored while a Download is being queued.
+     */
+    fun selectPostItem(key: String) {
+        val state = mutableUiState.value
+        if (!state.canChangeSelection || key == state.postItemKey) return
+        val next = postItems.firstOrNull { it.key == key } ?: return
+        loading?.cancel()
+        loading = null
+        group = next
+        firstVideo = null
+        stage = Attempt.FIRST
+        attempts.clear()
+        rereadsUsed = 0
+        pageVideoTried = false
+        firstWasAd = false
+        chosenLines = emptyList()
+        goneMessage = null
+        earlyMeteredConfirmed = false
+        mutableUiState.update {
+            it.copy(
+                header = next.header(),
+                loading = true,
+                choices = null,
+                failure = null,
+                failureDetails = emptyList(),
+                downloadDetails = emptyList(),
+                canRetry = true,
+                maybeAd = false,
+                attemptDetails = emptyList(),
+                freshLink = false,
+                canReload = false,
+                adSkipped = false,
+                selectedId = null,
+                downloadStatus = PreviewDownloadStatus.Idle,
+                startsWhenReady = false,
+                startedNote = null,
+                postItemKey = key,
+            )
+        }
+        load()
+    }
+
     /** P18: the Audio or the Video placeholder picked while the qualities are still coming. */
     fun pickEarly(section: OptionSection) {
         mutableUiState.update { state ->
@@ -348,7 +414,10 @@ class QuickDownloadViewModel @Inject constructor(
     fun openDetails(): Boolean {
         val state = mutableUiState.value
         val option = state.selectedOption ?: state.choices?.options?.firstOrNull() ?: return false
-        selectionStore.select(option.source.candidate)
+        val candidate = option.source.candidate
+        // v1.0.2 item 51: Download as names a post's item as the sheet does ("Video 2 of 4").
+        val title = state.choices?.title?.takeIf { candidate.postItem != null }
+        selectionStore.select(if (title != null) candidate.copy(title = title) else candidate)
         return true
     }
 
@@ -478,12 +547,15 @@ class QuickDownloadViewModel @Inject constructor(
                 .first { (selection, lookup) -> selection != null || lookup == null }
             pageLookup = null
             group = selected?.let(::withPageFacts)
+            postItems = postItemsOf(group)
             mutableUiState.update {
                 QuickDownloadUiState(
                     header = group?.header(),
                     maybeAd = selected != null && store.maybeAd.value,
                     // VK-Master wave 2: the lines of the lookup that found it, for Lookup details.
                     lookupDetails = store.lookupDetailsOf(selected),
+                    postItems = postItemChoices(),
+                    postItemKey = group?.key?.takeIf { postItems.isNotEmpty() },
                 ).keepingEarly(it)
             }
             if (selected != null) load()
@@ -1232,7 +1304,7 @@ class QuickDownloadViewModel @Inject constructor(
                             downloadThumbnails.saveFrom(result.taskId, url)
                         }
                         // P17: if its links stop working, the video is looked up afresh.
-                        option.source.candidate.videoId?.let { videoId ->
+                        lookupVideoId(option.source.candidate)?.let { videoId ->
                             lookups.rememberDownload(result.taskId, videoId)
                         }
                         PreviewDownloadStatus.Queued(
@@ -1378,7 +1450,28 @@ class QuickDownloadViewModel @Inject constructor(
 
     /** P17: the video's links stopped working; its next lookup asks the site again. */
     private fun forgetLinks(option: SheetOption) {
-        option.source.candidate.videoId?.let(lookups::forgetVideo)
+        lookupVideoId(option.source.candidate)?.let(lookups::forgetVideo)
+    }
+
+    /**
+     * The name the lookup of [candidate]'s video is remembered under: v1.0.2 item 51, a post's
+     * other item came with the item the link names, so its lookup is that item's.
+     */
+    private fun lookupVideoId(candidate: MediaCandidate): String? =
+        postItems.firstOrNull()?.takeIf { candidate.postItem != null }
+            ?.candidates?.firstNotNullOfOrNull { it.videoId }
+            ?: candidate.videoId
+
+    /** v1.0.2 item 51: [group]'s post's video items, when its rows name more than one. */
+    private fun postItemsOf(group: MediaGroup?): List<MediaGroup> {
+        group ?: return emptyList()
+        val items = MediaGroups.postItems(group) { it.isSavable && merges.canMerge(it) }
+        return items.takeIf { it.size > 1 }.orEmpty()
+    }
+
+    private fun postItemChoices(): List<PostItemChoice> = postItems.mapNotNull { item ->
+        val post = item.candidates.firstNotNullOfOrNull { it.postItem } ?: return@mapNotNull null
+        PostItemChoice(item.key, post.number, post.label)
     }
 
     /**

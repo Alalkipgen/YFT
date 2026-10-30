@@ -56,6 +56,8 @@ class XExtractorTest {
                 "https://x.com/fixture_user/status/1785999999999999999",
                 candidate.pageUrl,
             )
+            // v1.0.2 item 51: a post of one video names no item.
+            assertNull(candidate.postItem)
         }
         assertEquals(
             listOf(
@@ -78,9 +80,33 @@ class XExtractorTest {
             request("https://x.com/fixture_user/status/1786000000000000001"),
         ) as SiteExtractionResult.Success
 
+        assertEquals("one request each", 2, http.requestedUrls.size)
         assertEquals(listOf(720), third.candidates.map { it.height })
-        assertEquals("answer: video 3, 2 in the post · 1 MP4 files (720)", third.details.last())
+        assertEquals(
+            listOf(
+                "answer: video 3, 2 in the post · 1 MP4 files (720)",
+                "also video 2, 2 in the post · 2 MP4 files (1080/270)",
+            ),
+            third.details.drop(1),
+        )
         assertEquals(listOf(1080, 270), first.candidates.map { it.height })
+        // v1.0.2 item 51: the post's other video comes with the linked one, under its own name.
+        val linked = third.candidates.single().postItem!!
+        assertEquals("Video 2 of 2", linked.label)
+        assertEquals(listOf(1080, 270), linked.others.map { it.height })
+        linked.others.forEach { other ->
+            assertEquals("x:1786000000000000001:2", other.videoId)
+            assertEquals("Video 1 of 2", other.postItem!!.label)
+            assertTrue(other.postItem!!.others.isEmpty())
+            assertEquals(12_000L, other.durationMillis)
+            assertEquals(third.candidates.single().pageUrl, other.pageUrl)
+            assertNull(other.requestContext.cookie)
+        }
+        first.candidates.forEach { row ->
+            assertEquals("Video 1 of 2", row.postItem!!.label)
+            assertEquals(listOf("x:1786000000000000001:3"), row.postItem!!.others.map { it.videoId })
+        }
+        assertNull("the lookup names the linked video", third.candidates.single().videoId)
     }
 
     @Test
@@ -126,10 +152,18 @@ class XExtractorTest {
         assertEquals("a clip from our shop", single.candidates.first().title)
         assertEquals(listOf(1280, 568), second.candidates.map { it.height })
         assertEquals(
-            "answer: the card's video 2, 2 in the post · 2 MP4 files (1280/568)",
-            second.details.last(),
+            listOf(
+                "answer: the card's video 2, 2 in the post · 2 MP4 files (1280/568)",
+                "also the card's video 1, 2 in the post · 2 MP4 files (720/360)",
+            ),
+            second.details.drop(1),
         )
         assertEquals(listOf(720, 360), first.candidates.map { it.height })
+        assertNull(single.candidates.first().postItem)
+        assertEquals(
+            listOf(720, 360),
+            second.candidates.first().postItem!!.others.map { it.height },
+        )
         (single.candidates + first.candidates + second.candidates).forEach { candidate ->
             assertEquals(MediaKind.DIRECT, candidate.kind)
             assertEquals("video/mp4", candidate.mimeType)

@@ -1022,6 +1022,50 @@ class QuickDownloadScreenTest {
         composeRule.runOnIdle { assertEquals(listOf(PICTURE), asked) }
     }
 
+    @Test
+    fun aPostsVideoItemsArePickedUnderTheHeaderAndAVideoOfItsOwnHasNone() {
+        // v1.0.2 item 51: the linked item first and selected; a tap shows another item.
+        var state by mutableStateOf(
+            SAMPLE_QUICK_DOWNLOAD.copy(
+                postItems = listOf(
+                    PostItemChoice("id:instagram:fixture", 3, "Video 3 of 4"),
+                    PostItemChoice("id:instagram:fixture:1", 1, "Video 1 of 4"),
+                ),
+                postItemKey = "id:instagram:fixture",
+            ),
+        )
+        val picked = mutableListOf<String>()
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                QuickDownloadScreen(
+                    state = state,
+                    onSelect = {},
+                    onDownload = {},
+                    onSelectPostItem = { key ->
+                        picked += key
+                        state = state.copy(postItemKey = key)
+                    },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(POST_ITEMS_TAG).assertIsDisplayed()
+        composeRule.onNodeWithTag("${POST_ITEM_TAG}3").assertIsSelected()
+        composeRule.onNodeWithText("Video 1 of 4").assertIsDisplayed()
+        composeRule.onNodeWithTag("${POST_ITEM_TAG}1").assertIsNotSelected().performClick()
+
+        composeRule.runOnIdle { assertEquals(listOf("id:instagram:fixture:1"), picked) }
+        composeRule.onNodeWithTag("${POST_ITEM_TAG}1").assertIsSelected()
+        composeRule.onNodeWithTag("${POST_ITEM_TAG}3").assertIsNotSelected()
+        val header = composeRule.onNodeWithTag("quick-thumbnail").getBoundsInRoot()
+        val items = composeRule.onNodeWithTag(POST_ITEMS_TAG).getBoundsInRoot()
+        assertTrue("the items sit under the header", items.top >= header.bottom)
+
+        state = SAMPLE_QUICK_DOWNLOAD
+        composeRule.waitForIdle()
+        composeRule.onAllNodesWithTag(POST_ITEMS_TAG).assertCountEquals(0)
+    }
+
     private fun hasText(text: String) = SemanticsMatcher.expectValue(
         SemanticsProperties.Text,
         listOf(androidx.compose.ui.text.AnnotatedString(text)),

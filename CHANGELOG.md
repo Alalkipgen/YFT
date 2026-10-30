@@ -39,6 +39,11 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   a video quality comes with the stream's sound in one file, merged as other merges are (AVC with
   AAC into an MP4; VP9 with Opus into a WebM from Android 10), instead of a **No sound** row whose
   download failed.
+- An Instagram carousel or an X post with several videos: the download sheet shows each video of
+  the post as a choice under its title (**Video 1 of 4**, **Video 2 of 4**…, in the post's order;
+  the one the link names first and picked, else the first); tap one to see its qualities. Each
+  video downloads as a row and file of its own, named with its number ("… (Video 2 of 4) 720p").
+  Photos in the post are skipped; a post of photos only reads as before. No extra request.
 
 ### Changed
 

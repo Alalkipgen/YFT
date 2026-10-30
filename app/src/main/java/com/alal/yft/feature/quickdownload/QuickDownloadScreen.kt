@@ -3,6 +3,7 @@ package com.alal.yft.feature.quickdownload
 import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -55,6 +56,7 @@ import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.feature.preview.MeteredDownloadDialog
 import com.alal.yft.feature.preview.PreviewDownloadStatus
 import com.alal.yft.thumbnail.rememberRemoteThumbnail
+import com.alal.yft.ui.components.YftFilterChip
 import com.alal.yft.ui.components.YftMediaKind
 import com.alal.yft.ui.components.YftMetaChip
 import com.alal.yft.ui.LocalQuietRelease
@@ -82,6 +84,7 @@ fun QuickDownloadRoute(
     QuickDownloadScreen(
         state = state,
         onSelect = viewModel::select,
+        onSelectPostItem = viewModel::selectPostItem,
         onPickEarly = viewModel::pickEarly,
         onDownload = {
             requestNotificationPermission()
@@ -126,6 +129,7 @@ fun QuickDownloadScreen(
     onReload: () -> Unit = {},
     onPickEarly: (OptionSection) -> Unit = {},
     onShowCheck: () -> Unit = {},
+    onSelectPostItem: (String) -> Unit = {},
 ) {
     val quiet = LocalQuietRelease.current
     if (state.downloadStatus == PreviewDownloadStatus.ConfirmMetered) {
@@ -184,6 +188,13 @@ fun QuickDownloadScreen(
             return@Column
         }
         Header(header)
+        if (state.postItems.size > 1) {
+            PostItems(
+                items = state.postItems,
+                selected = state.postItemKey,
+                onSelect = onSelectPostItem,
+            )
+        }
         if (state.maybeAd) {
             // P28: the page states a far longer video than this one, which did not come in time.
             Text(
@@ -319,6 +330,38 @@ private fun ColumnScope.QuietFailure(line: String, onShowCheck: (() -> Unit)?) {
             .align(Alignment.CenterHorizontally)
             .testTag("quick-show-check"),
     )
+}
+
+/**
+ * v1.0.2 item 51: the post's video items ("Video 2 of 4"), the one shown selected; a tap shows
+ * that item's qualities. One row, scrolled sideways when the post has many.
+ */
+@Composable
+private fun PostItems(
+    items: List<PostItemChoice>,
+    selected: String?,
+    onSelect: (String) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(bottom = 8.dp)
+            .selectableGroup()
+            .testTag(POST_ITEMS_TAG),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        items.forEach { item ->
+            YftFilterChip(
+                label = item.label,
+                selected = item.key == selected,
+                onClick = { onSelect(item.key) },
+                modifier = Modifier.testTag("$POST_ITEM_TAG${item.number}"),
+                outlined = true,
+            )
+        }
+    }
 }
 
 @Composable
@@ -912,6 +955,11 @@ internal const val LOOKUP_COPY_TAG = "quick-lookup-copy"
 
 /** P18: Download's label once it was tapped before the qualities came. */
 internal const val STARTS_WHEN_READY = "Starts when ready…"
+
+/** v1.0.2 item 51: the row of a post's video items, and each item's chip with its number. */
+internal const val POST_ITEMS_TAG = "quick-post-items"
+internal const val POST_ITEM_TAG = "quick-post-item-"
+
 private const val PLACEHOLDER_ROWS = 2
 private const val SIZE_UNKNOWN = "Size unknown"
 private val SHEET_TOP_GAP = 48.dp
