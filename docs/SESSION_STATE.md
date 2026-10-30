@@ -2445,9 +2445,41 @@ Keep at least the heading and one blank line between sections, so Git merges the
   test providers are Java with Android's own classes only (`TestTreeProvider.java`,
   `TestTreeAccessProvider.java`), doing the same as before; in the test APK built here they refer
   to no class outside Android and Java. This commit's four runs are item 28's record.
-- Next: the item 28 fix's CI (checkpoint validation, emulator smoke, Preview APK, minified
-  check), then item 5b, then item 25 (Zawgyi titles); then the docs commit and the READY FOR
-  PHONE TEST report.
+- Item 28's fix went up as three commits, as the connector's push cannot delete a file:
+  `ab9dcdd5` and `052a72be` ([skip ci]) remove the two Kotlin providers, `9d2e1023` adds the
+  Java ones. Its CI, item 28's record: checkpoint validation 41083899530 (#592) success, emulator
+  smoke 41083899367 (#180) success ("Instrumentation results: tests=71 failures=0 errors=0
+  skipped=6", "Emulator logcat FATAL EXCEPTION count: 0"; #178, before item 28, ran 66), Preview
+  APK 41083899366 (#147) success, minified check 41083899378 (#38) success.
+- Item 5b (this commit): the Library's select mode, to delete several files at once.
+  - Holding a file selects it, and the Library's title row becomes a bar: "Cancel", "N selected"
+    ("3 selected"), "Select all" and "Delete files" ("Delete file" for one) — the Downloads
+    screen's words (and its "Select" as the hold's spoken name). A tap then picks or unpicks a
+    file (a border and a check mark); the ⋯ buttons are hidden. "Cancel", Back, another filter
+    or a new search leaves select mode; a file that leaves the list leaves the pick.
+  - "Delete files" asks once: "Delete 3 files?" (the Downloads screen's title) and, new, "These 3
+    files will be removed from Download/YFT and App storage. This cannot be undone." (the places
+    as in one file's question, joined with commas and "and"). Confirmed: one of them playing
+    stops; YFT deletes those it may; on Android 11+ those Android asks about are in ONE Android
+    request (`MediaStore.createDeleteRequest` with all of them); Android 10 asks about one file
+    at a time (as for one file before), so YFT asks for the first, then the next; Android 7–9 has
+    no request, so such a file counts as not deleted. A declined request deletes none of those
+    it asked about.
+  - After it, one line — new: "Deleted 3 files.", "3 files could not be deleted.", "Deleted 2
+    files; b.mp4 could not be deleted."; for one file as before: "Deleted a.mp4." and "a.mp4
+    could not be deleted.". The list is read again from storage.
+  - A file's own ⋯ → Delete takes the same path with one file; its question is unchanged ("Delete
+    this file?").
+  - Tests: `DownloadedFileDeleterTest` (+4: one request for all, Android 10 one at a time, no
+    request on Android 9 or when making it fails, the default one by one),
+    `LibraryDeleteAllTest` (2), `LibraryViewModelDeleteTest` (11), `LibrarySelectModeTest` (5,
+    Compose on Robolectric, with a chosen-folder file and the real view model end to end);
+    `LibraryScreenTest` and `LibraryViewModelTest` follow the question's list. Local totals:
+    BUILD SUCCESSFUL, 3855 tests, 0 failures — app 1519 (66 skipped), the rest as item 28's;
+    lint clean.
+  - CHANGELOG `[1.0.2]`: one line under Added.
+- Next: item 5b's CI (checkpoint validation, emulator smoke, Preview APK, minified check), then
+  item 25 (Zawgyi titles); then the docs commit and the READY FOR PHONE TEST report.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 

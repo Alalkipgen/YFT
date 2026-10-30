@@ -110,12 +110,12 @@ class LibraryViewModelTest {
         val viewModel = loaded(repository)
 
         viewModel.requestDelete(libraryItem("a"))
-        assertEquals("a", ready(viewModel).pendingDelete?.id)
+        assertEquals(listOf("a"), ready(viewModel).pendingDelete.map(LibraryItem::id))
         assertEquals(0, repository.deleted.size)
 
         viewModel.dismissDelete()
         runCurrent()
-        assertNull(ready(viewModel).pendingDelete)
+        assertTrue(ready(viewModel).pendingDelete.isEmpty())
         assertEquals(0, repository.deleted.size)
         assertEquals(1, ready(viewModel).items.size)
     }
@@ -128,7 +128,7 @@ class LibraryViewModelTest {
         viewModel.requestDelete(libraryItem("a"))
 
         viewModel.confirmDelete()
-        assertNull(ready(viewModel).pendingDelete)
+        assertTrue(ready(viewModel).pendingDelete.isEmpty())
         assertNull(playback.state.value)
         runCurrent()
 

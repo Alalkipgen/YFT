@@ -1,8 +1,15 @@
 package com.alal.yft.feature.library
 
+import android.app.Activity
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -57,6 +64,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -69,11 +77,17 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.alal.yft.feature.downloads.SELECT_ALL_LABEL
+import com.alal.yft.feature.downloads.SELECT_LABEL
+import com.alal.yft.feature.downloads.deleteFilesLabel
+import com.alal.yft.feature.downloads.deleteFilesTitle
+import com.alal.yft.feature.downloads.selectedCountLabel
 import com.alal.yft.thumbnail.rememberFileThumbnail
 import com.alal.yft.ui.components.YftFilterChip
 import com.alal.yft.ui.components.YftIcon
 import com.alal.yft.ui.components.YftIconButton
 import com.alal.yft.ui.components.YftMediaKind
+import com.alal.yft.ui.components.YftOutlinedButton
 import com.alal.yft.ui.components.YftPrimaryButton
 import com.alal.yft.ui.components.YftScreenHeader
 import com.alal.yft.ui.components.YftTextButton
@@ -94,6 +108,15 @@ fun LibraryRoute(
     val context = LocalContext.current
     // Files can change while YFT is in the background, so the list is re-read on every resume.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refresh() }
+    // v1.0.2 item 5b: Android's "Allow YFT to delete?", one for all the files that need it.
+    val consent = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult(),
+    ) { result -> viewModel.onDeleteConsentResult(result.resultCode == Activity.RESULT_OK) }
+    LaunchedEffect(viewModel) {
+        viewModel.deleteConsentRequests.collect { request ->
+            consent.launch(IntentSenderRequest.Builder(request).build())
+        }
+    }
     val openElsewhere: (LibraryItem) -> Unit = { item ->
         if (!LibraryIntents.start(context, LibraryIntents.view(item))) {
             viewModel.showMessage("No app on this device can open ${item.displayName}.")
@@ -124,6 +147,7 @@ fun LibraryRoute(
             }
         },
         onRequestDelete = viewModel::requestDelete,
+        onRequestDeletePicked = viewModel::requestDeletePicked,
         onConfirmDelete = viewModel::confirmDelete,
         onDismissDelete = viewModel::dismissDelete,
         onDismissMessage = viewModel::dismissMessage,
@@ -134,6 +158,10 @@ fun LibraryRoute(
  * The Library tab (`05`): title with search and sort, All / Video / Audio, and a two-column grid
  * of saved files with their real thumbnail, length, "720p · 96 MB" and a ⋯ menu. Tapping a
  * tile plays it: audio in the mini player, video full screen.
+ *
+ * v1.0.2 item 5b: a long press on a tile starts select mode. The bar in place of the title
+ * shows how many are picked, with Cancel, Select all and Delete (one question for them all);
+ * taps pick and drop tiles, and Back, Cancel or another filter or search end it.
  */
 @Composable
 fun LibraryScreen(
@@ -145,6 +173,8 @@ fun LibraryScreen(
     onOpen: (LibraryItem) -> Unit = {},
     onShare: (LibraryItem) -> Unit = {},
     onRequestDelete: (LibraryItem) -> Unit = {},
+    /** v1.0.2 item 5b: Delete in select mode, with the picked files in the order picked. */
+    onRequestDeletePicked: (List<LibraryItem>) -> Unit = {},
     onConfirmDelete: () -> Unit = {},
     onDismissDelete: () -> Unit = {},
     onDismissMessage: () -> Unit = {},
@@ -154,8 +184,28 @@ fun LibraryScreen(
     var sort by rememberSaveable { mutableStateOf(LibrarySort.NEWEST) }
     var searching by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
-    (uiState as? LibraryUiState.Ready)?.pendingDelete?.let { item ->
-        DeleteDialog(item = item, onConfirm = onConfirmDelete, onDismiss = onDismissDelete)
+    val ready = uiState as? LibraryUiState.Ready
+    val shown = remember(ready?.items, filter, sort, query) {
+        ready?.items?.let { arrange(it, filter, sort, query) }.orEmpty()
+    }
+    // v1.0.2 item 5b: the files picked in select mode, in the order picked; files that went
+    // drop out, and select mode ends with the last one.
+    var picked by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    val selection = remember(picked, shown) {
+        val byId = shown.associateBy(LibraryItem::id)
+        picked.mapNotNull(byId::get)
+    }
+    val selecting = selection.isNotEmpty()
+    BackHandler(enabled = selecting) { picked = emptyList() }
+    ready?.pendingDelete?.takeIf { it.isNotEmpty() }?.let { items ->
+        DeleteDialog(
+            items = items,
+            onConfirm = {
+                picked = emptyList()
+                onConfirmDelete()
+            },
+            onDismiss = onDismissDelete,
+        )
     }
     Column(
         modifier = modifier
@@ -163,30 +213,51 @@ fun LibraryScreen(
             .background(colors.background)
             .windowInsetsPadding(WindowInsets.statusBars),
     ) {
-        YftScreenHeader(title = "Library") {
-            YftIconButton(
-                icon = YftIcons.Search,
-                contentDescription = if (searching) "Close search" else "Search the library",
-                onClick = {
-                    searching = !searching
-                    if (!searching) query = ""
-                },
-                modifier = Modifier.testTag("library-search"),
-                tint = colors.icon,
+        if (selecting) {
+            SelectionBar(
+                count = selection.size,
+                allPicked = selection.size == shown.size,
+                onCancel = { picked = emptyList() },
+                onSelectAll = { picked = shown.map(LibraryItem::id) },
+                onDelete = { onRequestDeletePicked(selection) },
             )
-            SortButton(sort = sort, onSort = { sort = it })
+        } else {
+            YftScreenHeader(title = "Library") {
+                YftIconButton(
+                    icon = YftIcons.Search,
+                    contentDescription = if (searching) "Close search" else "Search the library",
+                    onClick = {
+                        searching = !searching
+                        if (!searching) query = ""
+                    },
+                    modifier = Modifier.testTag("library-search"),
+                    tint = colors.icon,
+                )
+                SortButton(sort = sort, onSort = { sort = it })
+            }
         }
         if (searching) {
             SearchField(
                 query = query,
-                onQueryChange = { query = it },
+                onQueryChange = { changed ->
+                    if (changed != query) picked = emptyList()
+                    query = changed
+                },
                 onClose = {
                     searching = false
                     query = ""
+                    picked = emptyList()
                 },
             )
         }
-        FilterRow(selected = filter, onSelect = { filter = it })
+        FilterRow(
+            selected = filter,
+            onSelect = { option ->
+                // Another filter ends select mode.
+                if (option != filter) picked = emptyList()
+                filter = option
+            },
+        )
         val content = Modifier
             .fillMaxWidth()
             .weight(1f)
@@ -217,9 +288,7 @@ fun LibraryScreen(
 
             is LibraryUiState.Ready -> ReadyLibrary(
                 state = uiState,
-                shown = remember(uiState.items, filter, sort, query) {
-                    arrange(uiState.items, filter, sort, query)
-                },
+                shown = shown,
                 filter = filter,
                 query = query,
                 playingId = playingId,
@@ -229,6 +298,10 @@ fun LibraryScreen(
                 onShare = onShare,
                 onRequestDelete = onRequestDelete,
                 onDismissMessage = onDismissMessage,
+                selection = TileSelection(
+                    picked = selection.map(LibraryItem::id),
+                    onToggle = { id -> picked = if (id in picked) picked - id else picked + id },
+                ),
             )
         }
     }
@@ -247,6 +320,7 @@ private fun ReadyLibrary(
     onShare: (LibraryItem) -> Unit,
     onRequestDelete: (LibraryItem) -> Unit,
     onDismissMessage: () -> Unit,
+    selection: TileSelection,
 ) {
     Column(modifier = modifier) {
         state.message?.let { message ->
@@ -296,11 +370,24 @@ private fun ReadyLibrary(
                         onOpen = onOpen,
                         onShare = onShare,
                         onRequestDelete = onRequestDelete,
+                        selection = selection,
                     )
                 }
             }
         }
     }
+}
+
+/**
+ * v1.0.2 item 5b: the files picked in select mode ([picked], in the order picked) and how a
+ * tile picks or drops itself.
+ */
+private class TileSelection(
+    val picked: List<String>,
+    val onToggle: (String) -> Unit,
+) {
+    val active: Boolean
+        get() = picked.isNotEmpty()
 }
 
 /** One control in a tile's ⋯ menu and in its accessibility actions. */
@@ -312,6 +399,7 @@ private class TileAction(
     val run: () -> Unit,
 )
 
+@OptIn(ExperimentalFoundationApi::class) // combinedClickable, for the long press (item 5b)
 @Composable
 private fun LibraryTile(
     item: LibraryItem,
@@ -320,8 +408,11 @@ private fun LibraryTile(
     onOpen: (LibraryItem) -> Unit,
     onShare: (LibraryItem) -> Unit,
     onRequestDelete: (LibraryItem) -> Unit,
+    selection: TileSelection,
 ) {
     val colors = YftTheme.colors
+    val selecting = selection.active
+    val picked = selecting && item.id in selection.picked
     val details = rememberMediaDetails(item.uri, item.isAudio)
     // P19: the picture saved when it was downloaded, until the file's own frame is read.
     val saved = rememberFileThumbnail(item.uri)
@@ -348,31 +439,65 @@ private fun LibraryTile(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(YftShapes.thumbnailSmall)
-                .clickable(
-                    onClickLabel = if (item.isPlayable) "Play" else "Open with another app",
+                .combinedClickable(
+                    onClickLabel = when {
+                        selecting -> null
+                        item.isPlayable -> "Play"
+                        else -> "Open with another app"
+                    },
                     role = Role.Button,
-                ) { if (item.isPlayable) onPlay(item) else onOpen(item) }
+                    // Item 5b: a long press starts select mode; in it a tap picks or drops.
+                    onLongClickLabel = SELECT_LABEL.takeIf { !selecting },
+                    onLongClick = { selection.onToggle(item.id) },
+                ) {
+                    when {
+                        selecting -> selection.onToggle(item.id)
+                        item.isPlayable -> onPlay(item)
+                        else -> onOpen(item)
+                    }
+                }
                 .semantics(mergeDescendants = true) {
                     if (isPlaying) stateDescription = "Playing"
-                    customActions = actions.drop(1).map { action ->
-                        CustomAccessibilityAction(action.label) {
-                            action.run()
-                            true
+                    if (selecting) {
+                        selected = picked
+                    } else {
+                        customActions = actions.drop(1).map { action ->
+                            CustomAccessibilityAction(action.label) {
+                                action.run()
+                                true
+                            }
                         }
                     }
                 }
                 .testTag("library-item-${item.id}"),
         ) {
-            YftThumbnail(
-                image = details?.image ?: saved,
-                kind = if (item.isAudio) YftMediaKind.Audio else YftMediaKind.Video,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(TILE_RATIO),
-                shape = YftShapes.thumbnailSmall,
-                durationLabel = details?.durationMs?.let(YftFormat::duration),
-                iconSize = 44.dp,
-            )
+            Box {
+                YftThumbnail(
+                    image = details?.image ?: saved,
+                    kind = if (item.isAudio) YftMediaKind.Audio else YftMediaKind.Video,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(TILE_RATIO)
+                        .then(
+                            if (picked) {
+                                Modifier.border(2.dp, colors.link, YftShapes.thumbnailSmall)
+                            } else {
+                                Modifier
+                            },
+                        ),
+                    shape = YftShapes.thumbnailSmall,
+                    durationLabel = details?.durationMs?.let(YftFormat::duration),
+                    iconSize = 44.dp,
+                )
+                if (picked) {
+                    PickMark(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(6.dp)
+                            .testTag("library-pick-${item.id}"),
+                    )
+                }
+            }
             Text(
                 text = title,
                 modifier = Modifier.padding(top = 6.dp, end = TITLE_END_ROOM),
@@ -397,35 +522,116 @@ private fun LibraryTile(
             )
         }
         // Outside the tile's clip, so the ⋯ sits at the tile's edge as drawn while keeping its
-        // whole 48dp touch target; it lines up with the title.
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .offset(x = MORE_BUTTON_OFFSET, y = MORE_BUTTON_LIFT),
-        ) {
-            YftIconButton(
-                icon = YftIcons.MoreHoriz,
-                contentDescription = "More options for $title",
-                onClick = { menuOpen = true },
-                modifier = Modifier.testTag("library-more-${item.id}"),
-                tint = colors.textSecondary,
-            )
-            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                actions.forEach { action ->
-                    val tint = if (action.destructive) colors.coralText else colors.textPrimary
-                    DropdownMenuItem(
-                        text = { Text(text = action.label, color = tint) },
-                        onClick = {
-                            menuOpen = false
-                            action.run()
-                        },
-                        leadingIcon = {
-                            YftIcon(icon = action.icon, contentDescription = null, tint = tint)
-                        },
-                        modifier = Modifier.testTag(action.tag),
-                    )
+        // whole 48dp touch target; it lines up with the title. Select mode has no ⋯, so a tap
+        // anywhere on the tile only picks or drops it.
+        if (!selecting) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset(x = MORE_BUTTON_OFFSET, y = MORE_BUTTON_LIFT),
+            ) {
+                YftIconButton(
+                    icon = YftIcons.MoreHoriz,
+                    contentDescription = "More options for $title",
+                    onClick = { menuOpen = true },
+                    modifier = Modifier.testTag("library-more-${item.id}"),
+                    tint = colors.textSecondary,
+                )
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    actions.forEach { action ->
+                        val tint = if (action.destructive) colors.coralText else colors.textPrimary
+                        DropdownMenuItem(
+                            text = { Text(text = action.label, color = tint) },
+                            onClick = {
+                                menuOpen = false
+                                action.run()
+                            },
+                            leadingIcon = {
+                                YftIcon(icon = action.icon, contentDescription = null, tint = tint)
+                            },
+                            modifier = Modifier.testTag(action.tag),
+                        )
+                    }
                 }
             }
+        }
+    }
+}
+
+/**
+ * v1.0.2 item 5b: the check mark on a picked tile's picture. Screen readers hear the tile's
+ * selected state instead.
+ */
+@Composable
+private fun PickMark(modifier: Modifier = Modifier) {
+    val colors = YftTheme.colors
+    Box(
+        modifier = modifier
+            .size(28.dp)
+            .clip(CircleShape)
+            .background(colors.card),
+        contentAlignment = Alignment.Center,
+    ) {
+        YftIcon(
+            icon = YftIcons.CheckCircle,
+            contentDescription = null,
+            tint = colors.link,
+            size = 26.dp,
+        )
+    }
+}
+
+/**
+ * v1.0.2 item 5b: the bar in place of the title in select mode: Cancel, how many are picked,
+ * Select all, then Delete (one question for them all).
+ */
+@Composable
+private fun SelectionBar(
+    count: Int,
+    allPicked: Boolean,
+    onCancel: () -> Unit,
+    onSelectAll: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val colors = YftTheme.colors
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 4.dp, top = 4.dp, end = 16.dp, bottom = 8.dp)
+            .testTag("library-select-bar"),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            YftIconButton(
+                icon = YftIcons.Close,
+                contentDescription = "Cancel",
+                onClick = onCancel,
+                modifier = Modifier.testTag("library-select-cancel"),
+            )
+            Text(
+                text = selectedCountLabel(count),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 4.dp)
+                    .semantics { liveRegion = LiveRegionMode.Polite }
+                    .testTag("library-select-count"),
+                color = colors.textPrimary,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            )
+            YftTextButton(
+                text = SELECT_ALL_LABEL,
+                onClick = onSelectAll,
+                modifier = Modifier.testTag("library-select-all"),
+                enabled = !allPicked,
+            )
+        }
+        Row(modifier = Modifier.padding(start = 12.dp, top = 4.dp)) {
+            YftOutlinedButton(
+                text = deleteFilesLabel(count),
+                onClick = onDelete,
+                modifier = Modifier.testTag("library-select-delete"),
+                icon = YftIcons.Delete,
+                compact = true,
+            )
         }
     }
 }
@@ -622,15 +828,14 @@ private fun EmptyLibrary() {
 }
 
 @Composable
-private fun DeleteDialog(item: LibraryItem, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+private fun DeleteDialog(items: List<LibraryItem>, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     val colors = YftTheme.colors
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(text = "Delete this file?", color = colors.textPrimary) },
+        title = { Text(text = deleteFilesTitle(items.size), color = colors.textPrimary) },
         text = {
             Text(
-                text = "${item.displayName} will be removed from ${item.place}. " +
-                    "This cannot be undone.",
+                text = deleteQuestionText(items),
                 color = colors.textSecondary,
             )
         },
@@ -663,6 +868,24 @@ private fun CenteredStatus(modifier: Modifier, content: @Composable () -> Unit) 
     ) {
         content()
     }
+}
+
+/**
+ * "a.mp4 will be removed from Download/YFT. …", or (v1.0.2 item 5b) for several files "These 3
+ * files will be removed from Download/YFT and App storage. This cannot be undone."
+ */
+internal fun deleteQuestionText(items: List<LibraryItem>): String {
+    val item = items.singleOrNull()
+    if (item != null) {
+        return "${item.displayName} will be removed from ${item.place}. This cannot be undone."
+    }
+    val places = items.map(LibraryItem::place).distinct()
+    val where = if (places.size == 1) {
+        places.single()
+    } else {
+        places.dropLast(1).joinToString(", ") + " and " + places.last()
+    }
+    return "These ${items.size} files will be removed from $where. This cannot be undone."
 }
 
 private fun noMatchText(filter: LibraryFilter, query: String): String = when {

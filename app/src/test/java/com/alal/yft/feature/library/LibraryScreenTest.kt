@@ -194,11 +194,11 @@ class LibraryScreenTest {
         var confirmed = 0
         setScreen(
             state = { state.value },
-            onRequestDelete = { state.value = state.value.copy(pendingDelete = it) },
-            onDismissDelete = { state.value = state.value.copy(pendingDelete = null) },
+            onRequestDelete = { state.value = state.value.copy(pendingDelete = listOf(it)) },
+            onDismissDelete = { state.value = state.value.copy(pendingDelete = emptyList()) },
             onConfirmDelete = {
                 confirmed += 1
-                state.value = state.value.copy(pendingDelete = null)
+                state.value = state.value.copy(pendingDelete = emptyList())
             },
         )
 

@@ -50,6 +50,9 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   and the Library lists its videos and audio. A folder YFT can no longer use (deleted, access
   gone, card removed) shows as unavailable, and a new download then goes to Download/YFT (app
   storage on Android 7–9), its row saying so.
+- **Library**: hold a file to select it, tap more (or **Select all**), then **Delete files** to
+  delete them all at once, with one question (**Delete 3 files?**) and, when Android asks first,
+  one Android request for all of them; **Cancel**, Back or another filter or search leaves.
 
 ### Changed
 

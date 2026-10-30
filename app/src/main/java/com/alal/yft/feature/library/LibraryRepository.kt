@@ -2,6 +2,7 @@ package com.alal.yft.feature.library
 
 import android.content.ContentUris
 import android.content.Context
+import android.content.IntentSender
 import android.database.Cursor
 import android.net.Uri
 import android.os.Build
@@ -17,9 +18,26 @@ import com.alal.yft.download.FileDeletion
 import com.alal.yft.download.FolderEntry
 import com.alal.yft.download.SaveFolders
 import com.alal.yft.download.SavedDownloadFile
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+
+/**
+ * v1.0.2 item 5b: what deleting several library files at once came to. Android asks the user
+ * first about [asking]: the screen launches [request], then they are deleted again; on Android
+ * 10 the files [waiting] are tried after that answer.
+ */
+data class LibraryDeletion(
+    /** Gone, also those that were gone already. */
+    val deleted: List<LibraryItem> = emptyList(),
+    /** Still there. */
+    val failed: List<LibraryItem> = emptyList(),
+    /** Android's one "Allow YFT to delete?" request for all of [asking], or null. */
+    val request: IntentSender? = null,
+    val asking: List<LibraryItem> = emptyList(),
+    val waiting: List<LibraryItem> = emptyList(),
+)
 
 /** Finished downloads the library can list and delete. */
 interface LibraryRepository {
@@ -31,6 +49,24 @@ interface LibraryRepository {
      * false when it could not be removed.
      */
     suspend fun delete(item: LibraryItem): Boolean
+
+    /**
+     * v1.0.2 item 5b: deletes the files behind [items] together, with one Android request for
+     * those that need the user's consent. This default deletes them one at a time and asks
+     * nothing.
+     */
+    suspend fun deleteAll(items: List<LibraryItem>): LibraryDeletion {
+        val (deleted, failed) = items.partition { item ->
+            try {
+                delete(item)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                false
+            }
+        }
+        return LibraryDeletion(deleted = deleted, failed = failed)
+    }
 }
 
 /**
@@ -72,27 +108,45 @@ class AndroidLibraryRepository(
         )
     }
 
-    override suspend fun delete(item: LibraryItem): Boolean {
-        val file = when (item.location) {
-            LibraryLocation.SHARED_DOWNLOADS -> SavedDownloadFile(
-                kind = DownloadDestinationKind.MEDIA_STORE,
-                uri = item.uri,
-                displayName = item.displayName,
-            )
+    override suspend fun delete(item: LibraryItem): Boolean =
+        fileDeleter.delete(item.savedFile()) == FileDeletion.Deleted
 
-            LibraryLocation.APP_STORAGE -> SavedDownloadFile(
-                kind = DownloadDestinationKind.APP_PRIVATE,
-                uri = null,
-                displayName = item.displayName,
-            )
+    /**
+     * v1.0.2 item 5b: the picked files go to the deleter together, so Android asks once for all
+     * that need the user's consent.
+     */
+    override suspend fun deleteAll(items: List<LibraryItem>): LibraryDeletion {
+        val byFile = items.distinctBy(LibraryItem::id).associateBy { it.savedFile() }
+        val result = fileDeleter.deleteAll(byFile.keys.toList())
+        val itemsOf = { files: List<SavedDownloadFile> -> files.mapNotNull(byFile::get) }
+        return LibraryDeletion(
+            deleted = itemsOf(result.deleted),
+            failed = itemsOf(result.failed),
+            request = result.request,
+            asking = itemsOf(result.asking),
+            waiting = itemsOf(result.waiting),
+        )
+    }
 
-            LibraryLocation.CHOSEN_FOLDER -> SavedDownloadFile(
-                kind = DownloadDestinationKind.SAF_DOCUMENT,
-                uri = item.uri,
-                displayName = item.displayName,
-            )
-        }
-        return fileDeleter.delete(file) == FileDeletion.Deleted
+    /** Where the file is, as the deleter knows it (P42). */
+    private fun LibraryItem.savedFile(): SavedDownloadFile = when (location) {
+        LibraryLocation.SHARED_DOWNLOADS -> SavedDownloadFile(
+            kind = DownloadDestinationKind.MEDIA_STORE,
+            uri = uri,
+            displayName = displayName,
+        )
+
+        LibraryLocation.APP_STORAGE -> SavedDownloadFile(
+            kind = DownloadDestinationKind.APP_PRIVATE,
+            uri = null,
+            displayName = displayName,
+        )
+
+        LibraryLocation.CHOSEN_FOLDER -> SavedDownloadFile(
+            kind = DownloadDestinationKind.SAF_DOCUMENT,
+            uri = uri,
+            displayName = displayName,
+        )
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)

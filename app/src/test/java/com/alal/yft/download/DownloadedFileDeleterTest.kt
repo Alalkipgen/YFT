@@ -51,7 +51,7 @@ class DownloadedFileDeleterTest {
         val result = deleter(system, Build.VERSION_CODES.R).delete(media())
 
         assertEquals(FileDeletion.NeedsConsent(system.request), result)
-        assertEquals(listOf(MEDIA_URI), system.deleteRequests)
+        assertEquals(listOf(listOf(MEDIA_URI)), system.deleteRequests)
         assertEquals(0, system.recoverableAsked)
     }
 
@@ -108,11 +108,106 @@ class DownloadedFileDeleterTest {
         assertEquals(FileDeletion.Failed, deleter(FakeSystem(mediaRows = 1)).delete(noUri))
     }
 
+    @Test
+    fun severalItemsThatNeedConsentShareOneSystemRequestOnAndroidElevenAndLater() = runTest {
+        // v1.0.2 item 5b: the Library's select mode deletes the picked files together.
+        val system = FakeSystem(refused = setOf(MEDIA_B, MEDIA_C))
+        val document = SavedDownloadFile(DownloadDestinationKind.SAF_DOCUMENT, DOC_URI, "d.mp4")
+        val files = listOf(media(), media(MEDIA_B), document, media(MEDIA_C))
+
+        val result = deleter(system, Build.VERSION_CODES.R).deleteAll(files)
+
+        assertEquals(listOf(listOf(MEDIA_B, MEDIA_C)), system.deleteRequests)
+        assertEquals(
+            FilesDeletion(
+                deleted = listOf(files[0], files[2]),
+                request = system.request,
+                asking = listOf(files[1], files[3]),
+            ),
+            result,
+        )
+        assertEquals(listOf(MEDIA_URI), system.deletedMedia)
+        assertEquals(listOf(DOC_URI), system.deletedDocuments)
+        // Nothing to ask: no request at all.
+        val owned = FakeSystem()
+        assertEquals(
+            FilesDeletion(deleted = listOf(files[0], files[1])),
+            deleter(owned).deleteAll(files.take(2)),
+        )
+        assertTrue(owned.deleteRequests.isEmpty())
+    }
+
+    @Test
+    fun androidTenAsksAboutOneItemAtATimeAndTheOthersWait() = runTest {
+        val system = FakeSystem(
+            refused = setOf(MEDIA_URI, MEDIA_B, MEDIA_C),
+            unaskable = setOf(MEDIA_URI),
+        )
+        val files = listOf(media(), media(MEDIA_B), media(MEDIA_C))
+
+        val result = deleter(system, Build.VERSION_CODES.Q).deleteAll(files)
+
+        assertEquals(
+            FilesDeletion(
+                failed = listOf(files[0]),
+                request = system.request,
+                asking = listOf(files[1]),
+                waiting = listOf(files[2]),
+            ),
+            result,
+        )
+        assertTrue(system.deleteRequests.isEmpty())
+        assertEquals(2, system.recoverableAsked)
+    }
+
+    @Test
+    fun withoutARequestTheRefusedItemsAreNotDeleted() = runTest {
+        val files = listOf(media(), media(MEDIA_B))
+        val expected = FilesDeletion(deleted = listOf(files[0]), failed = listOf(files[1]))
+
+        assertEquals(expected, deleter(FakeSystem(refused = setOf(MEDIA_B)), 28).deleteAll(files))
+        val broken = FakeSystem(refused = setOf(MEDIA_B), requestFails = true)
+        assertEquals(expected, deleter(broken).deleteAll(files))
+    }
+
+    @Test
+    fun theDefaultDeleteAllGoesOneAtATimeAndStopsAtTheFirstRequest() = runTest {
+        val request = FakeSystem().request
+        val answers = mapOf(
+            "a" to FileDeletion.Deleted,
+            "b" to FileDeletion.Failed,
+            "c" to FileDeletion.NeedsConsent(request),
+            "d" to FileDeletion.Deleted,
+        )
+        val tried = mutableListOf<String>()
+        val deleter = DownloadedFileDeleter { file ->
+            tried += file.displayName
+            answers.getValue(file.displayName)
+        }
+        val files = answers.keys.map { name ->
+            SavedDownloadFile(DownloadDestinationKind.APP_PRIVATE, null, name)
+        }
+
+        val result = deleter.deleteAll(files)
+
+        assertEquals(listOf("a", "b", "c"), tried)
+        assertEquals(
+            FilesDeletion(
+                deleted = listOf(files[0]),
+                failed = listOf(files[1]),
+                request = request,
+                asking = listOf(files[2]),
+                waiting = listOf(files[3]),
+            ),
+            result,
+        )
+    }
+
     private fun deleter(system: FakeSystem, sdkInt: Int = Build.VERSION_CODES.VANILLA_ICE_CREAM) =
         AndroidDownloadedFileDeleter(system, sdkInt, Dispatchers.Unconfined)
 
-    private fun media() =
-        SavedDownloadFile(DownloadDestinationKind.MEDIA_STORE, MEDIA_URI, "movie.mp4")
+    private fun media(uri: String = MEDIA_URI) =
+        SavedDownloadFile(DownloadDestinationKind.MEDIA_STORE, uri, "movie.mp4")
 
     private class FakeSystem(
         private val mediaRows: Int = 1,
@@ -123,6 +218,11 @@ class DownloadedFileDeleterTest {
         private val documentExists: Boolean = false,
         private val documentError: Exception? = null,
         private val appFile: File? = null,
+        /** v1.0.2 item 5b: the items YFT may not delete on its own, by URI. */
+        private val refused: Set<String> = emptySet(),
+        /** Android 10: refused items without a user action. */
+        private val unaskable: Set<String> = emptySet(),
+        private val requestFails: Boolean = false,
     ) : FileDeleteSystem {
         val request: IntentSender = PendingIntent.getActivity(
             ApplicationProvider.getApplicationContext(),
@@ -131,26 +231,28 @@ class DownloadedFileDeleterTest {
             PendingIntent.FLAG_IMMUTABLE,
         ).intentSender
         val deletedMedia = mutableListOf<String>()
-        val deleteRequests = mutableListOf<String>()
+        val deleteRequests = mutableListOf<List<String>>()
         val deletedDocuments = mutableListOf<String>()
         var recoverableAsked = 0
 
         override fun deleteMediaItem(uri: String): Int {
             mediaError?.let { throw it }
+            if (uri in refused) throw SecurityException(uri)
             deletedMedia += uri
             return mediaRows
         }
 
         override fun mediaItemExists(uri: String): Boolean = mediaExists
 
-        override fun mediaDeleteRequest(uri: String): IntentSender {
-            deleteRequests += uri
+        override fun mediaDeleteRequest(uris: List<String>): IntentSender {
+            if (requestFails) throw UnsupportedOperationException("no request")
+            deleteRequests += listOf(uris)
             return request
         }
 
         override fun recoverableAction(error: SecurityException): IntentSender? {
             recoverableAsked += 1
-            return request.takeIf { recoverable }
+            return request.takeIf { recoverable && error.message !in unaskable }
         }
 
         override fun deleteDocument(uri: String): Boolean {
@@ -167,6 +269,8 @@ class DownloadedFileDeleterTest {
 
     private companion object {
         const val MEDIA_URI = "content://media/external/downloads/42"
+        const val MEDIA_B = "content://media/external/downloads/43"
+        const val MEDIA_C = "content://media/external/downloads/44"
         const val DOC_URI = "content://com.android.externalstorage.documents/document/a"
     }
 }
