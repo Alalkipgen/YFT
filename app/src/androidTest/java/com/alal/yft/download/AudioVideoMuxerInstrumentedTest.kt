@@ -10,6 +10,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.alal.yft.core.download.AndroidMp4AudioVideoMuxer
 import com.alal.yft.core.download.AudioVideoMuxCompatibility
 import com.alal.yft.core.download.LocalMuxResult
+import com.alal.yft.detection.Av1Decoders
 import com.alal.yft.detection.platformHasDecoder
 import java.io.File
 import kotlin.math.abs
@@ -128,7 +129,9 @@ class AudioVideoMuxerInstrumentedTest {
     /**
      * AV1 merges are off ([AudioVideoMuxCompatibility.AV1_MP4_ENABLED]) because this merge failed
      * on the API 34 emulator (P4). The probe still tries it on Android 14+ and logs a `YFT-DIAG`
-     * line with the step that failed, so CI shows when a new image starts to write AV1.
+     * line with the step that failed, so CI shows when a new image starts to write AV1. v1.0.2
+     * item 26: the line also names the kinds of the phone's AV1 decoders ([Av1Decoders.kinds]:
+     * hardware, software, both or none), as the debug switch's Details line does.
      */
     @Test
     fun av1MergesStayOffWhileThisPhoneCannotMakeThem() {
@@ -142,6 +145,7 @@ class AudioVideoMuxerInstrumentedTest {
             TAG,
             "YFT-DIAG av1-mux probe sdk=${Build.VERSION.SDK_INT} " +
                 "decoder=${platformHasDecoder(AV1_MIME_TYPE)} " +
+                "kinds=${Av1Decoders.kinds(Av1Decoders.installed())} " +
                 "result=${result.javaClass.simpleName} step=$step",
         )
 

@@ -17,6 +17,7 @@ import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.VariantSupport
+import com.alal.yft.detection.Av1MergeSwitch
 import java.net.URI
 import java.util.Locale
 
@@ -87,6 +88,8 @@ object DownloadPlanFactory {
         taskId: String,
         nowEpochMs: Long,
         sdkInt: Int = Build.VERSION.SDK_INT,
+        // v1.0.2 item 26: AV1 merges — the release's constant, or a debug build's test switch.
+        av1Enabled: Boolean = Av1MergeSwitch.merges(),
     ): DownloadPlanResult {
         require(taskId.isNotBlank())
 
@@ -113,7 +116,7 @@ object DownloadPlanFactory {
         val fileName = fileName(asset, variant)
         val context = variant.requestContext
         variant.audioCompanion?.let { companion ->
-            return mergedRequest(variant, companion, taskId, fileName, nowEpochMs, sdkInt)
+            return mergedRequest(variant, companion, taskId, fileName, nowEpochMs, sdkInt, av1Enabled)
         }
 
         return when (variant.kind) {
@@ -214,6 +217,7 @@ object DownloadPlanFactory {
         fileName: String,
         nowEpochMs: Long,
         sdkInt: Int,
+        av1Enabled: Boolean,
     ): DownloadPlanResult {
         // P50: or an HLS video quality with its HLS audio rendition, both fetched as playlists.
         val playlists = variant.kind == MediaKind.HLS
@@ -285,7 +289,7 @@ object DownloadPlanFactory {
             suggestedFileName = fileName,
             outputMimeType = outputMimeType,
         )
-        if (AudioVideoMuxCompatibility.evaluate(plan, sdkInt) is MuxCompatibility.Incompatible) {
+        if (AudioVideoMuxCompatibility.evaluate(plan, sdkInt, av1Enabled) is MuxCompatibility.Incompatible) {
             return rejected(
                 DownloadFailureReason.INCOMPATIBLE_TRACKS,
                 "This video and its audio cannot be combined on this phone.",

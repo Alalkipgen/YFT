@@ -32,6 +32,7 @@ import com.alal.yft.core.browser.policy.BrowserAddressNormalizer
 import com.alal.yft.core.browser.policy.BrowserAddressResult
 import com.alal.yft.core.browser.policy.BrowserUserAgent
 import com.alal.yft.core.data.network.NetworkConfiguration
+import com.alal.yft.detection.Av1MergeSwitch
 import com.alal.yft.detection.OkHttpExtractorClient
 import com.alal.yft.detection.master.InstagramProbeSwitch
 import com.alal.yft.detection.master.MasterRecipeConfig
@@ -86,6 +87,11 @@ import okhttp3.Response
  * while it is on, after I2 gave no rows) and "Instagram rung proof: set I2's rows aside" (debug:
  * with I2's rows, the rung is asked in their place, so a post main answers shows the rung's own
  * rows). The census itself has no tab: the rung is never asked in it.
+ *
+ * v1.0.2 item 26: in every debug build the screen also holds "AV1 merges (test, Android 14 or
+ * newer)" ([Av1MergeSwitch], off by default): while it is on, the sheet keeps AV1 + AAC rows on
+ * Android 14 or newer (with an AV1 decoder), named with "AV1", and the download merges them
+ * into one MP4. The release and the previews have no such switch (AV1 merges stay off there).
  *
  * Social plan task 6b: in a social-ladder build each ladder site's backup part is that site's
  * ladder as the browser runs it ([census]'s pack: the rungs, each row checked against main's), and
@@ -154,6 +160,14 @@ class SiteCensusActivity : ComponentActivity() {
                 text = "Instagram rung proof: set I2's rows aside"
                 isChecked = InstagramProbeSwitch.proof(this@SiteCensusActivity)
                 setOnCheckedChangeListener { _, checked -> InstagramProbeSwitch.setProof(this@SiteCensusActivity, checked) }
+            })
+        }
+        // v1.0.2 item 26: AV1 merges as a test switch, off by default (a debug build only).
+        if (Av1MergeSwitch.built) {
+            add(CheckBox(this).apply {
+                text = AV1_SWITCH_LABEL
+                isChecked = Av1MergeSwitch.on(this@SiteCensusActivity)
+                setOnCheckedChangeListener { _, checked -> Av1MergeSwitch.set(this@SiteCensusActivity, checked) }
             })
         }
         listOf(copy, copyJson, result).forEach(::add)
@@ -406,6 +420,9 @@ class SiteCensusActivity : ComponentActivity() {
         val NO_RETRY = OkHttpExtractorClient.Policy(callTimeoutSeconds = 60, retryDelaysMillis = emptyList())
 
         const val LINKS_LINE = "Links per site (empty slots are skipped):"
+
+        /** v1.0.2 item 26: the AV1 merge switch's box (every debug build; off by default). */
+        const val AV1_SWITCH_LABEL = "AV1 merges (test, Android 14 or newer)"
 
         /** Task 8: the weekly check W's lines, a social-ladder build only (after [LADDER_NOTE]). */
         val WEEKLY_NOTE: String = "Weekly check W: slots " +

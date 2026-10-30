@@ -204,6 +204,52 @@ class AudioVideoMuxEngineTest {
     }
 
     @Test
+    fun `with the AV1 test switch on Android 14 merges AV1 and AAC and a failed merge says so`() = runTest {
+        // v1.0.2 item 26: a debug build's switch, read at each download (the release: off).
+        val av1 = plan().copy(video = plan().video.copy(codecs = listOf("av01.0.08M.08")))
+        var switchOn = true
+        val runner = FakeDashRunner()
+        val muxer = FakeMuxer()
+        val files = files("av1-on.mp4")
+
+        val merged = engine(runner, muxer, directory.newFolder("av1-on"), sdkInt = 34, av1Merges = { switchOn })
+            .transfer(plan = av1, destination = files.destination)
+
+        assertTrue(merged.toString(), merged is AudioVideoMuxResult.Completed)
+        assertEquals(1, muxer.calls.get())
+        assertArrayEquals(muxer.outputFor(VIDEO_BYTES, AUDIO_BYTES), files.completed.readBytes())
+        // Android 13 or older: refused before any transfer, switch or not.
+        val oldRunner = FakeDashRunner()
+        val oldMuxer = FakeMuxer()
+        val old = engine(oldRunner, oldMuxer, directory.newFolder("av1-on-33"), sdkInt = 33, av1Merges = { true })
+            .transfer(plan = av1, destination = files("av1-on-33.mp4").destination)
+            as AudioVideoMuxResult.Failure
+        assertEquals(DownloadFailureReason.INCOMPATIBLE_TRACKS, old.failure.reason)
+        assertEquals(0, oldRunner.totalCalls())
+        assertEquals(0, oldMuxer.calls.get())
+        // The phone's muxer fails the AV1 merge (the API 34 emulator's P4 failure): the download
+        // ends "Incompatible tracks" at the merge, nothing published.
+        val failing = FakeMuxer(failure = DownloadFailureReason.INCOMPATIBLE_TRACKS)
+        val failedFiles = files("av1-fails.mp4")
+        val failed = engine(FakeDashRunner(), failing, directory.newFolder("av1-fails"), sdkInt = 34, av1Merges = { true })
+            .transfer(plan = av1, destination = failedFiles.destination)
+            as AudioVideoMuxResult.Failure
+        assertEquals(DownloadFailureReason.INCOMPATIBLE_TRACKS, failed.failure.reason)
+        assertEquals(1, failing.calls.get())
+        assertFalse(failedFiles.completed.exists())
+        // Switched off again: the next download is refused before any transfer, as before.
+        switchOn = false
+        val offRunner = FakeDashRunner()
+        val offMuxer = FakeMuxer()
+        val off = engine(offRunner, offMuxer, directory.newFolder("av1-off"), sdkInt = 34, av1Merges = { switchOn })
+            .transfer(plan = av1, destination = files("av1-off.mp4").destination)
+            as AudioVideoMuxResult.Failure
+        assertEquals(DownloadFailureReason.INCOMPATIBLE_TRACKS, off.failure.reason)
+        assertEquals(0, offRunner.totalCalls())
+        assertEquals(0, offMuxer.calls.get())
+    }
+
+    @Test
     fun `incompatible tracks fail before transfer or destination work`() = runTest {
         val runner = FakeDashRunner()
         val muxer = FakeMuxer()
@@ -369,12 +415,14 @@ class AudioVideoMuxEngineTest {
         muxer: FakeMuxer,
         workspace: File,
         sdkInt: Int = 24,
+        av1Merges: () -> Boolean = { AudioVideoMuxCompatibility.AV1_MP4_ENABLED },
     ): AudioVideoMuxEngine = AudioVideoMuxEngine(
         dashTransfer = runner,
         muxer = muxer,
         workspaceRoot = workspace,
         clock = { 100 },
         sdkInt = sdkInt,
+        av1Merges = av1Merges,
     )
 
     private fun plan(

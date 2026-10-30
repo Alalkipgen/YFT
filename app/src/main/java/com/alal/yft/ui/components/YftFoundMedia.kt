@@ -248,7 +248,12 @@ private fun MediaCandidate.qualityName(): String? {
     if (isAudio()) return null
     val picture = height?.takeIf { it > 0 } ?: return null
     val standard = YftQualityNames.standardHeight(width, picture)
-    return YftQualityNames.videoName(standard, framesPerSecond)
+    // v1.0.2 item 26: an AV1 merge reads as the sheet names it ("1080p · Full HD · AV1").
+    return YftQualityNames.videoName(
+        standard,
+        framesPerSecond,
+        av1 = YftQualityNames.isAv1Merge(codecs, merged = audioCompanion != null),
+    )
 }
 
 /**

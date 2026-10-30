@@ -31,6 +31,7 @@ import com.alal.yft.core.download.RoomDownloadTaskStore
 import com.alal.yft.core.media.resolver.VariantResolver
 import com.alal.yft.core.model.media.BrowserReads
 import com.alal.yft.core.model.settings.DownloadLocation
+import com.alal.yft.detection.Av1MergeSwitch
 import com.alal.yft.detection.BrowserPageReader
 import com.alal.yft.detection.HeadlessIdentity
 import com.alal.yft.detection.SiteAdapterCoordinator
@@ -129,6 +130,8 @@ object DownloadRuntimeModule {
         workspaceRoot = File(context.noBackupFilesDir, MUX_WORKSPACE_DIRECTORY),
         // The smaller of app storage and the shared volume: a merge writes into one or both.
         freeBytes = { space.availableBytes(DownloadLocation.SHARED_DOWNLOADS) },
+        // v1.0.2 item 26: AV1 merges, a debug build's test switch (the release: off).
+        av1Merges = Av1MergeSwitch::merges,
     )
 
     @Provides

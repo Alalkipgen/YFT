@@ -93,8 +93,10 @@ data class QuickChoices(
  * "480p" while its detail keeps the real "848 × 478 · 30 fps". Of the files at one resolution
  * the row is the one with sound, a complete file before one merged on the phone (P4: Facebook's
  * HD file before its 720p video and audio tracks), a whole file before a stream, MP4 before
- * other containers, then the higher frame rate and bitrate. Labels never come from the page
- * title. A 2K or higher row the phone has no decoder for keeps a [MAY_NOT_PLAY] chip (P6).
+ * other containers, then the higher frame rate and bitrate; v1.0.2 item 26: an AV1 merge (a
+ * debug build's test switch on) only where no other merge has that size. Labels never come from
+ * the page title. A 2K or higher row the phone has no decoder for keeps a [MAY_NOT_PLAY] chip
+ * (P6).
  */
 object QuickDownloadChoices {
     /** The heights rows are named after, from 144p to 8K. */
@@ -268,8 +270,9 @@ object QuickDownloadChoices {
         if (option.section != OptionSection.VIDEO || option.variant.height != null) return option
         val height = file.height?.takeIf { it > 0 } ?: return option
         val standard = standardHeight(file.width, height)
+        val av1 = YftQualityNames.isAv1Merge(file.codecs, merged = file.audioCompanion != null)
         return option.copy(
-            title = YftQualityNames.videoName(standard, file.framesPerSecond),
+            title = YftQualityNames.videoName(standard, file.framesPerSecond, av1),
             detail = pictureDetail(file),
             quality = YftQualityNames.quality(standard, file.framesPerSecond),
             description = YftQualityNames.videoDescription(standard),
@@ -351,8 +354,10 @@ object QuickDownloadChoices {
         val standard = height?.let { standardHeight(variant.width, it) }
         val hint = if (standard == null) qualityHint(source.candidate) else null
         val quality = standard?.let { YftQualityNames.quality(it, variant.framesPerSecond) } ?: hint
+        // v1.0.2 item 26: an AV1 merge (a debug build's test switch on) is named with "AV1".
+        val av1 = YftQualityNames.isAv1Merge(variant.codecs, merged = variant.audioCompanion != null)
         val title = when {
-            standard != null -> YftQualityNames.videoName(standard, variant.framesPerSecond)
+            standard != null -> YftQualityNames.videoName(standard, variant.framesPerSecond, av1)
             hint != null -> hint
             else -> QUALITY_UNKNOWN
         }
@@ -536,6 +541,9 @@ object QuickDownloadChoices {
         .thenBy { if (it.variant.height != null) 0 else 1 }
         .thenBy { if (it.variant.trackType == MediaTrackType.AUDIO_VIDEO) 0 else 1 }
         .thenBy { if (it.variant.audioCompanion == null) 0 else 1 }
+        // v1.0.2 item 26: an AV1 merge (a debug build's switch on) only at a size no other file
+        // has: the AV1-only sizes. The release has none (its AV1 merges are off).
+        .thenBy { if (YftQualityNames.isAv1Merge(it.variant.codecs, it.variant.audioCompanion != null)) 1 else 0 }
         .thenBy { kindRank(it.variant.kind) }
         .thenBy { if (formatName(it.variant) == "MP4") 0 else 1 }
         .thenByDescending { it.variant.height ?: 0 }

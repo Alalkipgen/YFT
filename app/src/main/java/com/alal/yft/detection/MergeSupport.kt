@@ -26,11 +26,13 @@ fun interface MergeSupport {
  * Android 14
  * ([AudioVideoMuxCompatibility.AV1_MP4_MIN_SDK]) and only with an AV1 decoder to play the result,
  * but is off ([AudioVideoMuxCompatibility.AV1_MP4_ENABLED]): the API 34 emulator's muxer failed.
+ * v1.0.2 item 26: [av1Enabled] is read at each row — in a debug build the census screen's
+ * "AV1 merges (test)" box ([Av1MergeSwitch.merges]); in the release, the constant.
  */
 class DeviceMergeSupport(
     private val sdkInt: Int = Build.VERSION.SDK_INT,
     private val hasDecoder: (mimeType: String) -> Boolean = ::platformHasDecoder,
-    private val av1Enabled: Boolean = AudioVideoMuxCompatibility.AV1_MP4_ENABLED,
+    private val av1Enabled: () -> Boolean = Av1MergeSwitch::merges,
 ) : MergeSupport {
     private val playsAv1: Boolean by lazy { hasDecoder(AV1_MIME_TYPE) }
 
@@ -58,7 +60,7 @@ class DeviceMergeSupport(
             audioCodecs = audio.codecs,
             audioHlsPlaylist = hls,
             sdkInt = sdkInt,
-            av1Enabled = av1Enabled,
+            av1Enabled = av1Enabled(),
         ) == MuxCompatibility.Compatible
         return compatible && candidate.codecs.all { codec ->
             !codec.trim().lowercase(Locale.US).startsWith(AV1_CODEC_PREFIX) || playsAv1

@@ -364,6 +364,36 @@ class DownloadPlanFactoryTest {
         assertEquals("video/mp4", merged.plan.outputMimeType)
     }
 
+    /**
+     * v1.0.2 item 26: with a debug build's AV1 merge switch on, Android 14 or newer plans AV1 +
+     * AAC as one MP4 merge; Android 13 still refuses it, and the default (the release: the switch
+     * absent, AV1 merges off) refuses it everywhere.
+     */
+    @Test
+    fun `with the AV1 test switch on Android 14 merges AV1 and AAC into one MP4`() {
+        val av1 = variant(label = "1080p", container = "mp4").copy(
+            codecs = listOf("av01.0.08M.08"),
+            audioCompanion = companion(),
+        )
+
+        val merged = (factory(av1, sdkInt = 34, av1Enabled = true) as DownloadPlanResult.Ready)
+            .request as DownloadRequest.Mux
+        val android13 = factory(av1, sdkInt = 33, av1Enabled = true) as DownloadPlanResult.Rejected
+        val switchOff = factory(av1, sdkInt = 36) as DownloadPlanResult.Rejected
+        // The default: the switch as the app holds it (off; a release build has none).
+        val byDefault = DownloadPlanFactory.create(asset(), av1, "task-1", 1_000L, sdkInt = 36)
+            as DownloadPlanResult.Rejected
+
+        assertEquals("video/mp4", merged.plan.outputMimeType)
+        assertEquals("video/mp4", merged.mimeType)
+        assertEquals(listOf("av01.0.08M.08"), merged.plan.video.codecs)
+        assertEquals("Fixture 1080p.video.mp4", merged.plan.video.suggestedFileName)
+        assertEquals("Fixture 1080p.audio.m4a", merged.plan.audio.suggestedFileName)
+        assertEquals(DownloadFailureReason.INCOMPATIBLE_TRACKS, android13.reason)
+        assertEquals(DownloadFailureReason.INCOMPATIBLE_TRACKS, switchOff.reason)
+        assertEquals(DownloadFailureReason.INCOMPATIBLE_TRACKS, byDefault.reason)
+    }
+
     @Test
     fun `VP9 WebM video with its Opus track becomes a WebM merge from Android 10`() {
         // P6: YouTube's 2K and 4K rows are VP9 WebM paired with the Opus WebM track.
@@ -646,13 +676,18 @@ class DownloadPlanFactoryTest {
         expiresAtEpochMs = expiresAt,
     )
 
-    private fun factory(variant: MediaVariant, sdkInt: Int = 24): DownloadPlanResult =
+    private fun factory(
+        variant: MediaVariant,
+        sdkInt: Int = 24,
+        av1Enabled: Boolean = false,
+    ): DownloadPlanResult =
         DownloadPlanFactory.create(
             asset = asset(),
             variant = variant,
             taskId = "task-1",
             nowEpochMs = 1_000L,
             sdkInt = sdkInt,
+            av1Enabled = av1Enabled,
         )
 
     private fun asset(title: String? = "Fixture") = MediaAsset(

@@ -26,11 +26,11 @@ class MergeSupportTest {
 
     @Test
     fun avcMergesEverywhereAndAv1OnlyFromAndroid14WithADecoder() {
-        val android13 = DeviceMergeSupport(sdkInt = 33, hasDecoder = { true }, av1Enabled = true)
+        val android13 = DeviceMergeSupport(sdkInt = 33, hasDecoder = { true }, av1Enabled = { true })
         val android14NoDecoder =
-            DeviceMergeSupport(sdkInt = 34, hasDecoder = { false }, av1Enabled = true)
+            DeviceMergeSupport(sdkInt = 34, hasDecoder = { false }, av1Enabled = { true })
         val android14 =
-            DeviceMergeSupport(sdkInt = 34, hasDecoder = { it == "video/av01" }, av1Enabled = true)
+            DeviceMergeSupport(sdkInt = 34, hasDecoder = { it == "video/av01" }, av1Enabled = { true })
 
         assertTrue(android13.canMerge(file))
         assertTrue(android13.canMerge(avc))
@@ -99,11 +99,32 @@ class MergeSupportTest {
         assertTrue(phone.canMerge(file.copy(codecs = emptyList())))
     }
 
+    /**
+     * v1.0.2 item 26: the AV1 merge switch (a debug build's census box) is read at each row, so
+     * the sheet keeps AV1 + AAC rows as soon as it is on, and leaves them out again once it is
+     * off; Android 13 never keeps them. By default (no switch read: the release) they stay out.
+     */
+    @Test
+    fun theAv1TestSwitchIsReadAtEachRow() {
+        var on = false
+        val android16 = DeviceMergeSupport(sdkInt = 36, hasDecoder = { true }, av1Enabled = { on })
+        val android13 = DeviceMergeSupport(sdkInt = 33, hasDecoder = { true }, av1Enabled = { on })
+
+        assertFalse(android16.canMerge(av1))
+        on = true
+        assertTrue(android16.canMerge(av1))
+        assertTrue(android16.canMerge(avc))
+        assertFalse(android13.canMerge(av1))
+        on = false
+        assertFalse(android16.canMerge(av1))
+        assertFalse(DeviceMergeSupport(sdkInt = 36, hasDecoder = { true }).canMerge(av1))
+    }
+
     @Test
     fun theDecoderListIsReadOnceAndOnlyForAv1() {
         var lookups = 0
         val support =
-            DeviceMergeSupport(sdkInt = 35, hasDecoder = { lookups += 1; true }, av1Enabled = true)
+            DeviceMergeSupport(sdkInt = 35, hasDecoder = { lookups += 1; true }, av1Enabled = { true })
 
         support.canMerge(avc)
         assertEquals(0, lookups)

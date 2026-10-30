@@ -371,6 +371,38 @@ class DownloadLabelsTest {
         assertFalse(failureDetailsText(video, "1.0", "15", 35).contains("What to do"))
     }
 
+    /**
+     * v1.0.2 item 26: while a debug build's AV1 merges are on, a merged download's Details end with
+     * the phone's AV1 decoders; no other download has the line, and without it (the release, or the
+     * switch off) the text is as before.
+     */
+    @Test
+    fun aMergedDownloadsDetailsNameTheAv1DecoderOnlyWhileAv1MergesAreOn() {
+        val decoder = "AV1 decoder: software (c2.android.av1.decoder)"
+        val failed = row(
+            DownloadTaskStatus.FAILED,
+            plan = DownloadPlanType.AUDIO_VIDEO_MUX,
+            failure = DownloadFailureReason.INCOMPATIBLE_TRACKS,
+        ).copy(
+            failure = DownloadFailure(DownloadFailureReason.INCOMPATIBLE_TRACKS, stage = DownloadFailureStage.MERGE),
+        )
+
+        val text = failureDetailsText(failed, "1.0", "16", 36, av1Decoder = decoder)
+
+        assertTrue(text, text.startsWith("YFT download failure\nReason: Incompatible tracks (INCOMPATIBLE_TRACKS)\n"))
+        assertTrue(text, text.endsWith("Android: 16 (API 36)\n$decoder"))
+        assertEquals(text, downloadDetailsText(failed, "1.0", "16", 36, av1Decoder = decoder))
+        // A completed merge's Details (shown after a fresh link, Track E) end with it too.
+        val done = row(DownloadTaskStatus.COMPLETED, plan = DownloadPlanType.AUDIO_VIDEO_MUX)
+        assertTrue(downloadDetailsText(done, "1.0", "16", 36, av1Decoder = decoder).endsWith("(API 36)\n$decoder"))
+        // Not a merge: no line. No line given (the release, the switch off): the text as before.
+        val direct = row(DownloadTaskStatus.FAILED, failure = DownloadFailureReason.NETWORK)
+        assertFalse(failureDetailsText(direct, "1.0", "16", 36, av1Decoder = decoder).contains("AV1"))
+        assertNull(av1DecoderLine(direct, decoder))
+        assertEquals(failureDetailsText(failed, "1.0", "16", 36), failureDetailsText(failed, "1.0", "16", 36, av1Decoder = null))
+        assertTrue(failureDetailsText(failed, "1.0", "16", 36).endsWith("Android: 16 (API 36)"))
+    }
+
     private fun row(
         status: DownloadTaskStatus,
         name: String = "Mountain Lake 4K.mp4",

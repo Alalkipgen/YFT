@@ -798,6 +798,11 @@ class AudioVideoMuxEngine(
     private val threadCpuMillis: () -> Long? = ::currentThreadCpuMillis,
     /** The shortest time between two progress updates of the tracks: 4 a second (P41). */
     private val progressIntervalMillis: Long = DEFAULT_PROGRESS_INTERVAL_MILLIS,
+    /**
+     * v1.0.2 item 26: whether AV1 merges are on, read at each download — the release's
+     * [AudioVideoMuxCompatibility.AV1_MP4_ENABLED], or a debug build's test switch.
+     */
+    private val av1Merges: () -> Boolean = { AudioVideoMuxCompatibility.AV1_MP4_ENABLED },
 ) : AudioVideoMuxRunner {
     init {
         require(bufferBytes in 1_024..1024 * 1_024)
@@ -817,7 +822,10 @@ class AudioVideoMuxEngine(
                 emptyCheckpoint,
             )
         }
-        if (AudioVideoMuxCompatibility.evaluate(plan, sdkInt) !is MuxCompatibility.Compatible) {
+        if (
+            AudioVideoMuxCompatibility.evaluate(plan, sdkInt, av1Merges()) !is
+            MuxCompatibility.Compatible
+        ) {
             return@withContext failure(
                 DownloadFailure(DownloadFailureReason.INCOMPATIBLE_TRACKS, stage = MERGE),
                 emptyCheckpoint,

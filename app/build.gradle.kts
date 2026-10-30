@@ -200,10 +200,10 @@ require(Regex("""https://[A-Za-z0-9./_-]+""").matches(masterRecipeUrl)) {
  * key (`extractor-master/recipes/master-recipes.pub.hex`, each social rung's `rungsOff`). Master
  * acts only after main fails (decision 7) and only while Settings' "Backup finder" is on (30 (i)).
  * Never: the ladder's test hooks (skip, mutate), the own solver's next ladder (not before N8),
- * Instagram's tab-fetch rung (decision 28) and the owner tools (src/debug: the census, W, the
- * canary, the stream check). The trials ([trials]) only in the #12 trial preview ("debug and
- * preview only; the release never reads them"), which also shows every detail; the release and
- * #12 normal are quiet (30 (v)).
+ * Instagram's tab-fetch rung (decision 28), v1.0.2 item 26's AV1 merge switch (AV1 stays off) and
+ * the owner tools (src/debug: the census, W, the canary, the stream check). The trials ([trials])
+ * only in the #12 trial preview ("debug and preview only; the release never reads them"), which
+ * also shows every detail; the release and #12 normal are quiet (30 (v)).
  */
 fun com.android.build.api.dsl.ApplicationBuildType.releaseMaster(recipeKey: String, recipeUrl: String, trials: Boolean) {
     require(recipeKey.isNotEmpty() && Regex("[0-9a-fA-F]+").matches(recipeKey)) {
@@ -220,6 +220,7 @@ fun com.android.build.api.dsl.ApplicationBuildType.releaseMaster(recipeKey: Stri
     buildConfigField("boolean", "SOCIAL_LADDER", "true")
     buildConfigField("boolean", "SOCIAL_TRIAL", trials.toString())
     buildConfigField("boolean", "INSTAGRAM_TAB_RUNG", "false")
+    buildConfigField("boolean", "AV1_MERGE_SWITCH", "false")
     buildConfigField("String", "MASTER_RECIPE_KEY", "\"$recipeKey\"")
     buildConfigField("String", "MASTER_RECIPE_URL", "\"$recipeUrl\"")
     buildConfigField("boolean", "QUIET_RELEASE", (!trials).toString())
@@ -254,6 +255,9 @@ android {
         // Social plan S2d (decision 28): Instagram's tab-fetch rung, a social-ladder debug build's
         // only; never in the release or a preview.
         buildConfigField("boolean", "INSTAGRAM_TAB_RUNG", "false")
+        // v1.0.2 item 26: the census screen's "AV1 merges (test)" box, a debug build's only; never
+        // in the release or a preview, whose AV1 merges stay off (AV1_MP4_ENABLED).
+        buildConfigField("boolean", "AV1_MERGE_SWITCH", "false")
         // Decision 30 (v): the quiet release (one line per failure, no Details or Try again until
         // the hidden Show details); the release and #12 normal only, never debug or #12 trial.
         buildConfigField("boolean", "QUIET_RELEASE", "false")
@@ -324,6 +328,8 @@ android {
                 (masterCapture == "true" && socialLadder == "true" && socialTrial == "true").toString(),
             )
             buildConfigField("boolean", "INSTAGRAM_TAB_RUNG", (masterCapture == "true" && socialLadder == "true").toString())
+            // v1.0.2 item 26: AV1 merges as a test switch (off until the census screen's box is on).
+            buildConfigField("boolean", "AV1_MERGE_SWITCH", "true")
             // Owner tools (src/debug, e.g. the N2 stream check): a launcher entry only when both
             // Master flags are on, so a debug build with the flags off stays as before.
             manifestPlaceholders["yftOwnerTools"] =

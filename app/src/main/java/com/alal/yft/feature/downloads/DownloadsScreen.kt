@@ -84,6 +84,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alal.yft.BuildConfig
 import com.alal.yft.core.download.DownloadDestinationKind
 import com.alal.yft.core.model.download.DownloadTaskStatus
+import com.alal.yft.detection.Av1MergeSwitch
 import com.alal.yft.download.BackgroundSettingsIntents
 import com.alal.yft.download.policy.TransferNetworkState
 import com.alal.yft.feature.library.AppPrivateDownloadProvider
@@ -989,12 +990,14 @@ internal fun FailureDetailsDialog(
     appVersion: String = BuildConfig.VERSION_NAME,
     androidRelease: String = Build.VERSION.RELEASE.orEmpty(),
     sdkInt: Int = Build.VERSION.SDK_INT,
+    // v1.0.2 item 26: the phone's AV1 decoders, only while a debug build's AV1 merges are on.
+    av1Decoder: String? = remember { Av1MergeSwitch.detailLine() },
 ) {
     val colors = YftTheme.colors
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
-    val text = remember(row, appVersion, androidRelease, sdkInt) {
-        downloadDetailsText(row, appVersion, androidRelease, sdkInt)
+    val text = remember(row, appVersion, androidRelease, sdkInt, av1Decoder) {
+        downloadDetailsText(row, appVersion, androidRelease, sdkInt, av1Decoder)
     }
     AlertDialog(
         onDismissRequest = onDismiss,

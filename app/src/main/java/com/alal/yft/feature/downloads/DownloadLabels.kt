@@ -315,13 +315,15 @@ internal fun destinationKindLabel(kind: DownloadDestinationKind): String = when 
 /**
  * The text of the failure Details dialog and of Copy details (P21): reason, stage, HTTP status,
  * detail, start times (P41), download type, destination and versions. It names no file, link
- * or address, and the detail is cleaned once more before it is shown.
+ * or address, and the detail is cleaned once more before it is shown. v1.0.2 item 26: a merged
+ * download's last line is [av1Decoder] ([av1DecoderLine]) when one is given.
  */
 internal fun failureDetailsText(
     row: DownloadRowUiState,
     appVersion: String,
     androidRelease: String,
     sdkInt: Int,
+    av1Decoder: String? = null,
 ): String {
     val failure = row.failure
     val reason = (failure?.reason ?: row.failureReason)?.let { reason ->
@@ -346,8 +348,17 @@ internal fun failureDetailsText(
         "Saved to: ${destinationKindLabel(row.destinationKind)}",
         "App: YFT ${appVersion.ifBlank { UNKNOWN }}",
         "Android: ${androidRelease.ifBlank { UNKNOWN }} (API $sdkInt)",
+        av1DecoderLine(row, av1Decoder),
     ).joinToString("\n")
 }
+
+/**
+ * v1.0.2 item 26: whether the phone has an AV1 decoder ("AV1 decoder: hardware (…)", "software
+ * (…)" or "none"), on a merged download's Details only, and only while AV1 merges are on (a debug
+ * build's test switch: the caller passes [av1Decoder], else null; the release passes none).
+ */
+internal fun av1DecoderLine(row: DownloadRowUiState, av1Decoder: String?): String? =
+    av1Decoder?.takeIf { row.planType == DownloadPlanType.AUDIO_VIDEO_MUX }
 
 /**
  * F6: a download that needs a fresh link shows its details too, like a failed one: its link
@@ -369,18 +380,20 @@ internal fun downloadDetailsText(
     appVersion: String,
     androidRelease: String,
     sdkInt: Int,
+    av1Decoder: String? = null,
 ): String {
     if (row.showsFailureDetails) {
-        return failureDetailsText(row, appVersion, androidRelease, sdkInt)
+        return failureDetailsText(row, appVersion, androidRelease, sdkInt, av1Decoder)
     }
     return (
         listOf("YFT download", "Status: ${row.status.name}") +
             renewalLines(row) +
-            listOf(
+            listOfNotNull(
                 "Download type: ${planKindLabel(row)}",
                 "Saved to: ${destinationKindLabel(row.destinationKind)}",
                 "App: YFT ${appVersion.ifBlank { UNKNOWN }}",
                 "Android: ${androidRelease.ifBlank { UNKNOWN }} (API $sdkInt)",
+                av1DecoderLine(row, av1Decoder),
             )
         ).joinToString("\n")
 }

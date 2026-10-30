@@ -2114,9 +2114,72 @@ Keep at least the heading and one blank line between sections, so Git merges the
   TikTok: it asks TikTok's player at most once in 10 seconds, since TikTok refuses quick
   repeats: a TikTok lookup less than 10 s after the last ask waits the rest, or does not ask the
   player when that wait would not fit in the lookup's time; with Show details on, Lookup details
-  say "paced, waited N s" (or "not asked")." Docs only (this commit): no CI run is expected. Part
-  1's section is not edited.
-- Next: item 70 (checked first), then 26, 59 and 51.
+  say "paced, waited N s" (or "not asked")." Docs only, commit `5ee4387b`: no CI run (the
+  workflows skip a docs-only push; none is listed for it). Part 1's section is not edited.
+- Baseline before item 70 (this sandbox, JDK 17, `5ee4387b`), all green: `app` 1429 tests (66
+  skipped), `core-model` 142, `extractor-api` 36, `extractor-generic` 23, `extractor-sites` 366,
+  `extractor-master` 1119 (2 skipped), `core-download` 313, `core-browser` 150, `core-data` 35,
+  `core-media` 41, `extractor-master-android` 85.
+- Item 70 (a private Instagram reel's own message) — checked first: **no private signal is read
+  today, so no commit** (the owner's rule: pass on a signal already read, else a hand-off line).
+  Main's adapter (`extractor-sites/.../instagram/InstagramExtractor.kt`) reads only the login
+  wall (`require_login` or `message == "login_required"`, lines 158–166) and otherwise ends in
+  `RESPONSE_CHANGED` (lines 113–116); Master's judge (`extractor-master/.../social/
+  InstagramAnswerJudge.kt` lines 64, 164 and 179) treats removed, private and gated alike
+  (`NEEDS_PLAYBACK`, decision 19 (vi): signed out they answer the same); the census's
+  `SiteWays.INSTAGRAM` has no private kind; Master's `RecipeLayer.kt` line 114 reads
+  `is_private` only on a media node of a recipe's payload, never on a signed-out post answer. The
+  words today: "Instagram's page could not be read. Tap Details to see why, or Try again."
+  (`SiteAdapterCoordinator.kt` lines 496–497); the private words exist for other sites'
+  `PRIVATE_OR_UNAVAILABLE` ("This Instagram post is private or no longer available.", lines
+  484–485). **Hand-off (the owner's decision):** a private reel's own message needs a new
+  reading — e.g. a signed-out answer that states the post is private, or the one hint main has
+  (`InstagramUrls.kt` lines 67–71: a shortcode longer than 11 characters is a private code) —
+  which is a lookup change beyond "a signal already read"; not done here.
+- Item 26 (AV1 merges as a test switch) — first the owner's ask: the AV1 case of
+  `AudioVideoMuxerInstrumentedTest` (`av1MergesStayOffWhileThisPhoneCannotMakeThem`) runs again
+  on CI's API 34 emulator in this commit's emulator smoke run (Part 3's first code push: item 70
+  had no commit); its `YFT-DIAG av1-mux probe` line (now also `kinds=`: the emulator's AV1
+  decoders, hardware, software, both or none) is in the run's "Site page diagnostics av1-mux"
+  annotation; the report quotes it. The probe runs as before (the switch is off by default and
+  the test does not read it). Then the switch, debug only:
+  - `app/build.gradle.kts`: BuildConfig `AV1_MERGE_SWITCH` — true in `debug`, false in
+    `defaultConfig` and `releaseMaster` (the release and both previews; KDoc's "Never" list).
+  - `detection/Av1Merges.kt` (new): `Av1MergeSwitch` (preferences `yft_av1_merges`, key
+    `av1_merges_test`, off by default; `install` at the app's start keeps the preferences only in
+    a build with the switch; `merges()` = `AV1_MP4_ENABLED` or the switch, read at each sheet and
+    download, so ticking the box needs no restart; Try again after toggling for a cached lookup)
+    and `Av1Decoders` (MediaCodecList's `video/av01` decoders: Android 10's hardware/software
+    answer, else by name; the line "AV1 decoder: hardware (…), software (…)" or "none").
+  - The three gates read it: the sheet's `DeviceMergeSupport` (its `av1Enabled` is now read at
+    each row), `DownloadPlanFactory.create` and `AudioVideoMuxEngine` (`av1Merges`, wired in
+    `DownloadRuntimeModule`). Android 13 or older, or no AV1 decoder: still refused.
+  - Debug census screen (`src/debug/.../SiteCensusActivity.kt`): the box "AV1 merges (test,
+    Android 14 or newer)", in every debug build.
+  - Names: while AV1 merges are on, an AV1 + AAC row is "1080p · Full HD · AV1"
+    (`YftQualityNames.videoName`/`isAv1Merge`, the sheet and the found list); off (the release),
+    every name and row as before. One row per resolution as before; an AV1 merge comes after
+    every other file of its size (`QuickDownloadChoices`' order), so AV1 rows show only at the
+    AV1-only sizes (Facebook's; YouTube's 2K/4K where only AV1 has them).
+  - Details: a merged download's Details end with the "AV1 decoder: …" line while AV1 merges are
+    on (`DownloadLabels.av1DecoderLine`, `FailureDetailsDialog`); a failed merge stays "Failed ·
+    Incompatible tracks" at the merge stage.
+  - Known limit (unchanged, a lookup file): Master's browser capture still steers the page's
+    player away from AV1 (`BrowserMasterFallback.codecSteering`, lines 598–600 read the
+    constant), so with the box on AV1 rows come from main's lookups; changing it would be a
+    lookup change (hand-off). No lookup file is changed; `MergeSupport.kt` is the phone's merge
+    gate.
+  - Tests: `Av1MergesTest` (new, Robolectric: off by default, never on in a build without it, on
+    and off at once; the sheet keeps and names AV1 rows only while on, Android 14+ with a
+    decoder, and only at an AV1-only size; the plan; the decoder line), `MergeSupportTest` (read
+    at each row),
+    `DownloadPlanFactoryTest` (Android 14 plans one MP4, 13 and the default refuse),
+    `AudioVideoMuxEngineTest` (on: merged; Android 13 refused before any transfer; the muxer's
+    failure ends INCOMPATIBLE_TRACKS, nothing published; off again: refused),
+    `DownloadLabelsTest` (the decoder line only on a merge, last; absent: the text as before).
+  - CHANGELOG: no line (debug only; the release is unchanged).
+- Next: item 26's CI (checkpoint, emulator smoke with the AV1 probe line, Preview APK, minified
+  check), then 59 and 51.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
