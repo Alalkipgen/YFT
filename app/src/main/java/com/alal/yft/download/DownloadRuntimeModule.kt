@@ -263,7 +263,14 @@ object DownloadRuntimeModule {
     @Singleton
     fun provideDownloadDestinationProvider(
         @ApplicationContext context: Context,
-    ): DownloadDestinationProvider = AndroidDownloadDestinationProvider(context)
+        folders: SaveFolders,
+    ): DownloadDestinationProvider = AndroidDownloadDestinationProvider(context, folders)
+
+    /** v1.0.2 item 28: the folder picked in Android's folder picker, and YFT's access to it. */
+    @Provides
+    @Singleton
+    fun provideSaveFolders(@ApplicationContext context: Context): SaveFolders =
+        AndroidSaveFolders(context)
 
     @Provides
     @Singleton
@@ -322,7 +329,9 @@ object DownloadRuntimeModule {
     fun provideDownloadStorageSource(
         preferences: DownloadPreferencesRepository,
         space: StorageSpace,
-    ): DownloadStorageSource = PreferencesDownloadStorageSource(preferences, space)
+        folders: SaveFolders,
+    ): DownloadStorageSource =
+        PreferencesDownloadStorageSource(preferences, space, folders = folders)
 
     @Provides
     @Singleton
@@ -344,6 +353,7 @@ object DownloadRuntimeModule {
         location = { preferences.preferences.first().location },
         storage = storage,
         sources = sources,
+        folder = { preferences.preferences.first().folder },
     )
 
     @Provides

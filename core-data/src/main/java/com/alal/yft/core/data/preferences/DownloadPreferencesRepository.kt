@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
+import com.alal.yft.core.model.settings.SaveFolder
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -46,24 +47,43 @@ class DataStoreDownloadPreferencesRepository @Inject constructor(
             stored[UNMETERED_ONLY] = next.unmeteredOnly
             stored[MAX_CONCURRENT] = next.maxConcurrentDownloads
             stored[CONFIRM_METERED] = next.confirmOnMeteredNetwork
+            // v1.0.2 item 28: the folder picked last, kept when another location is chosen.
+            val folder = next.folder
+            if (folder == null) {
+                stored.remove(FOLDER_TREE)
+                stored.remove(FOLDER_NAME)
+            } else {
+                stored[FOLDER_TREE] = folder.treeUri
+                stored[FOLDER_NAME] = folder.name
+            }
         }
     }
 
     private fun read(stored: Preferences): DownloadPreferences {
         val defaults = DownloadPreferences()
+        val folder = readFolder(stored)
         return DownloadPreferences(
             defaultQuality = stored[QUALITY]
                 ?.let { name -> QualityPreference.entries.firstOrNull { it.name == name } }
                 ?: defaults.defaultQuality,
             location = stored[LOCATION]
                 ?.let { name -> DownloadLocation.entries.firstOrNull { it.name == name } }
+                // A chosen folder without its address cannot be used: the default instead.
+                ?.takeUnless { it == DownloadLocation.CHOSEN_FOLDER && folder == null }
                 ?: defaults.location,
             unmeteredOnly = stored[UNMETERED_ONLY] ?: defaults.unmeteredOnly,
             maxConcurrentDownloads = stored[MAX_CONCURRENT]
                 ?.takeIf { it in DownloadPreferences.CONCURRENT_DOWNLOAD_RANGE }
                 ?: defaults.maxConcurrentDownloads,
             confirmOnMeteredNetwork = stored[CONFIRM_METERED] ?: defaults.confirmOnMeteredNetwork,
+            folder = folder,
         )
+    }
+
+    private fun readFolder(stored: Preferences): SaveFolder? {
+        val tree = stored[FOLDER_TREE]?.takeIf(String::isNotBlank) ?: return null
+        val name = stored[FOLDER_NAME]?.takeIf(String::isNotBlank) ?: return null
+        return SaveFolder(treeUri = tree, name = name)
     }
 
     private companion object {
@@ -72,5 +92,7 @@ class DataStoreDownloadPreferencesRepository @Inject constructor(
         val UNMETERED_ONLY = booleanPreferencesKey("download_unmetered_only")
         val MAX_CONCURRENT = intPreferencesKey("download_max_concurrent")
         val CONFIRM_METERED = booleanPreferencesKey("download_confirm_metered")
+        val FOLDER_TREE = stringPreferencesKey("download_folder_tree")
+        val FOLDER_NAME = stringPreferencesKey("download_folder_name")
     }
 }

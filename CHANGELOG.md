@@ -44,6 +44,12 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   the one the link names first and picked, else the first); tap one to see its qualities. Each
   video downloads as a row and file of its own, named with its number ("… (Video 2 of 4) 720p").
   Photos in the post are skipped; a post of photos only reads as before. No extra request.
+- **Settings** › **Downloads** › **Save files to** › **Choose a folder…**: pick a folder in
+  Android's folder picker (on the phone or a memory card, on every Android version YFT runs on)
+  and new downloads are saved there; Downloads, the download sheet and the Library show its name,
+  and the Library lists its videos and audio. A folder YFT can no longer use (deleted, access
+  gone, card removed) shows as unavailable, and a new download then goes to Download/YFT (app
+  storage on Android 7–9), its row saying so.
 
 ### Changed
 

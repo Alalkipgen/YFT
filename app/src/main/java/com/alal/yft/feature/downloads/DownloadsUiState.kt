@@ -135,6 +135,8 @@ data class DownloadStorageSummary(
     val location: DownloadLocation,
     /** Null when the volume cannot be measured. */
     val freeBytes: Long?,
+    /** v1.0.2 item 28: the chosen folder's name, for [DownloadLocation.CHOSEN_FOLDER]. */
+    val folderName: String? = null,
 )
 
 /**
@@ -184,6 +186,11 @@ data class DownloadRowUiState(
      * (this session, until it finishes); the meta line names it.
      */
     val pickedQuality: String? = null,
+    /**
+     * v1.0.2 (item 28): the chosen folder could not be used, so this file went to the default
+     * place (this session); the row says so.
+     */
+    val folderUnavailable: Boolean = false,
 ) {
     /** The file name without its extension, as the cards show it. */
     val title: String = YftFormat.title(displayName)
@@ -315,6 +322,7 @@ data class DownloadsUiState(
                         renewalLines = renewals.notes[task.id].orEmpty(),
                         noPlayerOnPage = task.id in renewals.noPlayer,
                         pickedQuality = renewals.qualities[task.id],
+                        folderUnavailable = task.id in renewals.folderUnavailable,
                     )
                 },
         )

@@ -945,6 +945,17 @@ private fun DownloadCard(
                     showDetails = showDetails,
                 )
             }
+            // v1.0.2 item 28: the chosen folder could not take this file.
+            if (row.folderUnavailable) {
+                Text(
+                    text = folderUnavailableNotice(row.destinationKind),
+                    modifier = Modifier
+                        .padding(top = 6.dp)
+                        .testTag("download-folder-note-${row.id}"),
+                    color = colors.textSecondary,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
         }
         Box(modifier = Modifier.align(Alignment.BottomEnd)) {
             DropdownMenu(
@@ -1415,10 +1426,10 @@ internal object DownloadIntents {
             mimeType = mimeTypeOf(row),
             sizeBytes = row.totalBytes ?: row.downloadedBytes.takeIf { it > 0L },
             modifiedAtEpochMs = row.updatedAtEpochMs.takeIf { it > 0L },
-            location = if (row.destinationKind == DownloadDestinationKind.APP_PRIVATE) {
-                LibraryLocation.APP_STORAGE
-            } else {
-                LibraryLocation.SHARED_DOWNLOADS
+            location = when (row.destinationKind) {
+                DownloadDestinationKind.APP_PRIVATE -> LibraryLocation.APP_STORAGE
+                DownloadDestinationKind.MEDIA_STORE -> LibraryLocation.SHARED_DOWNLOADS
+                DownloadDestinationKind.SAF_DOCUMENT -> LibraryLocation.CHOSEN_FOLDER
             },
         )
     }

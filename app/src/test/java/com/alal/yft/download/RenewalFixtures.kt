@@ -32,6 +32,7 @@ import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.settings.DownloadLocation
+import com.alal.yft.core.model.settings.SaveFolder
 import com.alal.yft.download.RenewalFixtures.MIB
 import com.alal.yft.download.RenewalFixtures.NOW
 import com.alal.yft.download.RenewalFixtures.TOTAL
@@ -92,6 +93,7 @@ internal class NamingDestinations : DownloadDestinationProvider {
         fileName: String,
         mimeType: String?,
         location: DownloadLocation,
+        folder: SaveFolder?,
     ): PreparedDestination {
         failure?.let { throw it }
         return PreparedDestination(

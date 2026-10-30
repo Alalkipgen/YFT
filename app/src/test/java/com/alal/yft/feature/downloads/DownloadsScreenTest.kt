@@ -733,6 +733,40 @@ class DownloadsScreenTest {
     }
 
     @Test
+    fun `a file the chosen folder could not take says where it went, once`() {
+        setScreen(
+            DownloadsUiState(
+                rows = listOf(
+                    row(
+                        "moved",
+                        DownloadTaskStatus.RUNNING,
+                        10,
+                        100,
+                        10,
+                        destinationKind = DownloadDestinationKind.MEDIA_STORE,
+                    ).copy(folderUnavailable = true),
+                    row("kept", DownloadTaskStatus.RUNNING, 10, 100, 10),
+                ),
+                storage = DownloadStorageSummary(
+                    location = DownloadLocation.CHOSEN_FOLDER,
+                    freeBytes = null,
+                    folderName = "Movies",
+                ),
+            ),
+        )
+
+        composeRule.onNodeWithTag("download-folder-note-moved", useUnmergedTree = true)
+            .assertTextEquals(
+                "The chosen folder can't be used, so this file is saved in Download/YFT.",
+            )
+        composeRule.onAllNodesWithTag("download-folder-note-kept", useUnmergedTree = true)
+            .assertCountEquals(0)
+        composeRule.onAllNodesWithText("The chosen folder", substring = true)
+            .assertCountEquals(1)
+        composeRule.onNodeWithText("Movies").assertIsDisplayed()
+    }
+
+    @Test
     fun networkNoticeExplainsWhyWorkWaitsAndLeadsToSettings() {
         var settingsOpened = 0
         val waiting = row(

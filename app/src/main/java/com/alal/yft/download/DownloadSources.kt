@@ -223,13 +223,16 @@ data class DownloadSource(
  * Track E: what Downloads shows of the renewals: the rows that a Retry renews (E-D6: only while
  * the app has the row's source), each download's renewal lines for its Details, and (v1.0.2) the
  * downloads whose page, read again for a fresh link, had no player data ([noPlayer]) and each
- * unfinished download's picked quality ("1080p", [qualities]) for its row.
+ * unfinished download's picked quality ("1080p", [qualities]) for its row. Item 28: the
+ * downloads that went to the default place because the chosen folder could not be used
+ * ([folderUnavailable]).
  */
 data class DownloadRenewals(
     val renewable: Set<String> = emptySet(),
     val notes: Map<String, List<String>> = emptyMap(),
     val noPlayer: Set<String> = emptySet(),
     val qualities: Map<String, String> = emptyMap(),
+    val folderUnavailable: Set<String> = emptySet(),
 ) {
     companion object {
         val None = DownloadRenewals()
@@ -242,7 +245,9 @@ data class DownloadRenewals(
  * Clear browsing data ([clear]); nothing is written to disk, so after a restart there is none.
  * v1.0.2 (item 50): also the quality each download was picked as ([picked]), for its row until
  * it finishes; it goes with the task, as the source does, but stays through Clear browsing data
- * (a quality's name is no browsing data). After a restart the row reads as before.
+ * (a quality's name is no browsing data). After a restart the row reads as before. Item 28: and
+ * the downloads the chosen folder could not take ([folderUnavailable]), for their row's notice
+ * while the row is listed, finished or not; Clear browsing data keeps them too.
  * [adapterPage] says whether a site adapter reads a page: there only the adapter's video is
  * renewed, never a file it did not name (E3).
  */
@@ -263,6 +268,9 @@ class DownloadSources(
 
     /** v1.0.2 (item 50): each unfinished download's picked quality, "1080p" or "4K". */
     private val qualities = LinkedHashMap<String, String>()
+
+    /** v1.0.2 (item 28): the downloads that went to the default place, not the chosen folder. */
+    private val folderUnavailable = mutableSetOf<String>()
     private val mutableRenewals = MutableStateFlow(DownloadRenewals.None)
     val renewals: StateFlow<DownloadRenewals> = mutableRenewals.asStateFlow()
 
@@ -320,6 +328,13 @@ class DownloadSources(
         }
     }
 
+    /** v1.0.2 (item 28): [taskId] goes to the default place, as the chosen folder could not. */
+    fun folderUnavailable(taskId: String) {
+        synchronized(lock) {
+            if (folderUnavailable.add(taskId)) publishLocked()
+        }
+    }
+
     /** A fresh link came for [taskId]: its network moment is now (E-D5'). */
     fun renewed(taskId: String) {
         synchronized(lock) {
@@ -357,19 +372,20 @@ class DownloadSources(
             seen.remove(taskId)
             noPlayer.remove(taskId)
             qualities.remove(taskId)
+            folderUnavailable.remove(taskId)
             publishLocked()
         }
     }
 
     /**
      * Clear browsing data: every source goes, as the lookups read with that session do. The
-     * picked qualities stay, and so does what [prune] saw of their tasks.
+     * picked qualities and the folder notices stay, and so does what [prune] saw of their tasks.
      */
     fun clear() {
         synchronized(lock) {
             sources.clear()
             notes.clear()
-            seen.retainAll(qualities.keys)
+            seen.retainAll(qualities.keys + folderUnavailable)
             noPlayer.clear()
             publishLocked()
         }
@@ -380,13 +396,13 @@ class DownloadSources(
      * queue's [tasks]. A source whose task the queue does not list yet stays: the enqueue
      * remembers it just before the queue gets the task. A completed download keeps its
      * renewal lines (no address) for its Details until it is removed from the list; its picked
-     * quality goes, as its row names its file's own quality then.
+     * quality goes, as its row names its file's own quality then. Its folder notice stays.
      */
     fun prune(tasks: List<StoredDownloadTask>) {
         val byId = tasks.associateBy(StoredDownloadTask::id)
         synchronized(lock) {
             var changed = false
-            (sources.keys + notes.keys + qualities.keys).toSet().forEach { id ->
+            (sources.keys + notes.keys + qualities.keys + folderUnavailable).toSet().forEach { id ->
                 val task = byId[id]
                 when {
                     task == null -> if (id in seen) {
@@ -395,6 +411,7 @@ class DownloadSources(
                         seen.remove(id)
                         noPlayer.remove(id)
                         qualities.remove(id)
+                        folderUnavailable.remove(id)
                         changed = true
                     }
                     task.status == DownloadTaskStatus.CANCELLED -> {
@@ -403,6 +420,7 @@ class DownloadSources(
                         seen.remove(id)
                         noPlayer.remove(id)
                         qualities.remove(id)
+                        folderUnavailable.remove(id)
                         changed = true
                     }
                     task.status == DownloadTaskStatus.COMPLETED -> {
@@ -424,6 +442,7 @@ class DownloadSources(
             notes = notes.toMap(),
             noPlayer = noPlayer.toSet(),
             qualities = qualities.toMap(),
+            folderUnavailable = folderUnavailable.toSet(),
         )
     }
 

@@ -172,6 +172,36 @@ class DownloadLabelsTest {
     }
 
     @Test
+    fun `a chosen folder is named by its own name, which has no free space to show`() {
+        assertEquals(
+            "Movies",
+            storageLabel(
+                DownloadStorageSummary(
+                    DownloadLocation.CHOSEN_FOLDER,
+                    freeBytes = null,
+                    folderName = "Movies",
+                ),
+            ),
+        )
+        assertEquals(
+            "Chosen folder",
+            storageLabel(DownloadStorageSummary(DownloadLocation.CHOSEN_FOLDER, freeBytes = null)),
+        )
+    }
+
+    @Test
+    fun `a file the chosen folder could not take says where it went`() {
+        assertEquals(
+            "The chosen folder can't be used, so this file is saved in Download/YFT.",
+            folderUnavailableNotice(DownloadDestinationKind.MEDIA_STORE),
+        )
+        assertEquals(
+            "The chosen folder can't be used, so this file is saved in app storage.",
+            folderUnavailableNotice(DownloadDestinationKind.APP_PRIVATE),
+        )
+    }
+
+    @Test
     fun menuLabelsSayThatRemovingKeepsTheFile() {
         assertEquals("Remove", actionLabel(DownloadAction.DELETE))
         assertEquals("Remove from list", menuLabel(DownloadAction.DELETE))

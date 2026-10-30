@@ -629,7 +629,7 @@ private fun DeleteDialog(item: LibraryItem, onConfirm: () -> Unit, onDismiss: ()
         title = { Text(text = "Delete this file?", color = colors.textPrimary) },
         text = {
             Text(
-                text = "${item.displayName} will be removed from ${item.location.label}. " +
+                text = "${item.displayName} will be removed from ${item.place}. " +
                     "This cannot be undone.",
                 color = colors.textSecondary,
             )

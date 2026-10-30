@@ -31,6 +31,7 @@ import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.VariantSupport
 import com.alal.yft.core.model.settings.DownloadLocation
+import com.alal.yft.core.model.settings.SaveFolder
 import com.alal.yft.download.policy.DownloadPolicyGate
 import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred
@@ -210,6 +211,60 @@ class DownloadEnqueuerTest {
         )
     }
 
+    /**
+     * v1.0.2 item 28: the picked folder reaches the provider only for the chosen-folder location,
+     * for every plan type; any other location asks the provider as before, without a folder.
+     */
+    @Test
+    fun `the chosen folder reaches the provider only when it is the location`() = runTest {
+        val chosen = Harness(this, location = DownloadLocation.CHOSEN_FOLDER, folder = FOLDER)
+        chosen.probe.result = DirectProbeResult.Success(metadata(totalBytes = 8))
+        chosen.enqueuer.enqueue(asset(), variant(kind = MediaKind.DIRECT))
+        chosen.enqueuer.enqueue(asset(), variant(id = "hls", kind = MediaKind.HLS))
+        chosen.enqueuer.enqueue(
+            asset(),
+            variant(id = "dash", kind = MediaKind.DASH, container = null)
+                .copy(manifestVariantId = "video-720"),
+        )
+
+        assertEquals(listOf(FOLDER, FOLDER, FOLDER), chosen.destinations.folders)
+        assertEquals(3, chosen.queue.tasks.value.size)
+
+        val shared = Harness(this, folder = FOLDER)
+        shared.probe.result = DirectProbeResult.Success(metadata(totalBytes = 8))
+        shared.enqueuer.enqueue(asset(), variant(kind = MediaKind.DIRECT))
+        shared.enqueuer.enqueue(asset(), variant(id = "hls", kind = MediaKind.HLS))
+
+        assertEquals(listOf<SaveFolder?>(null, null), shared.destinations.folders)
+        assertEquals(0, shared.folderReads)
+    }
+
+    /** v1.0.2 item 28: a folder the provider could not use leaves the row's notice. */
+    @Test
+    fun `a download the chosen folder could not take is noted for its row`() = runTest {
+        val sources = DownloadSources()
+        val harness = Harness(
+            this,
+            location = DownloadLocation.CHOSEN_FOLDER,
+            folder = FOLDER,
+            sources = sources,
+        )
+        harness.destinations.folderUnavailable = true
+        harness.probe.result = DirectProbeResult.Success(metadata(totalBytes = 8))
+
+        val direct = harness.enqueuer.enqueue(asset(), variant(kind = MediaKind.DIRECT))
+            as EnqueueResult.Started
+        val hls = harness.enqueuer.enqueue(asset(), variant(id = "hls", kind = MediaKind.HLS))
+            as EnqueueResult.Started
+
+        assertEquals(setOf(direct.taskId, hls.taskId), sources.renewals.value.folderUnavailable)
+
+        harness.destinations.folderUnavailable = false
+        val fine = harness.enqueuer.enqueue(asset(), variant(id = "ok", kind = MediaKind.DIRECT))
+            as EnqueueResult.Started
+        assertFalse(fine.taskId in sources.renewals.value.folderUnavailable)
+    }
+
     @Test
     fun `a known size that cannot fit is rejected before any destination exists`() = runTest {
         val harness = Harness(this, storage = { 100L * MIB })
@@ -316,12 +371,15 @@ class DownloadEnqueuerTest {
         scope: kotlinx.coroutines.test.TestScope,
         location: DownloadLocation = DownloadLocation.SHARED_DOWNLOADS,
         storage: StorageSpace = StorageSpace.Unknown,
+        folder: SaveFolder? = null,
+        sources: DownloadSources? = null,
         onPolicy: suspend (DownloadQueue) -> Unit = {},
     ) {
         val probe = FakeProbe()
         val destinations = FakeDestinations()
         val serviceStarter = CountingServiceStarter()
         var policyCalls = 0
+        var folderReads = 0
         val queue = DownloadQueue(
             store = InMemoryStore(),
             transferDispatcher = NeverFinishingDispatcher(),
@@ -345,6 +403,11 @@ class DownloadEnqueuerTest {
                 taskIds = { "task-${next++}" },
                 clock = { 1_000 },
                 storage = storage,
+                sources = sources,
+                folder = {
+                    folderReads += 1
+                    folder
+                },
             )
         }
     }
@@ -375,21 +438,26 @@ class DownloadEnqueuerTest {
     private class FakeDestinations : DownloadDestinationProvider {
         val prepared = mutableListOf<Pair<String, String?>>()
         val locations = mutableListOf<DownloadLocation>()
+        val folders = mutableListOf<SaveFolder?>()
         var failure: IOException? = null
         var rename: (String) -> String = { it }
+        var folderUnavailable = false
 
         override fun prepare(
             fileName: String,
             mimeType: String?,
             location: DownloadLocation,
+            folder: SaveFolder?,
         ): PreparedDestination {
             failure?.let { throw it }
             prepared += fileName to mimeType
             locations += location
+            folders += folder
             return PreparedDestination(
                 destination = NoOpDestination(),
                 spec = DownloadDestinationSpec(DownloadDestinationKind.APP_PRIVATE),
                 fileName = rename(fileName),
+                folderUnavailable = folderUnavailable,
             )
         }
     }
@@ -509,5 +577,6 @@ class DownloadEnqueuerTest {
 
     private companion object {
         const val MIB = 1_024L * 1_024
+        val FOLDER = SaveFolder(treeUri = "content://tree.test/tree/movies", name = "Movies")
     }
 }

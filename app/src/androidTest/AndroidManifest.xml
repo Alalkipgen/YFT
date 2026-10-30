@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!--
+            v1.0.2 item 28: a real folder tree for ChosenFolderInstrumentedTest, in the test APK
+            only. A documents provider answers only an app the folder picker gave access to, so
+            TestTreeAccessProvider gives the app that access in the picker's place.
+        -->
+        <provider
+            android:name="com.alal.yft.download.TestTreeProvider"
+            android:authorities="${applicationId}.tree"
+            android:exported="true"
+            android:grantUriPermissions="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS" />
+        <provider
+            android:name="com.alal.yft.download.TestTreeAccessProvider"
+            android:authorities="${applicationId}.tree-access"
+            android:exported="true" />
+    </application>
+
+</manifest>

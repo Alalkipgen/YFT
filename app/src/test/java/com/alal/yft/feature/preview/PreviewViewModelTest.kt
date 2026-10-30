@@ -19,12 +19,16 @@ import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.download.DownloadOrigin
 import com.alal.yft.download.EnqueueResult
+import com.alal.yft.download.FolderEntry
 import com.alal.yft.download.PreviewDownloadStarter
+import com.alal.yft.download.SaveFolders
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.testing.MainDispatcherRule
 import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
+import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
+import com.alal.yft.core.model.settings.SaveFolder
 import com.alal.yft.download.policy.NetworkSnapshot
 import com.alal.yft.download.policy.NetworkStatusSource
 import kotlinx.coroutines.flow.Flow
@@ -417,6 +421,45 @@ class PreviewViewModelTest {
         assertEquals(2, preferences.updates)
     }
 
+    @Test
+    fun `a chosen folder is named while it can be used, else the default place shows`() =
+        runTest {
+            val store = PreviewSelectionStore().apply { select(candidate()) }
+            val folder = SaveFolder("content://example/tree/primary%3AMovies", "Movies")
+            val preferences = FakePreferences(
+                DownloadPreferences(location = DownloadLocation.CHOSEN_FOLDER, folder = folder),
+            )
+            val folders = SwitchableFolders(usable = true)
+            val viewModel = viewModel(
+                FakeResolver(VariantResolutionResult.Success(asset(listOf(variant())))),
+                store,
+                preferences = preferences,
+                saveFolders = folders,
+            )
+            backgroundScope.launch { viewModel.downloadOptions.collect {} }
+            runCurrent()
+
+            assertEquals("Movies", viewModel.downloadOptions.value.folderName)
+
+            folders.usable = false
+            viewModel.setWifiOnly(true)
+            runCurrent()
+
+            // SDK 28: the default place is app storage.
+            assertEquals(
+                PreviewDownloadOptions(wifiOnly = true, savesToSharedDownloads = false),
+                viewModel.downloadOptions.value,
+            )
+        }
+
+    private class SwitchableFolders(var usable: Boolean) : SaveFolders {
+        override fun take(treeUri: String): SaveFolder? = null
+
+        override fun usable(folder: SaveFolder): Boolean = usable
+
+        override fun entries(folder: SaveFolder): List<FolderEntry>? = null
+    }
+
     private fun viewModel(
         resolver: VariantResolver,
         store: PreviewSelectionStore,
@@ -424,6 +467,7 @@ class PreviewViewModelTest {
         prefs: DownloadPreferences = DownloadPreferences(confirmOnMeteredNetwork = false),
         networkSnapshot: NetworkSnapshot = WIFI,
         preferences: DownloadPreferencesRepository = FakePreferences(prefs),
+        saveFolders: SaveFolders = SaveFolders.None,
     ): PreviewViewModel {
         val context = ApplicationProvider.getApplicationContext<Context>()
         return PreviewViewModel(
@@ -437,6 +481,7 @@ class PreviewViewModelTest {
                 override val snapshot: StateFlow<NetworkSnapshot> =
                     MutableStateFlow(networkSnapshot)
             },
+            saveFolders = saveFolders,
         )
     }
 

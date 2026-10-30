@@ -185,6 +185,28 @@ class DownloadSourcesTest {
     }
 
     @Test
+    fun `a folder notice stays while its row is listed, finished or not, and through clearing`() {
+        val sources = DownloadSources()
+        val ids = listOf("done", "cancelled", "deleted", "paused", "queued")
+        ids.forEach(sources::folderUnavailable)
+        // "queued" is not in the queue's list yet.
+        sources.prune(ids.take(4).map { task(it, DownloadTaskStatus.RUNNING) })
+        sources.clear()
+        assertEquals(ids.toSet(), sources.renewals.value.folderUnavailable)
+
+        sources.prune(
+            listOf(
+                task("done", DownloadTaskStatus.COMPLETED),
+                task("cancelled", DownloadTaskStatus.CANCELLED),
+                task("paused", DownloadTaskStatus.PAUSED),
+            ),
+        )
+        assertEquals(setOf("done", "paused", "queued"), sources.renewals.value.folderUnavailable)
+        sources.forget("paused")
+        assertEquals(setOf("done", "queued"), sources.renewals.value.folderUnavailable)
+    }
+
+    @Test
     fun `a source stays until the queue lists its task and then follows the task`() {
         val sources = DownloadSources()
         listOf("running", "done", "cancelled", "deleted", "new").forEach { id ->

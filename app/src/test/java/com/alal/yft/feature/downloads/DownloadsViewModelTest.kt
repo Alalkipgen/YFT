@@ -212,6 +212,39 @@ class DownloadsViewModelTest {
     }
 
     @Test
+    fun `a chosen folder shows its name, or the default place once it can't be used`() =
+        runTest {
+            val storage = FakeStorageSource(DownloadLocation.CHOSEN_FOLDER).apply {
+                folderName = "Movies"
+            }
+            val viewModel = DownloadsViewModel(
+                queue(InMemoryDownloadTaskStore()),
+                DownloadNetworkStatus.AlwaysAllowed,
+                storage,
+            )
+
+            runCurrent()
+            assertEquals(
+                DownloadStorageSummary(
+                    DownloadLocation.CHOSEN_FOLDER,
+                    freeBytes = null,
+                    folderName = "Movies",
+                ),
+                viewModel.uiState.value.storage,
+            )
+
+            storage.folderName = null
+            storage.current.value = null
+            runCurrent()
+            storage.current.value = DownloadLocation.CHOSEN_FOLDER
+            runCurrent()
+            assertEquals(
+                DownloadStorageSummary(DownloadLocation.SHARED_DOWNLOADS, freeBytes = 1_000),
+                viewModel.uiState.value.storage,
+            )
+        }
+
+    @Test
     fun rowsDoNotWaitForStorageAndCarryTheirFile() = runTest {
         val store = InMemoryDownloadTaskStore(
             listOf(storedTask("done", DownloadTaskStatus.COMPLETED, downloaded = 100, total = 100)),
@@ -235,8 +268,11 @@ class DownloadsViewModelTest {
     private class FakeStorageSource(initial: DownloadLocation?) : DownloadStorageSource {
         val current = MutableStateFlow(initial)
         private var measurements = 0
+        var folderName: String? = null
 
         override val location: Flow<DownloadLocation?> = current
+
+        override suspend fun folderName(): String? = folderName
 
         override suspend fun freeBytes(location: DownloadLocation): Long? {
             measurements += 1

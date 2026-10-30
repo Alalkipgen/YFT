@@ -25,6 +25,7 @@ import com.alal.yft.detection.DashSoundPairing
 import com.alal.yft.download.DownloadOrigin
 import com.alal.yft.download.EnqueueResult
 import com.alal.yft.download.PreviewDownloadStarter
+import com.alal.yft.download.SaveFolders
 import com.alal.yft.download.policy.DownloadNetworkPolicy
 import com.alal.yft.download.policy.NetworkStatusSource
 import com.alal.yft.download.policy.TransferNetworkState
@@ -55,6 +56,8 @@ class PreviewViewModel @Inject constructor(
     private val downloadStarter: PreviewDownloadStarter,
     private val downloadPreferences: DownloadPreferencesRepository,
     private val network: NetworkStatusSource,
+    /** v1.0.2 item 28: whether the chosen folder can still be used. */
+    private val saveFolders: SaveFolders = SaveFolders.None,
 ) : ViewModel() {
     private val mutableUiState = MutableStateFlow<PreviewUiState>(PreviewUiState.Empty)
     private var quality = QualityPreference.HIGHEST
@@ -65,13 +68,20 @@ class PreviewViewModel @Inject constructor(
         savesToSharedDownloads = sharedDownloadsSupported,
     )
 
-    /** Wi-Fi only and the save location, shown next to the Download button. */
+    /**
+     * Wi-Fi only and the save location, shown next to the Download button. A chosen folder that
+     * can no longer be used shows the default place, where the file goes then (item 28).
+     */
     val downloadOptions: StateFlow<PreviewDownloadOptions> = downloadPreferences.preferences
         .map { preferences ->
+            val folder = preferences.folder
+                ?.takeIf { preferences.location == DownloadLocation.CHOSEN_FOLDER }
+                ?.takeIf { saveFolders.usableInBackground(it) }
             PreviewDownloadOptions(
                 wifiOnly = preferences.unmeteredOnly,
                 savesToSharedDownloads = sharedDownloadsSupported &&
-                    preferences.location == DownloadLocation.SHARED_DOWNLOADS,
+                    preferences.location != DownloadLocation.APP_STORAGE,
+                folderName = folder?.name,
             )
         }
         .catch { emit(defaultOptions) }

@@ -10,13 +10,20 @@ enum class LibraryLocation(val label: String) {
 
     /** A file in storage only YFT can read; other apps get it only through a per-file grant. */
     APP_STORAGE("App storage"),
+
+    /**
+     * v1.0.2 item 28: a file at the top of the folder picked in Android's folder picker (a SAF
+     * document); the item's [LibraryItem.place] is the folder's name.
+     */
+    CHOSEN_FOLDER("Chosen folder"),
 }
 
 /**
  * One finished download shown in the library.
  *
- * [uri] is always a `content://` URI, either the MediaStore item or YFT's own read-only provider,
- * so the same value can be played in the app and handed to another app with a read grant.
+ * [uri] is always a `content://` URI, either the MediaStore item, YFT's own read-only provider or
+ * (item 28) the chosen folder's document, so the same value can be played in the app and handed
+ * to another app with a read grant.
  */
 data class LibraryItem(
     val id: String,
@@ -26,6 +33,8 @@ data class LibraryItem(
     val sizeBytes: Long?,
     val modifiedAtEpochMs: Long?,
     val location: LibraryLocation,
+    /** Where the file is, in words: the location's, or (item 28) the chosen folder's name. */
+    val place: String = location.label,
 ) {
     val isAudio: Boolean
         get() = mimeType?.startsWith("audio/") == true

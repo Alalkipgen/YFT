@@ -1,6 +1,8 @@
 package com.alal.yft.feature.settings
 
+import android.content.ActivityNotFoundException
 import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -97,13 +99,28 @@ fun SettingsRoute(
     val context = LocalContext.current
     val systemStatus = remember(context) { AndroidBackgroundSystemStatus(context) }
     var background by remember { mutableStateOf(systemStatus.read()) }
-    // Back from Android's battery settings: the row shows what changed.
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { background = systemStatus.read() }
+    // Back from Android's battery settings: the row shows what changed. v1.0.2 item 28: and
+    // whether the chosen folder can still be used.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        background = systemStatus.read()
+        viewModel.onAction(SettingsAction.CheckFolder)
+    }
+    // v1.0.2 item 28: a cancelled picker gives null, which keeps the old choice.
+    val folderPicker = rememberLauncherForActivityResult(SaveFolderPicker()) { tree ->
+        if (tree != null) viewModel.onAction(SettingsAction.SetFolder(tree.toString()))
+    }
     SettingsScreen(
         state = state,
         themeMode = themeMode,
         sharedDownloadsSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q,
         onAction = viewModel::onAction,
+        onChooseFolder = {
+            try {
+                folderPicker.launch(null)
+            } catch (_: ActivityNotFoundException) {
+                viewModel.onAction(SettingsAction.NoFolderPicker)
+            }
+        },
         onThemeModeChanged = onThemeModeChanged,
         onOpenAbout = onOpenAbout,
         onOpenLicenses = onOpenLicenses,
@@ -139,6 +156,8 @@ fun SettingsScreen(
     onOpenAppSettings: () -> Unit = {},
     updates: UpdatesRow? = null,
     onOpenUpdates: () -> Unit = {},
+    /** v1.0.2 item 28: opens Android's folder picker for "Choose a folder…". */
+    onChooseFolder: () -> Unit = {},
 ) {
     val colors = YftTheme.colors
     val snackbar = remember { SnackbarHostState() }
@@ -149,12 +168,16 @@ fun SettingsScreen(
         onAction(SettingsAction.MessageShown)
     }
     // Android 9 and older cannot add files to the shared Downloads folder without a permission
-    // YFT does not ask for, so they always save to app storage.
-    val location = if (sharedDownloadsSupported) {
+    // YFT does not ask for, so they save to app storage, or to a chosen folder (item 28).
+    val location = if (
+        sharedDownloadsSupported || state.download.location != DownloadLocation.SHARED_DOWNLOADS
+    ) {
         state.download.location
     } else {
         DownloadLocation.APP_STORAGE
     }
+    val folderName = state.download.folder?.name
+        ?.takeIf { location == DownloadLocation.CHOSEN_FOLDER }
 
     Box(
         modifier = modifier
@@ -178,6 +201,12 @@ fun SettingsScreen(
                     DownloadRows(
                         preferences = state.download,
                         location = location,
+                        folderName = folderName,
+                        folderNote = folderNote(
+                            folderName = folderName,
+                            usable = state.folderUsable,
+                            sharedDownloadsSupported = sharedDownloadsSupported,
+                        ),
                         onAction = onAction,
                         onPick = { picker = it },
                         background = background,
@@ -232,12 +261,17 @@ fun SettingsScreen(
             options = DownloadLocation.entries,
             selected = location,
             label = { it.label() },
-            summary = { it.summary(sharedDownloadsSupported) },
+            summary = { it.summary(sharedDownloadsSupported, folderName) },
             isEnabled = { sharedDownloadsSupported || it != DownloadLocation.SHARED_DOWNLOADS },
             tag = { "location-${it.name}" },
             onSelect = {
                 picker = null
-                onAction(SettingsAction.SetLocation(it))
+                // Item 28: the picker decides; a cancel keeps the old choice.
+                if (it == DownloadLocation.CHOSEN_FOLDER) {
+                    onChooseFolder()
+                } else {
+                    onAction(SettingsAction.SetLocation(it))
+                }
             },
             onDismiss = { picker = null },
             modifier = Modifier.testTag("location-dialog"),
@@ -353,6 +387,8 @@ private fun ThemeRow(themeMode: ThemeMode, onThemeModeChanged: (ThemeMode) -> Un
 private fun DownloadRows(
     preferences: DownloadPreferences,
     location: DownloadLocation,
+    folderName: String?,
+    folderNote: String?,
     onAction: (SettingsAction) -> Unit,
     onPick: (SettingsPicker) -> Unit,
     background: BackgroundSystemState?,
@@ -360,7 +396,8 @@ private fun DownloadRows(
     ValueRow(
         icon = YftIcons.Folder,
         title = "Save files to",
-        value = location.label(),
+        value = folderName ?: location.label(),
+        supporting = folderNote,
         tag = "settings-location",
         onClick = { onPick(SettingsPicker.LOCATION) },
     )
@@ -952,9 +989,13 @@ internal fun QualityPreference.label(): String = when (this) {
 internal fun DownloadLocation.label(): String = when (this) {
     DownloadLocation.SHARED_DOWNLOADS -> "Download/YFT"
     DownloadLocation.APP_STORAGE -> "App storage"
+    DownloadLocation.CHOSEN_FOLDER -> "Choose a folder…"
 }
 
-private fun DownloadLocation.summary(sharedDownloadsSupported: Boolean): String = when (this) {
+private fun DownloadLocation.summary(
+    sharedDownloadsSupported: Boolean,
+    folderName: String?,
+): String = when (this) {
     DownloadLocation.SHARED_DOWNLOADS -> if (sharedDownloadsSupported) {
         "The Downloads folder, where your file manager and players find the files."
     } else {
@@ -962,6 +1003,25 @@ private fun DownloadLocation.summary(sharedDownloadsSupported: Boolean): String 
     }
 
     DownloadLocation.APP_STORAGE -> "Only YFT can open these files. They are removed with the app."
+    DownloadLocation.CHOSEN_FOLDER -> if (folderName != null) {
+        "Now $folderName. Tap to choose another folder."
+    } else {
+        "A folder you pick, on the phone or a memory card."
+    }
+}
+
+/**
+ * v1.0.2 item 28: the Save files to row's note while the chosen folder [folderName] cannot be
+ * used ([usable] false): new downloads go to the default place then.
+ */
+private fun folderNote(
+    folderName: String?,
+    usable: Boolean?,
+    sharedDownloadsSupported: Boolean,
+): String? {
+    if (folderName == null || usable != false) return null
+    val place = if (sharedDownloadsSupported) "Download/YFT" else "app storage"
+    return "Not available now. New downloads go to $place."
 }
 
 private fun ThemeMode.label(): String = when (this) {

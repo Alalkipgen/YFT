@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.alal.yft.core.download.DownloadQueue
 import com.alal.yft.core.download.StoredDownloadTask
 import com.alal.yft.core.model.download.DownloadTaskStatus
+import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.download.BackgroundHealthStore
 import com.alal.yft.download.BackgroundSystemState
 import com.alal.yft.download.BackgroundSystemStatus
@@ -344,11 +345,23 @@ class DownloadsViewModel @Inject constructor(
             .map { tasks -> tasks.count { it.status == DownloadTaskStatus.COMPLETED } }
             .distinctUntilChanged(),
     ) { location, _ -> location }
-        .mapLatest { location ->
-            location?.let { DownloadStorageSummary(it, storageSource.freeBytes(it)) }
-        }
+        .mapLatest { location -> location?.let { summary(it) } }
         .onStart { emit(null) }
         .catch { emit(null) }
+
+    /**
+     * v1.0.2 item 28: a chosen folder shows its name (its free space cannot be measured); one
+     * that can no longer be used shows the default place, where new downloads go then.
+     */
+    private suspend fun summary(location: DownloadLocation): DownloadStorageSummary {
+        if (location != DownloadLocation.CHOSEN_FOLDER) {
+            return DownloadStorageSummary(location, storageSource.freeBytes(location))
+        }
+        val folderName = storageSource.folderName()
+        if (folderName != null) return DownloadStorageSummary(location, null, folderName)
+        val fallback = storageSource.defaultLocation
+        return DownloadStorageSummary(fallback, storageSource.freeBytes(fallback))
+    }
 }
 
 /**

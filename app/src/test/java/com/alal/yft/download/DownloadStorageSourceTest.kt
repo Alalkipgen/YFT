@@ -3,6 +3,7 @@ package com.alal.yft.download
 import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
 import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.DownloadPreferences
+import com.alal.yft.core.model.settings.SaveFolder
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -52,9 +53,63 @@ class DownloadStorageSourceTest {
     }
 
     @Test
+    fun `a chosen folder is named while it can be used, and never measured`() = runTest {
+        val folder = SaveFolder("content://example/tree/primary%3AMovies", "Movies")
+        preferences.state.value = DownloadPreferences(
+            location = DownloadLocation.CHOSEN_FOLDER,
+            folder = folder,
+        )
+        val folders = UsableFolders(usable = true)
+        val source = PreferencesDownloadStorageSource(
+            preferences = preferences,
+            space = space,
+            sharedDownloadsSupported = true,
+            ioDispatcher = StandardTestDispatcher(testScheduler),
+            folders = folders,
+        )
+
+        assertEquals(DownloadLocation.CHOSEN_FOLDER, source.location.first())
+        assertEquals("Movies", source.folderName())
+
+        folders.usable = false
+        assertNull(source.folderName())
+        assertEquals(DownloadLocation.SHARED_DOWNLOADS, source.defaultLocation)
+        assertEquals(listOf(folder, folder), folders.asked)
+        assertEquals(emptyList<DownloadLocation>(), measured)
+    }
+
+    @Test
+    fun `without a chosen folder there is no folder name`() = runTest {
+        val source = PreferencesDownloadStorageSource(
+            preferences = preferences,
+            space = space,
+            sharedDownloadsSupported = false,
+            ioDispatcher = StandardTestDispatcher(testScheduler),
+            folders = UsableFolders(usable = true),
+        )
+
+        assertNull(source.folderName())
+        assertEquals(DownloadLocation.APP_STORAGE, source.defaultLocation)
+        assertNull(DownloadStorageSource.None.folderName())
+    }
+
+    @Test
     fun noneReportsNothing() = runTest {
         assertNull(DownloadStorageSource.None.location.first())
         assertNull(DownloadStorageSource.None.freeBytes(DownloadLocation.APP_STORAGE))
+    }
+
+    private class UsableFolders(var usable: Boolean) : SaveFolders {
+        val asked = mutableListOf<SaveFolder>()
+
+        override fun take(treeUri: String): SaveFolder? = null
+
+        override fun usable(folder: SaveFolder): Boolean {
+            asked += folder
+            return usable
+        }
+
+        override fun entries(folder: SaveFolder): List<FolderEntry>? = null
     }
 
     private class FakePreferences(initial: DownloadPreferences) : DownloadPreferencesRepository {

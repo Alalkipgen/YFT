@@ -2339,9 +2339,93 @@ Keep at least the heading and one blank line between sections, so Git merges the
     ladder path: the private words with Try again, today's for an 11-character code; Master
     without the ladder: its playback words for both, as before).
   - CHANGELOG `[1.0.2]`: one line under Changed.
-- Next: item 70b's CI (checkpoint, emulator smoke — also item 51's record — Preview APK, minified
-  check). Then stopped on the owner's word (2026-10-30, "after 70b, stop"): 28 and 5b, the
-  backlog marks and the READY FOR PHONE TEST report wait for his go.
+- Second agent (the owner, 2026-10-30): items 28 and 5b, each its own commit with unit tests and
+  one CHANGELOG `[1.0.2]` line, CI green before the next; then the docs commit and the READY FOR
+  PHONE TEST report. Head checked first: `562067e9`, its four runs green (#590, #178, #145, #36).
+  The sandbox was reset once during item 28; the work was kept and the tools set up again.
+  - Unit-test baseline at `562067e9` (JDK 17, one Gradle build at a time, `GRADLE_OPTS="-Xmx1024m
+    -XX:MaxMetaspaceSize=640m"`): BUILD SUCCESSFUL, 3786 tests, 0 failures, 68 skipped — app 1456
+    (66 skipped), core-browser 150, core-data 35, core-download 321, core-media 43, core-model
+    150, extractor-api 36, extractor-generic 23, extractor-master 1119 (2 skipped),
+    extractor-master-android 85, extractor-sites 368.
+- Item 28 (choose the save folder) — checked first; in the code at `562067e9` and used as it is:
+  `SafDownloadDestination` (`PublicDownloadDestination.kt` line 182: a hidden
+  `.name.yft-<id>.part` document renamed after the check; create, resume, renew),
+  `DownloadDestinationKind.SAF_DOCUMENT` (`DownloadTaskStore.kt` line 21) and its labels
+  (`DownloadLabels.kt` lines 164 and 311), the SAF delete (`DownloadedFileDeleter.kt` line 89),
+  the merge in app storage and then a copy where the store gives no seekable descriptor or the
+  phone has no `MediaMuxer(FileDescriptor)` (`AudioVideoMuxEngine.kt` lines 1054, 1095, 1162 and
+  1570), storage failures as `STORAGE_UNAVAILABLE` (`DownloadFailures.kt` lines 49–51), and Open
+  and Share by the document's address (`DownloadsScreen.kt` line 1396). After a restart an
+  unfinished task of any kind is refreshed and then resumed into its recorded temporary
+  document, so a SAF task resumes as a MediaStore one does. Not there: the setting, the picker,
+  the provider's choice and the Library's listing. Done (no new dependency, no lookup change):
+  - core-model: `DownloadLocation.CHOSEN_FOLDER`, `SaveFolder(treeUri, name)` (its `toString`
+    has no address) and `DownloadPreferences.folder`; core-data keeps them
+    (`download_folder_tree`, `download_folder_name`); a folder without its address reads as the
+    default location.
+  - Settings › Downloads › Save files to: a third choice opens Android's folder picker
+    (`SaveFolderPicker`: `ACTION_OPEN_DOCUMENT_TREE` through the Activity Result API, with the
+    picker's "show internal storage" extra, which Android 7–9 need). YFT keeps the read and
+    write access (`takePersistableUriPermission` in `AndroidSaveFolders.take`), saves the folder
+    and shows its name; Cancel keeps the old choice; another choice never gives a folder's
+    access back. A folder YFT cannot make files in is refused. Settings checks the folder again
+    when it comes back to the screen. From Android 7.0 (the picker is API 21).
+  - `AndroidDownloadDestinationProvider.prepare(…, CHOSEN_FOLDER, folder)`: a
+    `SafDownloadDestination` while `AndroidSaveFolders.usable` (a kept read and write grant, and
+    a folder that takes new files), under a free name (`FolderNames`: in any case, and not
+    another download's hidden document, also with the extension the storage may add); else
+    today's default (Download/YFT, app storage on Android 7–9) with `folderUnavailable`, which
+    `DownloadSources` keeps for the row's notice in the app session. Direct (and MP3), HLS, DASH
+    and the MP4 and WebM merges all go through this `prepare`, and a task keeps the destination
+    it was queued with. The folder is read only when it is the location, off the main thread.
+  - Downloads' footer and storage pill name the folder (a folder is never measured); the sheet
+    says "Saves to <folder>"; the Library lists the folder's top-level video and audio files
+    (not hidden ones, folders or other types) while it is where new downloads go, with the
+    folder's name as their place, and opens, shares and deletes them by the document's address
+    (`DownloadedFileDeleter`'s SAF delete; a file already gone counts as deleted).
+  - New words (the owner decides): "Choose a folder…"; "A folder you pick, on the phone or a
+    memory card."; "Now <name>. Tap to choose another folder."; "Not available now. New
+    downloads go to Download/YFT." (or "… go to app storage."); "YFT can't save files in that
+    folder. Choose another one."; "This phone has no folder picker."; the row's "The chosen
+    folder can't be used, so this file is saved in Download/YFT." (or "… in app storage.");
+    "Saves to <name>"; "Chosen folder" (for a folder without a name); the Library's delete
+    question names the place: "<file> will be removed from <name>. …".
+  - With no folder chosen every path is today's: `ChosenFolderDestinationTest` (the other
+    places never use a folder chosen before), `ChosenFolderLibraryTest` (without a folder the
+    list is as before), `DownloadEnqueuerTest` (the folder reaches the provider only when it is
+    the location), `SettingsViewModelTest` (nothing is checked), `DownloadStorageSourceTest`
+    (no folder name), and every earlier test unchanged.
+  - Tests: `ChosenFolderDestinationTest` (10, new: no folder gives today's destination, a
+    folder gives SAF, a lost folder gives the default and the notice, also before Android 10;
+    free names), `AndroidSaveFoldersTest` (5, new), `ChosenFolderLibraryTest` (6, new: the
+    listing, a file deleted outside YFT not listed, the delete), `SafDownloadQueueTest` (3, new,
+    core-download: a SAF task's resume into the same document and its renew after a storage
+    failure; a folder gone while a download runs fails it as storage unavailable),
+    `DataStoreDownloadPreferencesRepositoryTest` (3: kept across a restart),
+    `SettingsViewModelTest` (5), `SettingsScreenTest` (3), `DownloadEnqueuerTest` (2),
+    `DownloadStorageSourceTest` (2), `DownloadLabelsTest` (2), and one each in
+    `DownloadSourcesTest`, `DownloadsViewModelTest`, `DownloadsScreenTest`,
+    `DownloadRenewalRowsTest`, `PreviewViewModelTest` and `PreviewScreenTest`. Robolectric's
+    folder is a fake documents provider (`FakeTreeProvider`). Local totals: BUILD SUCCESSFUL,
+    3833 tests, 0 failures — app 1497 (66 skipped), core-data 38, core-download 324, the rest as
+    the baseline; lint clean.
+  - Emulator (API 34), `ChosenFolderInstrumentedTest` (5): a real folder tree without the
+    picker. `TestTreeProvider` is a `DocumentsProvider` in the test APK (its own process,
+    guarded by `MANAGE_DOCUMENTS` as a phone's storage is, adding the type's extension to a new
+    file's name as a phone's storage does); `TestTreeAccessProvider` gives the app the grant the
+    picker gives (read, write, persistable, prefix). Checked: YFT keeps the folder under its
+    name; the real `DirectTransferEngine` saves a ranged download through the hidden document
+    (seekable across processes) and it ends under its name, the next one as "… (1).mp4"; the
+    Library lists the video and audio, reads and deletes them; access taken back → Download/YFT
+    with the notice; a deleted folder → not usable, and a download still writing there fails.
+  - Limits: a hidden temporary document left when YFT is stopped and its task is then removed
+    stays in the folder (never listed); the Library lists the folder only while it is the
+    chosen place (a file saved there earlier still opens from Downloads); the row's notice lasts
+    for the app session.
+  - CHANGELOG `[1.0.2]`: one line under Added.
+- Next: item 28's CI (checkpoint validation, emulator smoke, Preview APK, minified check), then
+  item 5b; then the docs commit and the READY FOR PHONE TEST report.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 

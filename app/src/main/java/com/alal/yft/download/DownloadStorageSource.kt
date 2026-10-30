@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -18,6 +19,15 @@ interface DownloadStorageSource {
 
     /** Free bytes at [location], or null when the volume cannot be measured. */
     suspend fun freeBytes(location: DownloadLocation): Long?
+
+    /**
+     * v1.0.2 item 28: the chosen folder's name while new downloads can go there, asked again
+     * each time; null when it can no longer be used, as they go to [defaultLocation] then.
+     */
+    suspend fun folderName(): String? = null
+
+    /** Where new downloads go when the chosen folder cannot be used. */
+    val defaultLocation: DownloadLocation get() = DownloadLocation.SHARED_DOWNLOADS
 
     /** Nothing to report, for screens and tests without storage access. */
     object None : DownloadStorageSource {
@@ -32,11 +42,13 @@ interface DownloadStorageSource {
  * needs Android 10, so older devices report app storage, which is where their downloads go.
  */
 class PreferencesDownloadStorageSource(
-    preferences: DownloadPreferencesRepository,
+    private val preferences: DownloadPreferencesRepository,
     private val space: StorageSpace,
     private val sharedDownloadsSupported: Boolean =
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    /** v1.0.2 item 28: whether the chosen folder can still be used. */
+    private val folders: SaveFolders = SaveFolders.None,
 ) : DownloadStorageSource {
     override val location: Flow<DownloadLocation?> = preferences.preferences
         .map { stored ->
@@ -50,4 +62,16 @@ class PreferencesDownloadStorageSource(
 
     override suspend fun freeBytes(location: DownloadLocation): Long? =
         withContext(ioDispatcher) { space.availableBytes(location) }
+
+    override suspend fun folderName(): String? {
+        val folder = preferences.preferences.first().folder ?: return null
+        val usable = withContext(ioDispatcher) { folders.usable(folder) }
+        return if (usable) folder.name else null
+    }
+
+    override val defaultLocation: DownloadLocation = if (sharedDownloadsSupported) {
+        DownloadLocation.SHARED_DOWNLOADS
+    } else {
+        DownloadLocation.APP_STORAGE
+    }
 }

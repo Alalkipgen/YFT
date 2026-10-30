@@ -9,10 +9,13 @@ import android.provider.MediaStore
 import androidx.annotation.RequiresApi
 import com.alal.yft.core.download.DownloadDestinationKind
 import com.alal.yft.core.download.MediaStoreDownloadDestination
+import com.alal.yft.core.model.settings.SaveFolder
 import com.alal.yft.download.AndroidDownloadedFileDeleter
 import com.alal.yft.download.AndroidFileDeleteSystem
 import com.alal.yft.download.DownloadedFileDeleter
 import com.alal.yft.download.FileDeletion
+import com.alal.yft.download.FolderEntry
+import com.alal.yft.download.SaveFolders
 import com.alal.yft.download.SavedDownloadFile
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +38,11 @@ interface LibraryRepository {
  *
  * Without storage permissions MediaStore returns only items YFT created itself, which is exactly
  * the library's scope. Pending items (transfers still being written) are never listed.
+ *
+ * v1.0.2 item 28: while new downloads go to a folder picked in Android's folder picker
+ * ([chosenFolder]), the video and audio files at its top level are listed too, with the
+ * folder's name as their place; hidden entries (a download's temporary document) are not. A
+ * folder that can no longer be used lists nothing, and the rest of the list still shows.
  */
 class AndroidLibraryRepository(
     private val context: Context,
@@ -42,14 +50,23 @@ class AndroidLibraryRepository(
     /** The same deleter as the Downloads screen's "Delete file" (P42). */
     private val fileDeleter: DownloadedFileDeleter =
         AndroidDownloadedFileDeleter(AndroidFileDeleteSystem(context), ioDispatcher = ioDispatcher),
+    /** v1.0.2 item 28: the chosen folder while it is where new downloads go, else null. */
+    private val chosenFolder: suspend () -> SaveFolder? = { null },
+    private val folders: SaveFolders = SaveFolders.None,
 ) : LibraryRepository {
-    override suspend fun items(): List<LibraryItem> = withContext(ioDispatcher) {
+    override suspend fun items(): List<LibraryItem> {
+        val folder = chosenFolder()
+        return withContext(ioDispatcher) { listed(folder) }
+    }
+
+    private fun listed(folder: SaveFolder?): List<LibraryItem> {
         val shared = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             sharedItems()
         } else {
             emptyList()
         }
-        (shared + appStorageItems()).sortedWith(
+        val chosen = folder?.let(::folderItems).orEmpty()
+        return (shared + appStorageItems() + chosen).sortedWith(
             compareByDescending<LibraryItem> { it.modifiedAtEpochMs ?: 0L }
                 .thenBy { it.displayName },
         )
@@ -66,6 +83,12 @@ class AndroidLibraryRepository(
             LibraryLocation.APP_STORAGE -> SavedDownloadFile(
                 kind = DownloadDestinationKind.APP_PRIVATE,
                 uri = null,
+                displayName = item.displayName,
+            )
+
+            LibraryLocation.CHOSEN_FOLDER -> SavedDownloadFile(
+                kind = DownloadDestinationKind.SAF_DOCUMENT,
+                uri = item.uri,
                 displayName = item.displayName,
             )
         }
@@ -100,6 +123,30 @@ class AndroidLibraryRepository(
                 location = LibraryLocation.APP_STORAGE,
             )
         }
+
+    /** The chosen folder's top-level video and audio files; none when it cannot be used. */
+    private fun folderItems(folder: SaveFolder): List<LibraryItem> {
+        if (!folders.usable(folder)) return emptyList()
+        return folders.entries(folder).orEmpty().mapNotNull { entry -> entry.libraryItem(folder) }
+    }
+
+    private fun FolderEntry.libraryItem(folder: SaveFolder): LibraryItem? {
+        if (isDirectory || name.startsWith(".")) return null
+        val type = mimeType?.takeIf { it.startsWith("video/") || it.startsWith("audio/") }
+            ?: LibraryMimeTypes.forFileName(name)
+                ?.takeIf { it.startsWith("video/") || it.startsWith("audio/") }
+            ?: return null
+        return LibraryItem(
+            id = "saf:$documentId",
+            displayName = name,
+            uri = uri,
+            mimeType = type,
+            sizeBytes = sizeBytes,
+            modifiedAtEpochMs = modifiedAtEpochMs,
+            location = LibraryLocation.CHOSEN_FOLDER,
+            place = folder.name,
+        )
+    }
 
     internal companion object {
         val SHARED_PROJECTION = arrayOf(

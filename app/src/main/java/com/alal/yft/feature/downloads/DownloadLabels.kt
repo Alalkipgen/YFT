@@ -243,11 +243,16 @@ internal fun statusChip(
     else -> null
 }
 
-/** "Download/YFT · 18 GB free", or the location alone when the volume cannot be measured. */
+/**
+ * "Download/YFT · 18 GB free", or the location alone when the volume cannot be measured, as a
+ * chosen folder ("Movies", v1.0.2 item 28) never can.
+ */
 internal fun storageLabel(storage: DownloadStorageSummary): String {
     val location = when (storage.location) {
         DownloadLocation.SHARED_DOWNLOADS -> LibraryLocation.SHARED_DOWNLOADS.label
         DownloadLocation.APP_STORAGE -> LibraryLocation.APP_STORAGE.label
+        DownloadLocation.CHOSEN_FOLDER ->
+            storage.folderName ?: LibraryLocation.CHOSEN_FOLDER.label
     }
     return storage.freeBytes
         ?.let { "$location · ${YftFormat.bytes(it)} free" }
@@ -303,6 +308,19 @@ internal fun planKindLabel(row: DownloadRowUiState): String = when (row.planType
     DownloadPlanType.HLS -> "HLS"
     DownloadPlanType.DASH -> "DASH"
     DownloadPlanType.AUDIO_VIDEO_MUX -> "Merge (audio + video)"
+}
+
+/**
+ * v1.0.2 item 28: a row's notice when the chosen folder could not be used, so the file went to
+ * the default place ([kind]) instead.
+ */
+internal fun folderUnavailableNotice(kind: DownloadDestinationKind): String {
+    val place = when (kind) {
+        DownloadDestinationKind.APP_PRIVATE -> "app storage"
+        DownloadDestinationKind.MEDIA_STORE, DownloadDestinationKind.SAF_DOCUMENT ->
+            LibraryLocation.SHARED_DOWNLOADS.label
+    }
+    return "The chosen folder can't be used, so this file is saved in $place."
 }
 
 /** Where the file is written: Downloads (MediaStore), a chosen folder (SAF) or the app. */

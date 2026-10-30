@@ -10,17 +10,23 @@ import com.alal.yft.core.model.settings.BrowserPreferences
 import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
+import com.alal.yft.core.model.settings.SaveFolder
 import com.alal.yft.core.model.settings.SearchEngine
 import com.alal.yft.detection.master.BackupFinder
 import com.alal.yft.detection.master.VkTrialBreak
+import com.alal.yft.download.SaveFolders
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -54,6 +60,11 @@ data class SettingsUiState(
      * the one this run uses; null but in #12 trial, which alone has the row.
      */
     val vkBreak: VkTrialBreak.Row? = null,
+    /**
+     * v1.0.2 item 28: whether the chosen folder ([DownloadPreferences.folder]) can still be
+     * used, checked when it changes and each time Settings shows again; null until known.
+     */
+    val folderUsable: Boolean? = null,
 )
 
 sealed interface SettingsAction {
@@ -67,6 +78,18 @@ sealed interface SettingsAction {
     data class SetSaveHistory(val enabled: Boolean) : SettingsAction
     data class SetBlockPopups(val enabled: Boolean) : SettingsAction
     data class SetBackupFinder(val enabled: Boolean) : SettingsAction
+
+    /**
+     * v1.0.2 item 28: the folder Android's folder picker gave ([treeUri]). A cancelled picker
+     * sends nothing, so the old choice stays.
+     */
+    data class SetFolder(val treeUri: String) : SettingsAction
+
+    /** v1.0.2 item 28: the phone has no folder picker. */
+    data object NoFolderPicker : SettingsAction
+
+    /** v1.0.2 item 28: Settings shows again; the chosen folder is checked once more. */
+    data object CheckFolder : SettingsAction
 
     /** VK-Master wave 2 (item 7): the trial's VK value break, its next choice (after a restart). */
     data object NextVkBreak : SettingsAction
@@ -82,6 +105,9 @@ private data class Transient(
     val message: String? = null,
 )
 
+/** v1.0.2 item 28: whether [folder] could be used when it was last checked. */
+private data class FolderCheck(val folder: SaveFolder, val usable: Boolean)
+
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val preferences: DownloadPreferencesRepository,
@@ -94,10 +120,16 @@ class SettingsViewModel @Inject constructor(
     backupFinder: BackupFinder? = null,
     // VK-Master wave 2 (item 7): the trial's VK value break; shown only when the build has it.
     vkBreak: VkTrialBreak? = null,
+    // v1.0.2 item 28: the folder picked in Android's folder picker, and YFT's access to it.
+    private val saveFolders: SaveFolders = SaveFolders.None,
 ) : ViewModel() {
     private val transient = MutableStateFlow(Transient())
     private val backupFinder = backupFinder?.takeIf { it.available }
     private val vkBreak = vkBreak?.takeIf { it.available }
+
+    /** v1.0.2 item 28: the last check of the chosen folder. */
+    private val folderCheck = MutableStateFlow<FolderCheck?>(null)
+    private var folderCheckJob: Job? = null
 
     val uiState: StateFlow<SettingsUiState> = combine(
         preferences.preferences,
@@ -119,7 +151,18 @@ class SettingsViewModel @Inject constructor(
         state.copy(backupFinder = backupFinder)
     }.combine(this.vkBreak?.row ?: flowOf(null)) { state, vkBreak ->
         state.copy(vkBreak = vkBreak)
+    }.combine(folderCheck) { state, check ->
+        state.copy(folderUsable = check?.takeIf { it.folder == state.download.folder }?.usable)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), SettingsUiState())
+
+    init {
+        viewModelScope.launch {
+            preferences.preferences
+                .map { it.folder }
+                .distinctUntilChanged()
+                .collect(::checkFolder)
+        }
+    }
 
     fun onAction(action: SettingsAction) {
         when (action) {
@@ -153,6 +196,12 @@ class SettingsViewModel @Inject constructor(
 
             is SettingsAction.SetBackupFinder -> backupFinder?.set(action.enabled)
 
+            is SettingsAction.SetFolder -> takeFolder(action.treeUri)
+            SettingsAction.NoFolderPicker -> transient.update { it.copy(message = NO_FOLDER_PICKER) }
+            SettingsAction.CheckFolder -> viewModelScope.launch {
+                checkFolder(preferences.preferences.first().folder)
+            }
+
             SettingsAction.NextVkBreak -> vkBreak?.next()
 
             is SettingsAction.Request -> transient.update {
@@ -167,6 +216,36 @@ class SettingsViewModel @Inject constructor(
 
     private fun edit(transform: (DownloadPreferences) -> DownloadPreferences) {
         viewModelScope.launch { preferences.update(transform) }
+    }
+
+    /**
+     * v1.0.2 item 28: keeps YFT's access to the picked folder and saves new downloads there. A
+     * folder YFT cannot save files in leaves the old choice and says so. The old folder's
+     * access is never given back, so the files saved there earlier still open.
+     */
+    private fun takeFolder(treeUri: String) {
+        viewModelScope.launch {
+            val folder = saveFolders.takeInBackground(treeUri)
+            if (folder == null) {
+                transient.update { it.copy(message = FOLDER_REFUSED) }
+                return@launch
+            }
+            folderCheck.value = FolderCheck(folder, usable = true)
+            preferences.update {
+                it.copy(location = DownloadLocation.CHOSEN_FOLDER, folder = folder)
+            }
+        }
+    }
+
+    private fun checkFolder(folder: SaveFolder?) {
+        folderCheckJob?.cancel()
+        if (folder == null) {
+            folderCheck.value = null
+            return
+        }
+        folderCheckJob = viewModelScope.launch {
+            folderCheck.value = FolderCheck(folder, saveFolders.usableInBackground(folder))
+        }
     }
 
     private fun runConfirmed() {
@@ -204,7 +283,9 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    private companion object {
-        const val STOP_TIMEOUT_MS = 5_000L
+    internal companion object {
+        private const val STOP_TIMEOUT_MS = 5_000L
+        const val FOLDER_REFUSED = "YFT can't save files in that folder. Choose another one."
+        const val NO_FOLDER_PICKER = "This phone has no folder picker."
     }
 }

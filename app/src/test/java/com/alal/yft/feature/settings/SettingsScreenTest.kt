@@ -15,6 +15,7 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -26,6 +27,7 @@ import com.alal.yft.core.model.settings.BrowserPreferences
 import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
+import com.alal.yft.core.model.settings.SaveFolder
 import com.alal.yft.core.model.settings.SearchEngine
 import com.alal.yft.ui.theme.YftTheme
 import org.junit.Assert.assertEquals
@@ -47,6 +49,7 @@ class SettingsScreenTest {
     private var theme = ThemeMode.SYSTEM
     private var aboutOpened = 0
     private var licensesOpened = 0
+    private var folderPickerOpened = 0
 
     @Test
     fun `theme, switches and the stepper report what the user picked`() {
@@ -140,6 +143,66 @@ class SettingsScreenTest {
             ),
             actions,
         )
+    }
+
+    @Test
+    fun `choosing a folder opens the folder picker, which decides the choice`() {
+        setContent()
+
+        composeRule.onNodeWithTag("settings-location").performScrollTo().performClick()
+        composeRule.onNodeWithTag("location-CHOSEN_FOLDER")
+            .assert(hasText("Choose a folder…"))
+            .assert(hasText("A folder you pick, on the phone or a memory card."))
+            .assertIsNotSelected()
+            .performClick()
+
+        composeRule.onAllNodesWithTag("location-dialog").assertCountEquals(0)
+        assertEquals(1, folderPickerOpened)
+        // A cancelled picker sends nothing, so the old choice stays.
+        assertEquals(emptyList<SettingsAction>(), actions)
+        composeRule.onNodeWithTag("settings-location").assert(hasText("Download/YFT"))
+    }
+
+    @Test
+    fun `the chosen folder is shown by its name, and said when it can't be used`() {
+        val chosen = DownloadPreferences(
+            location = DownloadLocation.CHOSEN_FOLDER,
+            folder = SaveFolder("content://example/tree/primary%3AMovies", "Movies"),
+        )
+        setContent(state = SettingsUiState(download = chosen, folderUsable = true))
+
+        composeRule.onNodeWithTag("settings-location").performScrollTo()
+            .assert(hasText("Movies"))
+        composeRule.onAllNodesWithText("Not available now.", substring = true)
+            .assertCountEquals(0)
+        composeRule.onNodeWithTag("settings-location").performClick()
+        composeRule.onNodeWithTag("location-CHOSEN_FOLDER")
+            .assertIsSelected()
+            .assert(hasText("Now Movies. Tap to choose another folder."))
+            .performClick()
+        assertEquals(1, folderPickerOpened)
+
+        shown.value = SettingsUiState(download = chosen, folderUsable = false)
+
+        composeRule.onNodeWithTag("settings-location")
+            .assert(hasText("Movies"))
+            .assert(hasText("Not available now. New downloads go to Download/YFT."))
+    }
+
+    @Test
+    fun `older releases keep a chosen folder, whose default is app storage`() {
+        val chosen = DownloadPreferences(
+            location = DownloadLocation.CHOSEN_FOLDER,
+            folder = SaveFolder("content://example/tree/primary%3AMovies", "Movies"),
+        )
+        setContent(
+            state = SettingsUiState(download = chosen, folderUsable = false),
+            sharedDownloadsSupported = false,
+        )
+
+        composeRule.onNodeWithTag("settings-location").performScrollTo()
+            .assert(hasText("Movies"))
+            .assert(hasText("Not available now. New downloads go to app storage."))
     }
 
     @Test
@@ -339,6 +402,7 @@ class SettingsScreenTest {
                         versionName = "9.8.7",
                         onOpenAbout = { aboutOpened++ },
                         onOpenLicenses = { licensesOpened++ },
+                        onChooseFolder = { folderPickerOpened++ },
                     )
                 }
             }

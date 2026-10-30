@@ -19,6 +19,24 @@ enum class DownloadLocation {
 
     /** Storage only YFT can read; removed when the app is uninstalled. */
     APP_STORAGE,
+
+    /**
+     * v1.0.2 item 28: the folder picked through Android's folder picker
+     * ([DownloadPreferences.folder]), on every Android version YFT supports. A folder that can no
+     * longer be used gives way to [SHARED_DOWNLOADS] (app storage before Android 10).
+     */
+    CHOSEN_FOLDER,
+}
+
+/**
+ * v1.0.2 item 28: a folder picked through Android's folder picker: its document tree
+ * ([treeUri], a `content://` address YFT keeps read and write access to) and its [name].
+ */
+data class SaveFolder(
+    val treeUri: String,
+    val name: String,
+) {
+    override fun toString(): String = "SaveFolder(name=$name)"
 }
 
 data class DownloadPreferences(
@@ -29,6 +47,11 @@ data class DownloadPreferences(
     val maxConcurrentDownloads: Int = DEFAULT_CONCURRENT_DOWNLOADS,
     /** Ask before starting a download on a metered network such as mobile data. */
     val confirmOnMeteredNetwork: Boolean = true,
+    /**
+     * v1.0.2 item 28: the folder picked last; [DownloadLocation.CHOSEN_FOLDER] saves there and the
+     * Library lists it. Another location leaves it here, as YFT keeps its access to the folder.
+     */
+    val folder: SaveFolder? = null,
 ) {
     init {
         require(maxConcurrentDownloads in CONCURRENT_DOWNLOAD_RANGE)

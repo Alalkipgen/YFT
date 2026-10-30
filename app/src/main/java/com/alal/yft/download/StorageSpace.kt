@@ -20,12 +20,14 @@ fun interface StorageSpace {
 /**
  * Measures the volumes a download touches. Streaming transfers stage their segments in app
  * storage even when the result goes to the shared Downloads folder, so the smaller of the two
- * volumes decides; on most devices both are the same data partition.
+ * volumes decides; on most devices both are the same data partition. A chosen folder (v1.0.2
+ * item 28) may be on a memory card or in a cloud app, which cannot be measured.
  */
 class StatFsStorageSpace(
     private val context: Context,
 ) : StorageSpace {
     override fun availableBytes(location: DownloadLocation): Long? {
+        if (location == DownloadLocation.CHOSEN_FOLDER) return null
         val volumes = buildList<File> {
             add(context.noBackupFilesDir)
             if (

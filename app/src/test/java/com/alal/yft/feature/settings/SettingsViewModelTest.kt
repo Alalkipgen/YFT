@@ -6,9 +6,12 @@ import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
+import com.alal.yft.core.model.settings.SaveFolder
 import com.alal.yft.core.model.settings.SearchEngine
 import com.alal.yft.detection.master.BackupFinder
 import com.alal.yft.detection.master.VkTrialBreak
+import com.alal.yft.download.FolderEntry
+import com.alal.yft.download.SaveFolders
 import com.alal.yft.feature.browser.FakeBrowserHistoryRepository
 import com.alal.yft.feature.browser.FakeBrowserPreferencesRepository
 import com.alal.yft.testing.MainDispatcherRule
@@ -251,12 +254,117 @@ class SettingsViewModelTest {
         assertNull(subscribed().uiState.value.vkBreak)
     }
 
-    private fun TestScope.subscribed(): SettingsViewModel {
-        val viewModel =
-            SettingsViewModel(preferences, cleaner, history, settings, browser, browserHistory)
+    @Test
+    fun `a picked folder becomes where new downloads go`() = runTest {
+        val folders = FakeFolders()
+        val viewModel = subscribed(folders)
+
+        viewModel.onAction(SettingsAction.SetFolder(MOVIES))
+        runCurrent()
+
+        assertEquals(listOf(MOVIES), folders.taken)
+        assertEquals(DownloadLocation.CHOSEN_FOLDER, preferences.state.value.location)
+        assertEquals(SaveFolder(MOVIES, "Movies"), preferences.state.value.folder)
+        assertEquals(SaveFolder(MOVIES, "Movies"), viewModel.uiState.value.download.folder)
+        assertEquals(true, viewModel.uiState.value.folderUsable)
+        assertNull(viewModel.uiState.value.message)
+    }
+
+    @Test
+    fun `a folder YFT can't save files in keeps the old choice and says so`() = runTest {
+        preferences.state.value = DownloadPreferences(location = DownloadLocation.APP_STORAGE)
+        val folders = FakeFolders().apply { refuse = true }
+        val viewModel = subscribed(folders)
+
+        viewModel.onAction(SettingsAction.SetFolder(MOVIES))
+        runCurrent()
+
+        assertEquals(
+            DownloadPreferences(location = DownloadLocation.APP_STORAGE),
+            preferences.state.value,
+        )
+        assertEquals(
+            "YFT can't save files in that folder. Choose another one.",
+            viewModel.uiState.value.message,
+        )
+    }
+
+    @Test
+    fun `a phone without a folder picker says so and keeps the old choice`() = runTest {
+        val viewModel = subscribed(FakeFolders())
+
+        viewModel.onAction(SettingsAction.NoFolderPicker)
+        runCurrent()
+
+        assertEquals(DownloadPreferences(), preferences.state.value)
+        assertEquals("This phone has no folder picker.", viewModel.uiState.value.message)
+    }
+
+    @Test
+    fun `a chosen folder that can't be used now is shown so, and checked again on return`() =
+        runTest {
+            preferences.state.value = DownloadPreferences(
+                location = DownloadLocation.CHOSEN_FOLDER,
+                folder = SaveFolder(MOVIES, "Movies"),
+            )
+            val folders = FakeFolders().apply { usable = false }
+            val viewModel = subscribed(folders)
+
+            assertEquals(false, viewModel.uiState.value.folderUsable)
+
+            folders.usable = true
+            viewModel.onAction(SettingsAction.CheckFolder)
+            runCurrent()
+
+            assertEquals(true, viewModel.uiState.value.folderUsable)
+            assertEquals(2, folders.checks)
+        }
+
+    @Test
+    fun `without a chosen folder nothing is checked`() = runTest {
+        val folders = FakeFolders()
+        val viewModel = subscribed(folders)
+
+        viewModel.onAction(SettingsAction.CheckFolder)
+        runCurrent()
+
+        assertNull(viewModel.uiState.value.folderUsable)
+        assertEquals(0, folders.checks)
+    }
+
+    private fun TestScope.subscribed(folders: SaveFolders = SaveFolders.None): SettingsViewModel {
+        val viewModel = SettingsViewModel(
+            preferences,
+            cleaner,
+            history,
+            settings,
+            browser,
+            browserHistory,
+            saveFolders = folders,
+        )
         backgroundScope.launch { viewModel.uiState.collect {} }
         runCurrent()
         return viewModel
+    }
+
+    /** v1.0.2 item 28: the folder picker's folders, without Android. */
+    private class FakeFolders : SaveFolders {
+        val taken = mutableListOf<String>()
+        var refuse = false
+        var usable = true
+        var checks = 0
+
+        override fun take(treeUri: String): SaveFolder? {
+            taken += treeUri
+            return if (refuse) null else SaveFolder(treeUri, treeUri.substringAfterLast("%3A"))
+        }
+
+        override fun usable(folder: SaveFolder): Boolean {
+            checks += 1
+            return usable
+        }
+
+        override fun entries(folder: SaveFolder): List<FolderEntry> = emptyList()
     }
 
     private class FakeSettings : SettingsRepository {
@@ -300,5 +408,9 @@ class SettingsViewModelTest {
             count.value = 0
             return removed
         }
+    }
+
+    private companion object {
+        const val MOVIES = "content://com.android.externalstorage.documents/tree/primary%3AMovies"
     }
 }

@@ -61,6 +61,24 @@ class DownloadRenewalRowsTest {
         assertEquals("MP4", metaLabel(rows.getValue("restored")))
     }
 
+    /** v1.0.2 (item 28): a row the chosen folder could not take says so, finished or not. */
+    @Test
+    fun aRowTheChosenFolderCouldNotTakeCarriesItsNotice() {
+        val state = DownloadsUiState.from(
+            listOf(
+                task("moved", DownloadTaskStatus.RUNNING),
+                task("done", DownloadTaskStatus.COMPLETED),
+                task("kept", DownloadTaskStatus.RUNNING),
+            ),
+            renewals = DownloadRenewals(folderUnavailable = setOf("moved", "done")),
+        )
+
+        val rows = state.rows.associateBy(DownloadRowUiState::id)
+        assertTrue(rows.getValue("moved").folderUnavailable)
+        assertTrue(rows.getValue("done").folderUnavailable)
+        assertFalse(rows.getValue("kept").folderUnavailable)
+    }
+
     /** v1.0.2: a row whose page, read again, had no player data is marked; Retry stays. */
     @Test
     fun aRowWhosePageReadAgainHadNoPlayerIsMarkedAndKeepsRetry() {

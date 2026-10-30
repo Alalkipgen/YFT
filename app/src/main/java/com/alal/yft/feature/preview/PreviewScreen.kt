@@ -520,10 +520,10 @@ private fun DownloadAction(
         large = true,
     )
     Text(
-        text = if (options.savesToSharedDownloads) {
-            "Saves to Download/YFT"
-        } else {
-            "Saves to app storage"
+        text = when {
+            options.folderName != null -> "Saves to ${options.folderName}"
+            options.savesToSharedDownloads -> "Saves to Download/YFT"
+            else -> "Saves to app storage"
         },
         modifier = Modifier
             .padding(top = 8.dp)
