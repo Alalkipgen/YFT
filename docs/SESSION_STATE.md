@@ -1959,8 +1959,39 @@ Keep at least the heading and one blank line between sections, so Git merges the
   left out). Emulator smoke: `ShareTargetSmokeTest` (new; Android lists YFT for shared text; a
   shared "title + link." starts the real activity, Home's lookup runs, and its box holds the
   link alone; the host is `.invalid` (RFC 6761), so no site is asked). CHANGELOG: Added.
-- Next: item 4's checkpoint through the connector and its CI; then items 5, 11, 13; the
-  backlog lines in a last docs-only commit; READY FOR PHONE TEST.
+- Item 4 pushed as `1f861096` (identical trees). Its CI: checkpoint validation 41005626930
+  (#583), emulator smoke 41005627091 (#171, with `ShareTargetSmokeTest`), Preview APK
+  41005626982 (#138), minified check 41005626935 (#29): all green.
+- Item 5 (several finished downloads at once). Checked first: no select mode in the app (no
+  long press on any list; a download card's tap opens its menu, `DownloadsScreen.kt` line 758 at
+  `1f861096`). The Library's tile menu has its own Delete (`LibraryScreen.kt` line 341, its
+  question lines 625–655, P42's deleter through `LibraryRepository.delete`), as the owner said:
+  left as it is. Now a long press on a finished download starts select mode (`YftCard` got
+  `onLongClick` and `selected`: a 2dp border in the link colour): taps pick or drop finished
+  downloads, a check mark stands where Play was, running and other unfinished rows are neither
+  picked nor opened (their long press opens their menu, as a tap does), and Back, Cancel (✕) or
+  another filter leaves. A bar above the list (it stays while the list scrolls): "3 selected",
+  Select all (the finished downloads the filter shows), **Remove from list** (no question, as
+  for one row; the files stay) and **Delete file** ("Delete files" for more than one): P42's
+  question once, with the count: "Delete 3 files?" — "These 3 files will be removed from
+  Download/YFT and from this list. This can't be undone." (one file keeps "Delete this file?"
+  with its name); Cancel keeps the picks. The view model deletes the files one after another
+  with P42's deleter, each row after its file; Android's "Allow YFT to delete?" for a file YFT
+  no longer owns holds the others until it is answered (a refusal keeps that file, the others
+  still go); the snackbar: "3 files deleted", "2 files deleted; 1 file could not be deleted",
+  "Could not delete 2 files" (one file keeps "File deleted" / "Could not delete the file").
+  The Library: no select mode there — its grid's tiles, its view model and its delete are its
+  own, so none of this code serves it; it would be new code, not a reuse.
+  Tests: `DownloadsSelectModeTest` (new, 6: a long press picks, taps pick more or drop, the check
+  mark instead of Play; a running row neither picked nor opened in select mode, its long press
+  starts none; Select all, Back and Cancel; Remove from list hands over the picks in order; one
+  question for two, Cancel keeps the picks, Delete ends select mode; another filter ends it),
+  `DownloadsViewModelDeleteFileTest` (+6: one question with the count, only finished ones, each
+  file then its row; a file that stays; Android's request holds the others, allowed and
+  refused; Remove from list keeps the files and skips a paused row; the messages). CHANGELOG:
+  Added.
+- Next: item 5's checkpoint through the connector and its CI; then items 11, 13; the backlog
+  lines in a last docs-only commit; READY FOR PHONE TEST.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 

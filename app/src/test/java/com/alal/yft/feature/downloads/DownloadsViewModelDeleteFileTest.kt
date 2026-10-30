@@ -179,6 +179,136 @@ class DownloadsViewModelDeleteFileTest {
         assertEquals(1, store.tasks.size)
     }
 
+    /** Item 5 (v1.0.2): select mode's Delete file asks once and deletes each picked file. */
+    @Test
+    fun pickedDownloadsGetOneQuestionWithTheCountThenEachFileGoes() = runTest {
+        val store = Store(
+            listOf(
+                completed("a"),
+                completed("b"),
+                completed("r").copy(status = DownloadTaskStatus.PAUSED),
+            ),
+        )
+        val deleter = FakeDeleter(FileDeletion.Deleted)
+        val viewModel = DownloadsViewModel(queue(store), deleter)
+        val messages = messagesOf(viewModel)
+        runCurrent()
+
+        viewModel.onDeleteFiles(listOf("b", "r", "a"))
+        runCurrent()
+
+        val question = viewModel.deleteFileQuestion.value
+        assertEquals(DeleteFileQuestion(listOf("b", "a"), "b.mp4"), question)
+        assertEquals(2, question?.count)
+        assertTrue("nothing is deleted before Delete", deleter.files.isEmpty())
+
+        viewModel.confirmDeleteFile()
+        runCurrent()
+
+        assertEquals(listOf("b.mp4", "a.mp4"), deleter.files.map { it.displayName })
+        assertEquals(listOf("r"), store.tasks.keys.toList())
+        assertEquals(listOf("2 files deleted"), messages)
+    }
+
+    @Test
+    fun aPickedFileThatStaysKeepsItsRowAndTheMessageCountsIt() = runTest {
+        val store = Store(listOf(completed("a"), completed("b")))
+        val deleter = FakeDeleter(FileDeletion.Failed, FileDeletion.Deleted)
+        val viewModel = DownloadsViewModel(queue(store), deleter, asksBeforeDeletingFile = false)
+        val messages = messagesOf(viewModel)
+        runCurrent()
+
+        viewModel.onDeleteFiles(listOf("a", "b"))
+        runCurrent()
+
+        assertEquals(listOf("a"), store.tasks.keys.toList())
+        assertEquals(listOf("1 file deleted; 1 file could not be deleted"), messages)
+    }
+
+    @Test
+    fun androidsRequestForOnePickedFileHoldsTheOthersUntilAnswered() = runTest {
+        val store = Store(listOf(completed("a"), completed("b")))
+        val request = intentSender()
+        val deleter = FakeDeleter(FileDeletion.NeedsConsent(request), FileDeletion.Deleted)
+        val viewModel = DownloadsViewModel(queue(store), deleter, asksBeforeDeletingFile = false)
+        val messages = messagesOf(viewModel)
+        val requests = mutableListOf<IntentSender>()
+        backgroundScope.launch { viewModel.deleteConsentRequests.collect { requests += it } }
+        runCurrent()
+
+        viewModel.onDeleteFiles(listOf("a", "b"))
+        runCurrent()
+
+        assertEquals(listOf(request), requests)
+        assertEquals("b waits for the answer", 1, deleter.files.size)
+        assertEquals(listOf("a", "b"), store.tasks.keys.toList())
+
+        viewModel.onDeleteConsentResult(allowed = true)
+        runCurrent()
+
+        assertEquals(3, deleter.files.size)
+        assertTrue(store.tasks.isEmpty())
+        assertEquals(listOf("2 files deleted"), messages)
+    }
+
+    @Test
+    fun aRefusedRequestKeepsThatFileAndTheOthersStillGo() = runTest {
+        val store = Store(listOf(completed("a"), completed("b")))
+        val deleter = FakeDeleter(FileDeletion.NeedsConsent(intentSender()), FileDeletion.Deleted)
+        val viewModel = DownloadsViewModel(queue(store), deleter, asksBeforeDeletingFile = false)
+        val messages = messagesOf(viewModel)
+        backgroundScope.launch { viewModel.deleteConsentRequests.collect {} }
+        runCurrent()
+
+        viewModel.onDeleteFiles(listOf("a", "b"))
+        runCurrent()
+        viewModel.onDeleteConsentResult(allowed = false)
+        runCurrent()
+
+        assertEquals(listOf("a"), store.tasks.keys.toList())
+        assertEquals(listOf("1 file deleted"), messages)
+    }
+
+    @Test
+    fun removeFromListForPickedDownloadsKeepsTheirFiles() = runTest {
+        val store = Store(
+            listOf(
+                completed("a"),
+                completed("b"),
+                completed("r").copy(status = DownloadTaskStatus.PAUSED),
+            ),
+        )
+        val deleter = FakeDeleter(FileDeletion.Deleted)
+        val viewModel = DownloadsViewModel(queue(store), deleter)
+        runCurrent()
+
+        viewModel.removeFromList(listOf("a", "r"))
+        runCurrent()
+
+        assertEquals(listOf("b", "r"), store.tasks.keys.toList())
+        assertTrue(deleter.files.isEmpty())
+    }
+
+    @Test
+    fun theMessageSaysHowManyWentAndHowManyStayed() {
+        assertEquals("File deleted", filesDeletedMessage(total = 1, deleted = 1, failed = 0))
+        assertEquals(
+            "Could not delete the file",
+            filesDeletedMessage(total = 1, deleted = 0, failed = 1),
+        )
+        assertNull(filesDeletedMessage(total = 1, deleted = 0, failed = 0))
+        assertEquals("3 files deleted", filesDeletedMessage(total = 3, deleted = 3, failed = 0))
+        assertEquals(
+            "Could not delete 2 files",
+            filesDeletedMessage(total = 2, deleted = 0, failed = 2),
+        )
+        assertEquals(
+            "2 files deleted; 1 file could not be deleted",
+            filesDeletedMessage(total = 3, deleted = 2, failed = 1),
+        )
+        assertNull(filesDeletedMessage(total = 2, deleted = 0, failed = 0))
+    }
+
     private fun kotlinx.coroutines.test.TestScope.messagesOf(
         viewModel: DownloadsViewModel,
     ): List<String> {

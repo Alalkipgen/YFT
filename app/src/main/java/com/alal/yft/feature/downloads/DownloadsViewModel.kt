@@ -4,6 +4,7 @@ import android.content.IntentSender
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.alal.yft.core.download.DownloadQueue
+import com.alal.yft.core.download.StoredDownloadTask
 import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.download.BackgroundHealthStore
 import com.alal.yft.download.BackgroundSystemState
@@ -131,6 +132,9 @@ class DownloadsViewModel @Inject constructor(
     /** Android's own "Allow YFT to delete?" requests, for the screen to launch (P42). */
     val deleteConsentRequests: Flow<IntentSender> = consentRequests.receiveAsFlow()
     private var consentFor: String? = null
+
+    /** Item 5 (v1.0.2): the files "Delete file" is still deleting, or null. */
+    private var deleteRun: DeleteRun? = null
     private val mutableMessages = Channel<String>(Channel.BUFFERED)
 
     /** One-off notes for the snackbar: "File deleted", "Could not delete the file". */
@@ -180,59 +184,111 @@ class DownloadsViewModel @Inject constructor(
     }
 
     /** "Delete file" on a finished download (P42): asks first while [DELETE_CONFIRM] is on. */
-    fun onDeleteFile(id: String) {
-        val task = queue.tasks.value.firstOrNull {
-            it.id == id && it.status == DownloadTaskStatus.COMPLETED
-        } ?: return
+    fun onDeleteFile(id: String) = onDeleteFiles(listOf(id))
+
+    /**
+     * Item 5 (v1.0.2): "Delete file" for the finished downloads picked in select mode; one
+     * question names the count ("Delete 3 files?"), or the file when there is one.
+     */
+    fun onDeleteFiles(ids: List<String>) {
+        val finished = finishedTasks(ids)
+        if (finished.isEmpty()) return
         if (asksBeforeDeletingFile) {
-            mutableDeleteFileQuestion.value = DeleteFileQuestion(id, task.displayName)
+            mutableDeleteFileQuestion.value =
+                DeleteFileQuestion(finished.map { it.id }, finished.first().displayName)
         } else {
-            deleteFile(id, afterConsent = false)
+            deleteFiles(finished.map { it.id })
         }
+    }
+
+    /** Item 5 (v1.0.2): "Remove from list" for the picked downloads; their files stay. */
+    fun removeFromList(ids: List<String>) {
+        val finished = finishedTasks(ids)
+        viewModelScope.launch { finished.forEach { queue.deleteRecord(it.id) } }
     }
 
     fun confirmDeleteFile() {
         val question = mutableDeleteFileQuestion.value ?: return
         mutableDeleteFileQuestion.value = null
-        deleteFile(question.id, afterConsent = false)
+        deleteFiles(question.ids)
     }
 
     fun cancelDeleteFile() {
         mutableDeleteFileQuestion.value = null
     }
 
-    /** The answer to Android's request: once allowed, the file is deleted again. */
+    /**
+     * The answer to Android's request: once allowed, the file is deleted again; either way the
+     * other picked files follow.
+     */
     fun onDeleteConsentResult(allowed: Boolean) {
         val id = consentFor ?: return
         consentFor = null
-        if (allowed) deleteFile(id, afterConsent = true)
+        val run = deleteRun ?: return
+        viewModelScope.launch {
+            if (allowed) {
+                when (deleteOne(id)) {
+                    FileDeletion.Deleted -> run.deleted++
+                    null -> Unit
+                    else -> run.failed++
+                }
+            }
+            continueDeleting(run)
+        }
     }
 
-    /** Deletes the file, then the row; a file that stays keeps its row. */
-    private fun deleteFile(id: String, afterConsent: Boolean) {
-        viewModelScope.launch {
-            val task = queue.tasks.value.firstOrNull { it.id == id } ?: return@launch
-            val file = SavedDownloadFile(
-                kind = task.destinationKind,
-                uri = task.destinationUri,
-                displayName = task.displayName,
-            )
-            when (val result = fileDeleter.delete(file)) {
-                FileDeletion.Deleted -> {
-                    queue.deleteRecord(id)
-                    mutableMessages.send(FILE_DELETED)
-                }
+    private fun finishedTasks(ids: List<String>): List<StoredDownloadTask> {
+        val tasks = queue.tasks.value.associateBy { it.id }
+        return ids.distinct().mapNotNull { id ->
+            tasks[id]?.takeIf { it.status == DownloadTaskStatus.COMPLETED }
+        }
+    }
 
-                is FileDeletion.NeedsConsent -> if (afterConsent) {
-                    mutableMessages.send(FILE_NOT_DELETED)
-                } else {
+    /** Deletes the files one after another (item 5); a file that stays keeps its row. */
+    private fun deleteFiles(ids: List<String>) {
+        val running = deleteRun
+        if (running != null) {
+            val added = ids.filterNot { it in running.left }
+            added.forEach(running.left::addLast)
+            running.total += added.size
+            return
+        }
+        val run = DeleteRun(ids)
+        deleteRun = run
+        viewModelScope.launch { continueDeleting(run) }
+    }
+
+    private suspend fun continueDeleting(run: DeleteRun) {
+        while (true) {
+            val id = run.left.removeFirstOrNull() ?: break
+            when (val result = deleteOne(id)) {
+                FileDeletion.Deleted -> run.deleted++
+                FileDeletion.Failed -> run.failed++
+                is FileDeletion.NeedsConsent -> {
+                    // Android asks first; the rest waits for the answer.
                     consentFor = id
                     consentRequests.send(result.request)
+                    return
                 }
 
-                FileDeletion.Failed -> mutableMessages.send(FILE_NOT_DELETED)
+                null -> Unit
             }
         }
+        deleteRun = null
+        filesDeletedMessage(run.total, run.deleted, run.failed)?.let { mutableMessages.send(it) }
+    }
+
+    /** Deletes the file, then the row; null when the download is no longer listed. */
+    private suspend fun deleteOne(id: String): FileDeletion? {
+        val task = queue.tasks.value.firstOrNull { it.id == id } ?: return null
+        val file = SavedDownloadFile(
+            kind = task.destinationKind,
+            uri = task.destinationUri,
+            displayName = task.displayName,
+        )
+        val result = fileDeleter.delete(file)
+        if (result == FileDeletion.Deleted) queue.deleteRecord(id)
+        return result
     }
 
     /**
@@ -295,13 +351,47 @@ class DownloadsViewModel @Inject constructor(
         .catch { emit(null) }
 }
 
-/** "Delete this file?" for the finished download [id] (P42). */
-data class DeleteFileQuestion(val id: String, val fileName: String)
+/**
+ * "Delete this file?" for the finished download [id] (P42); item 5 (v1.0.2): or "Delete 3
+ * files?" for the downloads picked in select mode ([ids], [fileName] being the first one's).
+ */
+data class DeleteFileQuestion(val ids: List<String>, val fileName: String) {
+    constructor(id: String, fileName: String) : this(listOf(id), fileName)
+
+    val id: String
+        get() = ids.first()
+
+    val count: Int
+        get() = ids.size
+}
+
+/** Item 5 (v1.0.2): the picked files left to delete and how the deleted ones went. */
+private class DeleteRun(ids: List<String>) {
+    val left = ArrayDeque(ids)
+    var total = ids.size
+    var deleted = 0
+    var failed = 0
+}
 
 /** Ask before "Delete file" deletes (P42, owner default ON). */
 internal const val DELETE_CONFIRM = true
 internal const val FILE_DELETED = "File deleted"
 internal const val FILE_NOT_DELETED = "Could not delete the file"
+
+/**
+ * The snackbar after "Delete file" (item 5): one file keeps P42's words; several say how many
+ * went and how many stayed. Nothing when every file stayed because Android's request was
+ * declined.
+ */
+internal fun filesDeletedMessage(total: Int, deleted: Int, failed: Int): String? = when {
+    deleted == 0 && failed == 0 -> null
+    total == 1 -> if (deleted == 1) FILE_DELETED else FILE_NOT_DELETED
+    failed == 0 -> "${files(deleted)} deleted"
+    deleted == 0 -> "Could not delete ${files(failed)}"
+    else -> "${files(deleted)} deleted; ${files(failed)} could not be deleted"
+}
+
+private fun files(count: Int): String = if (count == 1) "1 file" else "$count files"
 
 /** Item 7 Track B3: what "Reset YouTube session" did, for the snackbar. */
 internal fun youTubeResetMessage(result: YouTubeSessionResetResult): String =

@@ -1,7 +1,9 @@
 package com.alal.yft.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,16 +35,27 @@ import com.alal.yft.ui.theme.YftShapes
 import com.alal.yft.ui.theme.YftTheme
 
 /** White (Night card) surface with a 1dp border and no shadow, the YFT card. */
+@OptIn(ExperimentalFoundationApi::class) // combinedClickable, for onLongClick (item 5)
 @Composable
 fun YftCard(
     modifier: Modifier = Modifier,
     shape: Shape = YftShapes.card,
     onClick: (() -> Unit)? = null,
     contentPadding: PaddingValues = PaddingValues(16.dp),
+    /** Item 5 (v1.0.2): a long press, for example to start selecting; needs [onClick]. */
+    onLongClick: (() -> Unit)? = null,
+    /** What the long press does, for accessibility services ("Select"). */
+    onLongClickLabel: String? = null,
+    /** Item 5 (v1.0.2): a selected card has a 2dp border in the link colour. */
+    selected: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = YftTheme.colors
-    val border = BorderStroke(1.dp, colors.border)
+    val border = if (selected) {
+        BorderStroke(2.dp, colors.link)
+    } else {
+        BorderStroke(1.dp, colors.border)
+    }
     val body: @Composable () -> Unit = {
         Column(modifier = Modifier.padding(contentPadding), content = content)
     }
@@ -55,10 +68,25 @@ fun YftCard(
             border = border,
             content = body,
         )
-    } else {
+    } else if (onLongClick == null) {
         Surface(
             onClick = onClick,
             modifier = modifier,
+            shape = shape,
+            color = colors.card,
+            contentColor = colors.textPrimary,
+            border = border,
+            content = body,
+        )
+    } else {
+        Surface(
+            modifier = modifier
+                .clip(shape)
+                .combinedClickable(
+                    onLongClickLabel = onLongClickLabel,
+                    onLongClick = onLongClick,
+                    onClick = onClick,
+                ),
             shape = shape,
             color = colors.card,
             contentColor = colors.textPrimary,

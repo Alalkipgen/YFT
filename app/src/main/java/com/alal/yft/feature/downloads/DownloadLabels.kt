@@ -52,6 +52,24 @@ internal fun deleteFileQuestionText(fileName: String): String =
     "\u201c$fileName\u201d will be removed from Download/YFT and from this list. " +
         "This can't be undone."
 
+/** Item 5 (v1.0.2): "Delete 3 files?" for the downloads picked in select mode. */
+internal fun deleteFilesTitle(count: Int): String =
+    if (count == 1) DELETE_FILE_TITLE else "Delete $count files?"
+
+internal fun deleteFilesQuestionText(count: Int): String =
+    "These $count files will be removed from Download/YFT and from this list. " +
+        "This can't be undone."
+
+/** Item 5 (v1.0.2): select mode, started with a long press on a finished download. */
+internal const val SELECT_LABEL = "Select"
+internal const val SELECT_ALL_LABEL = "Select all"
+
+internal fun selectedCountLabel(count: Int): String = "$count selected"
+
+/** The select bar's "Delete file" ("Delete files" for more than one). */
+internal fun deleteFilesLabel(count: Int): String =
+    if (count == 1) DELETE_FILE_LABEL else "Delete files"
+
 /** Visible button text. */
 internal fun actionLabel(action: DownloadAction): String = when (action) {
     DownloadAction.PAUSE -> "Pause"

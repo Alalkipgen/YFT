@@ -31,6 +31,9 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
 - YFT in Android's **Share** menu: a link shared from another app (YouTube, Facebook, TikTok, a
   browser…) is looked up on Home as a pasted link, so its download sheet opens; nothing
   downloads until you pick. Shared text without a link says **No link in the shared text**.
+- **Downloads**: hold a finished download to select it, tap more (or **Select all**), then
+  **Remove from list** or **Delete file** for all of them at once, with one question
+  (**Delete 3 files?**); **Cancel** or Back leaves.
 
 ### Changed
 
