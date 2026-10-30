@@ -1379,7 +1379,8 @@ Other items:
 - Delete several finished downloads at once (select mode) — done in v1.0.2 (`a22d8442`), and
   delete a file from the Library's own menu with the same dialog.
 - AV1 merges: off since P4 (the API 34 emulator's muxer failed), so Facebook's AV1-only sizes and
-  YouTube's AV1-only 2K/4K stay hidden until an AV1 merge is proven on a phone.
+  YouTube's AV1-only 2K/4K stay hidden until an AV1 merge is proven on a phone — test switch in
+  v1.0.2 (`26ccd4c0`); the release unchanged.
 - YouTube: use the page player's own proof-of-origin token from the browser (ADR-006, not done);
   SABR streaming is not planned.
 - Android 9 and older save through the legacy public folder; P20's instrumented test covers the
@@ -1388,7 +1389,8 @@ Other items:
   age-limited and sensitive posts (they need the user's X sign-in); Instagram stories and
   highlights; the preview of an HLS quality with sound apart plays without sound (P50) — done in
   v1.0.2 (`c0923b46`).
-- Background playback in the Library; saving to a folder chosen with the system picker.
+- Background playback in the Library; saving to a folder chosen with the system picker — done in
+  v1.0.2 (`9d1dcb3c`: the folder only).
 - One shared ad list for media detection and pop-ups/redirects (P43's `AdHosts.kt` and P32's
   list), updated from one place.
 - A private tab (no history, no cookies kept) and a per-site "allow pop-ups" list.

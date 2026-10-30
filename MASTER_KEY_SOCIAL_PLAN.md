@@ -1512,7 +1512,8 @@ code (task 18 the engine: L3, the gate, the contract's open read), so S5 counts 
 task 18's code commit (`ac0dd2c`), from its run 1 after the re-drill (2026-10-23, §7.4); a change
 to a site's pack, the engine or main restarts that site's count (decision 26).
 
-**After the release** (each on the owner's go): S1b, X2, the "all items" feature, B+ (S6), A.
+**After the release** (each on the owner's go): S1b, X2, the "all items" feature — done in v1.0.2
+(`bf515f01`) —, B+ (S6), A.
 
 **Not done:** X's reason for the age-limited and removed posts changed; `LookupAsk.endpoint` or a
 YouTube file edited; a shape hash in a judge; yt-dlp on public CI; IDs, links or names in docs,
@@ -2185,7 +2186,7 @@ phone T2 runs when T1 cools or the budget is spent) and T1 with YFT's browser co
   F1 shows a language-independent unavailable signal): after the release, only with evidence.
 - A private reel's message to the user: today the `RESPONSE_CHANGED` wording ("the page could not
   be read … try again") misleads; only the message would change, not the reason; decided after
-  S1a's phone proof, by what the user sees.
+  S1a's phone proof, by what the user sees — done in v1.0.2 (`562067e9`).
 
 ### 7.5 W's runbook (task 8, S3)
 

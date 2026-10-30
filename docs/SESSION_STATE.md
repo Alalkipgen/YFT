@@ -952,7 +952,8 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - Backlog: a ZWJ or ZWNJ inside a word (some Indic and Persian spellings) still becomes a space,
   as the rule says (everything else a space); Thai ำ and Lao ຳ (letters, not marks) can be cut
   from their consonant at the very end of a long title; Zawgyi text is kept as typed, not
-  converted; `DirectRangeProbe` keeps its own unsafe-character rule (only its cut changed).
+  converted — done in v1.0.2 (`8a24ad7d`); `DirectRangeProbe` keeps its own unsafe-character rule
+  (only its cut changed).
 
 ### D4 — Instagram and X icons beside the other sites'
 
@@ -2541,8 +2542,35 @@ Keep at least the heading and one blank line between sections, so Git merges the
     `OpenSourceNoticesTest` (+1). Local totals: BUILD SUCCESSFUL, 3871 tests, 0 failures — app
     1535 (66 skipped), the rest as item 5b's; lint clean.
   - CHANGELOG `[1.0.2]`: one line under Added.
-- Next: item 25's CI (checkpoint validation, emulator smoke, Preview APK, minified check), then
-  the docs commit and the READY FOR PHONE TEST report.
+- The sandbox was reset again during item 25, before its commit: the clone, JDK 17, the Android
+  SDK, NDK and CMake were set up again, and item 25's files were rebuilt and checked against the
+  copy kept before the reset (the same new files, byte for byte; the same diff). Its checkpoint
+  ran the unit tests again here: BUILD SUCCESSFUL, 3871 tests, 0 failures, 68 skipped.
+- Item 25's CI (commit `8a24ad7d`), item 25's record: checkpoint validation 41106177386 (#594)
+  success, emulator smoke 41106177222 (#182) success ("Instrumentation results: tests=71
+  failures=0 errors=0 skipped=6", "Emulator logcat FATAL EXCEPTION count: 0"), Preview APK
+  41106177311 (#149) success, minified check 41106177344 (#40) success. #149's artifacts (zip):
+  `yft-preview-apk` 5,225,065 bytes and `yft-preview-trial-apk` 5,226,833 bytes (#148's: 5,193,462
+  and 5,194,828; +31,603 and +32,005), kept until 2026-11-29.
+- Item 70b's CI (commit `562067e9`), item 70b's record, all green: checkpoint validation
+  41053861637 (#590), emulator smoke 41053861463 (#178; "Instrumentation results: tests=66
+  failures=0 errors=0 skipped=6", "Emulator logcat FATAL EXCEPTION count: 0"), Preview APK
+  41053861799 (#145), minified check 41053861582 (#36). #178 is also item 51's emulator record
+  (#177 failed outside the code, as above). Item 28's runs (`9d2e1023`'s, its record) and item
+  5b's (`9dea8cf4`'s) are above.
+- Done (docs only): each Part 3 item's backlog line marked with its commit. FIX_ADD_PLAN §7: 26
+  (the AV1 merges line: "test switch in v1.0.2 (`26ccd4c0`); the release unchanged") and 28
+  (`9d1dcb3c`: the folder only; the same line's background playback in the Library is not
+  done); the social plan (`MASTER_KEY_SOCIAL_PLAN.md`): "After the release"'s "all items"
+  feature, 51 (`bf515f01`), and "Parked"'s private reel's message, 70 and 70b (`562067e9`); this
+  file: D3's Backlog line's Zawgyi, 25 (`8a24ad7d`). Not marked: 59 and 5b have no backlog line
+  in these places (59's `SegmentBase` is named in the CHANGELOG's older Known issues, left as it
+  is, and in VK's V3 diagnosis, not a backlog line; the Library's missing select mode is in Part
+  2's item 5 entry, not a backlog line). A docs-only push starts no workflow, so item 25's runs
+  are the record and its Preview APK (#149) is the phone test's APK.
+- Next: the owner's phone test of Parts 1, 2 and 3 together (Preview APK #149), then S5 (VK:
+  items 10, 19 and 11; TikTok: items 15 and 18; Instagram and X: item 51, which also covers 70b)
+  on a census APK of the final code; no PR before it.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
