@@ -2424,8 +2424,30 @@ Keep at least the heading and one blank line between sections, so Git merges the
     chosen place (a file saved there earlier still opens from Downloads); the row's notice lasts
     for the app session.
   - CHANGELOG `[1.0.2]`: one line under Added.
-- Next: item 28's CI (checkpoint validation, emulator smoke, Preview APK, minified check), then
-  item 5b; then the docs commit and the READY FOR PHONE TEST report.
+- Item 28's CI (commit `9d1dcb3c`): checkpoint validation 41079550634 (#591) success, Preview
+  APK 41079550664 (#146) success, minified check 41079550412 (#37) success; emulator smoke
+  41079550311 (#179) **failure**, in item 28's own emulator test. Its annotations:
+  "Instrumentation results: tests=24 failures=1 errors=0 skipped=0", "Instrumentation failure
+  com.alal.yft.download.ChosenFolderInstrumentedTest.aFolderWhoseAccessIsGoneSendsTheDownloadToDownloadYftWithTheNotice:",
+  "Emulator logcat FATAL EXCEPTION count: 1" and the three missing screenshots. The job's log
+  (the owner sent it): "Tests 24/71 completed. (0 skipped) (1 failed)", "Test run failed to
+  complete. Instrumentation run failed due to Process crashed.", "Process:
+  com.alal.yft.debug.test", "java.lang.NoClassDefFoundError: Failed resolution of:
+  Lkotlin/jvm/internal/Intrinsics;", "at
+  com.alal.yft.download.TestTreeAccessProvider.call(Unknown Source:2)", "Caused by:
+  java.lang.ClassNotFoundException: Didn't find class "kotlin.jvm.internal.Intrinsics" on path:
+  DexPathList[[zip file "/data/app/…/com.alal.yft.debug.test-…/base.apk"]…". That test is its
+  class's first in JUnit's order, after the 23 tests of the classes before it, so the first call
+  into the test APK's providers stopped the test APK's own process, and with it the run. Why:
+  that process loads the test APK alone, and the test APK leaves out the libraries the app
+  already has (the test APK built here has no `kotlin/` class), so Kotlin cannot run there.
+- Item 28's fix (this commit; the emulator test only, no app change, no CHANGELOG line): the two
+  test providers are Java with Android's own classes only (`TestTreeProvider.java`,
+  `TestTreeAccessProvider.java`), doing the same as before; in the test APK built here they refer
+  to no class outside Android and Java. This commit's four runs are item 28's record.
+- Next: the item 28 fix's CI (checkpoint validation, emulator smoke, Preview APK, minified
+  check), then item 5b, then item 25 (Zawgyi titles); then the docs commit and the READY FOR
+  PHONE TEST report.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
