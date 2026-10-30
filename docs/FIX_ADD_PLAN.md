@@ -1375,9 +1375,9 @@ Other items:
 - Open the Downloads tab from the notification (needs `MainActivity` and navigation) — done in
   v1.0.2 (`68105531`).
 - Share target: open links shared from other apps (Android share sheet) in Home's lookup, so
-  they open the download sheet like a pasted link.
-- Delete several finished downloads at once (select mode), and delete a file from the Library's
-  own menu with the same dialog.
+  they open the download sheet like a pasted link — done in v1.0.2 (`1f861096`).
+- Delete several finished downloads at once (select mode) — done in v1.0.2 (`a22d8442`), and
+  delete a file from the Library's own menu with the same dialog.
 - AV1 merges: off since P4 (the API 34 emulator's muxer failed), so Facebook's AV1-only sizes and
   YouTube's AV1-only 2K/4K stay hidden until an AV1 merge is proven on a phone.
 - YouTube: use the page player's own proof-of-origin token from the browser (ADR-006, not done);
@@ -1386,7 +1386,8 @@ Other items:
   API 34 MediaStore path only.
 - Instagram and X adapters: done by P48 and P49. Not done: X's internal API for protected,
   age-limited and sensitive posts (they need the user's X sign-in); Instagram stories and
-  highlights; the preview of an HLS quality with sound apart plays without sound (P50).
+  highlights; the preview of an HLS quality with sound apart plays without sound (P50) — done in
+  v1.0.2 (`c0923b46`).
 - Background playback in the Library; saving to a folder chosen with the system picker.
 - One shared ad list for media detection and pop-ups/redirects (P43's `AdHosts.kt` and P32's
   list), updated from one place.

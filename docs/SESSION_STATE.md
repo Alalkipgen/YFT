@@ -2067,8 +2067,22 @@ Keep at least the heading and one blank line between sections, so Git merges the
   alone: none), `HomeViewModelTest` (+1: the lines go with the found video, View keeps them, a
   find without lines: none, the P16 sheet's first video too). Local: these classes and
   `BrowserMasterFlowTest`, `BackupFinderTest` green. CHANGELOG: Changed.
-- Next: item 13's checkpoint through the connector and its CI; the backlog lines in a last
-  docs-only commit; READY FOR PHONE TEST.
+- Item 13 pushed as `501f8143` (identical trees). Its CI: checkpoint validation 41013896197
+  (#586), emulator smoke 41013896187 (#174), Preview APK 41013896183 (#141; artifacts
+  `yft-preview-apk` 12959470599 and `yft-preview-trial-apk` 12959420669), minified check
+  41013896184 (#32): all green.
+- Done (docs only): each item's backlog line marked "done in v1.0.2" with its commit. FIX_ADD_PLAN
+  §7: 4 (`1f861096`), 5 (`a22d8442`: its select mode only; the same line's Delete in the Library's
+  own menu is P42's, already in the code) and 17 (a) (`c0923b46`); IN_APP_UPDATE_PLAN §10: 7
+  (`4d2b2615`); this file: 13 (`501f8143`, agent D's line) and 11 (`abb75c26`, the pack proof's
+  line on the page data). Not marked: the pack proof's "VK's manifest gives one row (its tallest
+  quality)": that is VK's DASH manifest (`VkPageDash`, still one row), not the page data item 11
+  changed. TRACK_E_PLAN §9 has none of these items; 17 (b) and 50 have no backlog line in these
+  places. A docs-only push starts no workflow (checkpoint validation ignores `docs/**` and
+  `*.md`), so item 13's runs are the record and its Preview APK (#141) is the phone test's APK.
+- Next: the owner's phone test of Part 1 and Part 2 together (Preview APK #141), then S5 (VK:
+  items 10, 19 and 11; TikTok: items 15 and 18) on a census APK of the final code; no PR before
+  it.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
@@ -2221,7 +2235,7 @@ Keep at least the heading and one blank line between sections, so Git merges the
   Made-up lines only. Local: `:app:testDebugUnitTest` green.
 - Backlog: not on Home's paste-a-link sheet (its own lookup), under a format's failure after a
   success (that failure's own Details), after the player-file fallback, or for Master on demand
-  on a generic page (its rows carry no lines today).
+  on a generic page (its rows carry no lines today) — done in v1.0.2 (`501f8143`).
 - Commits: `14b2199b` (step 1: checkpoint validation and emulator smoke green; its Preview APK
   and minified runs cancelled by step 2's) and `ef680866` (step 2). CI on `ef680866`, all green:
   checkpoint validation 40229995920, emulator smoke 40229995926, Preview APK 40229996001 (YFT
@@ -2531,7 +2545,7 @@ Keep at least the heading and one blank line between sections, so Git merges the
   1078 × 1920 · MP4 · 37 MB` (the whole file, its sound inside); the download completed, 37 MB.
 - Backlog (not for this PASS): the page data's other qualities as rows of their own (they are
   one video's; today one row, the tallest that passes, so the sheet never shows them as "More"
-  videos without cues); VK V2 heal stays off.
+  videos without cues) — done in v1.0.2 (`abb75c26`); VK V2 heal stays off.
 - **Merged to `main`** with the owner's OK: PR #8 (`work/phase-vk-master-wire`, 39 commits, 0
   behind `main`) → `a27b2c9c` (2026-10-26 17:52 UTC; a merge commit, its tree `6d73d0d2`'s, the
   code `e401c48a`'s). The PR's checkpoint validation 40369851957: green.
