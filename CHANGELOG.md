@@ -93,6 +93,8 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   whose manifest names its files at an http address is downloaded over https only: from the same
   address at https, or from the manifest's own address; when neither answers, the download fails
   and its Details say why.
+- Home's **Your sites**: a site's name has its whole third of the row and, in large text, is drawn
+  a little smaller instead of being cut ("Faceboo…").
 - VK: a file that answers 400 after it gave bytes (VK's answer on a new network) is a dead link
   too and gets a fresh link; a 400 before any byte fails as before.
 - A download stopped at **Link expired** keeps its progress for the fresh link, and its Cancel or

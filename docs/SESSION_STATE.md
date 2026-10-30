@@ -2654,6 +2654,25 @@ Keep at least the heading and one blank line between sections, so Git merges the
     0 failures.
   - CHANGELOG `[1.0.2]`: 70b's line under Changed now names the login wall.
 
+- F2's commit: `65079282`. F1's CI (`d65ba4f7`), all green: checkpoint validation 41133515915
+  (#595), emulator smoke 41133515923 (#183, with `DashManifestInstrumentedTest`), Preview APK
+  41133515921 (#150), minified check 41133515919 (#41).
+- N1 (Home's **Your sites**: names cut, "Faceboo…" in large text). The cause: each tile, and so
+  its one-line name, was 72 dp wide (`SITE_TILE_WIDTH`) in a cell a third of the row wide (about
+  107 dp on a 360 dp screen). Done: on Home's grid a site's tile and Add fill their cell
+  (`SiteTile(fillCell = true)`; the browser's start page keeps 72 dp in its own flow row), and the
+  name is a `YftFitText` (new, `ui/components`): one line drawn smaller when it does not fit its
+  room, measured with a `TextMeasurer` (the BOM's Compose has no auto-size text), down to 75 % of
+  its size, an ellipsis only below that. At 130 % every default name fits at its own size; at
+  150 % on 360 dp "Facebook" and "Wikimedia" are drawn about 5 % smaller.
+  - Tests: `LargeFontFitTest` (new, Robolectric, 360 dp, text at 130 % and 150 %: each fix's
+    texts are shown whole: no line ellipsized, none left out, a one-line text's own width within
+    its room; with `YFT_RENDER_DIR` each case is saved as a PNG; N1: the default sites,
+    Wikimedia, Archive and Add), `HomeScreenTest` (the rows-of-three test: neighbours may touch
+    now). Local: `LargeFontFitTest` 2, `HomeScreenTest` 21, `AccessibilityAuditTest` 30,
+    `BrowserScreenTest` 31; 0 failures.
+  - CHANGELOG `[1.0.2]`: one line under Fixed.
+
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
 - Plan: `docs/TRACK_E_PLAN.md` (the owner's go, 2026-10-27, while S5's run 3 waits). Branch from

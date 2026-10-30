@@ -336,7 +336,8 @@ class HomeScreenTest {
         assertEquals(listOf(3, 3, 1), rows.map { it.size })
         rows.forEach { row ->
             assertTrue(row.all { it.top == row.first().top })
-            assertTrue(row.zipWithNext().all { (left, right) -> right.left > left.right })
+            // v1.0.2 fix N1: each tile fills its third of the row, so neighbours may touch.
+            assertTrue(row.zipWithNext().all { (left, right) -> right.left >= left.right })
             // The columns line up from row to row.
             row.forEachIndexed { column, tile -> assertEquals(rows[0][column].left, tile.left) }
         }

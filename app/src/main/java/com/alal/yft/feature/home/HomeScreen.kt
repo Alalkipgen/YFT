@@ -75,6 +75,7 @@ import com.alal.yft.thumbnail.rememberFileThumbnail
 import com.alal.yft.ui.LocalQuietRelease
 import com.alal.yft.ui.components.PromptboxStatus
 import com.alal.yft.ui.components.YftCard
+import com.alal.yft.ui.components.YftFitText
 import com.alal.yft.ui.components.YftIcon
 import com.alal.yft.ui.components.YftMediaKind
 import com.alal.yft.ui.components.YftOutlinedChip
@@ -402,6 +403,7 @@ private fun SitesSection(
                                         editing = editing,
                                         onOpen = { onOpenSite(site) },
                                         onRemove = { onAction(HomeAction.RemoveSite(site)) },
+                                        fillCell = true,
                                     )
                                 }
                             }
@@ -422,11 +424,16 @@ internal fun SiteTile(
     onOpen: () -> Unit,
     onRemove: () -> Unit,
     tag: String = "home-site-${site.url}",
+    /**
+     * v1.0.2 fix N1: as wide as its cell on Home's grid (a third of the row), so a name fits in
+     * large text; the browser's start page keeps the tile's own width.
+     */
+    fillCell: Boolean = false,
 ) {
     val colors = YftTheme.colors
     Column(
         modifier = Modifier
-            .width(SITE_TILE_WIDTH)
+            .then(if (fillCell) Modifier.fillMaxWidth() else Modifier.width(SITE_TILE_WIDTH))
             .clip(YftShapes.thumbnail)
             .clickable(
                 role = Role.Button,
@@ -497,9 +504,10 @@ internal fun SiteTile(
 @Composable
 private fun AddSiteTile(onClick: () -> Unit) {
     val colors = YftTheme.colors
+    // v1.0.2 fix N1: as wide as its cell, as the sites' tiles are.
     Column(
         modifier = Modifier
-            .width(SITE_TILE_WIDTH)
+            .fillMaxWidth()
             .clip(YftShapes.thumbnail)
             .clickable(role = Role.Button, onClick = onClick)
             .testTag("home-site-add"),
@@ -532,16 +540,15 @@ private fun AddSiteTile(onClick: () -> Unit) {
     }
 }
 
+/** v1.0.2 fix N1: a name too long for its cell in large text is drawn smaller, not cut. */
 @Composable
 private fun SiteLabel(text: String) {
-    Text(
+    YftFitText(
         text = text,
         modifier = Modifier.padding(top = 6.dp, bottom = 2.dp),
         color = YftTheme.colors.textPrimary,
         style = MaterialTheme.typography.bodyMedium,
         textAlign = TextAlign.Center,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
     )
 }
 
