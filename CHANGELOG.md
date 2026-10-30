@@ -28,6 +28,9 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   link, with its lines ("Fresh link (403 at 41.0 MB): resumed at 41.0 MB"); never an address.
 - A tap on a download notification opens the **Downloads** tab, also when YFT is already open.
 - A small **Update available** card on Home while a newer YFT is found; a tap opens **Updates**.
+- YFT in Android's **Share** menu: a link shared from another app (YouTube, Facebook, TikTok, a
+  browser…) is looked up on Home as a pasted link, so its download sheet opens; nothing
+  downloads until you pick. Shared text without a link says **No link in the shared text**.
 
 ### Changed
 

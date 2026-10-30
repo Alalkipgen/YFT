@@ -75,6 +75,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import org.robolectric.shadows.ShadowToast
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -83,6 +84,7 @@ class YftNavigationSmokeTest {
     val composeRule = createAndroidComposeRule<ComponentActivity>()
 
     private lateinit var shellNavController: NavHostController
+    private lateinit var shellHome: HomeViewModel
 
     @Test
     fun bottomBarSwitchesTabsAndShowsWhichOneIsSelected() {
@@ -491,6 +493,77 @@ class YftNavigationSmokeTest {
         assertNull(requests.requested.value)
     }
 
+    /** v1.0.2 (item 4): a link shared at a cold start opens its download sheet over Home. */
+    @Test
+    fun aSharedLinkIsLookedUpOnHomeAndOpensItsDownloadSheet() {
+        val shared = SharedLinks().apply {
+            take(share("A clip worth keeping https://a.test/copied"))
+        }
+        setShell(shared = shared)
+
+        composeRule.onNodeWithTag("modal-sheet").assertExists()
+        composeRule.onNodeWithText(YftDestination.QUICK_DOWNLOAD.summary).assertIsDisplayed()
+        assertEquals(
+            YftDestination.QUICK_DOWNLOAD.route,
+            shellNavController.currentDestination?.route,
+        )
+        // Home looked up the link alone, as a pasted one.
+        assertEquals("https://a.test/copied", shellHome.uiState.value.link)
+        assertNull(shared.shared.value)
+    }
+
+    @Test
+    fun aLinkSharedWhileYftIsOpenComesBackToHomeForItsSheet() {
+        val shared = SharedLinks()
+        setShell(shared = shared)
+
+        // From another tab.
+        composeRule.onNodeWithTag("nav-library").performClick()
+        composeRule.runOnUiThread { shared.take(share("https://a.test/copied")) }
+        composeRule.onNodeWithTag("modal-sheet").assertExists()
+        assertEquals(
+            YftDestination.QUICK_DOWNLOAD.route,
+            shellNavController.currentDestination?.route,
+        )
+
+        // From a full-screen page over a tab.
+        composeRule.runOnUiThread { shellNavController.goHome() }
+        composeRule.onNodeWithTag("nav-settings").performClick()
+        composeRule.onNodeWithTag("settings-list")
+            .performScrollToNode(hasTestTag("settings-open-about"))
+        composeRule.onNodeWithTag("settings-open-about").performClick()
+        composeRule.onNodeWithTag("about-content").assertIsDisplayed()
+        composeRule.runOnUiThread { shared.take(share("Again https://a.test/copied?2")) }
+        composeRule.onNodeWithTag("modal-sheet").assertExists()
+        assertEquals(
+            YftDestination.QUICK_DOWNLOAD.route,
+            shellNavController.currentDestination?.route,
+        )
+        assertEquals("https://a.test/copied?2", shellHome.uiState.value.link)
+        // Back from the sheet is Home, as for a pasted link.
+        composeRule.runOnUiThread { composeRule.activity.onBackPressedDispatcher.onBackPressed() }
+        composeRule.onNodeWithTag("home-list").assertIsDisplayed()
+    }
+
+    @Test
+    fun sharedTextWithoutALinkSaysSoAndStaysWhereItIs() {
+        val shared = SharedLinks()
+        setShell(shared = shared)
+        composeRule.onNodeWithTag("nav-library").performClick()
+
+        composeRule.runOnUiThread { shared.take(share("Just words, no link")) }
+        composeRule.waitForIdle()
+
+        assertEquals(SharedLinks.NO_LINK_MESSAGE, ShadowToast.getTextOfLatestToast())
+        assertEquals(YftDestination.LIBRARY.route, shellNavController.currentDestination?.route)
+        assertEquals("", shellHome.uiState.value.link)
+        assertNull(shared.shared.value)
+    }
+
+    private fun share(text: String): Intent = Intent(Intent.ACTION_SEND)
+        .setType("text/plain")
+        .putExtra(Intent.EXTRA_TEXT, text)
+
     private fun notificationTap(): Intent = TabRequests.showing(
         Intent(composeRule.activity, MainActivity::class.java),
         YftDestination.DOWNLOADS,
@@ -508,13 +581,15 @@ class YftNavigationSmokeTest {
         activeDownloads: () -> Int = { 0 },
         miniPlayer: @Composable () -> Unit = {},
         requests: TabRequests? = null,
+        shared: SharedLinks? = null,
     ) {
-        val home = homeViewModel()
+        val home = homeViewModel().also { shellHome = it }
         composeRule.setContent {
             var themeMode by remember { mutableStateOf(ThemeMode.SYSTEM) }
             YftTheme(themeMode = themeMode) {
                 val navController = rememberNavController().also { shellNavController = it }
                 requests?.let { ShowRequestedTab(navController, it) }
+                shared?.let { LookUpSharedLink(navController, it) }
                 YftAppShell(
                     navController = navController,
                     activeDownloads = activeDownloads(),

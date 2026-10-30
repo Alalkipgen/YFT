@@ -1925,9 +1925,42 @@ Keep at least the heading and one blank line between sections, so Git merges the
   Tests: `DownloadLabelsTest` (+1), `DownloadRenewalRowsTest` (+1), `DownloadSourcesTest` (+2;
   one updated: a download without an origin keeps only its quality), `MediaDetailsTest` (+1).
   CHANGELOG: Changed.
-- Next: item 50's checkpoint through the connector and its CI; then a pause (the owner,
-  2026-10-29: "after item 50, stop for a while"); items 4, 5, 11, 13 when he says; the backlog
-  lines in a last docs-only commit; READY FOR PHONE TEST.
+  Pushed as `b6deae81` (identical trees). Its CI: checkpoint validation 40976270768 (#582),
+  emulator smoke 40976270826 (#170), Preview APK 40976270594 (#137), minified check 40976270764
+  (#28): all green. Then the owner's pause; his go came on 2026-10-30. The computer had been
+  reset meanwhile: the clone (at `b6deae81`), JDK 17, the Android SDK, NDK and CMake and the
+  local Gradle home were made again as at the start, the same versions.
+- Item 4 (share target). Checked first: not in the code; `MainActivity`'s only intent filter
+  was MAIN/LAUNCHER (`AndroidManifest.xml` lines 31–34 at `b6deae81`), and `ACTION_SEND`
+  appeared only in YFT's own shares (`AboutRoute.kt` line 67, `LibraryIntents.kt` line 24).
+  Now `MainActivity` takes `ACTION_SEND` text/plain (category DEFAULT; exported already, launch
+  mode unchanged, so a share usually opens YFT over the sharing app, and Back returns there).
+  `SharedLinks` (new, next to Part 1's `TabRequests`, as it works): `MainActivity` hands it the
+  intent in `onCreate` (not when recreated) and in `onNewIntent`; only a share counts, not its
+  repeat from Recents (`FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY`); the first http(s) link in
+  `EXTRA_TEXT` by Home's Paste rule (`HomeLinks.firstWebLink`: a full stop or an unbalanced
+  bracket after it dropped, 2048 characters at most), no other scheme. `LookUpSharedLink` (in
+  `YftApp`, after `ShowRequestedTab`, before `UpdateAutoOpen`) hands the link to Home the way
+  the browser's Download of the copied link does (`lookUpOnHome`, now one function for both:
+  Home's entry gets `HOME_DOWNLOAD_LINK_KEY`, Home comes to the front), so Home's lookup runs
+  as for a pasted link (`HomeAction.UseCopied`, `submit`): a supported site's video opens its
+  download sheet at once (P16), one found video too; nothing downloads by itself. Text without
+  a link, or none: the message "No link in the shared text" (a Toast), and YFT stays where it
+  is. `UpdateAutoOpen` waits for the next open while Home has a link to look up, so a share at
+  a cold start comes first, as a notification's tab does. YFT's own Share menus (the crash
+  report, text/plain; a Library file, `*/*` when its type is unknown) leave YFT out
+  (`EXTRA_EXCLUDE_COMPONENTS`). Tests: `SharedLinksTest` (7: made-up share texts of YouTube,
+  Facebook, TikTok, Instagram, X, VK, a browser and a chat; text without an http(s) link; only
+  a share, not from Recents; a long link cut as on Home; the holder; Android lists YFT for
+  text/plain only; YFT's menus leave it out), `YftNavigationSmokeTest` (+3: a share at a cold
+  start opens the sheet over Home with the link alone; a share while another tab or a
+  full-screen page shows comes back to Home for its sheet; text without a link: the message,
+  nothing moves), `UpdateAutoOpenTest` (+1), `AboutRouteTest` and `LibraryIntentsTest` (YFT
+  left out). Emulator smoke: `ShareTargetSmokeTest` (new; Android lists YFT for shared text; a
+  shared "title + link." starts the real activity, Home's lookup runs, and its box holds the
+  link alone; the host is `.invalid` (RFC 6761), so no site is asked). CHANGELOG: Added.
+- Next: item 4's checkpoint through the connector and its CI; then items 5, 11, 13; the
+  backlog lines in a last docs-only commit; READY FOR PHONE TEST.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 

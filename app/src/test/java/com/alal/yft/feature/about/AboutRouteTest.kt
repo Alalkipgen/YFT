@@ -2,6 +2,7 @@ package com.alal.yft.feature.about
 
 import android.app.Application
 import android.content.ClipboardManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -10,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
+import com.alal.yft.MainActivity
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.diagnostics.CrashReportStore
 import com.alal.yft.ui.theme.YftTheme
@@ -76,5 +78,9 @@ class AboutRouteTest {
         assertEquals(1, clip.itemCount)
         assertNull(clip.getItemAt(0).uri)
         assertEquals("page https://a.test", clip.getItemAt(0).text)
+        // v1.0.2 (item 4): YFT takes shared text now, but its own report never goes to itself.
+        @Suppress("DEPRECATION")
+        val left = chooser.getParcelableArrayExtra(Intent.EXTRA_EXCLUDE_COMPONENTS)!!.toList()
+        assertEquals(listOf(ComponentName(context, MainActivity::class.java)), left)
     }
 }

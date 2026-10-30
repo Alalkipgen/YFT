@@ -1,9 +1,11 @@
 package com.alal.yft.feature.library
 
 import android.app.Application
+import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
+import com.alal.yft.MainActivity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -52,6 +54,11 @@ class LibraryIntentsTest {
         assertEquals(Uri.parse(item.uri), send.clipData!!.getItemAt(0).uri)
         assertTrue(send.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0)
         assertTrue(send.flags and Intent.FLAG_GRANT_WRITE_URI_PERMISSION == 0)
+        // v1.0.2 (item 4): YFT takes shared text, so its own menu leaves it out.
+        @Suppress("DEPRECATION")
+        val left = chooser.getParcelableArrayExtra(Intent.EXTRA_EXCLUDE_COMPONENTS)!!.toList()
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        assertEquals(listOf(ComponentName(app, MainActivity::class.java)), left)
     }
 
     @Test

@@ -41,6 +41,8 @@ import com.alal.yft.thumbnail.DownloadThumbnails
 import com.alal.yft.thumbnail.LocalDownloadThumbnails
 import com.alal.yft.thumbnail.LocalRemoteThumbnails
 import com.alal.yft.thumbnail.RemoteThumbnails
+import com.alal.yft.ui.navigation.LookUpSharedLink
+import com.alal.yft.ui.navigation.SharedLinks
 import com.alal.yft.ui.navigation.ShowRequestedTab
 import com.alal.yft.ui.navigation.TabRequests
 import com.alal.yft.ui.navigation.YftBottomBar
@@ -56,7 +58,7 @@ import com.alal.yft.update.UpdateAutoOpen
  * on every tab while audio plays; [mediaDetails] gives saved files their real thumbnails,
  * [remoteThumbnails] videos on the web their pictures and [downloadThumbnails] downloads theirs
  * (P19). [tabRequests] holds a tab asked for from outside, such as Downloads from a download
- * notification (v1.0.2).
+ * notification (v1.0.2); [sharedLinks] a link another app shared, for Home's lookup (item 4).
  */
 @Composable
 fun YftApp(
@@ -66,6 +68,7 @@ fun YftApp(
     remoteThumbnails: RemoteThumbnails = RemoteThumbnails.None,
     downloadThumbnails: DownloadThumbnails = DownloadThumbnails.None,
     tabRequests: TabRequests? = null,
+    sharedLinks: SharedLinks? = null,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val darkTheme = isDarkTheme(uiState.themeMode)
@@ -86,8 +89,10 @@ fun YftApp(
             LocalQuietRelease provides (ShowDetails.quietBuild && !showDetails),
         ) {
             val navController = rememberNavController()
-            // Before UpdateAutoOpen: a tab asked for in the same frame wins; Updates waits.
+            // Before UpdateAutoOpen: a tab asked for or a link shared in the same frame wins;
+            // Updates waits.
             tabRequests?.let { ShowRequestedTab(navController, it) }
+            sharedLinks?.let { LookUpSharedLink(navController, it) }
             UpdateAutoOpen(navController)
             YftAppShell(
                 navController = navController,

@@ -18,6 +18,7 @@ import androidx.compose.ui.text.AnnotatedString
 import com.alal.yft.core.model.logging.DiagnosticTextSanitizer
 import com.alal.yft.diagnostics.CrashReportStore
 import com.alal.yft.ui.ShowDetails
+import com.alal.yft.ui.navigation.SharedLinks
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -70,7 +71,7 @@ internal fun shareCrashReport(context: Context, report: String) {
         .putExtra(Intent.EXTRA_TEXT, DiagnosticTextSanitizer.redact(report))
     try {
         context.startActivity(
-            Intent.createChooser(send, "Share crash report")
+            SharedLinks.leaveOutYft(Intent.createChooser(send, "Share crash report"))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         )
     } catch (_: ActivityNotFoundException) {

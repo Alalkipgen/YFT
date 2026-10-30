@@ -9,6 +9,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import com.alal.yft.feature.home.HOME_DOWNLOAD_LINK_KEY
 import com.alal.yft.ui.navigation.YftDestination
 
 /**
@@ -36,7 +37,12 @@ fun UpdateAutoOpen(
         // frame (a download notification's tap, ShowRequestedTab) may have left Home already.
         when (navController.currentDestination?.route) {
             null -> Unit
-            YftDestination.HOME.route -> {
+            // A link Home is about to look up (v1.0.2, item 4: a share at a cold start; the
+            // browser's Download) comes first, as its sheet opens: the screen waits for the next
+            // open.
+            YftDestination.HOME.route -> if (homeHasALinkToLookUp(navController)) {
+                viewModel.deferAutoOpen()
+            } else {
                 viewModel.markOpened(update.version.name)
                 navController.navigate(YftDestination.UPDATES.route) { launchSingleTop = true }
             }
@@ -59,4 +65,9 @@ fun UpdateAutoOpen(
             viewModel.confirmFailed(request.sessionId)
         }
     }
+}
+
+private fun homeHasALinkToLookUp(navController: NavHostController): Boolean {
+    val home = navController.currentBackStackEntry ?: return false
+    return home.savedStateHandle.get<String>(HOME_DOWNLOAD_LINK_KEY) != null
 }

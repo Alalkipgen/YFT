@@ -177,24 +177,12 @@ fun YftNavHost(
                 },
             ),
         ) { entry ->
-            val goHome = {
-                if (!navController.popBackStack(YftDestination.HOME.route, inclusive = false)) {
-                    navController.navigateToTab(YftDestination.HOME)
-                }
-            }
             browserContent(
                 navigateBack,
                 entry.arguments?.getString(BROWSER_LINK_ARGUMENT),
-                goHome,
+                navController::goHome,
                 entry.arguments?.getBoolean(BROWSER_SEARCH_ARGUMENT) == true,
-                { link ->
-                    // Home (the start destination, always in the back stack) looks it up.
-                    runCatching { navController.getBackStackEntry(YftDestination.HOME.route) }
-                        .getOrNull()
-                        ?.savedStateHandle
-                        ?.set(HOME_DOWNLOAD_LINK_KEY, link)
-                    goHome()
-                },
+                navController::lookUpOnHome,
                 openQuickDownload,
             )
         }
@@ -285,6 +273,27 @@ internal val BROWSER_SEARCH_ROUTE = "${YftDestination.BROWSER.route}?$BROWSER_SE
 
 internal fun browserRouteFor(link: String): String =
     "${YftDestination.BROWSER.route}?$BROWSER_LINK_ARGUMENT=${Uri.encode(link)}"
+
+/** Back to Home: the screens over it close, or Home's tab comes back. */
+internal fun NavHostController.goHome() {
+    if (!popBackStack(YftDestination.HOME.route, inclusive = false)) {
+        navigateToTab(YftDestination.HOME)
+    }
+}
+
+/**
+ * Home looks [link] up as a pasted link (its download sheet opens): the browser's Download of
+ * the link you copied and, v1.0.2 (item 4), a link another app shared. Home, the start
+ * destination, is always in the back stack; its entry takes the link, then Home comes to the
+ * front ([goHome]).
+ */
+internal fun NavHostController.lookUpOnHome(link: String) {
+    runCatching { getBackStackEntry(YftDestination.HOME.route) }
+        .getOrNull()
+        ?.savedStateHandle
+        ?.set(HOME_DOWNLOAD_LINK_KEY, link)
+    goHome()
+}
 
 /**
  * Tabs keep one copy each: switching saves the tab being left and restores the one chosen, and

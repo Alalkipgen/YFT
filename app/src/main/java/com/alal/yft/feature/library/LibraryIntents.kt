@@ -5,6 +5,7 @@ import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import com.alal.yft.ui.navigation.SharedLinks
 
 /**
  * Intents that hand one finished download to another app.
@@ -28,7 +29,7 @@ internal object LibraryIntents {
             clipData = ClipData.newRawUri(item.displayName, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        return Intent.createChooser(send, "Share ${item.displayName}")
+        return SharedLinks.leaveOutYft(Intent.createChooser(send, "Share ${item.displayName}"))
     }
 
     /** Starts [intent]; false when no installed app can handle it. */
