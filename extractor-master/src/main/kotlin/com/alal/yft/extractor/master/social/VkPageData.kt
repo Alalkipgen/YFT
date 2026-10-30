@@ -18,19 +18,36 @@ import com.alal.yft.extractor.master.toolkit.CandidateFactory
  *
  * [of] reads a capture's page data ([PageSnapshot.apiResponses]) for the link's video
  * ([VkReader.api]: bound to the video by its `owner_id` and `id`, the trailer and every picture
- * left out, VK's video servers only) and gives its MP4 files as rows, the tallest first: each
- * with the data's title and length, its height and its address's expiry. The selection checks
- * them as any row (V and the init check, [SocialRowCheck]) and admits the tallest that passes,
- * before the pieces' fallback ([VkPieceFiles]). The link is the request's identity
+ * left out, VK's video servers only) and gives its MP4 files as rows, one per height, the tallest
+ * first: each with the data's title and length, its height and its address's expiry. The
+ * selection checks them as any row (V and the init check, [SocialRowCheck]) and admits the
+ * tallest that passes, before the pieces' fallback ([VkPieceFiles]); v1.0.2 (item 11): then each
+ * other height V passes as another quality of the same video (one video's qualities, never "More"
+ * videos), within the lookup's V reads ([MAX_ROWS]). The link is the request's identity
  * ([MasterRequest.expectedContentId], VK's `{owner}_{id}`), else the page address's
  * (`video{owner}_{id}`, `clip…`, or the overlay's `z=video…`). Pure: never fetches, plays or
  * logs; an address stays in memory.
  */
 object VkPageData {
-    /** The files whose starts the selection reads at most (the tallest first). */
+    /**
+     * The files whose starts the selection reads at most before one is admitted (the tallest
+     * first), so the pieces' fallback keeps its reads ([VkPieceFiles.MAX_PICTURES] and
+     * [VkPieceFiles.MAX_SOUNDS]: 3 + 3 + 2 = [SocialRowCheck.MAX_READS]).
+     */
     const val MAX_FILES = 3
 
-    /** The page data's rows for [request]'s video in [snapshot]; empty without such data. */
+    /**
+     * v1.0.2 (item 11): the rows the selection checks at most, one per height, once one is
+     * admitted (the pieces' fallback no longer runs then): as many as the lookup's V reads
+     * ([SocialRowCheck.MAX_READS], counted in VK's budget, `VkSite.BUDGET`); VK's data names six
+     * today (144p to 1080p).
+     */
+    const val MAX_ROWS = SocialRowCheck.MAX_READS
+
+    /**
+     * The page data's rows for [request]'s video in [snapshot], one per height (v1.0.2 item 11: the
+     * first file VK names for it), the tallest first; empty without such data.
+     */
     fun of(request: MasterRequest, snapshot: PageSnapshot): List<MediaCandidate> {
         val link = linkOf(request) ?: return emptyList()
         val factory = CandidateFactory(request)
@@ -39,7 +56,7 @@ object VkPageData {
             val read = runCatching { VkReader.api(json, link) }.getOrNull() ?: continue
             val files = read.files.filter { it.type == VkReader.MP4 && VkClient.mediaFile(it.url) }
             if (files.isEmpty()) continue
-            val rows = files.sortedByDescending { it.height ?: 0 }.mapNotNull { file ->
+            val rows = files.sortedByDescending { it.height ?: 0 }.distinctBy { it.height }.mapNotNull { file ->
                 factory.candidate(
                     url = file.url,
                     mime = VkReader.MP4,

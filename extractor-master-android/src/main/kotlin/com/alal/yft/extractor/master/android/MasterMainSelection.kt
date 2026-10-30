@@ -53,6 +53,13 @@ import kotlin.math.abs
  * ([VkPageData]: `video.getByIds`'s files, carried to later binds by the capture), at most
  * [VkPageData.MAX_FILES] checked from the tallest, the first that passes admitted; the pieces'
  * row takes the data's title when it has none.
+ *
+ * v1.0.2 (item 11): once a page-data file is admitted, each other height V passes is a row of its
+ * own, on V's facts (its start, its size; the data's length held to the player's; no inspection,
+ * no read beyond V's): at most [VkPageData.MAX_ROWS] in all, the lookup's V reads, so within VK's
+ * budget. They are one group, the data's order (the tallest first): one video's qualities, never
+ * "More" videos (without cues each file would be a group of its own). The pieces' fallback runs
+ * only when no page-data file was admitted, so it keeps its reads, unchanged.
  */
 class MasterMainSelection(
     private val session: MasterBrowserSession,
@@ -92,6 +99,18 @@ class MasterMainSelection(
             return withTimeoutOrNull(remaining) { block() }
         }
 
+        /** Whether [media]'s length is the player's (within the slack); a miss is counted. */
+        fun held(media: MediaCandidate): Boolean {
+            if (target != null && media.durationMillis?.let {
+                    abs(it - target) <= DURATION_SLACK_MS
+                } != true
+            ) {
+                tally.offLength++
+                return false
+            }
+            return true
+        }
+
         /** A row V passed: inspected, its length held to the player's, its sound checked. */
         suspend fun admit(row: MediaCandidate): Step {
             if (piece(row.mediaUrl)) return Step.NEXT
@@ -100,13 +119,7 @@ class MasterMainSelection(
             if (media.drmHint == true) return Step.DRM
             if (media.mimeType?.startsWith("audio/") == true) return Step.NEXT
             if (ad(media, facts)) return Step.NEXT
-            if (target != null && media.durationMillis?.let {
-                    abs(it - target) <= DURATION_SLACK_MS
-                } != true
-            ) {
-                tally.offLength++
-                return Step.NEXT
-            }
+            if (!held(media)) return Step.NEXT
             val audio = media.audioCompanion
             if (audio != null) {
                 // The sound file's own length (as the engine's check asks it), never the picture's.
@@ -141,6 +154,21 @@ class MasterMainSelection(
             return Step.NEXT
         }
 
+        /**
+         * v1.0.2 (item 11): another page-data file V passed once one was admitted: another quality
+         * of that video (the data names them all, each with its sound inside), on V's facts: no
+         * inspection, no request beyond V's read of its start.
+         */
+        fun quality(row: MediaCandidate): Step {
+            if (piece(row.mediaUrl)) return Step.NEXT
+            if (row.drmHint == true) return Step.DRM
+            if (row.mimeType?.startsWith("audio/") == true) return Step.NEXT
+            if (ad(row, facts)) return Step.NEXT
+            if (!held(row)) return Step.NEXT
+            checked += row
+            return Step.NEXT
+        }
+
         var out = false
         for (candidate in candidates) {
             coroutineContext.ensureActive()
@@ -170,14 +198,18 @@ class MasterMainSelection(
         }
         // The owner's retest of 7e101aa4: nothing captured passed in a VK lookup: the page's own
         // data for the video (every quality's whole file, the title; see [VkPageData]), the
-        // tallest file that passes, admitted as any passed row is.
+        // tallest file that passes, admitted as any passed row is. v1.0.2 (item 11): then each
+        // other height V passes, a quality of its own (at most MAX_ROWS; MAX_FILES before one is
+        // admitted, so the pieces keep their reads).
         var dataLine: String? = null
+        var dataRows = false
         val vk = coroutineContext[MainPages]?.site == VkClient.SITE_ID
         val pageData = if (vk) VkPageData.of(request, snapshot) else emptyList()
         if (!out && checked.isEmpty() && pageData.isNotEmpty()) {
             var tried = 0
             var passed = 0
-            for (row in pageData.take(VkPageData.MAX_FILES)) {
+            for (row in pageData.take(VkPageData.MAX_ROWS)) {
+                if (checked.isEmpty() && tried >= VkPageData.MAX_FILES) break
                 coroutineContext.ensureActive()
                 val verdict = bounded { probe(row) }
                 if (verdict == null) { out = true; break }
@@ -194,14 +226,16 @@ class MasterMainSelection(
                     is ValidationResult.Valid -> {
                         tally.passed++
                         passed++
-                        when (admit(verdict.candidate)) {
-                            Step.NEXT -> if (checked.isNotEmpty()) break
+                        val step = if (checked.isEmpty()) admit(verdict.candidate) else quality(verdict.candidate)
+                        when (step) {
+                            Step.NEXT -> Unit
                             Step.OUT -> { out = true; break }
                             Step.DRM -> return failure(SiteExtractionFailure.DRM_PROTECTED)
                         }
                     }
                 }
             }
+            dataRows = checked.isNotEmpty()
             dataLine = "master: VK page data: files=${pageData.size}; tried=$tried; passed=$passed; " +
                 "admitted=${checked.size}"
         }
@@ -283,7 +317,9 @@ class MasterMainSelection(
                 listOfNotNull(census(snapshot, target != null), tally.line(), dataLine, pieceLine),
             )
         }
-        val groups = FingerprintGroups.of(ranked) { prints[it.mediaUrl] }
+        // v1.0.2 (item 11): the page data's files are one video's qualities (its own data names
+        // them, bound to the video): one group, the data's order (the tallest first).
+        val groups = if (dataRows) listOf(checked.toList()) else FingerprintGroups.of(ranked) { prints[it.mediaUrl] }
         val selected = groups.flatten()
         val keys = groups.flatMap { group ->
             val key = MasterMainPresentation.key(group.first())

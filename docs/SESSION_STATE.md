@@ -1990,8 +1990,45 @@ Keep at least the heading and one blank line between sections, so Git merges the
   file then its row; a file that stays; Android's request holds the others, allowed and
   refused; Remove from list keeps the files and skips a paused row; the messages). CHANGELOG:
   Added.
-- Next: item 5's checkpoint through the connector and its CI; then items 11, 13; the backlog
-  lines in a last docs-only commit; READY FOR PHONE TEST.
+- Item 5 pushed as `a22d8442` (identical trees). Its CI: checkpoint validation 41008709195
+  (#584), emulator smoke 41008709191 (#172), Preview APK 41008709197 (#139), minified check
+  41008709203 (#30): all green.
+- Item 11 (VK's page data: each quality a row of its own). Checked first: not in the code;
+  `MasterMainSelection.kt` read at most `VkPageData.MAX_FILES` (3) of the data's files from the
+  tallest (line 180 at `a22d8442`) and stopped at the first it admitted (line 198, `Step.NEXT ->
+  if (checked.isNotEmpty()) break`), so the sheet had one row (V3's retest 4: `VK page data:
+  files=6; tried=1; passed=1; admitted=1`). Now `VkPageData.of` gives one row per height (the
+  first file VK names for it: `mp4_720` and `url720` are one), the tallest first. The selection
+  still reads at most 3 of them until one is admitted as any passed row is (inspected, its length
+  held to the player's); then it reads each other height, at most `VkPageData.MAX_ROWS` in all
+  (= `SocialRowCheck.MAX_READS`, 8), and admits each that V passes on V's facts: its start (the
+  container, no encryption marker), its size, the data's length held to the player's (2 s), not a
+  piece, an ad or a sound; no inspection. A protected one is final (DRM), as before; one off the
+  length is left out. The page data's rows are one group in the data's order, the tallest first
+  (main's qualities; without cues `FingerprintGroups` would make each file a "More" video):
+  `more=0`, `fingerprint qualities=6`. The pieces' fallback is unchanged: it runs only when no
+  page-data file was admitted, and then at most 3 of the data's files were read, so its 3
+  pictures and 2 sounds still fit V's 8.
+- Item 11's request counts (a VK lookup in which nothing captured passed and whose page data
+  names six heights, 144p–1080p, as VK's does today): before, 1–3 V reads (4 KiB each, a file's
+  start) and the admitted file's inspection (1–2 reads of at most 256 KiB; the second only when
+  the first gives no length): 2 requests when the tallest passes (retest 4). Now 6 V reads (one
+  per height, 24 KiB) and the same one inspection: 7 requests. In any lookup still at most V's 8
+  reads, and inspections only as before (of the files tried until one is admitted: at most 3,
+  1–2 reads each); the other heights add V reads only. V's reads count in VK's budget
+  (`VkSite.BUDGET`, 19 = main 6 + V2 5 + V 8, unchanged): `SocialRowCheck` asks none after its 8,
+  and V2 asks only while those 8 still fit. The inspection's reads stay outside the record's
+  count, as before.
+  Tests: `VkPageDataSelectionTest` (4: each height that passes a row, one video's qualities, the
+  tallest first, the first alone inspected, the sheet's one video with six qualities and no More;
+  at most 8 read, a height named twice one row; the next file after one that fails, then the
+  pieces' row as before, still `tried=3`; one off the length left out, a protected one final,
+  another site reads no page data), `VkPageDataTest` (+1: one row per height, in VK's key table
+  and in the shape scan). Local: `:extractor-master:test` (1119, 2 skipped) and
+  `:extractor-master-android:testDebugUnitTest` (85) green. CHANGELOG: Changed (the release has
+  the social ladder: `releaseMaster`'s `SOCIAL_LADDER` true). S5 (VK) is needed for it.
+- Next: item 11's checkpoint through the connector and its CI; then item 13; the backlog lines in
+  a last docs-only commit; READY FOR PHONE TEST.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 

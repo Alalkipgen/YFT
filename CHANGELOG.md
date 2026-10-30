@@ -46,6 +46,9 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
 - **Downloads** names the quality you picked while a video downloads, with its stream
   ("1080p · HLS", "1080p · MP4"), as its finished row does, instead of only "HLS · MP4" or
   "MP4"; after the app restarts, a download still running reads as before.
+- Backup finder for VK: a video it finds through the page's own video data offers each quality VK
+  names for it (such as 1080p, 720p, 480p, 360p, 240p and 144p) as rows of that one video, the
+  tallest first, instead of the tallest alone.
 
 ### Fixed
 
