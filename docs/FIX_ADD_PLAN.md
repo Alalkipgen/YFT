@@ -1552,6 +1552,135 @@ owner's Redmi Note 13 Pro, Android 16 (API 36), large system font, a hardware AV
      with Show details on (Settings → About → tap the version line 7 times; a reinstall turns it
      off again).
 
+**The owner's items 1 and 2 after R8: R9 and R10** (2026-10-31; branch `work/phase-v102-easy`;
+the owner's Redmi Note 13 Pro, Android 16 (API 36), large system font):
+
+- **The items**, one commit each: item 1 (R9), §7's hand-off on `extractor-sites`
+  `FacebookDashManifest.document` and `extractor-master` `InlineDashReader.read` (the owner's
+  decision: fix it as F1 did, their XML parser settings only; lookup files); item 2 (R10), §7's
+  "Refresh a download's link in the middle of the download" and VK_PLAN §8's "Re-extract once on
+  a media 403" (the existing lookups called, no site lookup changed).
+- **The fixes** (CI: checkpoint / emulator smoke / Preview APK / minified): R9 `f34de6c1` (#616 /
+  #204 / #171 / #62), R10 `e58f9c81` (#617 / #205 / #172 / #63). All green; the emulator ran 87
+  (#204) and 89 (#205) tests, 0 failures, 6 skipped. **Preview #172** (`e58f9c81`, run
+  41243200016): `yft-preview-apk` and `yft-preview-trial-apk`.
+- **Causes and fixes**:
+  - R9: F1's cause, in the two inline DASH readers F1 left. Android's own XML parser
+    (`org.apache.harmony.xml.parsers`) throws for `setXIncludeAware`, for every `setFeature` but
+    namespaces and validation and for every `setAttribute`; both readers set them all in one
+    `runCatching`, so on a phone every inline manifest read as nothing. The JVM's parser knows
+    every setting, so every test passed. On the phone Facebook's page gave its HD and SD files and
+    its manifest's address only (no file of the manifest, no sound); an Instagram reel its whole
+    file only, without its manifest's merged sizes; Master's layers (Facebook's and Instagram's
+    contracts), VK's page manifest (`VkPageDash`) and the census's row check (`SiteRowCheck`)
+    found no file in one. **v1.0.1 had it**: both readers are unchanged since v1.0.0. Fix, as F1:
+    each setting asked on its own (`ifKnown`: one the parser refuses is skipped), so every
+    protection the parser has stays (on Android namespaces and no entity expansion, on the JVM
+    all), and a manifest with a document type or an entity declaration (`<!DOCTYPE`, `<!ENTITY`,
+    any case; Facebook's after its URL-decoding) is refused before any parser reads it.
+  - R10: Track E (PR #13) already asks the site's own lookup for the same video's fresh link in
+    the same quality (`SiteLinkRenewal`; a merge's fresh plan has both tracks' links) on a 401,
+    403, 410 or an expired link, and on VK's 400 after the link gave bytes; the download then goes
+    on from its checkpoint. Once per failure: a fresh link that gives no byte and fails stops as
+    **Link expired**; at most 3 fresh links per download without a tap (`MAX_AUTOMATIC_RENEWALS`);
+    Retry asks once more. Two gaps in `core-download`, fixed:
+    (1) `DirectTransferEngine.reconcileCheckpoint` dropped the checkpoint of a file that states
+    neither an ETag nor a Last-Modified, so such a download started again at 0 B on its fresh link
+    ("started over (the file changed)") and on every run of the same link (Pause and Resume, a lost
+    network, Retry). Such files: VK's (`okcdn.ru`, measured 2026-10-31: neither) and Facebook's HD
+    file (`fbcdn.net`: no ETag; its SD and manifest files state one). Track E's phone test (#123,
+    2026-10-29) showed it: Facebook (Direct, 43 MB) and VK 18+ (Direct, 22 MB) "Fresh link (403
+    at …): started over (the file changed)". **v1.0.1 had it** (since phase 4; with no fresh link
+    there, Pause and Resume or a lost network started such a file again at 0 B). Now such a file
+    resumes when its length and segment layout are the saved ones, as a DASH whole file does; a
+    validator on one side only, or another one, still starts over, and every range must state the
+    same length.
+    (2) `DownloadQueue.failTask` counted a link's bytes from its own run only. VK's srcIp case (the
+    network goes and comes back, as on a Wi-Fi ↔ mobile data switch, and the same link answers 400
+    at the run's first request) failed as **Failed · Unexpected HTTP status** (HTTP 400), and a
+    fresh link that gave bytes before a lost network and then refused at once stopped as **Link
+    expired** without a lookup. Now a link's bytes are the larger of its run's and of the
+    checkpoint's gain since the link came (`linkStartBytes`, 0 again when a Retry starts over).
+    v1.0.1 had no renewal at all (a 403 or 410 → **Link expired**, VK's 400 → **Failed**).
+  - R10 and F8, both unchanged: a googlevideo whole file's range refused with 403 is asked again
+    once after 3 s inside `DashTransferEngine` (within 5 s); only when that is refused too does the
+    queue see it, and it names a 403 with time left on the link **YouTube refused** (B1), which
+    `SiteLinkRenewal` renews only after the phone's network changed or on Retry, once per download
+    (E-D5'). An expired YouTube link gets its fresh link as any site's.
+- **Tests**: R9 — `InlineManifestOnAndroidTest` (extractor-sites) and
+  `InlineDashReaderOnAndroidTest` (extractor-master), with a JVM parser that refuses what
+  Android's refuses (F1's `AndroidLikeDocumentBuilderFactory`): Facebook's page (its 5 rows), an
+  Instagram reel (its merged sizes and sound), Master's reader, VK's page manifest and the row
+  check read as on the JVM; a document type, an external entity, a lower-case doctype and a
+  URL-encoded one refused on both parsers; all 7 fail on `33ce8f21`. Emulator:
+  `InlineManifestInstrumentedTest` (4, API 34's own parser). R10 — `FreshLinkResumeTest` (7, the
+  real engines and a local host whose files state no validator): a 403 and a 410, then a fresh
+  link (every byte; the fresh link asked from 128 KiB); a second 403 (**Link expired** after one
+  lookup, no loop; Retry goes on from 128 KiB); VK's 400 after a lost network, direct and merged;
+  a merge's track 403 (passed before too: Track E did it); a merge's fresh link refused after a
+  lost network. 6 of 7 fail on the old code. Emulator: `FreshLinkResumeInstrumentedTest` (2: the
+  queue and the direct engine on Android, a 403 and VK's 400 after a lost network). Local:
+  `:extractor-sites` (372), `:extractor-master` (1,123), `:core-download` (358) and the app's
+  download tests (335), 0 failures.
+- **UI text**: none new or changed (CHANGELOG `[1.0.2]`: one line under Fixed for each). What
+  shows changes: R9 — more rows (the manifest's sizes with sound, its sound alone under Audio);
+  R10 — on a VK file or Facebook's HD file "Fresh link (403 at 41.0 MB): resumed at 41.0 MB" where
+  it said "…: started over (the file changed)", Pause and Resume going on from the same per cent,
+  and after a Wi-Fi ↔ mobile data switch "Getting a fresh link…" and on, where it said "Failed ·
+  Unexpected HTTP status".
+- **S5** (decision 26: per site 3 runs, each at least 6 h after the previous, the first and the
+  last at least 24 h apart, on the final code's APK, wrong rows 0, no regression against B0): R9
+  changed main's Facebook and Instagram lookups and Master's engine (the reader that Facebook's and
+  Instagram's contracts and VK's pack use), so **Facebook, Instagram and VK start runs 1–3
+  again**, on the census APK below; a later code change restarts them. R10 changes the download
+  side only, no count (E-D7).
+- **The census APK**: `yft-vk-census-e58f9c81.apk` (22,856,664 bytes, SHA-256
+  `8f7d2e42…679380ba`): `:app:assembleDebug` of `e58f9c81` with masterCapture, ownSolver,
+  ownSolverNext, clientLadder, socialLadder and socialTrial on (ladderSkip and ladderMutate
+  blank, routeBTrial off), signed with the shared test key (certificate SHA-256
+  `a2696dff…bbbe`), so it installs over the old census APK; sent as a chat attachment.
+- **Checklist** (the census APK; Preview #172's `yft-preview-apk`, quiet, and
+  `yft-preview-trial-apk`). YFT shows sizes in MiB and calls them "MB"; a census (debug) build is
+  never quiet; in `yft-preview-apk` Details need Settings → About → tap the version line 7 times
+  → Show details (a reinstall turns it off again). "Break this download's link" (Downloads ⋮, on
+  a running or paused download) is in the census APK and the trial only. Keep YFT open in 6–11:
+  1. Install the census APK over the old one; uninstall the older YFT Preview and YFT Trial, then
+     install #172's two (each run has a new test key).
+  2. R9, Facebook (the census APK and `yft-preview-apk`): a public video made in 1080p, pasted on
+     Home → "1080p · Full HD" (the manifest's, merged with its sound) beside the HD and SD files,
+     and an M4A under Audio; none "No sound". Download "1080p · Full HD" → "Merging audio and
+     video" → one MP4 that plays with sound to its end. (A 1080p that is AV1 only shows in 4.)
+  3. R9, Instagram: signed in to Instagram in YFT's browser, a reel pasted on Home → its file and
+     the manifest's sizes, each with sound (such as "1080p · Full HD"), and an M4A (before R9: its
+     file only); download a manifest size → one MP4 with sound.
+  4. R9, the census APK, "AV1 merges (test, Android 14 or newer)" ticked: a Facebook reel whose
+     1080p is AV1 only, Try again → "1080p · Full HD · AV1"; download → one MP4 with sound;
+     untick → the row is gone.
+  5. R9, VK: S5's VK links give their rows as before.
+  6. R10 (the census APK or the trial): a long VK video's "720p · HD" (100 MB or more) → Download
+     → **Pause** at about 30 % → **Resume** → it goes on from about 30 % (before R10: from 0 %).
+  7. While it runs: Downloads ⋮ → "Break this download's link" → "Getting a fresh link…" → it
+     goes on from the same per cent; ⋮ → **Details** → "Fresh link (403 at … MB): resumed at …
+     MB" (on #123: "…: started over (the file changed)", from 0 %). The same with a Facebook
+     video's HD file.
+  8. No loop: break it again each time after it went on; breaks 2 and 3 get fresh links as in 7;
+     break 4 → "Link expired" at once (no "Getting a fresh link…"); **Retry** → "Getting a fresh
+     link…" → on from the same per cent; ⋮ → Details: three "Fresh link (403 at …): resumed at …"
+     lines, then "Fresh link on Retry (403 at …): resumed at …".
+  9. A real refusal (any of the three APKs; Settings → "Download over Wi-Fi only" off, as by
+     default): on Wi-Fi start a long VK video; at about 30 % turn Wi-Fi off, mobile data on →
+     maybe "Waiting for network" a moment, then "Getting a fresh link…" → it goes on from about
+     30 % on mobile data; Details "Fresh link (400 at … MB): resumed at … MB" (or 403). Before
+     R10: "Failed · Unexpected HTTP status", Details "HTTP status: 400". If VK's link still works
+     on the new network, it simply goes on: a pass too. Then the same from mobile data to Wi-Fi.
+  10. A merge: a Facebook manifest size (2) → while it downloads, "Break this download's link" →
+      "Getting a fresh link…" → both tracks go on → one MP4 with sound.
+  11. YouTube, as on #123: "Break this download's link" on a YouTube 1080p download (video and
+      sound merged) → after a few seconds "YouTube refused" (F8 asked once more after 3 s; no
+      fresh link without a network change) → **Retry** → "Getting a fresh link…" → on; Details
+      "Fresh link on Retry (403 at …): resumed at …".
+  12. Anything that fails: send its Details (**Copy details**).
+
 **Preview #11 (after P48–P50)** — X, Instagram and HLS sound:
 
 1. **An X post with a video**, pasted on Home: the sheet lists its MP4 qualities (e.g. 720p
@@ -1666,7 +1795,8 @@ Other items:
 - Long downloads on Android 14+: a user-initiated data transfer job (`JobScheduler`) instead of
   the `dataSync` foreground service (no 6-hour limit), if P34's `onTimeout` notice appears.
 - Refresh a download's link in the middle of the download (a 403/410 after an hour) by reading
-  its page again, like P37 does for the sheet.
+  its page again, like P37 does for the sheet — done in v1.0.2: Track E (PR #13) and R10
+  (`e58f9c81`, §6).
 - A Matroska (WebM) stream copy for 2K/4K merges, like P35's MP4 path.
 - HLS downloads: P41's rolling pool and progress inside a segment for long HLS videos.
 - Open the Downloads tab from the notification (needs `MainActivity` and navigation) — done in
@@ -1721,7 +1851,7 @@ Other items:
   - Hand-off (lookup files, not changed): `extractor-sites` `FacebookDashManifest.document` and
     `extractor-master` `InlineDashReader.read` set the same XML parser settings in one
     `runCatching` as F1's reader did, so on a phone Facebook's and Master's inline DASH
-    manifests go unread the same way. Owner decision: —
+    manifests go unread the same way. Owner decision (2026-10-31): fix it — R9 (`f34de6c1`, §6).
   - Hand-off: the preview (Media3) plays a manifest as it is, so an http `BaseURL` (F1's MPD)
     is refused by Android's cleartext rule; the download works (F1). Owner decision: —
   - G2: the emulator decodes at the same speed with the new loop; if the phone's Details line
@@ -1760,6 +1890,20 @@ Other items:
     change of its own. Owner decision: —
   - CI: R6's emulator smoke #200 failed for the older `prepareWorkspace` race, fixed in R7; R8's
     #202 for its test's AV1 file, fixed in `8fec3139`; the later runs passed (§6).
+
+- **After R9–R10** (2026-10-31): the agent's hand-offs.
+  - R10: a VK fresh link that answers 400 at its own first request (it gave no byte) ends as
+    **Failed · Unexpected HTTP status**, not **Link expired**: VK's 400 counts as a dead link only
+    after that link gave bytes (E-D1), and Retry runs the same link again. Not seen on a phone (it
+    needs a fresh link refused at once); opening the video again gives a new link. Owner
+    decision: —
+  - R9: decision 26 restarts a site's count on a change to its pack, the engine or main. R9's
+    reader is used by Facebook's and Instagram's contracts and VK's pack (§6's S5); X's and
+    TikTok's contracts name no inline manifest (`ContractRecipes`), so §6 restarts only those
+    three counts. Owner decision: —
+  - R9's CHANGELOG line names "Facebook's 1080p AV1" as an example; AV1 merges stay off in the
+    release (`AV1_MP4_ENABLED`, R6–R8's hand-off), so the release offers Facebook's AVC sizes and
+    the sound, and AV1 sizes only once AV1 merges are on. Owner decision: —
 
 ## 8. Done before Phase 15
 

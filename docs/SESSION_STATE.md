@@ -3226,6 +3226,18 @@ Keep at least the heading and one blank line between sections, so Git merges the
     network). Local: `:core-download` (358) and the app's download tests (335), 0 failures;
     `:app:compileDebugAndroidTestKotlin`.
   - CHANGELOG `[1.0.2]`: one line under Fixed.
+- R9's and R10's commits: R9 `f34de6c1`, R10 `e58f9c81`. R9's CI: checkpoint validation #616
+  (41240456852), emulator smoke #204 (41240456850; 87 tests, 0 failures, 6 skipped), Preview APK
+  #171 (41240456849) and minified #62 (41240456861) passed. R10's CI: checkpoint validation #617
+  (41243200042), emulator smoke #205 (41243200084; 89 tests, 0 failures, 6 skipped), Preview APK
+  #172 (41243200016, `yft-preview-apk` and `yft-preview-trial-apk`) and minified #63
+  (41243200048) passed.
+- The census APK for R9–R10: `yft-vk-census-e58f9c81.apk` (22,856,664 bytes; `e58f9c81` with the
+  census flags; the shared test key), sent to the owner as a chat attachment.
+- R9–R10's results, causes, CI and checklist: FIX_ADD_PLAN §6 ("The owner's items 1 and 2 after
+  R8: R9 and R10") and §7 (docs only). Next: the owner's phone run of that checklist with the
+  census APK and Preview #172; S5's runs 1–3 again for Facebook, Instagram and VK on the census
+  APK.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
