@@ -2927,6 +2927,33 @@ Keep at least the heading and one blank line between sections, so Git merges the
     unit tests. Local: core-model (155), core-media (46), core-download (333) and the app's unit
     tests (1,582, 66 skipped), 0 failures; the emulator test runs on CI only.
   - CHANGELOG `[1.0.2]`: one line under Fixed.
+- R3's commit: `676202d5`. The R1–R3 agent ran out of tokens before its report; the next agent
+  (R4, R5) checked the three commits after `65ff31ae` and their CI: `d8012334` checkpoint
+  validation #607, emulator smoke #195 and Preview APK #162 passed; its minified check #53 failed
+  in the step "Build the shrunk previews with a fresh test key, and the check's test APK" (its log
+  could no longer be read; #54 and #55, with R1's code in them, passed); `e57d931c` #608, #196,
+  #163 and #54 passed; `676202d5` #609 (41190771482), #197 (41190771494), #164 (41190771579)
+  and #55 (41190771561) passed.
+- R4 (Preview #161 at the owner's large text size: on `w3schools.com/html/html5_video.asp` the
+  address pill's host and path were drawn over each other). The pill drew two texts in one
+  place: the editable field's own text (the whole address, "https://www.…"), hidden only by a
+  transparent ink, and over it the styled host and path (already one `Text`: an
+  `AnnotatedString`, one line, "…"). The overlap was not reproduced: Robolectric's native
+  graphics on a phone-sized screen at 100, 130, 150 and 200 % draw the styled address alone. So
+  the cause is inferred: on the phone the field's own text showed through under the styled one.
+  Done (`BrowserAddressField`): while the styled address shows, the field draws nothing
+  (`drawWithContent`; its semantics stay, so TalkBack reads and edits it as before); the styled
+  address is `AddressDisplayText` (new: one `Text`, no soft wrap, one line ending in "…"). The
+  pill looks the same: Robolectric's screenshots before and after the change are the same pixels
+  at all four sizes, also while typing. No new words.
+  - Tests: `BrowserAddressLargeTextTest` (new: native graphics, 392 × 872 dp, at 100, 130, 150
+    and 200 %: an address that looks the same in the pill but is another address in the field,
+    `https://w3schools.com/…?from=test` after `https://www.w3schools.com/…`, changes no pixel
+    of the field; the styled address at the field's width is one line ending in "…" and no
+    taller than the field; with the field's text drawn it fails at every size, 6,923–7,837
+    pixels). Local: `BrowserAddressLargeTextTest`, `BrowserScreenTest` and `BrowserRouteTest`
+    (52), then every module's unit tests (the checkpoint's run), 0 failures.
+  - CHANGELOG `[1.0.2]`: one line under Fixed.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 

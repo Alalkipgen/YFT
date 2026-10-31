@@ -69,6 +69,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -89,6 +90,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.ImeAction
@@ -905,6 +907,10 @@ private fun BrowserAddressField(
                 .padding(start = 8.dp, end = 4.dp),
             contentAlignment = Alignment.CenterStart,
         ) {
+            // R4 (v1.0.2): one text at a time. While the styled address shows, the field draws
+            // nothing at all; before, only its ink was transparent, and on the owner's phone (large
+            // text) its own address showed through under the host and path.
+            val fieldDrawn = focused || display == null
             BasicTextField(
                 value = field,
                 onValueChange = {
@@ -913,6 +919,7 @@ private fun BrowserAddressField(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
+                    .drawWithContent { if (fieldDrawn) drawContent() }
                     .focusRequester(focusRequester)
                     .onFocusChanged { state ->
                         if (state.isFocused != focused) {
@@ -921,15 +928,9 @@ private fun BrowserAddressField(
                         }
                     }
                     .testTag("browser-address"),
-                // Alpha-zero hides the entire node from Android's accessibility tree.
-                // Hide only the ink; the editable field stays reachable under its styled URL.
-                textStyle = MaterialTheme.typography.bodyLarge.copy(
-                    color = if (focused || display == null) {
-                        colors.textPrimary
-                    } else {
-                        Color.Transparent
-                    },
-                ),
+                // Alpha-zero hides the entire node from Android's accessibility tree. Skipping
+                // only the drawing keeps the editable field reachable under its styled URL.
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.textPrimary),
                 singleLine = true,
                 cursorBrush = SolidColor(colors.textPrimary),
                 keyboardOptions = KeyboardOptions(
@@ -954,27 +955,13 @@ private fun BrowserAddressField(
                 },
             )
             if (!focused && display != null) {
-                // Visual only: accessibility services read and edit the field underneath.
-                Text(
-                    text = buildAnnotatedString {
-                        append(display.host)
-                        withStyle(SpanStyle(color = colors.textSecondary)) { append(display.path) }
+                AddressDisplayText(
+                    display = display,
+                    onClick = {
+                        field = field.copy(selection = TextRange(0, field.text.length))
+                        focusRequester.requestFocus()
                     },
-                    // Cleared before the click handler, so TalkBack skips this layer entirely.
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clearAndSetSemantics {}
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                        ) {
-                            field = field.copy(selection = TextRange(0, field.text.length))
-                            focusRequester.requestFocus()
-                        },
-                    color = colors.textPrimary,
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }
@@ -996,6 +983,41 @@ private fun BrowserAddressField(
             )
         }
     }
+}
+
+/**
+ * The address pill's styled address: the host in Ink and the path in Slate, as one single-line
+ * Text that ends in "…" when it is too long (R4, v1.0.2). Visual only: accessibility services
+ * read and edit the field underneath.
+ */
+@Composable
+internal fun AddressDisplayText(
+    display: AddressDisplay,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    onTextLayout: (TextLayoutResult) -> Unit = {},
+) {
+    val colors = YftTheme.colors
+    Text(
+        text = buildAnnotatedString {
+            append(display.host)
+            withStyle(SpanStyle(color = colors.textSecondary)) { append(display.path) }
+        },
+        // Cleared before the click handler, so TalkBack skips this layer entirely.
+        modifier = modifier
+            .clearAndSetSemantics {}
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            ),
+        color = colors.textPrimary,
+        style = MaterialTheme.typography.bodyLarge,
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Ellipsis,
+        onTextLayout = onTextLayout,
+    )
 }
 
 @Composable

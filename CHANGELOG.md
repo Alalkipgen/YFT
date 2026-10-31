@@ -114,6 +114,8 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   text instead of being cut.
 - The bottom bar: in large text a tab's name is drawn a little smaller to fit its tab instead of
   being cut ("Downlo…").
+- The browser's address bar shows the page's address once in large text: its site and path on
+  one line, ending in "…" when too long; two copies of the address could be drawn over each other.
 - A downloaded video's file name says the quality its row showed: a 720 × 1280 TikTok video
   picked as **720p** is saved as "… 720p", not "… 1280p".
 - The Download sheet always shows a video's whole length ("14:05"): in large text a long site name
