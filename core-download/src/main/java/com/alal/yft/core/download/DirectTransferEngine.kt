@@ -738,6 +738,17 @@ class DirectTransferEngine(
         }
     }
 
+    /**
+     * The segments a resume keeps: the saved ones when the file is the saved one (its length,
+     * ETag and Last-Modified, each stated or not on both sides, and the same segments), else the
+     * planned ones from byte 0.
+     *
+     * v1.0.2 R10: a file whose host states neither validator (VK's and Facebook's media hosts)
+     * resumes too, known by its length and segments as a DASH whole file is; it started again at
+     * byte 0 on every resume and on every fresh link (Track E's "started over (the file
+     * changed)"). A validator on one side only, or another one, is still another file; every
+     * range answered must state the same length ([validateResponse]).
+     */
     private fun reconcileCheckpoint(
         planned: List<DownloadSegment>,
         saved: DirectTransferCheckpoint?,
@@ -746,7 +757,6 @@ class DirectTransferEngine(
         resumable: Boolean,
     ): List<DownloadSegment> {
         if (!resumable || saved == null || existingLength == null) return planned
-        if (saved.entityTag == null && saved.lastModified == null) return planned
         if (
             saved.totalBytes != metadata.totalBytes ||
             saved.entityTag != metadata.entityTag ||

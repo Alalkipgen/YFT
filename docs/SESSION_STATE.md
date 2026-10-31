@@ -3190,6 +3190,42 @@ Keep at least the heading and one blank line between sections, so Git merges the
   - S5 (decision 26): main's Facebook and Instagram lookups and Master's engine changed, so
     Facebook, Instagram and VK (its pack's `VkPageDash`) start their three phone runs again.
   - CHANGELOG `[1.0.2]`: one line under Fixed.
+- R10 (the owner's item 2 after R8: FIX_ADD_PLAN's "refresh a download's link in the middle of
+  the download" and VK_PLAN §8's "re-extract once on a media 403"; the existing lookups called,
+  none changed). Track E (PR #13) already asks each site's own lookup for the same video's fresh
+  link in the same quality (`SiteLinkRenewal`; a merge's fresh plan has both tracks' links) on a
+  401, 403, 410 or an expired link, and on VK's 400 after the link gave bytes: once per failure,
+  three times per download without a tap; a fresh link that gives no byte stops as **Link
+  expired**. Two gaps in `core-download`, done:
+  - `DirectTransferEngine.reconcileCheckpoint` dropped the checkpoint of a file that states no
+    ETag and no Last-Modified (VK's and Facebook's progressive files): such a download started
+    again at byte 0 on its fresh link ("started over (the file changed)") and on every run of the
+    same link (Pause and Resume, a lost network, Retry). v1.0.1 had it (since phase 4). Now such a
+    file resumes when its length and segments are the saved ones, as a DASH whole file does; a
+    validator on one side only, or another one, still starts over, and every range must state the
+    same length (`validateResponse`).
+  - `DownloadQueue.failTask` counted a link's bytes from its run only: VK's srcIp case (the
+    network goes and comes back, the same link answers 400 at the run's first request) failed as
+    **Failed · Unexpected HTTP status**, and a fresh link that gave bytes before a lost network
+    and then refused at once stopped as **Link expired** without a lookup. Now a link's bytes are
+    the most of its run's and of the checkpoint's gain since the link came
+    (`RuntimeTask.linkStartBytes`, 0 again when a Retry starts over). v1.0.1 had no renewal.
+  - F8 and "YouTube refused" as they were: a googlevideo whole file's range refused with 403 is
+    asked again once after 3 s (`DashTransferEngine`, 5 s); refused again, the queue names a 403
+    with time left on the link "YouTube refused" (B1), which `SiteLinkRenewal` renews only after
+    the phone's network changed or on Retry, once per download (E-D5'); an expired YouTube link
+    gets its fresh link as any site's.
+  - Tests: `FreshLinkResumeTest` (core-download, new, 7, files without validators): a 403 and a
+    410 then a fresh link (every byte, the fresh link asked from 128 KiB); a second 403 (**Link
+    expired** after one lookup, 128 KiB kept, Retry goes on from it); VK's 400 after a lost
+    network, direct and merged; a merge's track 403 (passes on the old code too: Track E did it);
+    a merge's fresh link refused after a lost network. Old code: 6 of 7 fail (the engine's fix
+    alone: 3; the queue's alone: 4). `DownloadLinkRenewalTest`'s G1 test: `bytesFromThisLink` 4
+    (that link gave them before the Pause), was 0. Emulator: `FreshLinkResumeInstrumentedTest`
+    (app, new, 2: the queue and the direct engine on Android, a 403 and VK's 400 after a lost
+    network). Local: `:core-download` (358) and the app's download tests (335), 0 failures;
+    `:app:compileDebugAndroidTestKotlin`.
+  - CHANGELOG `[1.0.2]`: one line under Fixed.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 

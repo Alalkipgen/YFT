@@ -433,7 +433,8 @@ class DownloadQueue(
     private suspend fun startOver(runtime: RuntimeTask): RuntimeTask {
         val renewed = runtime.destination.renew()
         runCatching { transferDispatcher.discard(runtime.plan) }
-        return runtime.copy(destination = renewed ?: runtime.destination)
+        // R10: the link's bytes count again from byte 0, as the checkpoint does.
+        return runtime.copy(destination = renewed ?: runtime.destination, linkStartBytes = 0)
     }
 
     private fun StoredDownloadTask.startedOver(runtime: RuntimeTask): StoredDownloadTask {
@@ -773,7 +774,7 @@ class DownloadQueue(
                 completeTask(task.id, result)
                 null
             }
-            is QueueTransferResult.Failure -> failTask(task.id, result, linkBytes.gained)
+            is QueueTransferResult.Failure -> failTask(task.id, result, runBytes = linkBytes.gained)
         }
     }
 
@@ -1013,20 +1014,29 @@ class DownloadQueue(
 
     /**
      * Stores [result]'s failure. Track E: a link that died (a reason in [REFRESH_FAILURES], or a
-     * 400 after this link gave [linkBytes]) keeps the resume point (G1) and, with a renewal
-     * source, comes back as the ask for a fresh link when one may come now (E-D3); else the task
-     * ends as before, a "Link expired" one keeping only its destination for Cancel and Delete
-     * (G2).
+     * 400 after this link gave bytes) keeps the resume point (G1) and, with a renewal source,
+     * comes back as the ask for a fresh link when one may come now (E-D3); else the task ends as
+     * before, a "Link expired" one keeping only its destination for Cancel and Delete (G2).
+     *
+     * v1.0.2 R10: this link's bytes are the most of this run's ([runBytes]) and what the
+     * checkpoint gained since the link came ([RuntimeTask.linkStartBytes]): a run after a lost
+     * network, a Pause or a Retry goes on with the same link, and VK's link, bound to the network
+     * it was found on, answers 400 at that run's first request (E-D1), before the run gave any.
      */
     private suspend fun failTask(
         id: String,
         result: QueueTransferResult.Failure,
-        linkBytes: Long,
+        runBytes: Long,
     ): RenewalAsk? = gate.withLock {
         val current = taskLocked(id) ?: return@withLock null
         val now = clock()
         val runtime = runtimeTasks[id]
         val plan = runtime?.plan
+        val linkBytes = maxOf(
+            runBytes,
+            result.checkpoint.orSaved(current.checkpoint).downloadedBytes -
+                (runtime?.linkStartBytes ?: 0L),
+        )
         // Item 7 Track B1: YouTube refusing a link with time left on it is not an expired link.
         val reported = if (
             plan != null && GoogleVideoLinkFacts.refusedWithTimeLeft(plan, result.failure, now)

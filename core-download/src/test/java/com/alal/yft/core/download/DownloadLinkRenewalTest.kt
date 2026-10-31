@@ -267,7 +267,8 @@ class DownloadLinkRenewalTest {
                 val name = plan.javaClass.simpleName
                 assertEquals(name, 1, renewal.requests.size)
                 assertEquals(name, 4L, renewal.requests.single().bytesKept)
-                assertEquals(name, 0L, renewal.requests.single().bytesFromThisLink)
+                // v1.0.2 R10: the link gave those 4 bytes before the Pause.
+                assertEquals(name, 4L, renewal.requests.single().bytesFromThisLink)
                 assertEquals(name, saved, engine.calls[2].resumeFrom)
                 assertEquals(name, DownloadTaskStatus.COMPLETED, queue.task(plan.taskId).status)
             }
