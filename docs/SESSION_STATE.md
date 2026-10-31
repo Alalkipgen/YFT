@@ -3002,6 +3002,55 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - R1–R5's results, causes, CI and checklist: FIX_ADD_PLAN §6 ("Preview #161 results and the
   R1–R5 fixes") and §7 (docs only). Next: the owner's phone run of that checklist on Preview
   #166 and the census APK.
+- After Preview #166 (Preview APK run 41197965104 and the census APK of `c3522f95`; the owner's
+  Redmi Note 13 Pro, Android 16, large text size, a hardware AV1 decoder): R1–R5 passed. The
+  owner's list R6–R8, one commit each, as R1–R5's rules.
+- R6 (DASH-IF's `exMPD_BIP_TC1.mpd`, 360p: ElephantsDream's SegmentBase video, 15,691 samples
+  in 10 MHz ticks to 10:54.445, and its 24 kHz AAC were merged into 28 MB that played 7:11).
+  Cause, two faults in a row: (1) Android 16 states a fragmented input's duration from its
+  `tkhd` (Android 12–15 from its `mdhd`, else its first `sidx`), here 10:52.652, so the stream
+  copy's check (P35: the merged duration within a frame of the input's, either way) took the
+  merged file's right 10:54.445 for a fault, "check failed, video duration"; (2) today's
+  MediaMuxer way then took each sample's time from Android's fragment reader, which keeps a
+  track's time in 32 bits of ticks and reads no `tfdt`, so it wraps after 2^32 ticks, 7:09.5 at
+  10 MHz (sample 10,298), and nothing checked that way's file: the short file counted as done.
+  v1.0.1 had the same merge code but could not read this manifest on the phone (F1). Done: the
+  check's duration rule (`streamCopyDurationMismatch`): within a frame of the samples' length,
+  and not shorter than the input states by more than a frame (longer is no fault), so the
+  stream copy keeps every sample; and today's way's MP4 is read back for its length
+  (`LengthCheckedAudioVideoMuxer`, `MergedLength`: each input's samples by YFT's own reader,
+  any codec or ADTS, `tfdt` jumps left out, against the merged file's `moov` tables). A track
+  missing, fewer samples (leading non-sync video frames aside, which MediaMuxer drops) or more
+  than a second (or two of its longest samples) shorter empties the output and fails as
+  INCOMPATIBLE_TRACKS ("Failed · Incompatible tracks"; Details such as "merged video ends at
+  7:09 of 10:54, 10298 of 15691 samples; stream copy check failed, video duration"); an input
+  or output it cannot read keeps today's way.
+  - Tests: `MergedLengthCheckTest` (new: a fragmented AVC video in 10,000,000 ticks a second,
+    10,800 one-byte samples to 7:30, its headers stating 7:28.2, and its AAC in 24 kHz ticks;
+    with Android 16's stated durations and the new rule it is stream-copied whole, every
+    sample, 7:30; today's way faked as on the phone, cut at the wrap or every sample from there
+    0.1 ms apart (AOSP's MPEG4Writer), into a file or a descriptor: fails as incompatible
+    tracks with that detail, the output emptied; a whole file counts; the rule with
+    ElephantsDream's numbers; leading non-sync frames; an hour as "1h02m03s"; inputs with
+    `tfdt` jumps, AV1 and ADTS). With the old rule and no read-back, three of its seven tests
+    fail. `Mp4TestFiles` (headers that state durations, version 1) and `Mp4Dump` (version 1
+    headers). Local: every module's unit tests (the checkpoint's run), 0 failures.
+  - CHANGELOG `[1.0.2]`: one line under Fixed.
+- R7 and R8: not done; the owner stopped after R6 (2026-10-31), so no census APK and no
+  FIX_ADD_PLAN commit for them yet. What was found, untried:
+  - R7 (Unified Streaming's `tears-of-steel-av1.ism/.mpd`, 240p **No sound**, a whole 12:14
+    file whose length YFT's player shows as about 1:00, then raises a minute at a time): the
+    pieces (SegmentTemplate, SegmentTimeline `$Time$`) are joined as they come; the init
+    piece's `mvhd` states no duration (0, no `mehd`) and every piece keeps its own
+    one-reference `sidx`. Media3's FragmentedMp4Extractor (1.5.1) takes each top-level `sidx`
+    it reads for the seek map, so the length is the end of the last piece read. A likely fix:
+    one `sidx` for the whole file after the init piece, the pieces' own renamed `free`; the
+    M4A (`audio_eng=128002`) is joined the same way.
+  - R8 (item 26, "240p · AV1" saved as its 18 MB of video): the sound's edit list (media time
+    2048 at 48 kHz) gives its first sample a time below zero (−42,667 µs) in Android's reader,
+    and today's MediaMuxer way takes a negative time for a track's end (`SampleSource.load()`),
+    so the audio track is written empty. By R6's code such a merge now fails as **Incompatible
+    tracks** ("merged file has no audio") instead of counting as done (not tried on a phone).
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 

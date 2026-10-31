@@ -28,6 +28,7 @@ internal class TrackInit(
         durations: IntArray,
         compositionOffsets: IntArray?,
         sync: BooleanArray?,
+        gapTicks: Long = 0L,
     ): Mp4Track = Mp4Track(
         kind = kind,
         timescale = timescale,
@@ -45,14 +46,17 @@ internal class TrackInit(
         durations = durations,
         compositionOffsets = compositionOffsets,
         sync = sync,
+        gapTicks = gapTicks,
     )
 
     companion object {
+        /** [anyCodec] (v1.0.2 fix R6): a sample entry of any codec, for the samples only. */
         fun parse(
             trak: Mp4Box,
             kind: StreamCopyTrackKind,
             movieTimescale: Long,
             mvex: Mp4Box?,
+            anyCodec: Boolean = false,
         ): TrackInit {
             val boxes = trak.children()
             val tkhd = boxes.first("tkhd") ?: unsupported("no tkhd")
@@ -83,14 +87,15 @@ internal class TrackInit(
                 }
             }
             val stsd = tables.first("stsd") ?: unsupported("no stsd")
-            val entry = sampleEntry(stsd, kind)
+            val entry = sampleEntry(stsd, kind, anyCodec)
             val nalLengthSize = if (kind == StreamCopyTrackKind.VIDEO) {
                 if (width == 0 || height == 0) {
                     width = entry.u16(VISUAL_WIDTH) shl 16
                     height = entry.u16(VISUAL_WIDTH + 2) shl 16
                 }
-                // VP9 frames are copied whole: no avcC and no NAL lengths (item 5).
-                if (entry.type == VP9_ENTRY) null else nalLengthSize(entry)
+                // VP9 frames are copied whole: no avcC and no NAL lengths (item 5); so is any
+                // other codec that is read only for its length (R6).
+                if (entry.type in AVC_ENTRIES) nalLengthSize(entry) else null
             } else {
                 null
             }
@@ -119,12 +124,16 @@ internal class TrackInit(
         }
 
         /** The one sample entry of [stsd], when it is a codec the merge copies, unencrypted. */
-        private fun sampleEntry(stsd: Mp4Box, kind: StreamCopyTrackKind): Mp4Box {
+        private fun sampleEntry(
+            stsd: Mp4Box,
+            kind: StreamCopyTrackKind,
+            anyCodec: Boolean,
+        ): Mp4Box {
             val count = stsd.u32(4)
             if (count != 1L) unsupported("$count sample descriptions")
             val entry = stsd.children(8).singleOrNull() ?: unsupported("broken stsd box")
             if (entry.type == "encv" || entry.type == "enca") unsupported("encrypted")
-            if (entry.type !in kind.sampleEntries) {
+            if (!anyCodec && entry.type !in kind.sampleEntries) {
                 unsupported("codec ${entry.type.filter(Char::isLetterOrDigit)}")
             }
             val fixed = when (kind) {
@@ -180,7 +189,7 @@ internal class TrackInit(
             val isNormal: Boolean get() = mediaTime >= 0 && rate == RATE_ONE
         }
 
-        private const val VP9_ENTRY = "vp09"
+        private val AVC_ENTRIES = setOf("avc1", "avc3")
 
         private const val MATRIX_BYTES = 36
         private const val VISUAL_ENTRY_BYTES = 78

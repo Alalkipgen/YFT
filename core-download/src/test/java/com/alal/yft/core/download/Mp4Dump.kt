@@ -54,8 +54,12 @@ internal class Mp4Dump(private val bytes: ByteArray) {
         boxes
     }
 
-    val movieTimescale: Long get() = moovChild("mvhd").let { u32(it.start + 12) }
-    val movieDuration: Long get() = moovChild("mvhd").let { u32(it.start + 16) }
+    val movieTimescale: Long
+        get() = moovChild("mvhd").let { u32(it.start + if (wide(it)) 20 else 12) }
+    val movieDuration: Long
+        get() = moovChild("mvhd").let { mvhd ->
+            if (wide(mvhd)) view.getLong(mvhd.start + 24) else u32(mvhd.start + 16)
+        }
 
     val tracks: List<DumpedTrack> by lazy {
         children(top.single { it.type == "moov" }).filter { it.type == "trak" }.map(::track)
@@ -126,14 +130,17 @@ internal class Mp4Dump(private val bytes: ByteArray) {
         }
         check(sample == count) { "stsc covers $sample of $count samples" }
         val stsd = stbl.single { it.type == "stsd" }
+        // Version 1 headers (R6) hold 64-bit times: their fields after them move on.
+        val wideTkhd = wide(tkhd)
+        val wideMdhd = wide(mdhd)
         return DumpedTrack(
-            trackId = view.getInt(tkhd.start + 12),
+            trackId = view.getInt(tkhd.start + if (wideTkhd) 20 else 12),
             handler = String(bytes, hdlr.start + 8, 4, Charsets.ISO_8859_1),
-            timescale = u32(mdhd.start + 12),
-            mediaDuration = u32(mdhd.start + 16),
-            trackDuration = u32(tkhd.start + 20),
-            width = view.getInt(tkhd.start + 76),
-            height = view.getInt(tkhd.start + 80),
+            timescale = u32(mdhd.start + if (wideMdhd) 20 else 12),
+            mediaDuration = if (wideMdhd) view.getLong(mdhd.start + 24) else u32(mdhd.start + 16),
+            trackDuration = if (wideTkhd) view.getLong(tkhd.start + 28) else u32(tkhd.start + 20),
+            width = view.getInt(tkhd.start + if (wideTkhd) 88 else 76),
+            height = view.getInt(tkhd.start + if (wideTkhd) 92 else 80),
             edits = edits,
             sampleDescription = bytes.copyOfRange(stsd.start - 8, stsd.end),
             samples = samples,
@@ -168,4 +175,6 @@ internal class Mp4Dump(private val bytes: ByteArray) {
     }
 
     private fun u32(at: Int): Long = view.getInt(at).toLong() and 0xffffffffL
+
+    private fun wide(box: Box): Boolean = bytes[box.start].toInt() == 1
 }

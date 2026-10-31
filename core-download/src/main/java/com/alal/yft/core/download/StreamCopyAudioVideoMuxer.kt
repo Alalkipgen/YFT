@@ -3,6 +3,7 @@ package com.alal.yft.core.download
 import com.alal.yft.core.model.download.DownloadFailureDetails
 import java.io.Closeable
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
@@ -27,6 +28,9 @@ internal interface StreamCopyOutputs {
 
     /** Empties [output] after a stream copy that did not count: a file is deleted. */
     fun discard(output: MuxOutput)
+
+    /** v1.0.2 fix R6: [output] read back, for its length; closing it leaves a descriptor open. */
+    fun read(output: MuxOutput): ReadableMergeOutput
 }
 
 internal interface OpenStreamCopyOutput : StreamCopyOutput, Closeable
@@ -57,6 +61,23 @@ internal object ChannelStreamCopyOutputs : StreamCopyOutputs {
                 val channel = FileOutputStream(output.descriptor).channel
                 channel.truncate(0L)
                 channel.position(0L)
+            }
+        }
+    }
+
+    override fun read(output: MuxOutput): ReadableMergeOutput = when (output) {
+        is MuxOutput.ToFile -> {
+            val file = RandomAccessFile(output.file, "r")
+            val source = FileChannelMp4Source(file.channel)
+            object : ReadableMergeOutput, Mp4Source by source {
+                override fun close() = file.close()
+            }
+        }
+        is MuxOutput.ToDescriptor -> {
+            // As above: the stream is not closed, so the descriptor stays open.
+            val source = FileChannelMp4Source(FileInputStream(output.descriptor).channel)
+            object : ReadableMergeOutput, Mp4Source by source {
+                override fun close() = Unit
             }
         }
     }

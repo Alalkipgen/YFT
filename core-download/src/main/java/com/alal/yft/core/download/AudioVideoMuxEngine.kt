@@ -285,7 +285,8 @@ interface LocalAudioVideoMuxer {
  * P35: an MP4 merge is a stream copy first ([fastMerge], [StreamCopyAudioVideoMuxer]) — the
  * tracks' samples copied in large blocks, then read back with MediaExtractor — and today's
  * MediaExtractor → MediaMuxer way only when the stream copy does not count. WebM goes the
- * MediaMuxer way.
+ * MediaMuxer way. v1.0.2 fix R6: today's way's MP4 is read back for its length before it counts
+ * ([LengthCheckedAudioVideoMuxer]).
  *
  * MediaExtractor/MediaMuxer behavior is device-dependent and remains an explicit device test.
  */
@@ -298,7 +299,11 @@ class AndroidMp4AudioVideoMuxer(
         require(maxSampleBufferBytes in MIN_SAMPLE_BUFFER_BYTES..MAX_SAMPLE_BUFFER_BYTES)
     }
 
-    private val mediaMuxer = MediaMuxerAudioVideoMuxer(maxSampleBufferBytes)
+    /** v1.0.2 fix R6: today's way, with its MP4 read back for its length before it counts. */
+    private val mediaMuxer = LengthCheckedAudioVideoMuxer(
+        muxer = MediaMuxerAudioVideoMuxer(maxSampleBufferBytes),
+        outputs = AndroidStreamCopyOutputs,
+    )
     private val streamCopy = StreamCopyAudioVideoMuxer(
         fallback = mediaMuxer,
         check = MediaExtractorStreamCopyCheck(),

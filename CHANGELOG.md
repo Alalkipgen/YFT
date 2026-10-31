@@ -108,6 +108,10 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
 - A DASH stream whose qualities come in pieces (a `SegmentTemplate` or `SegmentList`, such as
   Akamai's bbb_30fps.mpd) offers each video quality with the stream's sound, merged into one file
   as for one-file streams, instead of every row **No sound** beside the stream's own **M4A**.
+- A merged DASH video whose times count in fine units and that runs past 7:09 (such as DASH-IF's
+  ElephantsDream, 10:54) is saved whole on Android 16; it was cut at about 7:11 and counted as
+  done. A merge whose file comes out shorter than its tracks now fails as **Incompatible
+  tracks**, its Details saying how far it got.
 - Home's **Your sites**: a site's name has its whole third of the row and, in large text, is drawn
   a little smaller instead of being cut ("Faceboo…").
 - Downloads' select mode: **Remove from list** and **Delete files** go onto two lines in large

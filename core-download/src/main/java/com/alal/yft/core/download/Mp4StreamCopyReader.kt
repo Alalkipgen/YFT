@@ -150,6 +150,11 @@ internal class Mp4Track(
     val durations: IntArray,
     val compositionOffsets: IntArray?,
     val sync: BooleanArray?,
+    /**
+     * v1.0.2 fix R6: the ticks that fragments' `tfdt` jumps added to the samples before them
+     * ([durations] hold them); Android's fragment reader leaves them out, as it reads no `tfdt`.
+     */
+    val gapTicks: Long = 0L,
 ) {
     val totalBytes: Long = (0 until count).sumOf { sizes[it].toLong() }
 
@@ -180,12 +185,14 @@ internal class Mp4Track(
  * fragmented MP4 (`moof` › `traf` › `tfhd`, `tfdt`, `trun`) or a plain one (`stbl` tables).
  * Anything it does not expect — encryption, more than one track, a codec the merge does not
  * copy, broken sizes, sample data outside an `mdat` — is "not supported"
- * ([StreamCopyUnsupported]).
+ * ([StreamCopyUnsupported]). v1.0.2 fix R6: with [anyCodec] a track of any codec is read, for
+ * its samples and their length only (a merge's length check, [MergedLength]).
  */
 internal class Mp4TrackReader(
     private val source: Mp4Source,
     private val kind: StreamCopyTrackKind,
     private val maxSamples: Int = MAX_SAMPLES,
+    private val anyCodec: Boolean = false,
 ) {
     private val window = Window(source)
     private val mdats = RangeList()
@@ -245,7 +252,7 @@ internal class Mp4TrackReader(
             }
         }
         val trak = traks.singleOrNull() ?: unsupported("${traks.size} tracks in one file")
-        val parsed = TrackInit.parse(trak, kind, movieTimescale, mvex)
+        val parsed = TrackInit.parse(trak, kind, movieTimescale, mvex, anyCodec)
         init = parsed
         readPlainTables(parsed, parsed.stbl)
     }
@@ -411,6 +418,7 @@ internal class Mp4TrackReader(
         private var sync: BooleanArray? = null
         private var firstDecodeTime: Long? = null
         private var nextDecodeTime = 0L
+        private var gapTicks = 0L
 
         /**
          * A fragment's `tfdt`: the first one starts the track; a later one that does not follow
@@ -426,6 +434,7 @@ internal class Mp4TrackReader(
             val last = durations[count - 1].toLong() + (time - nextDecodeTime)
             if (last <= 0 || last > Int.MAX_VALUE) unsupported("decode times out of order")
             durations[count - 1] = last.toInt()
+            gapTicks += time - nextDecodeTime
             nextDecodeTime = time
         }
 
@@ -460,6 +469,7 @@ internal class Mp4TrackReader(
             durations = durations,
             compositionOffsets = compositions,
             sync = sync,
+            gapTicks = gapTicks,
         )
 
         private fun grow() {

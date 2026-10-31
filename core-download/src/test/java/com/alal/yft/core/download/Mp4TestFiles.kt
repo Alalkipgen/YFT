@@ -22,6 +22,17 @@ internal object Mp4TestFiles {
     /** An edit list entry: segment duration in movie ticks (1000 a second), media time. */
     class Edit(val duration: Long, val mediaTime: Long)
 
+    /**
+     * v1.0.2 fix R6: the durations a server states in the headers (64-bit `mvhd`, `tkhd` and
+     * `mdhd`), as ElephantsDream's DASH files state 10:52.652 for samples to 10:54.445.
+     */
+    class Stated(
+        val movieTimescale: Long,
+        val movieDuration: Long,
+        val trackDuration: Long,
+        val mediaDuration: Long = 0,
+    )
+
     class Track(
         val video: Boolean,
         val timescale: Int,
@@ -36,6 +47,8 @@ internal object Mp4TestFiles {
         val tracks: Int = 1,
         /** Each fragment's tfdt, when it does not simply follow on. */
         val decodeTimes: List<Long>? = null,
+        /** R6: the headers' durations; by default version 0 headers that state none. */
+        val stated: Stated? = null,
     ) {
         val samples: List<Sample> get() = fragments.flatten()
     }
@@ -197,14 +210,21 @@ internal object Mp4TestFiles {
 
     private fun moov(track: Track, fragmented: Boolean, plainTables: List<ByteArray>?): ByteArray {
         val traks = (1..track.tracks).map { id -> trak(track, id, plainTables) }
+        val stated = track.stated
         val mvhd = fullBox(
             "mvhd",
+            if (stated != null) 1 else 0,
             0,
-            0,
-            int(0),
-            int(0),
-            int(1_000),
-            int(0),
+            *if (stated != null) {
+                arrayOf(
+                    long(0),
+                    long(0),
+                    int(stated.movieTimescale.toInt()),
+                    long(stated.movieDuration),
+                )
+            } else {
+                arrayOf(int(0), int(0), int(1_000), int(0))
+            },
             int(0x00010000),
             short(0x0100),
             ByteArray(10),
@@ -228,15 +248,16 @@ internal object Mp4TestFiles {
     private fun trak(track: Track, id: Int, plainTables: List<ByteArray>?): ByteArray {
         val width = if (track.video) 160 shl 16 else 0
         val height = if (track.video) 90 shl 16 else 0
+        val stated = track.stated
         val tkhd = fullBox(
             "tkhd",
-            0,
+            if (stated != null) 1 else 0,
             3,
-            int(0),
-            int(0),
-            int(id),
-            int(0),
-            int(0),
+            *if (stated != null) {
+                arrayOf(long(0), long(0), int(id), int(0), long(stated.trackDuration))
+            } else {
+                arrayOf(int(0), int(0), int(id), int(0), int(0))
+            },
             ByteArray(8),
             short(0),
             short(0),
@@ -264,12 +285,13 @@ internal object Mp4TestFiles {
         }
         val mdhd = fullBox(
             "mdhd",
+            if (stated != null) 1 else 0,
             0,
-            0,
-            int(0),
-            int(0),
-            int(track.timescale),
-            int(0),
+            *if (stated != null) {
+                arrayOf(long(0), long(0), int(track.timescale), long(stated.mediaDuration))
+            } else {
+                arrayOf(int(0), int(0), int(track.timescale), int(0))
+            },
             short(0x15c7),
             short(0),
         )

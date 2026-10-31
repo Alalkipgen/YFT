@@ -5,6 +5,7 @@ import android.media.MediaFormat
 import android.system.Os
 import android.system.OsConstants
 import java.io.ByteArrayOutputStream
+import java.io.EOFException
 import java.io.File
 import java.io.FileDescriptor
 import java.io.RandomAccessFile
@@ -28,6 +29,27 @@ internal object AndroidStreamCopyOutputs : StreamCopyOutputs {
         }
     }
 
+    override fun read(output: MuxOutput): ReadableMergeOutput = when (output) {
+        is MuxOutput.ToFile -> ChannelStreamCopyOutputs.read(output)
+        is MuxOutput.ToDescriptor -> DescriptorInput(output.descriptor)
+    }
+
+    /** R6: positioned reads of the descriptor, which stays open for its owner. */
+    private class DescriptorInput(private val descriptor: FileDescriptor) : ReadableMergeOutput {
+        override val size: Long = Os.fstat(descriptor).st_size
+
+        override fun readFully(target: ByteBuffer, position: Long) {
+            var at = position
+            while (target.hasRemaining()) {
+                val read = Os.pread(descriptor, target, at)
+                if (read <= 0) throw EOFException("Merged file ended early")
+                at += read
+            }
+        }
+
+        override fun close() = Unit
+    }
+
     /** The descriptor stays open: its owner closes it. */
     private class DescriptorOutput(private val descriptor: FileDescriptor) : OpenStreamCopyOutput {
         override fun write(source: ByteBuffer, position: Long) {
@@ -44,11 +66,31 @@ internal object AndroidStreamCopyOutputs : StreamCopyOutputs {
 }
 
 /**
+ * R6: whether a stream-copied track's duration, as Android's MediaExtractor states it, is off.
+ * [mergedUs] has to be the planned one (every sample's length, [plannedUs]) within [frameUs].
+ * The input's stated duration [inputUs] only counts when the merged track is shorter: Android 16
+ * states a fragmented input's duration from its track header, which a DASH server may write
+ * shorter than its samples last (ElephantsDream's 10:52.652 for samples to 10:54.445), and
+ * Android 12–15 state the media header's; a merged track longer than that is not a fault.
+ */
+internal fun streamCopyDurationMismatch(
+    mergedUs: Long?,
+    plannedUs: Long,
+    inputUs: Long?,
+    frameUs: Long,
+): Boolean {
+    if (mergedUs == null) return false
+    if (abs(mergedUs - plannedUs) > frameUs) return true
+    return inputUs != null && inputUs - mergedUs > frameUs
+}
+
+/**
  * Reads a stream-copied file back with Android's MediaExtractor before it counts (P35): two
  * tracks with the inputs' formats (MIME, picture size, sample rate, channels), durations within
- * a frame, and the first samples, a few sync samples and every sample from the last sync sample
- * on equal byte for byte and in time to the inputs'; that last stretch also proves the count.
- * AVC samples come back with start codes, so the input's are compared in that form.
+ * a frame ([streamCopyDurationMismatch]), and the first samples, a few sync samples and every
+ * sample from the last sync sample on equal byte for byte and in time to the inputs'; that last
+ * stretch also proves the count. AVC samples come back with start codes, so the input's are
+ * compared in that form.
  */
 internal class MediaExtractorStreamCopyCheck : StreamCopyCheck {
     override fun check(
@@ -137,12 +179,12 @@ internal class MediaExtractorStreamCopyCheck : StreamCopyCheck {
                 ticksToMicros(abs(layout.editOffset), timescale)
             val mergedUs = format.longOrNull(MediaFormat.KEY_DURATION)
             val plannedUs = ticksToMicros(track.mediaDuration, timescale)
-            if (mergedUs != null && abs(mergedUs - plannedUs) > frameUs) return "$name duration"
             val inputUs = input.longOrNull(MediaFormat.KEY_DURATION)?.takeIf { it > 0 }
-            if (mergedUs != null && inputUs != null && abs(mergedUs - inputUs) > frameUs) {
-                return "$name duration"
+            return if (streamCopyDurationMismatch(mergedUs, plannedUs, inputUs, frameUs)) {
+                "$name duration"
+            } else {
+                null
             }
-            return null
         }
 
         private fun samplesMismatch(extractor: MediaExtractor, input: RandomAccessFile): String? {
