@@ -128,17 +128,21 @@ class AudioVideoMuxerInstrumentedTest {
 
     /**
      * AV1 merges are off ([AudioVideoMuxCompatibility.AV1_MP4_ENABLED]) because this merge failed
-     * on the API 34 emulator (P4). The probe still tries it on Android 14+ and logs a `YFT-DIAG`
-     * line with the step that failed, so CI shows when a new image starts to write AV1. v1.0.2
-     * item 26: the line also names the kinds of the phone's AV1 decoders ([Av1Decoders.kinds]:
-     * hardware, software, both or none), as the debug switch's Details line does. v1.0.2 fix R8:
-     * an AV1 merge is a stream copy first (`EditListedSoundMergeInstrumentedTest`), so the probe
-     * merges today's MediaMuxer way alone (`fastMerge = false`), the stream copy's fallback.
+     * on the API 34 emulator (P4). P4's video, `mux/video-av1.mp4`, leaves its `av1C` box empty,
+     * and Android reads no AV1 track without one (R8's CI fix, `8fec3139`), so that run never
+     * showed whether today's MediaMuxer way writes AV1. The probe now merges R8's AV1 video,
+     * `mux/video-av1-with-av1c.mp4.b64` (the same 15 samples with a 16-byte `av1C`, as real AV1
+     * files have one). It still tries it on Android 14+ and logs a `YFT-DIAG` line with the step
+     * that failed, so CI shows when an image writes AV1. v1.0.2 item 26: the line also names the
+     * kinds of the phone's AV1 decoders ([Av1Decoders.kinds]: hardware, software, both or none),
+     * as the debug switch's Details line does. v1.0.2 fix R8: an AV1 merge is a stream copy first
+     * (`EditListedSoundMergeInstrumentedTest`), so the probe merges today's MediaMuxer way alone
+     * (`fastMerge = false`), the stream copy's fallback.
      */
     @Test
     fun av1MergesStayOffWhileThisPhoneCannotMakeThem() {
         assumeTrue(Build.VERSION.SDK_INT >= AudioVideoMuxCompatibility.AV1_MP4_MIN_SDK)
-        val video = asset("mux/video-av1.mp4")
+        val video = base64Asset("mux/video-av1-with-av1c.mp4.b64", "video-av1.mp4")
         val output = File(directory, "av1.mp4")
 
         val result = AndroidMp4AudioVideoMuxer(fastMerge = false)
