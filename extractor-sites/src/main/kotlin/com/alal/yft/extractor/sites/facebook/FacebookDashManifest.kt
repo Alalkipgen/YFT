@@ -5,6 +5,7 @@ import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import java.util.Locale
 import javax.xml.parsers.DocumentBuilderFactory
+import javax.xml.parsers.ParserConfigurationException
 import org.w3c.dom.Document
 import org.w3c.dom.Element
 import org.xml.sax.InputSource
@@ -67,6 +68,9 @@ internal object FacebookDashManifests {
         """P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?)?""",
     )
 
+    /** A document type or an entity declaration (R9): refused before any parser reads it. */
+    private val DOCUMENT_TYPE = Regex("""<!\s*(?:DOCTYPE|ENTITY)""", RegexOption.IGNORE_CASE)
+
     fun parse(manifest: String): FacebookDashManifest? {
         val document = document(manifest) ?: return null
         val root = document.documentElement
@@ -93,6 +97,13 @@ internal object FacebookDashManifests {
     /**
      * A bounded, entity-free XML document, or null. Older pages URL-encode the manifest, so a
      * value that starts with an encoded `<` is decoded once first.
+     *
+     * v1.0.2 R9: Android's own parser (`org.apache.harmony.xml.parsers`) throws for
+     * `isXIncludeAware`, for every feature but namespaces and validation and for every attribute,
+     * so asking them all at once left every inline manifest unread on a phone (the JVM's parser
+     * knows them all), as F1's DASH reader did. Each one is asked on its own and one the parser
+     * does not know is skipped; a manifest with a document type is refused before parsing
+     * ([DOCUMENT_TYPE]) on every parser.
      */
     fun document(manifest: String): Document? {
         if (manifest.length > MAX_MANIFEST_CHARS) return null
@@ -102,19 +113,30 @@ internal object FacebookDashManifests {
         } else {
             manifest
         }
+        if (DOCUMENT_TYPE.containsMatchIn(xml)) return null
         return runCatching {
             val factory = DocumentBuilderFactory.newInstance().apply {
                 isNamespaceAware = true
-                isXIncludeAware = false
-                isExpandEntityReferences = false
-                setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
-                setFeature("http://xml.org/sax/features/external-general-entities", false)
-                setFeature("http://xml.org/sax/features/external-parameter-entities", false)
-                setFeature(
-                    "http://apache.org/xml/features/nonvalidating/load-external-dtd", false,
-                )
-                setAttribute("http://javax.xml.XMLConstants/property/accessExternalDTD", "")
-                setAttribute("http://javax.xml.XMLConstants/property/accessExternalSchema", "")
+                ifKnown { isXIncludeAware = false }
+                ifKnown { isExpandEntityReferences = false }
+                ifKnown { setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) }
+                ifKnown {
+                    setFeature("http://xml.org/sax/features/external-general-entities", false)
+                }
+                ifKnown {
+                    setFeature("http://xml.org/sax/features/external-parameter-entities", false)
+                }
+                ifKnown {
+                    setFeature(
+                        "http://apache.org/xml/features/nonvalidating/load-external-dtd", false,
+                    )
+                }
+                ifKnown {
+                    setAttribute("http://javax.xml.XMLConstants/property/accessExternalDTD", "")
+                }
+                ifKnown {
+                    setAttribute("http://javax.xml.XMLConstants/property/accessExternalSchema", "")
+                }
             }
             factory.newDocumentBuilder().apply {
                 setEntityResolver { _, _ -> InputSource(StringReader("")) }
@@ -124,6 +146,16 @@ internal object FacebookDashManifests {
                 })
             }.parse(InputSource(StringReader(xml)))
         }.getOrNull()
+    }
+
+    /** One hardening setting; a parser that does not know it throws, and it is skipped (R9). */
+    private inline fun ifKnown(setting: () -> Unit) {
+        try {
+            setting()
+        } catch (_: ParserConfigurationException) {
+        } catch (_: IllegalArgumentException) {
+        } catch (_: UnsupportedOperationException) {
+        }
     }
 
     private fun track(set: Element, representation: Element): FacebookDashTrack? {

@@ -121,6 +121,11 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   keeps its sound when the sound starts a moment before the picture, as an AAC sound with an edit
   list does (such as Unified Streaming's Tears of Steel): from Android 11 the sound ended at its
   first sample, so the file had no sound.
+- Facebook and Instagram on the phone offer each quality of the page's own DASH manifest, merged
+  with its sound (such as Facebook's 1080p AV1 or an Instagram reel's merged sizes), and the sound
+  alone: Android's own XML reader refused that manifest reader's safety settings, as it did the
+  DASH stream reader's, so only the page's plain files were offered. The backup finder reads such
+  manifests on the phone too, VK's page manifest among them.
 - Home's **Your sites**: a site's name has its whole third of the row and, in large text, is drawn
   a little smaller instead of being cut ("Faceboo…").
 - Downloads' select mode: **Remove from list** and **Delete files** go onto two lines in large

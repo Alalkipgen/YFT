@@ -3154,6 +3154,42 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - R6–R8's results, causes, CI and checklist: FIX_ADD_PLAN §6 ("Preview #166 results and the R6–R8
   fixes") and §7 (docs only). Next: the owner's phone run of R8's checklist with the census APK and
   Preview #170.
+- R9 (the owner's item 1 after R8: FIX_ADD_PLAN §6's hand-off on `extractor-sites`
+  `FacebookDashManifest.document` and `extractor-master` `InlineDashReader.read`; the owner's
+  decision: fix it, as F1, their XML parser settings only). Cause: F1's, in the two inline DASH
+  readers F1 left (lookup files): Android's own `DocumentBuilderFactory`
+  (`org.apache.harmony.xml.parsers`) throws for `setXIncludeAware`, for every `setFeature` but
+  namespaces and validation and for every `setAttribute`; both readers set them all in one
+  `runCatching`, so on a phone every inline manifest read as nothing. Facebook's page
+  (`FacebookPageParser`) then gave its progressive hd and sd files and its manifest's address
+  only, no file of the manifest and no sound; an Instagram reel its one progressive file, without
+  the manifest's merged sizes (`InstagramExtractor`); Master's layers (ContractReader,
+  RecipeLayer, ShapeLayer), VK's page manifest (`VkPageDash`) and the census's row check
+  (`SiteRowCheck`: a DASH row "no whole file") found no file in one. The JVM's parser knows every
+  setting, so every test passed. v1.0.1 had it: both readers are unchanged since v1.0.0. Done,
+  as F1: each setting asked on its own (`ifKnown`: a ParserConfigurationException,
+  IllegalArgumentException or UnsupportedOperationException skips that one), so every one the
+  parser knows is kept (on Android namespaces and no entity expansion, on the JVM all), and a
+  manifest with a document type or an entity declaration (`<!DOCTYPE`, `<!ENTITY`, any case;
+  Facebook's after its URL-decoding) is refused before any parser reads it.
+  - Tests: `InlineManifestOnAndroidTest` (extractor-sites, new) and
+    `InlineDashReaderOnAndroidTest` (extractor-master, new), with `AndroidXmlParser.kt` in each
+    module's tests (F1's `AndroidLikeDocumentBuilderFactory`, set as the JVM's factory):
+    Facebook's `reel_inline_dash.html` gives its 5 rows (hd, sd, AV1 1080p and 720p with the
+    HE-AAC sound, the sound), Instagram's `graphql_reel.json` its heights 1280, 1920, 1280, 854
+    and its sound, Master's reader its 3 whole files with their heights and bandwidths, VK's page
+    manifest its 720p and its sound, the row check a PASS after 2 requests, each as on the JVM; a
+    document type, an external entity, a lower-case doctype and a URL-encoded one are refused on
+    both parsers. With the readers of `33ce8f21` all 7 fail. Emulator
+    (`InlineManifestInstrumentedTest`, new, API 34's own parser; the Facebook page copied to
+    `assets/facebook/`): the page through `FacebookExtractor` gives its 5 rows, a Facebook DASH
+    row through `SiteRowCheck` passes after 2 requests, a manifest with a document type stays
+    refused through both, and the old readers' settings asked at once throw on this parser (why
+    the first two fail on the old code). Local: `:extractor-sites` (372) and `:extractor-master`
+    (1,123) tests, 0 failures; `:app:compileDebugAndroidTestKotlin`.
+  - S5 (decision 26): main's Facebook and Instagram lookups and Master's engine changed, so
+    Facebook, Instagram and VK (its pack's `VkPageDash`) start their three phone runs again.
+  - CHANGELOG `[1.0.2]`: one line under Fixed.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 

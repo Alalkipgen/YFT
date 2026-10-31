@@ -9,6 +9,7 @@ import com.alal.yft.extractor.master.MasterRequest
 import java.io.StringReader
 import javax.xml.XMLConstants
 import javax.xml.parsers.DocumentBuilderFactory
+import javax.xml.parsers.ParserConfigurationException
 import org.w3c.dom.Element
 import org.xml.sax.InputSource
 import org.xml.sax.helpers.DefaultHandler
@@ -35,17 +36,27 @@ internal object InlineDashReader {
         key: String,
     ): Result {
         if (xml.length > 256 * 1024) return Result(emptyList())
+        // v1.0.2 R9: Android's own parser (`org.apache.harmony.xml.parsers`) throws for
+        // `isXIncludeAware`, for every feature but namespaces and validation and for every
+        // attribute, so asking them all at once left every inline manifest unread on a phone (the
+        // JVM's parser knows them all), as F1's DASH reader did. Each one is asked on its own and
+        // one the parser does not know is skipped; a document type is refused before parsing.
+        if (DOCUMENT_TYPE.containsMatchIn(xml)) return Result(emptyList())
         val root = runCatching {
             val factory = DocumentBuilderFactory.newInstance().apply {
                 isNamespaceAware = true
-                isXIncludeAware = false
-                setExpandEntityReferences(false)
-                setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true)
-                setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
-                setFeature("http://xml.org/sax/features/external-general-entities", false)
-                setFeature("http://xml.org/sax/features/external-parameter-entities", false)
-                setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "")
-                setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "")
+                ifKnown { isXIncludeAware = false }
+                ifKnown { setExpandEntityReferences(false) }
+                ifKnown { setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true) }
+                ifKnown { setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) }
+                ifKnown {
+                    setFeature("http://xml.org/sax/features/external-general-entities", false)
+                }
+                ifKnown {
+                    setFeature("http://xml.org/sax/features/external-parameter-entities", false)
+                }
+                ifKnown { setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "") }
+                ifKnown { setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "") }
             }
             factory.newDocumentBuilder().apply {
                 setErrorHandler(DefaultHandler())
@@ -137,4 +148,17 @@ internal object InlineDashReader {
         (0 until childNodes.length).mapNotNull { index ->
             (childNodes.item(index) as? Element)?.takeIf { it.localName == name }
         }
+
+    /** One hardening setting; a parser that does not know it throws, and it is skipped (R9). */
+    private inline fun ifKnown(setting: () -> Unit) {
+        try {
+            setting()
+        } catch (_: ParserConfigurationException) {
+        } catch (_: IllegalArgumentException) {
+        } catch (_: UnsupportedOperationException) {
+        }
+    }
+
+    /** A document type or an entity declaration (R9): refused before any parser reads it. */
+    private val DOCUMENT_TYPE = Regex("""<!\s*(?:DOCTYPE|ENTITY)""", RegexOption.IGNORE_CASE)
 }
