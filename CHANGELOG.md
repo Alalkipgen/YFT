@@ -109,6 +109,9 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   picked as **720p** is saved as "… 720p", not "… 1280p".
 - The Download sheet always shows a video's whole length ("14:05"): in large text a long site name
   (such as VK's vksport.vkvideo.ru) ends in "…" instead of cutting the length.
+- A file name too long for the phone keeps its quality and type ("… 480p.mp4"): only the title is
+  shortened, after a whole word when one ends near, never inside a Myanmar letter's cluster and
+  within the phone's limit; it was cut mid-word and lost " 480p".
 - VK: a file that answers 400 after it gave bytes (VK's answer on a new network) is a dead link
   too and gets a fresh link; a 400 before any byte fails as before.
 - A download stopped at **Link expired** keeps its progress for the fresh link, and its Cancel or

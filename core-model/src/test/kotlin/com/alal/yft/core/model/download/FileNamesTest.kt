@@ -106,6 +106,33 @@ class FileNamesTest {
     }
 
     @Test
+    fun cutAtWordEndsWithAWholeWordWhenOneEndsNear() {
+        // N9 (v1.0.2): a title that fits is kept whole, its end's dots and all.
+        assertEquals("Mr. Bean.", FileNames.cutAtWord("Mr. Bean.", 20))
+        // Cut inside "Video": back to the space before it; at a space already: kept there.
+        assertEquals("Song [Lyric", FileNames.cutAtWord("Song [Lyric Video]", 14))
+        assertEquals("Song [Lyric", FileNames.cutAtWord("Song [Lyric Video]", 12))
+        // No space within reach: the grapheme cut stays.
+        assertEquals("Song [Lyr", FileNames.cutAtWord("Song [Lyric Video]", 9, reach = 3))
+        assertEquals("Abcdefgh", FileNames.cutAtWord("Abcdefghij klm", 8))
+    }
+
+    @Test
+    fun cutAtWordKeepsMyanmarGraphemesWholeWithinTheByteBudget() {
+        // ဘယ်ဆီမှာ: 8 code points, 24 bytes; with its space 25.
+        val word = "\u1018\u101A\u103A\u1006\u102E\u1019\u103E\u102C"
+        val title = List(12) { word }.joinToString(" ")
+
+        val cut = FileNames.cutAtWord(title, maxChars = 200, maxBytes = 214)
+
+        assertEquals(List(8) { word }.joinToString(" "), cut)
+        assertTrue(FileNames.utf8Bytes(cut) <= 214)
+        // Without a space, the cut is still never before a mark nor after the stacking virama.
+        val stacked = FileNames.cutAtWord(WORD.repeat(20), maxChars = 200, maxBytes = 214)
+        assertEquals(WORD.repeat(11) + "\u101E\u1010\u1039\u1010", stacked)
+    }
+
+    @Test
     fun fitKeepsAShortExtensionAndShortensOnlyTheName() {
         val myanmar = FileNames.fit(WORD.repeat(40) + ".mp4", 180)
         assertEquals(WORD.repeat(12) + SA + ".mp4", myanmar)

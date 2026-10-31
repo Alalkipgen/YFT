@@ -612,11 +612,50 @@ class DownloadPlanFactoryTest {
     }
 
     @Test
-    fun `D3 a long Latin title is cut at 96 characters as before`() {
+    fun `D3 N9 a long Latin title is cut after its last whole word within 96 characters`() {
         val name = DownloadPlanFactory.fileName(asset("Holiday ".repeat(30)), variant(label = null))
 
-        assertEquals("Holiday ".repeat(11) + "Holi.mp4", name)
-        assertEquals(DownloadPlanFactory.MAX_FILE_NAME_LENGTH, name.length)
+        assertEquals(List(11) { "Holiday" }.joinToString(" ") + ".mp4", name)
+        assertTrue(name.length <= DownloadPlanFactory.MAX_FILE_NAME_LENGTH)
+    }
+
+    @Test
+    fun `N9 a long Myanmar title keeps its quality and ends with a whole word`() {
+        // The Zawgyi test video's name lost " 480p" and ended "[Lyric V". ဘယ်ဆီမှာ: 24 bytes.
+        val word = "\u1018\u101A\u103A\u1006\u102E\u1019\u103E\u102C"
+        val title = List(12) { word }.joinToString(" ") + " [Lyric Video]"
+
+        val name = DownloadPlanFactory.fileName(asset(title), variant(label = "480p"))
+
+        // 219 bytes before ".mp4", 5 of them " 480p": 8 words and their spaces fit in 214.
+        assertEquals(List(8) { word }.joinToString(" ") + " 480p.mp4", name)
+        assertTrue(FileNames.utf8Bytes(name) <= FileNames.MAX_NAME_BYTES)
+        assertTrue(name.length <= DownloadPlanFactory.MAX_FILE_NAME_LENGTH)
+    }
+
+    @Test
+    fun `N9 a long Myanmar title with no space near the cut keeps its quality and its graphemes`() {
+        val word = "\u101E\u1010\u1039\u1010\u101D\u102B"
+
+        val name = DownloadPlanFactory.fileName(asset(word.repeat(30)), variant(label = "480p"))
+
+        // Never before ါ nor after ္: the 12th သတ္တဝါ stops before its ဝ.
+        assertEquals(word.repeat(11) + "\u101E\u1010\u1039\u1010 480p.mp4", name)
+        assertTrue(FileNames.utf8Bytes(name) <= FileNames.MAX_NAME_BYTES)
+    }
+
+    @Test
+    fun `N9 a long English title keeps its quality and ends with a whole word`() {
+        val title = "The Quick Brown Fox Jumps Over The Lazy Dog ".repeat(4) + "[Official Video]"
+
+        val name = DownloadPlanFactory.fileName(asset(title), variant(label = "1080p60"))
+
+        assertEquals(
+            "The Quick Brown Fox Jumps Over The Lazy Dog The Quick Brown Fox Jumps Over The " +
+                "Lazy 1080p60.mp4",
+            name,
+        )
+        assertTrue(name.length <= DownloadPlanFactory.MAX_FILE_NAME_LENGTH)
     }
 
     @Test

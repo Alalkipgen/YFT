@@ -24,6 +24,9 @@ object FileNames {
     /** D3: the longest extension [fit] keeps whole: ASCII letters and digits only. */
     const val MAX_EXTENSION_CHARS = 10
 
+    /** N9: how far back [cutAtWord] looks for the end of a word, in UTF-16 units. */
+    const val WORD_REACH = 20
+
     /**
      * D3: [text] in NFC with its letters, digits, [allowed] characters and the marks that follow
      * a kept letter or digit. A mark with no kept base is dropped (at the very start, or the
@@ -89,6 +92,25 @@ object FileNames {
             index = next
         }
         return text
+    }
+
+    /**
+     * N9 (v1.0.2): [text] whole when it fits [maxChars] UTF-16 units and [maxBytes] UTF-8 bytes;
+     * else cut by [cut] and, when that falls inside a word, back at the last space within [reach]
+     * units of it, so a title ends with a whole word when one ends near; the end's spaces, dots,
+     * dashes and underscores are trimmed. Without such a space it stays [cut]'s grapheme.
+     */
+    fun cutAtWord(
+        text: String,
+        maxChars: Int,
+        maxBytes: Int = Int.MAX_VALUE,
+        reach: Int = WORD_REACH,
+    ): String {
+        val cut = cut(text, maxChars, maxBytes)
+        if (cut.length == text.length) return text
+        val space = if (text[cut.length] == ' ') cut.length else cut.lastIndexOf(' ')
+        val end = space.takeIf { it > 0 && cut.length - it <= reach } ?: cut.length
+        return cut.substring(0, end).trimEnd(' ', '.', '-', '_')
     }
 
     /**

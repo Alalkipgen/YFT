@@ -2756,6 +2756,26 @@ Keep at least the heading and one blank line between sections, so Git merges the
     the site alone; " · " is drawn beside it). Checked by CI.
   - CHANGELOG `[1.0.2]`: one line under Fixed.
 
+- N9 (long names: the Zawgyi test video, Wq5sQRj1LvQ, was saved as "…ဘယ်ဆီမှာ [Lyric V.mp4":
+  cut mid-word and its " 480p" lost). The cause: `DownloadPlanFactory.fileName` joined the
+  title and the quality label and cut the whole at a grapheme within 96 UTF-16 units and 223
+  UTF-8 bytes (D3's budget, extension included), so the label went first. Done: the title and
+  the label are cleaned apart; the label (" 480p") and the extension are kept whole and only
+  the title is shortened, by `FileNames.cutAtWord` (new, core-model): whole when it fits, else
+  D3's grapheme cut (`cut`: never before a mark, never after a stacking virama, within the byte
+  budget) and, when that falls inside a word, back to the last space within 20 units
+  (`WORD_REACH`); the end's spaces, dots, dashes and underscores trimmed. Without a near space
+  (Myanmar written without spaces) the grapheme cut stays. A label too long to leave the title
+  room, or no title, is cut as before. Seen: 12 × ဘယ်ဆီမှာ + " [Lyric Video]" with 480p → 8
+  words + " 480p.mp4" (≤ 223 bytes); an English title ends after its last whole word +
+  " 1080p60.mp4".
+  - Tests: `FileNamesTest` (+2: `cutAtWord` keeps a fitting title whole, goes back to a near
+    space, keeps the grapheme cut without one; Myanmar words within the byte budget, a stacked
+    consonant never split), `DownloadPlanFactoryTest` (+3: a long Myanmar title with 480p, one
+    without spaces with 480p, a long English title with 1080p60; D3's Latin test now ends after
+    its last whole word). Checked by CI.
+  - CHANGELOG `[1.0.2]`: one line under Fixed.
+
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
 - Plan: `docs/TRACK_E_PLAN.md` (the owner's go, 2026-10-27, while S5's run 3 waits). Branch from

@@ -70,6 +70,7 @@ sealed interface DownloadPlanResult {
  */
 object DownloadPlanFactory {
     const val MAX_FILE_NAME_LENGTH = 96
+    private const val FALLBACK_NAME = "yft-download"
     private val HLS_MIME_TYPES = setOf(
         "application/vnd.apple.mpegurl",
         "application/x-mpegurl",
@@ -343,22 +344,29 @@ object DownloadPlanFactory {
      * and [FileNames.MAX_NAME_BYTES] UTF-8 bytes with the extension, cut at a grapheme boundary.
      */
     internal fun fileName(asset: MediaAsset, variant: MediaVariant): String {
-        val base = listOfNotNull(
-            asset.title?.takeIf { it.isNotBlank() },
-            variant.label?.takeIf { it.isNotBlank() },
-        )
-            .joinToString(" ")
-            .ifBlank { "yft-download" }
-            .sanitizeForFileSystem()
-            .ifBlank { "yft-download" }
+        val title = asset.title?.sanitizeForFileSystem()?.takeIf { it.isNotBlank() }
+        val label = variant.label?.sanitizeForFileSystem()?.takeIf { it.isNotBlank() }
 
         val extension = extensionFor(variant)
         val maxBase = (MAX_FILE_NAME_LENGTH - extension.length - 1).coerceAtLeast(1)
         val maxBaseBytes =
             (FileNames.MAX_NAME_BYTES - FileNames.utf8Bytes(extension) - 1).coerceAtLeast(1)
+        // N9 (v1.0.2): a name too long keeps its quality (" 480p") and extension whole; only
+        // the title is shortened, at the end of a word when one ends near.
+        val suffix = label?.let { " $it" }.orEmpty()
+        val titleChars = maxBase - suffix.length
+        val titleBytes = maxBaseBytes - FileNames.utf8Bytes(suffix)
+        val base = when {
+            title == null -> label ?: FALLBACK_NAME
+            titleChars <= 0 || titleBytes <= 0 -> "$title$suffix"
+            else -> FileNames.cutAtWord(title, titleChars, titleBytes).ifEmpty { null }
+                ?.let { it + suffix }
+                ?: label
+                ?: FALLBACK_NAME
+        }
         val shortened = FileNames.cut(base, maxBase, maxBaseBytes)
             .trimEnd('.', ' ', '-', '_')
-            .ifEmpty { "yft-download" }
+            .ifEmpty { FALLBACK_NAME }
         return "$shortened.$extension"
     }
 
