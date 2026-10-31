@@ -16,6 +16,7 @@ import com.alal.yft.download.AndroidFileDeleteSystem
 import com.alal.yft.download.DownloadedFileDeleter
 import com.alal.yft.download.FileDeletion
 import com.alal.yft.download.FolderEntry
+import com.alal.yft.download.SaveFolderPaths
 import com.alal.yft.download.SaveFolders
 import com.alal.yft.download.SavedDownloadFile
 import kotlinx.coroutines.CancellationException
@@ -101,7 +102,10 @@ class AndroidLibraryRepository(
         return withContext(ioDispatcher) { listed(folder) }
     }
 
-    override suspend fun chosenFolderName(): String? = chosenFolder()?.name
+    /** M1 (v1.0.2): by its path, as on Downloads; Download/YFT, named already, not twice. */
+    override suspend fun chosenFolderName(): String? = chosenFolder()
+        ?.let(SaveFolderPaths::label)
+        ?.takeUnless { it == LibraryLocation.SHARED_DOWNLOADS.label }
 
     private fun listed(folder: SaveFolder?): List<LibraryItem> {
         val shared = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

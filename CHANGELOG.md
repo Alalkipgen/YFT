@@ -117,6 +117,9 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   WebM of unknown quality (such as w3schools' sample video).
 - The Download sheet's short list always shows the selected row, so **Download** never names a
   format you cannot see.
+- Downloads' folder chip: Download/YFT picked again in the folder picker reads as the default
+  ("Download/YFT · 6.8 GB free") instead of "YFT"; another picked folder shows its path
+  ("Movies/Test") and, on the phone's own storage, its free space.
 - VK: a file that answers 400 after it gave bytes (VK's answer on a new network) is a dead link
   too and gets a fresh link; a 400 before any byte fails as before.
 - A download stopped at **Link expired** keeps its progress for the fresh link, and its Cancel or

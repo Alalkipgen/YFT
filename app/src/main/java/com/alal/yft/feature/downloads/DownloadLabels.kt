@@ -244,8 +244,9 @@ internal fun statusChip(
 }
 
 /**
- * "Download/YFT · 18 GB free", or the location alone when the volume cannot be measured, as a
- * chosen folder ("Movies", v1.0.2 item 28) never can.
+ * "Download/YFT · 18 GB free", or the location alone when the volume cannot be measured; a
+ * chosen folder (v1.0.2 item 28) by its path, M1: "Movies/Test · 18 GB free" on the phone's
+ * storage, "Movies" alone on a memory card or in a cloud app.
  */
 internal fun storageLabel(storage: DownloadStorageSummary): String {
     val location = when (storage.location) {

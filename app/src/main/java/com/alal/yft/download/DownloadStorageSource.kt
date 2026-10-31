@@ -3,6 +3,7 @@ package com.alal.yft.download
 import android.os.Build
 import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
 import com.alal.yft.core.model.settings.DownloadLocation
+import com.alal.yft.core.model.settings.SaveFolder
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -25,6 +26,12 @@ interface DownloadStorageSource {
      * each time; null when it can no longer be used, as they go to [defaultLocation] then.
      */
     suspend fun folderName(): String? = null
+
+    /**
+     * M1 (v1.0.2): free bytes where the chosen folder is, when that can be read (the phone's own
+     * storage); null otherwise (a memory card, a cloud app) and when the folder cannot be used.
+     */
+    suspend fun folderFreeBytes(): Long? = null
 
     /** Where new downloads go when the chosen folder cannot be used. */
     val defaultLocation: DownloadLocation get() = DownloadLocation.SHARED_DOWNLOADS
@@ -63,10 +70,18 @@ class PreferencesDownloadStorageSource(
     override suspend fun freeBytes(location: DownloadLocation): Long? =
         withContext(ioDispatcher) { space.availableBytes(location) }
 
-    override suspend fun folderName(): String? {
+    /** M1 (v1.0.2): the folder's path ("Movies/Test", "Download/YFT"), else its name. */
+    override suspend fun folderName(): String? = usableFolder()?.let(SaveFolderPaths::label)
+
+    override suspend fun folderFreeBytes(): Long? {
+        val folder = usableFolder()?.takeIf(SaveFolderPaths::onPhoneStorage) ?: return null
+        return freeBytes(DownloadLocation.SHARED_DOWNLOADS)
+    }
+
+    private suspend fun usableFolder(): SaveFolder? {
         val folder = preferences.preferences.first().folder ?: return null
         val usable = withContext(ioDispatcher) { folders.usable(folder) }
-        return if (usable) folder.name else null
+        return folder.takeIf { usable }
     }
 
     override val defaultLocation: DownloadLocation = if (sharedDownloadsSupported) {

@@ -2809,6 +2809,23 @@ Keep at least the heading and one blank line between sections, so Git merges the
   - Tests: `SettingsScreenTest` (the chosen folder's line in the new words).
   - CHANGELOG `[1.0.2]`: one line under Changed.
 
+- M1 (Downloads' chip showed "YFT" after Download/YFT was picked again in the folder picker).
+  The cause: a chosen folder was named by its own name (the picker's display name) and never
+  measured. Done: `SaveFolderPaths` (new): the folder's path read from the picker's address
+  (`…externalstorage.documents/tree/primary%3AMovies%2FTest` → "Movies/Test"; a memory card's
+  too), else its name (a cloud app's folder); `PreferencesDownloadStorageSource.folderName()`
+  gives that path and `folderFreeBytes()` (new, default null) the phone storage's free space
+  when the folder is on it (as for Download/YFT); `DownloadsViewModel.summary` passes both. So
+  the chip reads "Download/YFT · 6.8 GB free" for Download/YFT picked again, "Movies/Test ·
+  6.8 GB free" for another phone folder, "Movies" alone on a memory card. The empty Library
+  (N5) names the folder by the same path, and not at all when it is Download/YFT (named
+  already). No new permission (the free space is the same `StatFs` reading as Download/YFT's).
+  - Tests: `SaveFolderPathsTest` (new: phone, memory card, cloud, root and broken addresses),
+    `DownloadStorageSourceTest` (+1: path and free space while usable; a card's folder not
+    measured; nothing once unusable), `DownloadsViewModelTest` (the chip's summary with free
+    space), `DownloadLabelsTest` ("Download/YFT · 18 GB free", "Movies/Test · 18 GB free").
+  - CHANGELOG `[1.0.2]`: one line under Fixed.
+
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
 - Plan: `docs/TRACK_E_PLAN.md` (the owner's go, 2026-10-27, while S5's run 3 waits). Branch from

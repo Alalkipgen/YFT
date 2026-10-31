@@ -350,15 +350,18 @@ class DownloadsViewModel @Inject constructor(
         .catch { emit(null) }
 
     /**
-     * v1.0.2 item 28: a chosen folder shows its name (its free space cannot be measured); one
-     * that can no longer be used shows the default place, where new downloads go then.
+     * v1.0.2 item 28: a chosen folder shows its name; one that can no longer be used shows the
+     * default place, where new downloads go then. M1: the name is the folder's path
+     * ("Download/YFT", "Movies/Test") with its free space when that can be read.
      */
     private suspend fun summary(location: DownloadLocation): DownloadStorageSummary {
         if (location != DownloadLocation.CHOSEN_FOLDER) {
             return DownloadStorageSummary(location, storageSource.freeBytes(location))
         }
         val folderName = storageSource.folderName()
-        if (folderName != null) return DownloadStorageSummary(location, null, folderName)
+        if (folderName != null) {
+            return DownloadStorageSummary(location, storageSource.folderFreeBytes(), folderName)
+        }
         val fallback = storageSource.defaultLocation
         return DownloadStorageSummary(fallback, storageSource.freeBytes(fallback))
     }

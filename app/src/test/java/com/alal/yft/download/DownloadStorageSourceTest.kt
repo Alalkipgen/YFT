@@ -79,6 +79,42 @@ class DownloadStorageSourceTest {
     }
 
     @Test
+    fun `M1 a picked folder is named by its path and measured on the phone's storage`() = runTest {
+        val folders = UsableFolders(usable = true)
+        val source = PreferencesDownloadStorageSource(
+            preferences = preferences,
+            space = space,
+            sharedDownloadsSupported = true,
+            ioDispatcher = StandardTestDispatcher(testScheduler),
+            folders = folders,
+        )
+        fun choose(id: String, name: String) {
+            preferences.state.value = DownloadPreferences(
+                location = DownloadLocation.CHOSEN_FOLDER,
+                folder = SaveFolder("content://com.android.externalstorage.documents/tree/$id", name),
+            )
+        }
+
+        choose("primary%3ADownload%2FYFT", "YFT")
+        assertEquals("Download/YFT", source.folderName())
+        assertEquals(FREE_BYTES, source.folderFreeBytes())
+        choose("primary%3AMovies%2FTest", "Test")
+        assertEquals("Movies/Test", source.folderName())
+        assertEquals(FREE_BYTES, source.folderFreeBytes())
+        assertEquals(List(2) { DownloadLocation.SHARED_DOWNLOADS }, measured)
+
+        choose("1A2B-3C4D%3AMovies", "Movies")
+        assertEquals("Movies", source.folderName())
+        assertNull(source.folderFreeBytes())
+        folders.usable = false
+        choose("primary%3AMovies%2FTest", "Test")
+        assertNull(source.folderName())
+        assertNull(source.folderFreeBytes())
+        assertEquals(2, measured.size)
+        assertNull(DownloadStorageSource.None.folderFreeBytes())
+    }
+
+    @Test
     fun `without a chosen folder there is no folder name`() = runTest {
         val source = PreferencesDownloadStorageSource(
             preferences = preferences,

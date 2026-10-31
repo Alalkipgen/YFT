@@ -187,6 +187,19 @@ class DownloadLabelsTest {
             "Chosen folder",
             storageLabel(DownloadStorageSummary(DownloadLocation.CHOSEN_FOLDER, freeBytes = null)),
         )
+        // M1 (v1.0.2): Download/YFT picked again reads as the default; another folder by its path.
+        assertEquals(
+            "Download/YFT · 18 GB free",
+            storageLabel(
+                DownloadStorageSummary(DownloadLocation.CHOSEN_FOLDER, 19_541_180_006, "Download/YFT"),
+            ),
+        )
+        assertEquals(
+            "Movies/Test · 18 GB free",
+            storageLabel(
+                DownloadStorageSummary(DownloadLocation.CHOSEN_FOLDER, 19_541_180_006, "Movies/Test"),
+            ),
+        )
     }
 
     @Test

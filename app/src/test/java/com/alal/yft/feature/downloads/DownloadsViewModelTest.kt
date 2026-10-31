@@ -233,6 +233,22 @@ class DownloadsViewModelTest {
                 viewModel.uiState.value.storage,
             )
 
+            // M1 (v1.0.2): with its free space when that can be read.
+            storage.folderName = "Download/YFT"
+            storage.folderFree = 7_000_000_000
+            storage.current.value = null
+            runCurrent()
+            storage.current.value = DownloadLocation.CHOSEN_FOLDER
+            runCurrent()
+            assertEquals(
+                DownloadStorageSummary(
+                    DownloadLocation.CHOSEN_FOLDER,
+                    freeBytes = 7_000_000_000,
+                    folderName = "Download/YFT",
+                ),
+                viewModel.uiState.value.storage,
+            )
+
             storage.folderName = null
             storage.current.value = null
             runCurrent()
@@ -269,10 +285,13 @@ class DownloadsViewModelTest {
         val current = MutableStateFlow(initial)
         private var measurements = 0
         var folderName: String? = null
+        var folderFree: Long? = null
 
         override val location: Flow<DownloadLocation?> = current
 
         override suspend fun folderName(): String? = folderName
+
+        override suspend fun folderFreeBytes(): Long? = folderFree
 
         override suspend fun freeBytes(location: DownloadLocation): Long? {
             measurements += 1
