@@ -66,6 +66,7 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   undone.", the note after it says "Deleted 1 file." or "Deleted 3 files.", and **Delete** is red
   on both (it was teal on Downloads). The empty Library also names the folder you chose for
   downloads.
+- Settings → Save to: the chosen folder's line reads "Saving to <folder>. Tap to change."
 - **YouTube refused** keeps its hint and **Reset YouTube session**; YFT asks for a fresh link by
   itself only after the phone's network changed (once per download), else on Retry.
 - Home's **Your sites** shows every site, three to a row in your order with **Add** last, instead

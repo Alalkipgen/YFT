@@ -178,7 +178,7 @@ class SettingsScreenTest {
         composeRule.onNodeWithTag("settings-location").performClick()
         composeRule.onNodeWithTag("location-CHOSEN_FOLDER")
             .assertIsSelected()
-            .assert(hasText("Now Movies. Tap to choose another folder."))
+            .assert(hasText("Saving to Movies. Tap to change."))
             .performClick()
         assertEquals(1, folderPickerOpened)
 

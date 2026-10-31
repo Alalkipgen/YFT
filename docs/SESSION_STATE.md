@@ -2803,6 +2803,12 @@ Keep at least the heading and one blank line between sections, so Git merges the
     row whole at 130 % and 150 %).
   - CHANGELOG `[1.0.2]`: one line under Fixed.
 
+- N12 (Settings → Save to, item 28's chosen-folder line "Now <name>. Tap to choose another
+  folder."). Done (`SettingsScreen`, `DownloadLocation.summary`): "Saving to <name>. Tap to
+  change." The other lines unchanged.
+  - Tests: `SettingsScreenTest` (the chosen folder's line in the new words).
+  - CHANGELOG `[1.0.2]`: one line under Changed.
+
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
 - Plan: `docs/TRACK_E_PLAN.md` (the owner's go, 2026-10-27, while S5's run 3 waits). Branch from

@@ -1004,7 +1004,8 @@ private fun DownloadLocation.summary(
 
     DownloadLocation.APP_STORAGE -> "Only YFT can open these files. They are removed with the app."
     DownloadLocation.CHOSEN_FOLDER -> if (folderName != null) {
-        "Now $folderName. Tap to choose another folder."
+        // N12 (v1.0.2): the owner's words.
+        "Saving to $folderName. Tap to change."
     } else {
         "A folder you pick, on the phone or a memory card."
     }
