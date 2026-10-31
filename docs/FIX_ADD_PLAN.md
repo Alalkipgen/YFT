@@ -1255,6 +1255,72 @@ SHA-256 and certificate. Merge, tag and signing need the owner's OK for this tas
 Install `yft-preview-apk` from the Preview APK run the agent sends; uninstall the older YFT
 Preview first (each run has a new test key).
 
+**Preview #149 results and the v1.0.2 fix batch** (2026-10-31; branch `work/phase-v102-easy`;
+the owner's Xiaomi, HyperOS, large system font):
+
+- **#149** (`52a5a7ef`, run 41106177311): PASS 1, 2, 3, 4, 5, 5b, 6, 7, 10, 15, 25, 28, 50, 51.
+  22 (a measurement): a 5:13 2160p WebM (904 MB) merged in 20–30 s; the owner: OK, no change.
+  11: six qualities, but through V2 heal ("V2 heal client_id: learned from vkvideo-script" …
+  "6 checked candidates via CONTRACT"); the "VK page data" step was never reached; no change for
+  now. Not reached, no change needed: 13 (w3schools' plain video needs no lookup, so no Lookup
+  details, as designed), 17a (the X post gave MP4 only), 18 (TikTok's BOT_CHECK before T1), 8
+  and 9 (their conditions did not come up), 19 and 26 (they need the census APK). FAIL: 59 and
+  70b (F1, F2). A YouTube M4A once showed "1 B" (a bad connection; G1 now reads such a size as
+  unknown).
+- **The fixes**, one commit each (CI: checkpoint / emulator smoke / Preview APK / minified):
+  F1 `d65ba4f7` (#595 / #183 / #150 / #41), F2 `65079282` (#596 / #184 / #151 / #42), N1
+  `04dfa890` (#597 / #185 / #152 / #43), N2 `12d07b85` (checkpoint #598 red only because
+  Robolectric could not fetch its Android jar in `:core-browser`, `MavenArtifactFetcher`
+  `IOException`, not the code; emulator #186 green; not re-run, the later heads' runs cover
+  it), N3 `52858877` (#599), N4 `eee5aef9` (#600), N5 `feee3aae` (#601), N6 `b581de13` (#602),
+  N7 `0b87d2cd` (#603), N8 no change (the owner's decision, §7), N9 `e09097a0` (#604 / #192 /
+  #159 / #50), N10 `5682ea46`, N11 `15a1dddb`, N12 `a716faf9` and M1 `40cbce9c` (pushed with
+  `[skip ci]`, so CI ran once on G1's head), G1 `361e4222` (#605 / #193 / #160; minified #51
+  cancelled by G2's push), G2 `e29fcdbb` (#606 / #194 / #161 / #52). All green except N2's
+  checkpoint; the other Preview, minified and emulator runs between were cancelled by the next
+  push.
+- **G2 on the emulator** (#194's "MP3 timing" notices; API 34, 128 kbps): a 4-minute source —
+  after "MP3: 4:01 of sound, decode 3.8 s, encode 2.6 s" (6.4 s in all), before (the old loop,
+  decode only) decode 4.3 s; a 1-hour source — after "MP3: 1:00:00 of sound, decode 1 min 26 s,
+  encode 37 s" (124.8 s), before decode 84.9 s. The emulator decodes at the same speed either
+  way (its decoder sets the time there, not the waits); the phone's Details line decides.
+- **Checklist** (Preview #161 / its Trial; 26 with the census APK):
+  1. F1 (59): `https://dash.akamaized.net/dash264/TestCases/1a/netflix/exMPD_BIP_TC1.mpd` → Video
+     360p (480 × 360 · 24 fps · MP4) without "No sound", ~64 MB, and Audio M4A (72 kbps · en,
+     ~5.6 MB); Download → one MP4 with sound (~44 MB); the M4A ~5.1 MB. `bbb_30fps.mpd` still
+     lists up to 2160p.
+  2. F2 (70b): the long-code reel `https://www.instagram.com/reel/C8xYzAbCdEfGhIjKlMnOpQrStUvWxYz01234/`
+     → "This Instagram post is private or no longer available." with Try again.
+  3. N1: Home's Your sites at 130 % and 150 % text: "YouTube", "Facebook", "Instagram" whole.
+  4. N2: Updates' release notes: each heading clearly bigger and bolder than bold body text,
+     with a little space above.
+  5. N3: Downloads' select mode at 130 % and 150 %: the buttons whole, no "…".
+  6. N4: the bottom bar's "Downloads" whole at 130 % and 150 % (a little smaller).
+  7. N5: delete in Downloads and in Library: "This can't be undone.", "Deleted 1 file." /
+     "Deleted N files.", the same red Delete button; Library's empty text names the chosen
+     folder.
+  8. N6: a TikTok 720 × 1280 video: the row "720p", the file name "… 720p".
+  9. N7: `https://vkvideo.ru/video-212508059_456245329`: the sheet says "14:05", whole at 150 %.
+  10. N8: no change: Instagram's 640 × 640 video stays "720p · HD".
+  11. N9: `https://www.youtube.com/watch?v=Wq5sQRj1LvQ` (Zawgyi): the file name ends with a whole
+      word and " 480p.mp4".
+  12. N10: `https://www.w3schools.com/html/html5_video.asp`: the sheet ends on the MP4 ("144p ·
+      320 × 176 · 25 fps · MP4") once it is read; an OGG you tap yourself stays.
+  13. N11: on that page the collapsed sheet always shows the checked row.
+  14. N12: Settings' folder line: "Saving to <folder>. Tap to change."
+  15. M1: pick Download/YFT again → the Downloads chip "Download/YFT · N GB free"; pick
+      Movies/Test → "Movies/Test · N GB free".
+  16. G1: no row, Download button or download total shows a size too small for its length
+      (such as "1 B" for a long M4A): it shows the "~" estimate or "Size unknown"; a clip of a
+      few seconds keeps its size.
+  17. G2: the 3:19 YouTube song as MP3 128 kbps: note how long "Converting" takes; the MP3's row →
+      Details: "MP3: 3:19 of sound, decode … s, encode … s" (send the line).
+  18. 26 (census APK, Android 14 or newer): on the census screen tick "AV1 merges (test,
+      Android 14 or newer)"; a Facebook reel whose 1080p is AV1 only (or a YouTube video whose
+      2K/4K is AV1 only), Try again → a row "… · AV1" (e.g. "1080p · Full HD · AV1"); download →
+      one MP4 with sound that plays, its Details end "AV1 decoder: …"; untick → the AV1 row is
+      gone.
+
 **Preview #11 (after P48–P50)** — X, Instagram and HLS sound:
 
 1. **An X post with a video**, pasted on Home: the sheet lists its MP4 qualities (e.g. 720p
@@ -1411,6 +1477,24 @@ Other items:
   not done while the download service gives the same posts. Agent's advice (2026-10-10, P47):
   do not build it — the signing and device registration change with TikTok's app, so it breaks
   often and each break needs a YFT update.
+
+- **v1.0.2 batch after Preview #149** (2026-10-31): the owner's decisions and the agent's
+  hand-offs.
+  - Item 22 (owner): a 5:13 2160p WebM (904 MB) merged in 20–30 s on the phone: OK, no change.
+  - N8 (owner): no change. A 640 × 640 video keeps "720p · HD" under the shared nearest-height
+    rule (the same rule gives a 1920 × 960 file "1080p", item 9); "640p" would need another
+    rule for one site.
+  - Item 11: the six qualities came through V2 heal ("V2 heal client_id: learned from
+    vkvideo-script" … "6 checked candidates via CONTRACT"); the "VK page data" step was never
+    reached on the phone. No change for now; look again if V2 heal stops answering.
+  - Hand-off (lookup files, not changed): `extractor-sites` `FacebookDashManifest.document` and
+    `extractor-master` `InlineDashReader.read` set the same XML parser settings in one
+    `runCatching` as F1's reader did, so on a phone Facebook's and Master's inline DASH
+    manifests go unread the same way. Owner decision: —
+  - Hand-off: the preview (Media3) plays a manifest as it is, so an http `BaseURL` (F1's MPD)
+    is refused by Android's cleartext rule; the download works (F1). Owner decision: —
+  - G2: the emulator decodes at the same speed with the new loop; if the phone's Details line
+    still shows a long decode, the decoder itself is next. Owner decision: —
 
 ## 8. Done before Phase 15
 
