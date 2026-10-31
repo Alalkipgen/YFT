@@ -1420,6 +1420,138 @@ owner's Redmi Note 13 Pro, Android 16 (API 36), large system font):
      sound"; download → one MP4 with sound that plays, its Details end "AV1 decoder: …";
      untick → the rows are as in 3 again ("No sound", no "· AV1").
 
+**Preview #166 results and the R6–R8 fixes** (2026-10-31; branch `work/phase-v102-easy`; the
+owner's Redmi Note 13 Pro, Android 16 (API 36), large system font, a hardware AV1 decoder):
+
+- **#166** (`c3522f95`, run 41197965104) and the census APK of `c3522f95`: R1–R5 passed. The
+  owner's list R6–R8, one commit each. R6: a merged DASH video was cut at 7:11:
+  `exMPD_BIP_TC1.mpd`'s 360p saved only 28 MB and played 7:11 of 10:54. R7: a video-only DASH
+  file's length grew while it played (`tears-of-steel-av1`'s 240p "No sound"). R8 (item 26, the
+  census APK with "AV1 merges (test, Android 14 or newer)" on): `tears-of-steel-av1`'s rows were
+  right, none "No sound" ("720p · HD · AV1" 1920 × 856 ~267 MB, "480p · AV1" 1280 × 570 ~81 MB,
+  "240p · AV1" 640 × 284 ~29 MB), but "240p · AV1" saved 18 MB, the video alone
+  (`video_eng=208000`, ~18.2 MiB; the sound `audio_eng=128002`, ~11.2 MiB, was not written);
+  YFT's player said "Video 240p can't be played here. Try Open with…", another player showed
+  the picture ("HW AV1", the whole 12:14) and "This audio format (Unknown) is not supported".
+- **The fixes**, one commit each (CI: checkpoint / emulator smoke / Preview APK / minified): R6
+  `a11ef08b` (#612 / #200 / #167 / #58), R7 `a356c95c` (#613 / #201 / #168 / #59), R8 `01e84080`
+  (#614 / #202 / #169 / #60) and R8's CI fix `8fec3139` (#615 / #203 / #170 / #61). All green except
+  two emulator smokes, neither for a fix's app code:
+  - #200 (R6): `DashPiecesInstrumentedTest` failed with "Cannot create DASH workspace", an older
+    race in `prepareWorkspace`: when a merge's video and sound start at once, both see no folder,
+    one makes it and the other's `mkdirs()` returns false. v1.0.1 had this race too; on a phone it
+    can happen only while the folder does not exist yet (the first DASH download after install, or
+    after clearing the app's data). R7 fixed it (`mkdirs()` first, then whether the folder is
+    there); #201 passed.
+  - #202 (R8): of 83 tests (6 skipped) only the AV1 case of R8's new
+    `EditListedSoundMergeInstrumentedTest` failed: "INCOMPATIBLE_TRACKS, IllegalArgumentException at
+    open; stream copy check failed, video unreadable". The test's file, not the app: P4's
+    `mux/video-av1.mp4` has an empty `av1C` box (8 bytes, no payload), and Android reads no AV1
+    track without one (Android 14's `MPEG4Extractor::getTrack` wants at least 4 bytes starting
+    0x81), so `selectTrack` threw IllegalArgumentException in both ways. Real AV1 files carry it
+    (`tears-of-steel-av1`'s pieces: 17 bytes, starting 0x81; the stream copy keeps it as it is). The
+    AVC case passed ("r8-merge avc sdk=34 samples=45/45 inputStart=-46439us mergedStart=-46439us").
+    The owner chose a second R8 commit: `8fec3139`, test only, gives the test an AV1 video with an
+    `av1C` (Tests, below); the app is unchanged (its census APK is byte for byte `01e84080`'s). #203
+    passed: 83 tests, 0 failures, 6 skipped.
+- **Preview #168** (`a356c95c`, run 41218265624) on the owner's phone, all passed: R6 —
+  `exMPD_BIP_TC1` 360p saved 44 MB, plays to 10:54, a seek to 8:10 works; `bbb_30fps` 144p
+  saved 35 MB, 10:35. R7 — `tears-of-steel-av1` 240p "No sound" saved 18 MB, shows 12:14 at
+  once and plays (seen at 10:25 of 12:14).
+- **Causes and fixes**:
+  - R6, two faults in a row: (1) Android 16 states the video's length as 10:52.652, but its
+    samples run to 10:54.445; the old stream-copy check took this for a fault, so the merge fell
+    back to the MediaMuxer way; (2) in the MediaMuxer way Android's reader wraps its time at
+    7:09.5 (sample 10,298): the file came out short but was marked done. Now the stream-copy
+    check has a new length rule (`streamCopyDurationMismatch`), and the MediaMuxer way's MP4 is
+    read back for its length (`LengthCheckedAudioVideoMuxer`): a short one fails as "Failed ·
+    Incompatible tracks", with Details such as "merged video ends at 7:09 of 10:54, 10298 of
+    15691 samples; stream copy check failed, video duration". v1.0.1 had the same merge code
+    but could not read this manifest (F1), so the problem never showed.
+  - R7: the manifest's pieces were joined as they came. Each piece has its own `sidx` (4 s) and
+    nothing states the whole length; Media3 takes each `sidx` for a new seek map, so the length
+    grew while it played and a seek worked only in the part read so far. Now one `sidx` with
+    the whole length goes before the first `moof` (`DashPieceIndex`), and the pieces' own `sidx`
+    become `free` boxes; unusual files are joined as before. v1.0.1 had the same join. Checks: 4
+    new tests, 2 of them fail on the old engine; all 2,254 tests and lint passed; with the real
+    Tears of Steel pieces the old file had 184 seek maps, the first covering 4 s, and the new
+    one shows 12:14 from the start, a seek to 10:00 landing right. A joined piece file is a
+    little larger (+2,248 bytes at 240p).
+  - R8 (the root cause), two in a row: (1) the stream copy took `avc1`, `avc3` and `vp09` video
+    only, so an AV1 merge went the MediaMuxer way ("stream copy not supported, codec av01");
+    (2) that way's reader (`SampleSource.load()`) took any sample time below 0 for the end of
+    its track. From Android 11 Android's MP4 reader (MPEG4Extractor) applies a sound's edit list
+    too, so a sound's first samples can come before 0 (AOSP: "cts can be negative … initial
+    audio samples for gapless playback"); Android 7–10 shift video only, never below 0. This
+    sound's edit list starts at media time 2,048 of 48 kHz (the AAC priming), so its first two
+    samples read −42,667 and −21,333 µs: the sound ended at its first sample and the merge wrote
+    an empty sound track. `c3522f95` counted that as done (the 18 MB file); with R6's read-back
+    it fails as "Incompatible tracks" ("merged file has no audio"). v1.0.1 had the same reader
+    and the same stream-copy codecs but no AV1 merges (no switch); a merge that went the
+    MediaMuxer way with such a sound on Android 11 or newer (the stream copy refused or its
+    check failed, or an HEVC video) was silent there too. Now an AV1 merge takes the **stream
+    copy** (`av01` copied as VP9 is: its entry and `av1C` as they are), because it keeps every
+    sample byte for byte and the sound's edit list as it came, as AVC merges do; it needs no
+    Android AV1 MP4 writer (whether the API 34 emulator's MediaMuxer writes AV1 is open, §7); it is
+    fast; and the same MediaExtractor read-back checks it. The MediaMuxer way stays the safety net,
+    fixed: a track ends only when MediaExtractor has no sample left (time −1 and no track,
+    `endsTrack`), so a sample before 0 is written as it comes, and Android 11 and newer's MediaMuxer
+    starts that track at 0 and writes the edit list itself: every sample kept, in sync. The three
+    AV1 rows share the codec and the sound, so the fix covers each. **Details** now show on a
+    finished merged row that has the "AV1 decoder: …" line (only a debug build with the switch on:
+    `showsDetails(av1Decoder)`); the release and both previews are unchanged (no switch; a quiet
+    build hides it too).
+- **R8 on the real files** (the demo server's 240p and sound pieces, 185 files each, joined as
+  R7 joins them, merged by a throwaway JVM probe, not committed): the stream copy made
+  31,098,138 bytes (29.7 MiB: the row's "30 MB", the sheet's "~29 MB"), 17,616 video and 34,406
+  sound samples, each byte for byte and at its time as in the joined files (ffmpeg's frame
+  checksums), the sound's edit list at 2,048, video 12:13.999 and sound 12:13.936 as presented;
+  ffmpeg (dav1d) decodes the whole file without an error. The first three pieces of 480p
+  (`video_eng=793000`) and 720p (`video_eng=2928000`) merge the same way. Tests: 2 new JVM
+  tests, both fail on the old code (`StreamCopyAudioVideoMuxerTest`: an AV1 video and an AAC
+  whose edit list starts at 2,048, every sample at its time, the first at −42,667 µs;
+  `AudioVideoMuxEngineTest`: `endsTrack`); `DownloadLabelsTest` and `DownloadsScreenTest`
+  (Details on a finished merge only while AV1 merges are on); on the CI emulator (API 34)
+  `EditListedSoundMergeInstrumentedTest` (new): the test sound with an edit list at 2,048 merged
+  with the AV1 test video (stream copy, every sample, Media3 prepares its sound) and with the
+  AVC test video the MediaMuxer way (every sample, in time); since `8fec3139` the AV1 video is
+  `mux/video-av1-with-av1c.mp4.b64` (Base64 text, as the VP9 big keyframe's): P4's file remuxed by
+  FFmpeg with `-c copy`, its 15 samples byte for byte, with a 16-byte `av1C`. Local:
+  `:core-download` (351) and `:app` (1,589) unit tests, 0 failures; lint.
+- **UI text**: R6's Details line "merged video ends at 7:09 of 10:54, …" (new; the failure uses
+  the existing "Incompatible tracks"). None for R7 and R8: R8's **Details** menu item and its
+  "Download details" title already existed; they now show on a finished merged row in a debug
+  build with the switch on. CHANGELOG `[1.0.2]`: one line under Fixed for each (the app does not
+  show it).
+- **The census APK** for R8: `yft-vk-census-8fec3139.apk` (22,873,056 bytes, SHA-256
+  `b8fa890c…acedaea0`, byte for byte the census APK of `01e84080`, since `8fec3139` changed a test
+  only): `:app:assembleDebug` of `8fec3139` with masterCapture, ownSolver, ownSolverNext,
+  clientLadder, socialLadder and socialTrial on (ladderSkip and ladderMutate blank, routeBTrial
+  off), signed with the shared test key (certificate SHA-256 `a2696dff…bbbe`), so it installs over
+  the old census APK; sent as a chat attachment.
+- **Checklist** (R8: the census APK, Android 14 or newer; 8 on Preview #170, run 41231991943,
+  `yft-preview-apk`). YFT shows sizes in MiB and calls them "MB"; a census (debug) build is
+  never quiet:
+  1. Install the census APK over the old one. Open **YFT site census** and tick "AV1 merges
+     (test, Android 14 or newer)".
+  2. In YFT, `https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel-av1.ism/.mpd`
+     → "720p · HD · AV1" (~267 MB), "480p · AV1" (~81 MB), "240p · AV1" (~29 MB), none "No
+     sound".
+  3. "240p · AV1" → Download → "Merging audio and video" → the finished row "240p · 30 MB" (a
+     file manager: 31,098,138 bytes, the stream copy's file).
+  4. Play it in YFT's player: sound from the start, 12:14 long; a seek to 10:00 keeps the sound
+     with the picture.
+  5. Tap the row → **Details** → "Download details": "Status: COMPLETED", "Download type: Merge
+     (audio + video)", "Android: 16 (API 36)" and last "AV1 decoder: hardware (…)"; **Copy
+     details** copies them.
+  6. "480p · AV1" and "720p · HD · AV1": each one MP4 with sound (about 81 MB and 267 MB) that
+     plays to 12:14.
+  7. Untick the box; the link again → its video rows "No sound", without "· AV1"; the finished
+     merged rows have no **Details** now.
+  8. Preview #170: a finished merge (for example `bbb_30fps` 144p) still has no **Details**, also
+     with Show details on (Settings → About → tap the version line 7 times; a reinstall turns it
+     off again).
+
 **Preview #11 (after P48–P50)** — X, Instagram and HLS sound:
 
 1. **An X post with a video**, pasted on Home: the sheet lists its MP4 qualities (e.g. 720p
@@ -1606,6 +1738,28 @@ Other items:
     licence). Owner decision: —
   - CI: R1's minified #53 and R4's emulator smoke #198 failed outside the code and were not
     re-run; the later heads' runs, with their code, passed (§6).
+
+- **After Preview #166, R6–R8** (2026-10-31): the agent's hand-offs.
+  - R8: the AV1 merge is a stream copy, checked by Android's MediaExtractor as AVC merges are;
+    if that check fails on a phone, the fixed MediaMuxer way makes the file (it wrote AV1 on the
+    owner's phone in `c3522f95`, only without the sound). A finished row's Details do not say
+    which way merged; the stream copy's 240p file is 31,098,138 bytes. Owner decision: —
+  - R8: AV1 merges stay a debug build's test switch, off by default; turning them on for the
+    release (`AV1_MP4_ENABLED`) is its own later commit after the owner's phone run. Owner
+    decision: —
+  - R8: the MediaMuxer way's fix also keeps the sound of a non-AV1 merge that falls back to it
+    with an edit-listed AAC on Android 11 or newer (an HEVC video, a refused stream copy); no
+    such case was tried on a phone. The live join's checks read with the stream copy's codec
+    list, so they now take AV1 pieces too. Owner decision: —
+  - R8: P4's probe (`av1MergesStayOffWhileThisPhoneCannotMakeThem`) merges P4's `mux/video-av1.mp4`,
+    the file with the empty `av1C`. Its "result=Failure step=samples" (#203 too) means MediaMuxer
+    took the AV1 track (`addTrack`, `start`) and the merge then failed on that file, which Android
+    cannot read (`selectTrack`), so it does not show that the API 34 emulator's MediaMuxer writes no
+    AV1 (the owner's phone wrote AV1 with it in `c3522f95`); `AV1_MP4_ENABLED`'s KDoc (P4: emulator
+    smoke #27 and #28) rests on the same file. Giving the probe `8fec3139`'s file would tell, a test
+    change of its own. Owner decision: —
+  - CI: R6's emulator smoke #200 failed for the older `prepareWorkspace` race, fixed in R7; R8's
+    #202 for its test's AV1 file, fixed in `8fec3139`; the later runs passed (§6).
 
 ## 8. Done before Phase 15
 

@@ -3109,11 +3109,12 @@ Keep at least the heading and one blank line between sections, so Git merges the
   so an AV1 merge (Android 14 or newer with the switch on; all three rows, one codec and one
   sound) is a stream copy: every sample byte for byte, the sound's edit list as it came, the
   same MediaExtractor read-back as an AVC merge, fast, and no need for Android's AV1 MP4 writer
-  (the CI emulator's API 34 MediaMuxer writes none, P4); the fixed MediaMuxer way stays its
-  safety net. (3) **Details** on a finished merged row while AV1 merges are on (a debug build
-  with the switch on, `showsDetails(av1Decoder)`): "Download details" with its status, type,
-  place, versions and the "AV1 decoder: …" line; a release, both previews and the switch off as
-  before. The live join's checks read with the same codec list, so they take AV1 pieces too.
+  (whether the API 34 emulator's MediaMuxer writes AV1 is open: FIX_ADD_PLAN §7); the fixed
+  MediaMuxer way stays its safety net. (3) **Details** on a finished merged row while AV1 merges are
+  on (a debug build with the switch on, `showsDetails(av1Decoder)`): "Download details" with its
+  status, type, place, versions and the "AV1 decoder: …" line; a release, both previews and the
+  switch off as before. The live join's checks read with the same codec list, so they take AV1
+  pieces too.
   - Checked locally on the real 240p and sound pieces (185 files each from the demo server,
     joined as R7 joins them; a throwaway JVM probe, not committed): the stream copy merged them
     into 31,098,138 bytes (29.7 MiB, the row's "30 MB"; the sheet's "~29 MB"), 17,616 video and
@@ -3137,6 +3138,22 @@ Keep at least the heading and one blank line between sections, so Git merges the
     since the stream copy now takes its AV1. Local: `:core-download` (351) and `:app` (1,589)
     unit tests, 0 failures; lint.
   - CHANGELOG `[1.0.2]`: one line under Fixed.
+- R6–R8's commits: R6 `a11ef08b`, R7 `a356c95c`, R8 `01e84080` and R8's CI fix `8fec3139` (test
+  only: the emulator test's AV1 video gets its `av1C`, `mux/video-av1-with-av1c.mp4.b64`). R7's CI:
+  checkpoint validation #613 (41218265534), emulator smoke #201 (41218265621), Preview APK #168
+  (41218265624) and minified #59 (41218265589) passed. R8's CI: checkpoint validation #614
+  (41228768272), Preview APK #169 (41228768246) and minified #60 (41228768182) passed; emulator
+  smoke #202 (41228768224) failed the new test's AV1 case, for P4's AV1 file with an empty `av1C`
+  that Android cannot read (FIX_ADD_PLAN §6). The CI fix's CI: checkpoint validation #615
+  (41231991926), emulator smoke #203 (41231991918), Preview APK #170 (41231991943, `yft-preview-apk`
+  and `yft-preview-trial-apk`) and minified #61 (41231991925) passed.
+- After Preview #168 (the owner's phone): R6 and R7 passed (FIX_ADD_PLAN §6).
+- The census APK for R8: `yft-vk-census-8fec3139.apk` (22,873,056 bytes; `8fec3139` with the census
+  flags, byte for byte the one of `01e84080`; the shared test key), sent to the owner as a chat
+  attachment.
+- R6–R8's results, causes, CI and checklist: FIX_ADD_PLAN §6 ("Preview #166 results and the R6–R8
+  fixes") and §7 (docs only). Next: the owner's phone run of R8's checklist with the census APK and
+  Preview #170.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
