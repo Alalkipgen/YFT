@@ -2954,6 +2954,45 @@ Keep at least the heading and one blank line between sections, so Git merges the
     pixels). Local: `BrowserAddressLargeTextTest`, `BrowserScreenTest` and `BrowserRouteTest`
     (52), then every module's unit tests (the checkpoint's run), 0 failures.
   - CHANGELOG `[1.0.2]`: one line under Fixed.
+- R4's commit: `3fe97504`. Its Preview APK #165 passed; its emulator smoke #198 failed 54 s
+  into the emulator step, before `scripts/ci-emulator-smoke.sh` made its first folder (no
+  diagnostics), so the emulator never started: not the code. Checkpoint #610 and minified #56
+  were still running when R5 was committed.
+- R5 (MP3 still slow on Preview #161: "MP3: 3:18 of sound, decode 16 s, encode 7.2 s", 23 s
+  in all; ~20 s on #149 before G2; the emulator, #194, did 4:01 in 6.4 s, decode 3.8 s). Cause:
+  one thread did everything in turn. Each MediaCodec call of G2's loop (each dequeue, also one
+  that finds nothing, each queue and each release) is a request to MediaCodec's own thread that
+  waits for its answer, and the decoder runs in another process (Codec2's `media.swcodec`), so
+  each of the song's 8,527 AAC frames took about five such round trips, each waking threads in
+  two processes; then LAME encoded while the decoder got no new input, so decoding and encoding
+  never overlapped. On the phone this stop-and-go work runs on slow, low-clocked cores (LAME
+  alone was 3.4 times slower there than on the emulator, 0.84 vs 0.25 ms a frame), so a frame's
+  round trips took ~1.9 ms: "decode 16 s" was mostly waiting, not decoding. The emulator's fast
+  cores did them in ~0.37 ms a frame, so the problem did not show there. Done
+  (`AndroidMp3Transcoder`; LAME and its settings unchanged): the decoder runs in MediaCodec's
+  asynchronous mode on its own thread (`AsyncAacDecoder`, "yft-mp3-decode"): each input it
+  frees is filled at once and each output is copied and given back at once (two calls a frame,
+  no polling); LAME encodes on the conversion's thread from `PcmHandoff` (new: at most 32
+  buffers, about 0.7 s of sound; the decoder waits while it is full; arrays are reused). A
+  failure on the decoder's thread reaches the conversion as `PcmItem.Failed` and its exception
+  is thrown there, so the failure reasons stay (none: INCOMPATIBLE_TRACKS); 5 s without sound is
+  a stuck decoder, as G2's guard; the decoder's thread stops before the decoder, LAME and the
+  extractor are released. The Details line keeps its words; its decode time is now the time
+  LAME waited for sound, so decode + encode is the whole conversion. Expected on the phone: about
+  LAME's time (~7 s or less) instead of the sum.
+  - Tests: `PcmHandoffTest` (new: order and no loss through a 4-buffer hand-off, a full
+    hand-off waits, `close` releases a waiting `put` and refuses later ones, `take`'s timeout,
+    reused arrays); `Mp3TranscoderDurationInstrumentedTest` (new, emulator: a 60-second stereo
+    and a 20-second mono source; LAME gets exactly the samples a plain MediaCodec decode of the
+    source gives, the same count and checksum in order, with LAME slowed for its first 200
+    frames so the hand-off fills; the MP3 decodes to as many samples plus less than 3 × 1,152,
+    LAME's 576-sample delay and its padding (a host build of LAME 3.100 with the app's settings:
+    1,296–2,240 more for 1 to 240 s); a format LAME refuses and a cancelled conversion leave no
+    decoder thread, the cancel within 2 s); `Mp3TranscoderTimingInstrumentedTest` (kept; it now
+    logs R5's line and G2's one-thread loop on the same source, decode and LAME, stopped at
+    60 s); `Mp3TestFiles` (new: both classes' sources and plain decode). Local: core-download's
+    unit tests (338), its lint, the instrumented tests compiled; they run on CI only.
+  - CHANGELOG `[1.0.2]`: G2's line under Fixed, rewritten.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 

@@ -134,10 +134,11 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   over a bad connection) counts as unknown: the Download sheet's row and **Download** show no
   such size ("Size unknown", or the usual "~" estimate), and the download learns the real size.
   A clip of a few seconds keeps its small size.
-- Converting to MP3 is faster: the phone's AAC decoder is fed and emptied without waiting
-  between frames (a 3:19 song took about 20 s on Preview #149). A finished MP3's **Details** say
-  its sound's length and the decode and encode times, for example "MP3: 4:12 of sound, decode
-  1.2 s, encode 6.8 s".
+- Converting to MP3 is faster: the phone's AAC decoder works on its own thread, always fed,
+  while the MP3 encoder works through the sound it has decoded, so the two run at the same time
+  (a 3:19 song took about 20 s on Preview #149 and 23 s on #161). A finished MP3's **Details**
+  say its sound's length, how long the encoder waited for decoded sound and how long it
+  encoded, for example "MP3: 4:12 of sound, decode 0.3 s, encode 6.8 s".
 - VK: a file that answers 400 after it gave bytes (VK's answer on a new network) is a dead link
   too and gets a fresh link; a 400 before any byte fails as before.
 - A download stopped at **Link expired** keeps its progress for the fresh link, and its Cancel or
