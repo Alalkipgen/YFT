@@ -99,6 +99,8 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   a little smaller instead of being cut ("Faceboo…").
 - Downloads' select mode: **Remove from list** and **Delete files** go onto two lines in large
   text instead of being cut.
+- The bottom bar: in large text a tab's name is drawn a little smaller to fit its tab instead of
+  being cut ("Downlo…").
 - VK: a file that answers 400 after it gave bytes (VK's answer on a new network) is a dead link
   too and gets a fresh link; a 400 before any byte fails as before.
 - A download stopped at **Link expired** keeps its progress for the fresh link, and its Cancel or

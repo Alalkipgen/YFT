@@ -7,17 +7,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.alal.yft.ui.components.YftCountBadge
 import com.alal.yft.ui.components.YftDivider
+import com.alal.yft.ui.components.YftFitText
 import com.alal.yft.ui.components.YftIcon
 import com.alal.yft.ui.theme.YftIcons
 import com.alal.yft.ui.theme.YftTheme
@@ -56,13 +55,12 @@ fun YftBottomBar(
                         }
                     },
                     label = {
-                        Text(
+                        // N4 (v1.0.2): drawn smaller in large text instead of cut ("Downlo…").
+                        YftFitText(
                             text = destination.title,
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                             ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
                         )
                     },
                     colors = NavigationBarItemDefaults.colors(

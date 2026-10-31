@@ -15,6 +15,8 @@ import com.alal.yft.core.model.settings.HomeSites
 import com.alal.yft.feature.downloads.SelectionBar
 import com.alal.yft.feature.home.HomeScreen
 import com.alal.yft.feature.home.HomeUiState
+import com.alal.yft.ui.navigation.YftBottomBar
+import com.alal.yft.ui.navigation.YftDestination
 import java.io.File
 import kotlin.math.roundToInt
 import org.junit.Assert.assertFalse
@@ -29,7 +31,8 @@ import org.robolectric.annotation.GraphicsMode
 /**
  * v1.0.2 fix batch after #149 (the owner's phone: Xiaomi HyperOS, large text): the texts that
  * were cut at 130 % and 150 % text fit there now, on a 360 dp wide screen, one test per fix
- * (N1 Home's site names, N3 Downloads' select-mode buttons, …). A text fits when its layout neither overflows nor ends in an
+ * (N1 Home's site names, N3 Downloads' select-mode buttons, N4
+ * the bottom bar's tab names, …). A text fits when its layout neither overflows nor ends in an
  * ellipsis. With `YFT_RENDER_DIR` set, each case is also saved as `fit<percent>-<name>.png`.
  */
 @RunWith(ParameterizedRobolectricTestRunner::class)
@@ -82,6 +85,24 @@ class LargeFontFitTest(private val fontScale: Float) {
 
         listOf("2 selected", "Select all", "Remove from list", "Delete files").forEach { label ->
             composeRule.onNodeWithText(label, useUnmergedTree = true).assertFits(label)
+        }
+    }
+
+    @Test
+    fun `N4 the bottom bar's tab names are shown whole`() {
+        composeRule.setContent {
+            DesignStage(themeMode = ThemeMode.LIGHT, fontScale = fontScale) {
+                YftBottomBar(
+                    selected = YftDestination.DOWNLOADS,
+                    activeDownloads = 2,
+                    onSelect = {},
+                )
+            }
+        }
+        render("n4-bottom-bar")
+
+        YftDestination.topLevel.map(YftDestination::title).forEach { name ->
+            composeRule.onNodeWithText(name, useUnmergedTree = true).assertFits(name)
         }
     }
 

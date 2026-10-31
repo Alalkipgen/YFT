@@ -2695,6 +2695,16 @@ Keep at least the heading and one blank line between sections, so Git merges the
     computer reset).
   - CHANGELOG `[1.0.2]`: one line under Fixed.
 
+- N4 (the bottom bar: "Downlo…" in large text). The cause: each tab's name was a one-line
+  `labelMedium` text with an ellipsis in a quarter of the bar (about 90 dp on 360 dp); the selected
+  tab's name is bold. Done (`YftBottomBar`): the name is a `YftFitText` (N1's), drawn smaller when
+  it does not fit its tab, down to 75 % of its size, an ellipsis only below that. At 130 % on
+  360 dp every name fits at its own size; at 150 % the bold "Downloads" is drawn smaller, the other
+  names keep their size.
+  - Tests: `LargeFontFitTest` (+1: N4: the bar with Downloads selected and 2 moving: Home,
+    Downloads, Library and Settings shown whole). Checked by CI.
+  - CHANGELOG `[1.0.2]`: one line under Fixed.
+
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
 - Plan: `docs/TRACK_E_PLAN.md` (the owner's go, 2026-10-27, while S5's run 3 waits). Branch from
