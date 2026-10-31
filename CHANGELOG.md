@@ -112,6 +112,11 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   ElephantsDream, 10:54) is saved whole on Android 16; it was cut at about 7:11 and counted as
   done. A merge whose file comes out shorter than its tracks now fails as **Incompatible
   tracks**, its Details saying how far it got.
+- A DASH video or sound saved from pieces (a `SegmentTemplate` or `SegmentList`, such as Unified
+  Streaming's Tears of Steel) shows its whole length in YFT's player at once and can be sought
+  anywhere; its length grew while it played, about a minute at a time. The first merged download
+  after installing (YouTube's or a DASH stream's) can no longer fail as **Storage unavailable**
+  when its picture and its sound start at the same moment.
 - Home's **Your sites**: a site's name has its whole third of the row and, in large text, is drawn
   a little smaller instead of being cut ("Faceboo…").
 - Downloads' select mode: **Remove from list** and **Delete files** go onto two lines in large

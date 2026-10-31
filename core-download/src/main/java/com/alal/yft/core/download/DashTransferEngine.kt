@@ -206,6 +206,8 @@ class DashTransferEngine(
             val live = wholeFile != null && LiveOriginFile.matches(credentialOrigin)
             // A whole file's length is known before its ranges; so is a SegmentBase file's (59).
             var lengthKnown = wholeFile != null && !live
+            // R7: a manifest's pieces are joined with one index (sidx) for the whole track.
+            var indexPieces = false
             val parsed = if (live) {
                 start.lengthKnown(StartLengthSource.UNTIL_END)
                 liveLayout(plan, credentialOrigin)
@@ -217,6 +219,7 @@ class DashTransferEngine(
                 val layout = manifestLayout(plan, credentialOrigin, resumeFrom, start)
                 firstRange = layout.firstRange
                 lengthKnown = layout.oneFile
+                indexPieces = !layout.oneFile
                 layout.parsed
             }
             val initial = reconcileCheckpoint(
@@ -313,14 +316,16 @@ class DashTransferEngine(
             val bytesWritten = if (live) {
                 assembleLive(workspace, parsed.chunks, destination, plan)
             } else {
-                assemble(
+                val joined = assemble(
                     workspace = workspace,
                     chunks = parsed.chunks,
                     destination = destination,
+                    indexPieces = indexPieces,
                 )
-            }
-            if (!live && bytesWritten != completedCheckpoint.downloadedBytes) {
-                throw DashAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
+                if (joined.pieceBytes != completedCheckpoint.downloadedBytes) {
+                    throw DashAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
+                }
+                joined.fileBytes
             }
             cleanupWorkspace(workspace, strict = false)
             activeTracker.finish()
@@ -1551,23 +1556,37 @@ class DashTransferEngine(
         }
     }
 
+    /** A joined track: its file's length, and how many of those bytes are its pieces' (R7). */
+    private class Joined(val fileBytes: Long, val pieceBytes: Long)
+
+    /**
+     * Joins the chunks in order. v1.0.2 fix R7: with [indexPieces], a manifest's pieces after
+     * their initialization piece get one index for the whole track ([DashPieceIndex]), written
+     * before the first piece's first moof; pieces it does not read are joined as they are.
+     */
     private suspend fun assemble(
         workspace: File,
         chunks: List<DashDownloadChunk>,
         destination: DownloadDestination,
-    ): Long {
+        indexPieces: Boolean,
+    ): Joined {
         val files = chunks.map { chunk ->
             readyFile(workspace, chunk.index)
                 .takeIf(File::isFile)
                 ?: throw DashAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
         }
-        val totalBytes = files.fold(0L) { total, file ->
+        val pieceBytes = files.fold(0L) { total, file ->
             val length = file.length()
             if (length <= 0 || total > Long.MAX_VALUE - length) {
                 throw DashAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
             }
             total + length
         }
+        val pieces = indexPieces && chunks.size >= 2 &&
+            chunks.first().type == DashChunkType.INITIALIZATION &&
+            chunks.drop(1).all { it.type == DashChunkType.MEDIA }
+        val index = if (pieces) DashPieceIndex.of(files) else null
+        val totalBytes = pieceBytes + (index?.box?.size ?: 0)
         // Every call below is on a file, so whatever fails is storage, at the step it reached.
         var stage = OPEN_FILE
         try {
@@ -1577,19 +1596,36 @@ class DashTransferEngine(
             output.use {
                 val buffer = ByteArray(policy.bufferBytes)
                 var position = 0L
+                // The pieces' bytes so far, and the index while it is still to be written.
+                var joined = 0L
+                var pending = index
                 files.forEach { file ->
                     file.inputStream().use { input ->
                         while (true) {
                             currentCoroutineContext().ensureActive()
-                            val read = input.read(buffer)
+                            val due = pending
+                            if (due != null && joined == due.insertAt) {
+                                output.write(position, due.box, 0, due.box.size)
+                                position += due.box.size
+                                pending = null
+                            }
+                            val room = pending?.let { it.insertAt - joined }
+                            val length = if (room != null && room < buffer.size) {
+                                room.toInt()
+                            } else {
+                                buffer.size
+                            }
+                            val read = input.read(buffer, 0, length)
                             if (read == -1) break
+                            index?.rename(buffer, joined, read)
                             output.write(position, buffer, 0, read)
                             position += read
+                            joined += read
                         }
                     }
                 }
                 output.sync()
-                if (position != totalBytes) {
+                if (pending != null || position != totalBytes) {
                     throw DashAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
                 }
             }
@@ -1599,7 +1635,7 @@ class DashTransferEngine(
             }
             stage = PUBLISH
             destination.commit()
-            return totalBytes
+            return Joined(fileBytes = totalBytes, pieceBytes = pieceBytes)
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (abort: DashAbort) {
@@ -1612,14 +1648,16 @@ class DashTransferEngine(
 
     private fun prepareWorkspace(plan: DashDownloadPlan): File {
         val root = workspaceRoot.canonicalFile
-        if (!root.isDirectory && !root.mkdirs()) {
+        // R7: a merge's picture and sound start at once; when the other one made the folder
+        // first, mkdirs() is false and the folder is there (R6's CI emulator run 200).
+        if (!root.mkdirs() && !root.isDirectory) {
             throw IOException("Cannot create DASH workspace")
         }
         val workspace = workspaceFor(plan.taskId).canonicalFile
         if (workspace.parentFile != root) {
             throw IOException("Unsafe DASH workspace")
         }
-        if (!workspace.isDirectory && !workspace.mkdirs()) {
+        if (!workspace.mkdirs() && !workspace.isDirectory) {
             throw IOException("Cannot create DASH task workspace")
         }
         return workspace

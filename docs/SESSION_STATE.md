@@ -3036,21 +3036,61 @@ Keep at least the heading and one blank line between sections, so Git merges the
     fail. `Mp4TestFiles` (headers that state durations, version 1) and `Mp4Dump` (version 1
     headers). Local: every module's unit tests (the checkpoint's run), 0 failures.
   - CHANGELOG `[1.0.2]`: one line under Fixed.
-- R7 and R8: not done; the owner stopped after R6 (2026-10-31), so no census APK and no
-  FIX_ADD_PLAN commit for them yet. What was found, untried:
-  - R7 (Unified Streaming's `tears-of-steel-av1.ism/.mpd`, 240p **No sound**, a whole 12:14
-    file whose length YFT's player shows as about 1:00, then raises a minute at a time): the
-    pieces (SegmentTemplate, SegmentTimeline `$Time$`) are joined as they come; the init
-    piece's `mvhd` states no duration (0, no `mehd`) and every piece keeps its own
-    one-reference `sidx`. Media3's FragmentedMp4Extractor (1.5.1) takes each top-level `sidx`
-    it reads for the seek map, so the length is the end of the last piece read. A likely fix:
-    one `sidx` for the whole file after the init piece, the pieces' own renamed `free`; the
-    M4A (`audio_eng=128002`) is joined the same way.
-  - R8 (item 26, "240p · AV1" saved as its 18 MB of video): the sound's edit list (media time
-    2048 at 48 kHz) gives its first sample a time below zero (−42,667 µs) in Android's reader,
-    and today's MediaMuxer way takes a negative time for a track's end (`SampleSource.load()`),
-    so the audio track is written empty. By R6's code such a merge now fails as **Incompatible
-    tracks** ("merged file has no audio") instead of counting as done (not tried on a phone).
+- R7 (Unified Streaming's `tears-of-steel-av1.ism/.mpd`, 240p **No sound**, `video_eng=208000`:
+  a whole 12:14 file of 18 MB whose length YFT's player showed as about 1:00, then raised a
+  minute at a time). Cause: a manifest's pieces (SegmentTemplate, SegmentTimeline `$Time$`) were
+  joined as they come; the init piece's `mvhd` states no duration (0, no `mehd`) and each piece
+  keeps its own one-reference `sidx` (4 s; the M4A `audio_eng=128002` the same). Media3's
+  FragmentedMp4Extractor (1.5.1) takes each top-level `sidx` it reads for the seek map, so the
+  length was the end of the last piece read, and a seek reached only what was read; pieces
+  without a `sidx` could not be sought. v1.0.1 joined pieces the same way (the same
+  `assemble`), so it had this too. Done (`DashPieceIndex`, `DashTransferEngine.assemble`): a
+  manifest's pieces after an initialization piece are read with the merge's reader
+  (`Mp4TrackReader`, any codec) and saved with one `sidx` (version 1) right before the first
+  piece's first `moof`: a reference for each piece, from its first `moof` to the next piece's
+  (Media3 counts from the end of the index, Android's MPEG4Extractor from the first `moof`: the
+  same byte), each as long as its samples, the earliest presentation time the first piece's
+  (its edit list applied, not below 0); the pieces' own `sidx` and `mfra` boxes are kept as
+  `free` boxes of the same size. Pieces it does not read that way (not one fragmented track of
+  picture or sound, a `tfhd` that names a base data offset, a piece without samples, not MP4)
+  are joined as before. The saved file is 40 bytes and 12 a piece longer (240p: 184 pieces,
+  2,248 bytes); the row shows the saved file's size, the checkpoint keeps the pieces' bytes. A
+  SegmentBase file, a whole file, a live stream and HLS are joined as before; no UI text.
+  - Checked locally on the real 240p and M4A pieces (185 files each, joined by the engine from a
+    local server; not committed): one `sidx` of 184 references, each on its piece's `moof`, the
+    last to the end of the file; the video 11,743,984 ticks at 16 kHz (12:13.999, the pieces'
+    own durations), the sound 35,230,992 at 48 kHz (12:13.979: its first piece 2,048 ticks
+    longer than its own index, which leaves out the edit list's lead-in); ffprobe: 17,616 and
+    34,406 packets, as joined before. Media3 1.5.1's FragmentedMp4Extractor (a Robolectric
+    probe, not committed): the file joined as before gave 184 seek maps, the first 4.0 s (the
+    sound's 3.968 s), the last 12:14; the new file one seek map of 733,999,000 µs (the sound's
+    733,979,000) before the first sample, seekable, every sample read with the same times, and
+    a seek to 10:00 lands on a `moof` and reads its first sample at 600,000,000 µs.
+  - Also in this commit: the DASH workspace's folders are made safely when a merge's two tracks
+    start at once (`prepareWorkspace`: `mkdirs()` first, then whether it is a folder). R6's CI
+    emulator run #200 (41213334698) failed
+    `DashPiecesInstrumentedTest.aQualityInPiecesDownloadsAsOneMp4WithItsSound` with
+    STORAGE_UNAVAILABLE "Cannot create DASH workspace" (video ready, sound not): the sound's
+    start lost the race to the video's (`!isDirectory && !mkdirs()`, there since 2026-10-01 and
+    in v1.0.1; on a phone only while the folder is not there yet, the first DASH download after
+    install or after the app's data is cleared). R6's other runs passed: checkpoint #612
+    (41213334682), Preview #167 (41213334699), minified #58 (41213334670).
+  - Tests: `DashPieceIndexTest` (new: an AV1 video-only track at 16 kHz in five SegmentTemplate
+    pieces, each with a `styp`, a `free` box and its own `sidx`, and an AAC at 48 kHz with an
+    edit list at 2,048 in four pieces without one: one `sidx` right before the first `moof`,
+    version 1, its references on each `moof` and to the end of the file, adding up to every
+    sample's duration; the own indexes `free` boxes; every sample kept; pieces whose `tfhd`
+    names a base data offset joined byte for byte; the old indexes renamed whatever the reads'
+    sizes). With the old join the two index tests fail. Local: every module's unit tests (the
+    checkpoint's run), 0 failures.
+  - CHANGELOG `[1.0.2]`: one line under Fixed.
+- R8: not done; the owner stopped after R7 (2026-10-31), so no census APK and no FIX_ADD_PLAN
+  commit for R6–R8 yet. What was found, untried: item 26, "240p · AV1" saved as its 18 MB of
+  video: the sound's edit list (media time 2048 at 48 kHz) gives its first sample a time below
+  zero (−42,667 µs) in Android's reader, and today's MediaMuxer way takes a negative time for a
+  track's end (`SampleSource.load()`), so the audio track is written empty. By R6's code such a
+  merge now fails as **Incompatible tracks** ("merged file has no audio") instead of counting as
+  done (not tried on a phone).
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
