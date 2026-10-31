@@ -60,6 +60,8 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
 
 ### Changed
 
+- The release notes on **Updates**: headings are a size larger than before and bold, with more
+  room above them, so each part of the notes stands out.
 - **YouTube refused** keeps its hint and **Reset YouTube session**; YFT asks for a fresh link by
   itself only after the phone's network changed (once per download), else on Retry.
 - Home's **Your sites** shows every site, three to a row in your order with **Add** last, instead

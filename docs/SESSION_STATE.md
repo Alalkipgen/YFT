@@ -2673,6 +2673,17 @@ Keep at least the heading and one blank line between sections, so Git merges the
     `BrowserScreenTest` 31; 0 failures.
   - CHANGELOG `[1.0.2]`: one line under Fixed.
 
+- N1's commit: `04dfa890`.
+- N2 (the release notes' headings did not stand out: `#` titleMedium 17 sp, `##` titleSmall
+  15 sp, `###` bodyMedium SemiBold 14 sp, the text's own size, 12 dp above each). Done
+  (`ReleaseNotesView`): `#` titleLarge (22 sp), `##` titleMedium (17 sp), `###` and below
+  titleSmall (15 sp), all bold (`headingStyle`); 24, 20 and 16 dp above them (`gapBefore`; after
+  a heading and between other blocks as before).
+  - Tests: `ReleaseNotesHeadingTest` (new: the sizes and weight per level; the room above each
+    level, and after a heading and between paragraphs as before). Local: `ReleaseNotesHeadingTest`
+    2, `ReleaseNotesTest` 13; 0 failures.
+  - CHANGELOG `[1.0.2]`: one line under Changed.
+
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
 - Plan: `docs/TRACK_E_PLAN.md` (the owner's go, 2026-10-27, while S5's run 3 waits). Branch from

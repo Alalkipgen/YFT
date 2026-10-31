@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -19,6 +20,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -63,11 +65,8 @@ private fun NoteBlockView(block: NoteBlock, modifier: Modifier) {
             text = text,
             modifier = modifier.semantics { heading() },
             color = colors.textPrimary,
-            style = when (block.level) {
-                1 -> typography.titleMedium
-                2 -> typography.titleSmall
-                else -> typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
-            },
+            // v1.0.2 fix N2: a size up for each level, all bold, so a heading stands out.
+            style = headingStyle(block.level, typography),
         )
         NoteKind.PARAGRAPH -> Text(
             text = text,
@@ -111,9 +110,23 @@ private fun NoteBlockView(block: NoteBlock, modifier: Modifier) {
     }
 }
 
-/** More space before a heading, less after one and between list items. */
-private fun gapBefore(previous: NoteBlock, block: NoteBlock): Dp = when {
-    block.kind == NoteKind.HEADING -> 12.dp
+/** v1.0.2 fix N2: `#` titleLarge, `##` titleMedium, `###` and below titleSmall; all bold. */
+internal fun headingStyle(level: Int, typography: Typography): TextStyle = when (level) {
+    1 -> typography.titleLarge
+    2 -> typography.titleMedium
+    else -> typography.titleSmall
+}.copy(fontWeight = FontWeight.Bold)
+
+/**
+ * More space before a heading (v1.0.2 fix N2: more again, the most before `#`), less after one
+ * and between list items.
+ */
+internal fun gapBefore(previous: NoteBlock, block: NoteBlock): Dp = when {
+    block.kind == NoteKind.HEADING -> when (block.level) {
+        1 -> 24.dp
+        2 -> 20.dp
+        else -> 16.dp
+    }
     previous.kind == NoteKind.HEADING -> 4.dp
     block.kind == NoteKind.ITEM && block.marker != null && previous.kind == NoteKind.ITEM -> 4.dp
     else -> 8.dp
