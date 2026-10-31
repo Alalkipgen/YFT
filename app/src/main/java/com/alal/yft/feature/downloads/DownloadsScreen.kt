@@ -18,6 +18,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -462,8 +464,9 @@ internal class RowSelection(
  * Item 5 (v1.0.2): the bar above the list in select mode: Cancel, how many are picked, Select
  * all, then **Remove from list** (the files stay) and **Delete file** (one question first).
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SelectionBar(
+internal fun SelectionBar(
     count: Int,
     allPicked: Boolean,
     onCancel: () -> Unit,
@@ -503,9 +506,10 @@ private fun SelectionBar(
                 enabled = !allPicked,
             )
         }
-        Row(
+        FlowRow(
             modifier = Modifier.padding(start = 12.dp, top = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             YftOutlinedButton(
                 text = menuLabel(DownloadAction.DELETE),

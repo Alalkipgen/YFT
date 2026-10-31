@@ -12,6 +12,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.core.model.settings.HomeSites
+import com.alal.yft.feature.downloads.SelectionBar
 import com.alal.yft.feature.home.HomeScreen
 import com.alal.yft.feature.home.HomeUiState
 import java.io.File
@@ -28,7 +29,7 @@ import org.robolectric.annotation.GraphicsMode
 /**
  * v1.0.2 fix batch after #149 (the owner's phone: Xiaomi HyperOS, large text): the texts that
  * were cut at 130 % and 150 % text fit there now, on a 360 dp wide screen, one test per fix
- * (N1 Home's site names, …). A text fits when its layout neither overflows nor ends in an
+ * (N1 Home's site names, N3 Downloads' select-mode buttons, …). A text fits when its layout neither overflows nor ends in an
  * ellipsis. With `YFT_RENDER_DIR` set, each case is also saved as `fit<percent>-<name>.png`.
  */
 @RunWith(ParameterizedRobolectricTestRunner::class)
@@ -60,6 +61,27 @@ class LargeFontFitTest(private val fontScale: Float) {
 
         (sites.map(HomeSite::name) + "Add").forEach { name ->
             composeRule.onNodeWithText(name, useUnmergedTree = true).assertFits(name)
+        }
+    }
+
+    @Test
+    fun `N3 Downloads' select-mode buttons are shown whole`() {
+        composeRule.setContent {
+            DesignStage(themeMode = ThemeMode.LIGHT, fontScale = fontScale) {
+                SelectionBar(
+                    count = 2,
+                    allPicked = false,
+                    onCancel = {},
+                    onSelectAll = {},
+                    onRemoveFromList = {},
+                    onDeleteFiles = {},
+                )
+            }
+        }
+        render("n3-downloads-select-bar")
+
+        listOf("2 selected", "Select all", "Remove from list", "Delete files").forEach { label ->
+            composeRule.onNodeWithText(label, useUnmergedTree = true).assertFits(label)
         }
     }
 

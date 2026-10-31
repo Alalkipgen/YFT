@@ -2684,6 +2684,17 @@ Keep at least the heading and one blank line between sections, so Git merges the
     2, `ReleaseNotesTest` 13; 0 failures.
   - CHANGELOG `[1.0.2]`: one line under Changed.
 
+- N3 (Downloads' select mode: **Remove from list** and **Delete file(s)** cut in large text). The
+  cause: the two compact outlined buttons were in one `Row`, whose second button got only what the
+  first left; each label is one line with an ellipsis. Done (`DownloadsScreen.SelectionBar`, now
+  `internal` for the test): a `FlowRow` (8 dp between the buttons and between the lines), so the
+  second button goes under the first when both do not fit side by side; at 100 % they stay on one
+  line. At 130 % and 150 % on 360 dp the two buttons are on two lines, each label whole.
+  - Tests: `LargeFontFitTest` (+1: N3: the bar with 2 picked: "2 selected", Select all, Remove
+    from list and Delete files shown whole). Checked by CI (the local toolchain was lost in the
+    computer reset).
+  - CHANGELOG `[1.0.2]`: one line under Fixed.
+
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
 - Plan: `docs/TRACK_E_PLAN.md` (the owner's go, 2026-10-27, while S5's run 3 waits). Branch from
