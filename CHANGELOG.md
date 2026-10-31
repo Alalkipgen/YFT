@@ -105,6 +105,9 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   first track, often its sound alone (a 360p video saved as "Video 1 · DASH · M4A"). A quality
   the manifest no longer has fails with **This quality is not available now — choose another**,
   its Details naming it, instead of saving another one.
+- A DASH stream whose qualities come in pieces (a `SegmentTemplate` or `SegmentList`, such as
+  Akamai's bbb_30fps.mpd) offers each video quality with the stream's sound, merged into one file
+  as for one-file streams, instead of every row **No sound** beside the stream's own **M4A**.
 - Home's **Your sites**: a site's name has its whole third of the row and, in large text, is drawn
   a little smaller instead of being cut ("Faceboo…").
 - Downloads' select mode: **Remove from list** and **Delete files** go onto two lines in large

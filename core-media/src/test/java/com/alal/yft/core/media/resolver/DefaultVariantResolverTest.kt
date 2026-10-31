@@ -447,6 +447,83 @@ class DefaultVariantResolverTest {
     }
 
     @Test
+    fun `DASH notes each representation in pieces and reads bbb_30fps's sound`() = runTest {
+        // v1.0.2 fix R3: a SegmentTemplate or SegmentList (the representation's, its adaptation
+        // set's or its period's), no SegmentBase beside it, in a manifest that is not live. The
+        // sound is bbb_30fps.mpd's: HE-AAC, no language, an Accessibility and a Role.
+        val manifest = """
+            <MPD mediaPresentationDuration="PT634.566S" type="static"
+              xmlns="urn:mpeg:dash:schema:mpd:2011">
+              <BaseURL>./</BaseURL>
+              <Period>
+                <AdaptationSet mimeType="video/mp4" contentType="video">
+                  <SegmentTemplate duration="120" timescale="30" startNumber="1"
+                    media="${'$'}RepresentationID${'$'}_${'$'}Number${'$'}.m4v"
+                    initialization="${'$'}RepresentationID${'$'}_0.m4v"/>
+                  <Representation id="template" codecs="avc1.640033" bandwidth="14931538"
+                    width="3840" height="2160" frameRate="30"/>
+                  <Representation id="both" codecs="avc1.64001f" bandwidth="4952892"
+                    width="1280" height="720">
+                    <SegmentBase indexRange="700-799"><Initialization range="0-699"/></SegmentBase>
+                  </Representation>
+                </AdaptationSet>
+                <AdaptationSet mimeType="video/mp4" codecs="avc1.64000d">
+                  <Representation id="list" bandwidth="254320" width="320" height="180">
+                    <SegmentList duration="4">
+                      <Initialization sourceURL="list/init.m4v"/>
+                      <SegmentURL media="list/1.m4v"/>
+                    </SegmentList>
+                  </Representation>
+                </AdaptationSet>
+                <AdaptationSet mimeType="audio/mp4" contentType="audio">
+                  <Accessibility schemeIdUri="urn:tva:metadata:cs:AudioPurposeCS:2007" value="6"/>
+                  <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+                  <SegmentTemplate duration="192512" timescale="48000" startNumber="1"
+                    media="${'$'}RepresentationID${'$'}_${'$'}Number${'$'}.m4a"
+                    initialization="${'$'}RepresentationID${'$'}_0.m4a"/>
+                  <Representation id="bbb_a64k" codecs="mp4a.40.5" bandwidth="67071"
+                    audioSamplingRate="48000">
+                    <AudioChannelConfiguration value="2"
+                      schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011"/>
+                  </Representation>
+                </AdaptationSet>
+              </Period>
+            </MPD>
+        """.trimIndent()
+        server.enqueue(manifestResponse(manifest, "application/dash+xml"))
+        server.enqueue(
+            manifestResponse(
+                manifest.replace("type=\"static\"", "type=\"dynamic\""),
+                "application/dash+xml",
+            ),
+        )
+
+        fun pieces(result: VariantResolutionResult) =
+            (result as VariantResolutionResult.Success).asset.variants
+
+        val static = pieces(
+            resolver.resolve(candidate(server.url("/bbb_30fps.mpd").toString(), MediaKind.DASH)),
+        )
+        assertEquals(
+            mapOf("template" to true, "both" to false, "list" to true, "bbb_a64k" to true),
+            static.associate { it.manifestVariantId to it.dashPieces },
+        )
+        assertTrue(static.none { it.dashOneFile })
+        val sound = static.single { it.trackType == MediaTrackType.AUDIO }
+        assertEquals("bbb_a64k", sound.manifestVariantId)
+        assertEquals(VariantSupport.SUPPORTED, sound.support)
+        assertEquals(listOf("mp4a.40.5"), sound.codecs)
+        assertEquals("audio/mp4", sound.mimeType)
+        assertEquals(67_071L, sound.bitrateBitsPerSecond)
+        assertNull(sound.language)
+        val live = pieces(
+            resolver.resolve(candidate(server.url("/live.mpd").toString(), MediaKind.DASH)),
+        )
+        assertEquals(4, live.size)
+        assertTrue(live.none { it.dashPieces || it.dashOneFile })
+    }
+
+    @Test
     fun `range probe keeps size unknown when server omits total length`() = runTest {
         server.enqueue(MockResponse().setResponseCode(405))
         server.enqueue(

@@ -17,14 +17,17 @@ import java.util.Locale
  * MP4; VP9 with Opus into a WebM from Android 10; AV1 only with the debug build's test switch,
  * item 26). The sound is the manifest's first language at its highest bitrate the phone merges
  * with that video. A video the phone merges with none of the sounds stays as it was: "No sound".
+ * v1.0.2 fix R3: so does a manifest whose qualities are in pieces (`SegmentTemplate` or
+ * `SegmentList`, [MediaVariant.dashPieces]); `bbb_30fps.mpd`'s videos were all "No sound" beside
+ * its own M4A.
  *
- * A site reader's rows ([MediaCandidate.videoId]) are left as they are, and so is a manifest of
- * `SegmentTemplate` or `SegmentList` pieces: only the generic page path changes.
+ * A site reader's rows ([MediaCandidate.videoId]) are left as they are, and so is a live
+ * manifest's: only the generic page path changes.
  */
 object DashSoundPairing {
     private val device: DeviceMergeSupport by lazy { DeviceMergeSupport() }
 
-    /** [result] with each of its silent one-file DASH video qualities given a sound to merge. */
+    /** [result] with each of its silent DASH video qualities given a sound to merge. */
     fun pair(
         result: VariantResolutionResult,
         candidate: MediaCandidate,
@@ -38,12 +41,12 @@ object DashSoundPairing {
         return result.copy(asset = result.asset.copy(variants = variants))
     }
 
-    /** [variants] with each silent one-file DASH video given the first sound [merges] takes. */
+    /** [variants] with each silent DASH video given the first sound [merges] takes. */
     internal fun pair(
         variants: List<MediaVariant>,
         merges: (MediaVariant, CompanionAudio) -> Boolean,
     ): List<MediaVariant> {
-        val sounds = variants.filter { it.isOneFile(MediaTrackType.AUDIO) }
+        val sounds = variants.filter { it.isTrack(MediaTrackType.AUDIO) }
         if (sounds.isEmpty()) return variants
         val language = sounds.first().languageKey()
         val ordered = sounds.sortedWith(
@@ -51,7 +54,7 @@ object DashSoundPairing {
                 .thenByDescending { it.bitrateBitsPerSecond ?: 0L },
         )
         return variants.map { video ->
-            if (!video.isOneFile(MediaTrackType.VIDEO) || video.audioCompanion != null) {
+            if (!video.isTrack(MediaTrackType.VIDEO) || video.audioCompanion != null) {
                 return@map video
             }
             ordered.asSequence()
@@ -63,8 +66,9 @@ object DashSoundPairing {
         }
     }
 
-    private fun MediaVariant.isOneFile(track: MediaTrackType): Boolean =
-        kind == MediaKind.DASH && dashOneFile && trackType == track &&
+    /** A [track] the download reads from a manifest that is not live: one file or pieces. */
+    private fun MediaVariant.isTrack(track: MediaTrackType): Boolean =
+        kind == MediaKind.DASH && (dashOneFile || dashPieces) && trackType == track &&
             support == VariantSupport.SUPPORTED && !manifestVariantId.isNullOrBlank() &&
             mp3 == null && !audioFromVideo
 

@@ -101,7 +101,7 @@ class DashRowFileTest {
         val high = bFresh.of("audio_eng=128002")
         assertNull(DashRowFile.find(bFresh - high, high))
         // Only a DASH row is found this way.
-        val file = high.copy(kind = MediaKind.DIRECT, dashOneFile = false)
+        val file = high.copy(kind = MediaKind.DIRECT, dashOneFile = false, dashPieces = false)
         assertNull(DashRowFile.find(bFresh + file, file))
     }
 

@@ -95,6 +95,7 @@ internal object DashManifestParser {
                     },
                     expiresAtEpochMs = expiresAtEpochMs,
                     dashOneFile = static && isOneFile(representation, adaptation),
+                    dashPieces = static && isInPieces(representation, adaptation),
                 )
                 representationIndex += 1
             }
@@ -164,6 +165,22 @@ internal object DashManifestParser {
         }
         return representation.childElements("BaseURL").singleOrNull()
             ?.textContent?.trim()?.isNotEmpty() == true
+    }
+
+    /**
+     * v1.0.2 fix R3: whether [representation] is in pieces: a `SegmentTemplate` or `SegmentList`
+     * (its own, its adaptation set's or its period's) and no `SegmentBase` beside it, the ways
+     * the download reads pieces (`bbb_30fps.mpd`: one `SegmentTemplate` for each adaptation
+     * set). Only noted here: a page's video quality of this kind is offered with its manifest's
+     * sound, as a one-file one is.
+     */
+    private fun isInPieces(representation: Element, adaptation: Element): Boolean {
+        val levels = listOfNotNull(adaptation.parentNode as? Element, adaptation, representation)
+        if (levels.any { it.childElements("SegmentBase").isNotEmpty() }) return false
+        return levels.any { level ->
+            level.childElements("SegmentTemplate").isNotEmpty() ||
+                level.childElements("SegmentList").isNotEmpty()
+        }
     }
 
     private fun trackType(

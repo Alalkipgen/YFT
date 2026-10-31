@@ -66,6 +66,12 @@ data class MediaVariant(
      * offered with its manifest's sound ([CompanionAudio.representationId]).
      */
     val dashOneFile: Boolean = false,
+    /**
+     * v1.0.2 fix R3: a DASH representation in pieces — a `SegmentTemplate` or `SegmentList`, no
+     * `SegmentBase` — of a manifest that is not live, downloaded piece by piece. A page's video
+     * quality of this kind is offered with its manifest's sound too, as a one-file one is.
+     */
+    val dashPieces: Boolean = false,
 ) {
     init {
         require(id.isNotBlank())
@@ -84,6 +90,9 @@ data class MediaVariant(
         ) { "Only the sound of one whole video file is kept as audio" }
         require(audioBitrateBitsPerSecond == null || audioBitrateBitsPerSecond > 0)
         require(!dashOneFile || kind == MediaKind.DASH) { "Only a DASH representation is one file" }
+        require(!dashPieces || kind == MediaKind.DASH && !dashOneFile) {
+            "Only a DASH representation that is not one file is in pieces"
+        }
         require(width == null || width > 0)
         require(height == null || height > 0)
         require(framesPerSecond == null || framesPerSecond > 0)

@@ -35,16 +35,15 @@ import okhttp3.ResponseBody.Companion.toResponseBody
  * v1.0.2 fix R2: the download sheet of a pasted DASH manifest, as on the phone: the site serves
  * [served] (a test may change it between the sheet and its Download), the app's own resolver
  * reads it and the sheet pairs its sound ([com.alal.yft.detection.DashSoundPairing]); Download
- * queues on [starter], and [plan] is what the download then fetches.
+ * queues on [starter], and [plan] is what the download then fetches. v1.0.2 fix R3: or the
+ * manifest as the browser found it ([candidate]).
  */
-internal class DashManifestSheet(val manifestUrl: String, var served: String) {
+internal class DashManifestSheet(
+    val manifestUrl: String,
+    var served: String,
+    val candidate: MediaCandidate = pasted(manifestUrl),
+) {
     val starter = Starter()
-    val candidate = MediaCandidate(
-        pageUrl = manifestUrl,
-        mediaUrl = manifestUrl,
-        sources = setOf(CandidateSource.PASTED_URL),
-        kind = MediaKind.DASH,
-    )
     private val store = DetectedMediaStore().apply {
         publish(manifestUrl, null, listOf(candidate))
         select(MediaGroups.of(listOf(candidate)).single())
@@ -110,6 +109,14 @@ internal class DashManifestSheet(val manifestUrl: String, var served: String) {
     companion object {
         const val NOW = 1_000L
         private const val DASH = "application/dash+xml"
+
+        /** [url] pasted into the app. */
+        fun pasted(url: String) = MediaCandidate(
+            pageUrl = url,
+            mediaUrl = url,
+            sources = setOf(CandidateSource.PASTED_URL),
+            kind = MediaKind.DASH,
+        )
 
         /** A manifest of `src/test/resources/dash`, as its site served it. */
         fun text(name: String): String = requireNotNull(

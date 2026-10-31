@@ -2898,6 +2898,35 @@ Keep at least the heading and one blank line between sections, so Git merges the
     another sound or B's first sound). Local: the quickdownload, detection, downloads and
     download packages, 791 tests, 0 failures.
   - CHANGELOG `[1.0.2]`: one line under Fixed.
+- R2's commit: `e57d931c`.
+- R3 (Akamai's `bbb_30fps.mpd`: video rows up to 2160p, no Audio section, every row "No
+  sound"). Cause: the reader keeps the sound's adaptation set (no codec, `Accessibility` or
+  `Role` filter; Repro A's sound is HE-AAC too and shows), but item 59 gave a manifest's sound
+  only to one-file qualities (`SegmentBase`, `dashOneFile`; "Unchanged: `SegmentTemplate` and
+  `SegmentList`"), and each of bbb_30fps's qualities is in pieces (one `SegmentTemplate` for
+  each adaptation set), so every video stayed silent. The missing Audio section was not
+  reproduced: the app's reader with Robolectric's and with Android 16's own XML parser
+  (`android-all-16`), the link pasted and the browser's request all give its M4A "67 kbps"
+  (~5.1 MB) above the videos. Not a regression: v1.0.1 read no DASH manifest on a phone (F1's
+  parser settings: "Couldn't get this video."), and no build paired a manifest's pieces.
+  Done: `MediaVariant.dashPieces` (new: a static manifest's Representation in `SegmentTemplate`
+  or `SegmentList` pieces, no `SegmentBase`; `DashManifestParser`); `DashSoundPairing` pairs
+  one-file and pieces tracks alike (the same merges, sound order and sizes); a live manifest's
+  and a site reader's rows stay as they were. No new words.
+  - Tests: `DashPiecesSoundTest` (new: bbb_30fps.mpd as its site served it on 2026-10-31,
+    `app/src/test/resources/dash/`, through the app's resolver, the sheet and its Download: the
+    M4A "67 kbps" "~5.1 MB" (`bbb_a64k`), the 7 rows 2160p · 4K to 144p each with that sound,
+    each row's Download a merge of its own Representation and `bbb_a64k`, the M4A `bbb_a64k`
+    alone; the browser's request gives the same rows; Repro B's videos take `audio_eng=128002`
+    only while AV1 merges are on, item 26), `DashSoundPairingTest` (pieces paired as one-file
+    tracks), `DefaultVariantResolverTest` (bbb_30fps's Representations in pieces, its sound
+    read), `MediaAssetTest` (`dashPieces` only on a DASH track not one file);
+    `DashPiecesInstrumentedTest` (new, the CI emulator: bbb_30fps.mpd through Android's XML
+    parser gives the M4A and 7 rows with sound; a one-second quality in pieces of its shape
+    downloads as one MP4, AVC and AAC, every piece asked). The old pairing fails 5 of the new
+    unit tests. Local: core-model (155), core-media (46), core-download (333) and the app's unit
+    tests (1,582, 66 skipped), 0 failures; the emulator test runs on CI only.
+  - CHANGELOG `[1.0.2]`: one line under Fixed.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 

@@ -86,6 +86,28 @@ class MediaAssetTest {
     }
 
     @Test
+    fun `only a DASH representation that is not one file is in pieces`() {
+        // v1.0.2 fix R3: a SegmentTemplate or SegmentList representation.
+        val pieces = MediaVariant(
+            id = "dash:bbb_a64k",
+            playbackUrl = "https://cdn.example.test/stream.mpd?token=secret",
+            kind = MediaKind.DASH,
+            trackType = MediaTrackType.AUDIO,
+            requestContext = requestContext,
+            dashPieces = true,
+        )
+
+        assertTrue(pieces.dashPieces)
+        assertFalse(pieces.dashOneFile)
+        assertThrows(IllegalArgumentException::class.java) {
+            pieces.copy(kind = MediaKind.HLS)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            pieces.copy(dashOneFile = true)
+        }
+    }
+
+    @Test
     fun `only a DASH representation is one file and a manifest's sound names its representation`() {
         val dash = MediaVariant(
             id = "dash:5",

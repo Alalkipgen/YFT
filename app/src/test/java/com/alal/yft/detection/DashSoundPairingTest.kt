@@ -18,7 +18,8 @@ import org.junit.Test
 
 /**
  * v1.0.2 item 59: on a page without a site reader, a DASH manifest's one-file video qualities
- * (`SegmentBase`) are offered with the manifest's sound, as far as the phone merges them.
+ * (`SegmentBase`) are offered with the manifest's sound, as far as the phone merges them. v1.0.2
+ * fix R3: so are its qualities in pieces (`SegmentTemplate` or `SegmentList`).
  */
 class DashSoundPairingTest {
     private val phone = DeviceMergeSupport(sdkInt = 34, hasDecoder = { false }, av1Enabled = { false })
@@ -53,15 +54,42 @@ class DashSoundPairingTest {
     }
 
     @Test
-    fun `a site reader's rows, manifests of pieces and failures stay as they are`() {
+    fun `a manifest's qualities in pieces take its sound as one-file ones do`() {
+        // R3: bbb_30fps.mpd, one SegmentTemplate for each adaptation set; its sound HE-AAC.
+        val high = video("v2160", bitrate = 14_931_538, size = null, oneFile = false, pieces = true)
+        val sound = audio("bbb_a64k", bitrate = 67_071, size = null, oneFile = false, pieces = true)
+
+        val variants = pair(listOf(high, sound)).asset.variants
+
+        assertEquals(MediaTrackType.AUDIO_VIDEO, variants[0].trackType)
+        assertEquals("v2160", variants[0].manifestVariantId)
+        val companion = requireNotNull(variants[0].audioCompanion)
+        assertEquals("bbb_a64k", companion.representationId)
+        assertEquals(listOf("mp4a.40.5"), companion.codecs)
+        assertEquals(sound, variants[1])
+        // A one-file video with a sound in pieces, and the other way round.
+        val mixed = pair(
+            listOf(
+                video("one"),
+                video("pieces", oneFile = false, pieces = true),
+                audio("a1", oneFile = false, pieces = true),
+            ),
+        ).asset.variants
+        assertEquals(listOf("a1", "a1"), mixed.take(2).map { it.audioCompanion?.representationId })
+        val fileSound = pair(listOf(video("v1", oneFile = false, pieces = true), audio("a1")))
+        assertEquals("a1", fileSound.asset.variants[0].audioCompanion?.representationId)
+    }
+
+    @Test
+    fun `a site reader's rows, a live manifest's and failures stay as they are`() {
         val result = success(listOf(video("v1"), audio("a1")))
         // A site's adapter names its video: its rows are its own (VK's check refuses them).
         assertSame(result, DashSoundPairing.pair(result, candidate(videoId = "vk:1_2"), merges))
-        // SegmentTemplate or SegmentList pieces are not one file.
-        val pieces = success(listOf(video("v1", oneFile = false), audio("a1")))
-        assertSame(pieces, DashSoundPairing.pair(pieces, candidate(), merges))
-        val pieceSound = success(listOf(video("v1"), audio("a1", oneFile = false)))
-        assertSame(pieceSound, DashSoundPairing.pair(pieceSound, candidate(), merges))
+        // A live manifest's tracks are neither one file nor pieces the download reads.
+        val live = success(listOf(video("v1", oneFile = false), audio("a1")))
+        assertSame(live, DashSoundPairing.pair(live, candidate(), merges))
+        val liveSound = success(listOf(video("v1"), audio("a1", oneFile = false)))
+        assertSame(liveSound, DashSoundPairing.pair(liveSound, candidate(), merges))
         // Another manifest's sound is not this video's.
         val other = success(listOf(video("v1"), audio("a1").copy(playbackUrl = "$MANIFEST?other")))
         assertEquals(
@@ -174,10 +202,11 @@ class DashSoundPairingTest {
         bitrate: Long = 400_000,
         size: Long? = 32_700_000,
         oneFile: Boolean = true,
+        pieces: Boolean = false,
         mimeType: String = "video/mp4",
         codecs: List<String> = listOf("avc1.42401e"),
     ) = variant(id, MediaTrackType.VIDEO, bitrate, size, oneFile, mimeType, codecs, null)
-        .copy(width = 480, height = 360)
+        .copy(width = 480, height = 360, dashPieces = pieces)
 
     private fun audio(
         id: String,
@@ -185,9 +214,11 @@ class DashSoundPairingTest {
         size: Long? = 5_886_000,
         language: String? = null,
         oneFile: Boolean = true,
+        pieces: Boolean = false,
         mimeType: String = "audio/mp4",
         codecs: List<String> = listOf("mp4a.40.5"),
     ) = variant(id, MediaTrackType.AUDIO, bitrate, size, oneFile, mimeType, codecs, language)
+        .copy(dashPieces = pieces)
 
     private fun variant(
         id: String,
