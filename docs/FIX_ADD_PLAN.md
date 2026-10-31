@@ -1321,6 +1321,105 @@ the owner's Xiaomi, HyperOS, large system font):
       one MP4 with sound that plays, its Details end "AV1 decoder: …"; untick → the AV1 row is
       gone.
 
+**Preview #161 results and the R1–R5 fixes** (2026-10-31; branch `work/phase-v102-easy`; the
+owner's Redmi Note 13 Pro, Android 16 (API 36), large system font):
+
+- **#161** (`e29fcdbb`, run 41172470902): the owner's list R1–R5, one commit each. R1: on
+  Updates the release notes' `###` drew as large as bold body text (63 vs 62 px). R2: a DASH
+  row downloaded another track: `exMPD_BIP_TC1.mpd`'s 360p saved its sound alone ("Video 1 ·
+  DASH · M4A · 5.1 MB"), `tears-of-steel-av1`'s 240p started `audio_eng=64008`. R3:
+  `bbb_30fps.mpd` listed video rows up to 2160p, every one "No sound", and no Audio section. R4:
+  at the large text size the browser's address pill drew its host and path over each other
+  (`w3schools.com/html/html5_video.asp`). R5: MP3 still slow, "MP3: 3:18 of sound, decode 16 s,
+  encode 7.2 s" (23 s in all; ~20 s on #149). Item 26 needs the census APK (below).
+- **The fixes**, one commit each (CI: checkpoint / emulator smoke / Preview APK / minified):
+  R1 `d8012334` (#607 / #195 / #162 / #53), R2 `e57d931c` (#608 / #196 / #163 / #54), R3
+  `676202d5` (#609 / #197 / #164 / #55), R4 `3fe97504` (#610 / #198 / #165 / #56), R5
+  `c3522f95` (#611 / #199 / #166 / #57). All green except two runs, neither the code: R1's
+  minified #53 failed in "Build the shrunk previews with a fresh test key, and the check's test
+  APK" (its log no longer readable; #54 to #57, with R1's code, passed); R4's emulator smoke
+  #198 failed 54 s into the emulator step, before `scripts/ci-emulator-smoke.sh` made its first
+  folder (the emulator never started; no diagnostics; #199, with R4's code, passed). Neither was
+  re-run.
+- **Causes and fixes**:
+  - R1: `###` was titleSmall (15 sp) and body text bodyMedium (14 sp), and Android 14 and newer
+    grow large text less than small text, so at the owner's size they drew 63 and 62 px. Now
+    `#` headlineSmall (24 sp), `##` titleLarge (22 sp), `###` and below titleMedium (17 sp),
+    all bold, the room above them as N2's (`ReleaseNotesView.headingStyle`).
+  - R2: the sheet's Download looked its row up again by the file's address, and every quality
+    of a DASH manifest has the manifest's address, so every row queued the manifest's first
+    Representation (A's sound "1", B's `audio_eng=64008`). Now `DashRowFile` finds the row by
+    its Representation's id, its kind (merged, video only, audio) and its sound's id; none →
+    "This quality is not available now — choose another" and the Details line "Not in the
+    manifest now: Representation 5 (video) with sound 1" (new); nothing else is queued.
+  - R3: item 59 gave a manifest's sound only to one-file qualities (`SegmentBase`), and each of
+    bbb_30fps's qualities is in pieces (`SegmentTemplate`), so every video stayed "No sound".
+    Now `DashSoundPairing` pairs pieces (`MediaVariant.dashPieces`) as one-file tracks; a live
+    manifest's and a site reader's rows stay as they were. The missing Audio section was not
+    reproduced: Robolectric's and Android 16's own XML parser, the pasted link and the browser's
+    request all give the M4A "67 kbps" (~5.1 MB) above the videos. Not a regression: v1.0.1 read
+    no DASH manifest on a phone (F1's parser settings), and no build paired a manifest's pieces.
+  - R4: the pill drew two texts in one place: the field's own text (the whole address, hidden
+    only by a transparent ink) and over it the styled host and path. Not reproduced off the
+    phone (Robolectric's native graphics at 100, 130, 150 and 200 % draw the styled address
+    alone), so the cause is inferred. Now the field draws nothing while the styled address
+    shows (its semantics stay: TalkBack reads and edits it as before), and the styled address
+    is one `Text` (`AddressDisplayText`: an `AnnotatedString`, one line, no soft wrap, "…").
+    `BrowserAddressLargeTextTest` fails at every size with the field's text drawn (6,923–7,837
+    pixels); the pill's pixels before and after the change are the same.
+  - R5 (the root cause): one thread did everything in turn. Each MediaCodec call of G2's loop
+    (each dequeue, also one that finds nothing, each queue, each release) is a round trip to
+    MediaCodec's own thread, and the decoder runs in another process (Codec2's
+    `media.swcodec`): about five round trips for each of the song's 8,527 AAC frames, and
+    while LAME encoded the decoder got no input, so the two never overlapped. On the phone's
+    slow, low-clocked cores (LAME alone 3.4 times slower than on the emulator, 0.84 vs 0.25 ms
+    a frame) a frame's round trips took ~1.9 ms: "decode 16 s" was mostly waiting. The
+    emulator's cores took ~0.37 ms, so it did not show there. Now the decoder runs in
+    MediaCodec's asynchronous mode on its own thread (`AsyncAacDecoder`, "yft-mp3-decode"),
+    and LAME encodes on the conversion's thread from `PcmHandoff` (new: at most 32 buffers,
+    ~0.7 s of sound); LAME and its settings unchanged. The Details line keeps its words; its
+    "decode" is now the time LAME waited for sound. Expected on the phone: about LAME's time
+    (~7 s or less) instead of the sum. `Mp3TranscoderDurationInstrumentedTest` (new): the MP3
+    keeps its source's length (LAME gets exactly the decoded samples; the MP3 decodes to as
+    many plus LAME's delay and padding, under 3 × 1,152).
+- **R5 on the emulator** (#199's "MP3 timing" notices; API 34, 128 kbps; both loops on the same
+  source in one run): a 4-minute source — R5 "MP3: 4:01 of sound, decode 995 ms, encode 4.1 s"
+  (5.1 s in all), G2's one-thread loop decode 4.2 s, encode 2.5 s (6.7 s); a 1-hour source — R5
+  "MP3: 1:00:00 of sound, decode 21 s, encode 1 min 4 s" (86.6 s), G2's loop stopped after 60 s
+  at 30:51 of sound (#194: 124.8 s in all). LAME's own time grows there (2.5 → 4.1 s) because
+  the emulator's two virtual cores now run the decoder and LAME at once; the phone has eight.
+  The MP3 keeps its length: a 20-second mono source — LAME got all 983,040 decoded samples in
+  order, the MP3 decodes to 984,960 (+1,920, 40 ms); a 60-second stereo one — 2,703,360 →
+  2,704,896 a channel (+1,536, 34 ms). Instrumented tests: 81, 0 failures (6 skipped).
+- **UI text**: R2's Details line "Not in the manifest now: Representation 5 (video) with sound
+  1" (new; the failure uses the sheet's existing words). None for R1, R3, R4 and R5 (R5's
+  Details line keeps its words).
+- **The census APK** for item 26: `yft-vk-census-c3522f95.apk` (22,856,672 bytes, SHA-256
+  `54b8ca5c…7a1d8025`): `:app:assembleDebug` of `c3522f95` with masterCapture, ownSolver,
+  ownSolverNext, clientLadder, socialLadder and socialTrial on (ladderSkip and ladderMutate
+  blank, routeBTrial off), signed with the shared test key (certificate SHA-256
+  `a2696dff…bbbe`), so it installs over the old census APK; sent as a chat attachment.
+- **Checklist** (Preview #166, run 41197965104, `yft-preview-apk`; 7 with the census APK):
+  1. R1: Updates' release notes at the large text size: `#` larger than `##`, `##` larger than
+     `###`, and `###` clearly larger than bold body text.
+  2. R2 A: `https://dash.akamaized.net/dash264/TestCases/1a/netflix/exMPD_BIP_TC1.mpd` → 360p
+     → Download → one MP4 with sound (~44 MB) that plays; its M4A → the sound alone (~5.1 MB).
+  3. R2 B: `https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel-av1.ism/.mpd`
+     → 240p ("No sound") → Download → a 640 × 284 video alone (`video_eng=208000`, not
+     `audio_eng=64008`); its M4A → the 128 kbps sound (`audio_eng=128002`).
+  4. R3: `https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd` → Audio M4A "67 kbps"
+     (~5.1 MB) and 7 video rows, 2160p · 4K to 144p, none "No sound"; a video's Download → one
+     MP4 with sound.
+  5. R4: `https://www.w3schools.com/html/html5_video.asp` at the large and the largest text
+     size: the address once, on one line, ending in "…" when too long; tap it → the whole
+     address to edit.
+  6. R5: the 3:18 YouTube song as MP3 128 kbps: "Converting" about 8 s or less; the MP3's row
+     → Details "MP3: 3:18 of sound, decode … s, encode … s" (send the line).
+  7. 26 (census APK, Android 14 or newer): on the census screen tick "AV1 merges (test,
+     Android 14 or newer)"; the tears-of-steel-av1 link above → rows "… · AV1" without "No
+     sound"; download → one MP4 with sound that plays, its Details end "AV1 decoder: …";
+     untick → the rows are as in 3 again ("No sound", no "· AV1").
+
 **Preview #11 (after P48–P50)** — X, Instagram and HLS sound:
 
 1. **An X post with a video**, pasted on Home: the sheet lists its MP4 qualities (e.g. 720p
@@ -1495,6 +1594,18 @@ Other items:
     is refused by Android's cleartext rule; the download works (F1). Owner decision: —
   - G2: the emulator decodes at the same speed with the new loop; if the phone's Details line
     still shows a long decode, the decoder itself is next. Owner decision: —
+
+- **After Preview #161, R1–R5** (2026-10-31): the agent's hand-offs.
+  - R4: the overlap was not reproduced off the phone (Robolectric's native graphics at 100, 130,
+    150 and 200 % drew the styled address alone, the same pixels before and after the change);
+    the cause is inferred from the code. If the phone still shows two addresses, a screenshot at
+    its text size is next. Owner decision: —
+  - R5: if the phone's Details line still shows a long "decode" (LAME waiting for sound), the
+    decoder's round trips are next: Android 15's large audio frames (several AAC frames in one
+    buffer, fewer calls a second) or an AAC decoder inside the app (a new library and its
+    licence). Owner decision: —
+  - CI: R1's minified #53 and R4's emulator smoke #198 failed outside the code and were not
+    re-run; the later heads' runs, with their code, passed (§6).
 
 ## 8. Done before Phase 15
 

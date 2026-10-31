@@ -2993,6 +2993,15 @@ Keep at least the heading and one blank line between sections, so Git merges the
     60 s); `Mp3TestFiles` (new: both classes' sources and plain decode). Local: core-download's
     unit tests (338), its lint, the instrumented tests compiled; they run on CI only.
   - CHANGELOG `[1.0.2]`: G2's line under Fixed, rewritten.
+- R5's commit: `c3522f95`. R4's checkpoint #610 and minified #56 passed too. R5's CI: checkpoint
+  validation #611 (41197965080), emulator smoke #199 (41197965034), Preview APK #166
+  (41197965104, `yft-preview-apk` and `yft-preview-trial-apk`) and minified #57 (41197965035)
+  passed; #199's "MP3 timing" notices: FIX_ADD_PLAN §6.
+- The census APK for item 26: `yft-vk-census-c3522f95.apk` (22,856,672 bytes; `c3522f95` with
+  the census flags; the shared test key), sent to the owner as a chat attachment.
+- R1–R5's results, causes, CI and checklist: FIX_ADD_PLAN §6 ("Preview #161 results and the
+  R1–R5 fixes") and §7 (docs only). Next: the owner's phone run of that checklist on Preview
+  #166 and the census APK.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
