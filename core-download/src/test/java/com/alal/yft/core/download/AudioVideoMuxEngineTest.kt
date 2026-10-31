@@ -249,6 +249,28 @@ class AudioVideoMuxEngineTest {
         assertEquals(0, offMuxer.calls.get())
     }
 
+    /**
+     * v1.0.2 fix R8: today's way ends a track only when MediaExtractor has no sample left (-1 and
+     * no track), not at a time before 0 — a sound's first samples before its edit list's start,
+     * as tears-of-steel-av1's AAC (2,048 ticks at 48 kHz: -42,667 and -21,333 µs).
+     */
+    @Test
+    fun `today's way ends a track only when no sample is left, not at a time before 0`() {
+        var asked = 0
+        val sampleTrack = {
+            asked += 1
+            1
+        }
+
+        assertFalse(endsTrack(-42_667L, sampleTrack))
+        assertFalse(endsTrack(-21_333L, sampleTrack))
+        assertFalse(endsTrack(0L, sampleTrack))
+        assertEquals("the track is asked only at -1", 0, asked)
+        assertFalse("a sample at -1 µs", endsTrack(-1L, sampleTrack))
+        assertEquals(1, asked)
+        assertTrue("no sample left", endsTrack(NO_SAMPLE_TIME_US) { -1 })
+    }
+
     @Test
     fun `incompatible tracks fail before transfer or destination work`() = runTest {
         val runner = FakeDashRunner()

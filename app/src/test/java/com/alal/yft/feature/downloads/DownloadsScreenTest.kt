@@ -42,6 +42,8 @@ import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.DownloadFailureStage
 import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.settings.DownloadLocation
+import com.alal.yft.detection.Av1Decoders
+import com.alal.yft.detection.Av1MergeSwitch
 import com.alal.yft.download.policy.TransferNetworkState
 import com.alal.yft.feature.library.AppPrivateDownloadProvider
 import com.alal.yft.feature.library.FixedMediaDetails
@@ -975,6 +977,69 @@ class DownloadsScreenTest {
         composeRule.onNodeWithTag("download-run").performClick()
         composeRule.onAllNodesWithTag("download-menu-details-run").assertCountEquals(0)
     }
+
+    /**
+     * v1.0.2 fix R8: while a debug build's AV1 merges are on, a finished merge offers Details,
+     * which end with the phone's AV1 decoders; a finished download that is no merge has none, and
+     * once the switch is off (read again as the menu opens) neither has the merge.
+     */
+    @Test
+    fun aFinishedMergeShowsItsDetailsWhileAv1MergesAreOn() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        Av1MergeSwitch.install(context, built = true)
+        Av1MergeSwitch.set(context, true)
+        try {
+            setScreen(DownloadsUiState(listOf(finishedMerge(), finished("direct"))))
+
+            composeRule.onNodeWithTag("download-direct").performClick()
+            composeRule.onAllNodesWithTag("download-menu-details-direct").assertCountEquals(0)
+            composeRule.onNodeWithTag("download-menu-play-direct").performClick()
+            composeRule.onNodeWithTag("download-merged").performClick()
+            composeRule.onNodeWithTag("download-menu-details-merged").performClick()
+
+            composeRule.onNodeWithText("Download details").assertIsDisplayed()
+            composeRule.onNodeWithTag("download-failure-text", useUnmergedTree = true)
+                .assert(hasText("Status: COMPLETED", substring = true))
+                .assert(hasText("Download type: Merge (audio + video)", substring = true))
+                .assert(hasText(Av1Decoders.LABEL, substring = true))
+            composeRule.onNodeWithTag("download-failure-close").performClick()
+            // The switch off: the next time the menu opens, no Details.
+            Av1MergeSwitch.set(context, false)
+            composeRule.onNodeWithTag("download-merged").performClick()
+            composeRule.onNodeWithTag("download-menu-play-merged").assertIsDisplayed()
+            composeRule.onAllNodesWithTag("download-menu-details-merged").assertCountEquals(0)
+        } finally {
+            Av1MergeSwitch.set(context, false)
+            Av1MergeSwitch.install(context, built = false)
+        }
+    }
+
+    /** R8 with Decision 30 (v): a quiet build has no finished merge's Details, switch or not. */
+    @Test
+    fun aQuietBuildHidesAFinishedMergesDetails() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        Av1MergeSwitch.install(context, built = true)
+        Av1MergeSwitch.set(context, true)
+        try {
+            setScreen(DownloadsUiState(listOf(finishedMerge())), quiet = true)
+
+            composeRule.onNodeWithTag("download-merged").performClick()
+            composeRule.onNodeWithTag("download-menu-play-merged").assertIsDisplayed()
+            composeRule.onAllNodesWithTag("download-menu-details-merged").assertCountEquals(0)
+        } finally {
+            Av1MergeSwitch.set(context, false)
+            Av1MergeSwitch.install(context, built = false)
+        }
+    }
+
+    private fun finishedMerge(): DownloadRowUiState =
+        finished("merged", planType = DownloadPlanType.AUDIO_VIDEO_MUX)
+
+    private fun finished(
+        id: String,
+        planType: DownloadPlanType = DownloadPlanType.DIRECT,
+    ): DownloadRowUiState =
+        row(id, DownloadTaskStatus.COMPLETED, 4_096, 4_096, 100, planType = planType)
 
     private fun setScreen(
         uiState: DownloadsUiState,

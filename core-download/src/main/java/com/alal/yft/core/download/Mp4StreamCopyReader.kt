@@ -33,8 +33,12 @@ internal fun unsupported(reason: String): Nothing = throw StreamCopyUnsupported(
 
 /** Which track a merge input holds (P35), with its `hdlr` type and the sample entries copied. */
 internal enum class StreamCopyTrackKind(val handler: String, val sampleEntries: Set<String>) {
-    /** `vp09` only for VP9 HLS with its AAC sound (item 5, [AudioVideoMuxCompatibility]). */
-    VIDEO("vide", setOf("avc1", "avc3", "vp09")),
+    /**
+     * `vp09` only for VP9 HLS with its AAC sound (item 5, [AudioVideoMuxCompatibility]). v1.0.2
+     * fix R8: `av01` while AV1 merges are on (the debug switch, from Android 14): its frames and
+     * its `av1C` are copied as they are, like VP9's.
+     */
+    VIDEO("vide", setOf("avc1", "avc3", "vp09", "av01")),
     AUDIO("soun", setOf("mp4a")),
 }
 

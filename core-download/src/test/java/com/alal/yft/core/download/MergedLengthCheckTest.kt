@@ -182,19 +182,20 @@ class MergedLengthCheckTest {
         val length = MergedLength.ofInput(BytesSource(bytes), StreamCopyTrackKind.VIDEO)!!
         assertEquals(90 to 3_000_000L, length.samples to length.durationUs)
 
-        val av1 = Track(
+        // A codec the stream copy does not copy (HEVC; AV1 is copied since R8) is still read.
+        val hevc = Track(
             video = true,
             timescale = 15_360,
             fragments = Mp4TestFiles.video().fragments,
-            sampleEntry = "av01",
+            sampleEntry = "hvc1",
         )
-        val av1Bytes = Mp4TestFiles.fragmented(av1)
+        val hevcBytes = Mp4TestFiles.fragmented(hevc)
         assertThrows(StreamCopyUnsupported::class.java) {
-            Mp4TrackReader(BytesSource(av1Bytes), StreamCopyTrackKind.VIDEO).read()
+            Mp4TrackReader(BytesSource(hevcBytes), StreamCopyTrackKind.VIDEO).read()
         }
         assertEquals(
             90,
-            MergedLength.ofInput(BytesSource(av1Bytes), StreamCopyTrackKind.VIDEO)?.samples,
+            MergedLength.ofInput(BytesSource(hevcBytes), StreamCopyTrackKind.VIDEO)?.samples,
         )
         val adts = Mp4TestFiles.adts(Mp4TestFiles.audio())
         val sound = MergedLength.ofInput(BytesSource(adts), StreamCopyTrackKind.AUDIO)

@@ -117,6 +117,10 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   anywhere; its length grew while it played, about a minute at a time. The first merged download
   after installing (YouTube's or a DASH stream's) can no longer fail as **Storage unavailable**
   when its picture and its sound start at the same moment.
+- A merge made the safety-net way (Android's MediaMuxer, when the stream copy cannot be used)
+  keeps its sound when the sound starts a moment before the picture, as an AAC sound with an edit
+  list does (such as Unified Streaming's Tears of Steel): from Android 11 the sound ended at its
+  first sample, so the file had no sound.
 - Home's **Your sites**: a site's name has its whole third of the row and, in large text, is drawn
   a little smaller instead of being cut ("Faceboo…").
 - Downloads' select mode: **Remove from list** and **Delete files** go onto two lines in large

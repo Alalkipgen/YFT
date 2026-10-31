@@ -3084,13 +3084,59 @@ Keep at least the heading and one blank line between sections, so Git merges the
     sizes). With the old join the two index tests fail. Local: every module's unit tests (the
     checkpoint's run), 0 failures.
   - CHANGELOG `[1.0.2]`: one line under Fixed.
-- R8: not done; the owner stopped after R7 (2026-10-31), so no census APK and no FIX_ADD_PLAN
-  commit for R6–R8 yet. What was found, untried: item 26, "240p · AV1" saved as its 18 MB of
-  video: the sound's edit list (media time 2048 at 48 kHz) gives its first sample a time below
-  zero (−42,667 µs) in Android's reader, and today's MediaMuxer way takes a negative time for a
-  track's end (`SampleSource.load()`), so the audio track is written empty. By R6's code such a
-  merge now fails as **Incompatible tracks** ("merged file has no audio") instead of counting as
-  done (not tried on a phone).
+- R8 (item 26: the census APK of `c3522f95` with "AV1 merges (test, Android 14 or newer)" on,
+  Unified Streaming's `tears-of-steel-av1.ism/.mpd`: "720p · HD · AV1", "480p · AV1" and
+  "240p · AV1" offered right, but "240p · AV1" saved 18 MB, its video `video_eng=208000` alone;
+  the sound `audio_eng=128002` was not written; YFT's player said "Video 240p can't be played
+  here. Try Open with…", another player showed the picture to 12:14 and "This audio format
+  (Unknown) is not supported"). Cause, two in a row: (1) the stream copy took `avc1`, `avc3`
+  and `vp09` video only, so an AV1 merge went today's MediaMuxer way ("stream copy not
+  supported, codec av01"); (2) that way's reader (`SampleSource.load()`) took any sample time
+  below 0 for the end of its track. From Android 11 Android's MP4 reader (MPEG4Extractor) moves
+  every track, a sound too, by its edit list's first media time, so a sound's first samples can
+  come before 0 (AOSP: "cts can be negative … gapless playback"); Android 7–10 move video only,
+  never below 0. This sound's edit list starts at media time 2,048 of 48 kHz, so its first two
+  samples read −42,667 and −21,333 µs: the sound ended at once and the merge wrote an empty
+  sound track. `c3522f95` counted that as done (the 18 MB file); by R6's read-back it fails as
+  **Incompatible tracks** ("merged file has no audio; stream copy not supported, codec av01").
+  v1.0.1 had the same reader and the same stream copy codecs but no AV1 merges; a merge that
+  went today's way with such a sound on Android 11 or newer (the stream copy refused or its
+  check failed, or an HEVC video) was silent there too. Done: (1) today's way ends a track only
+  when MediaExtractor has no sample left (time −1 and no track, `endsTrack`); a sample before 0
+  is written as it comes, and Android 11 and newer's MediaMuxer (MPEG4Writer) starts that track
+  at 0 and writes the edit list itself, so every sample is kept, in time with the picture;
+  (2) the stream copy copies AV1 video too (`av01`, its entry and `av1C` as they are, as VP9's),
+  so an AV1 merge (Android 14 or newer with the switch on; all three rows, one codec and one
+  sound) is a stream copy: every sample byte for byte, the sound's edit list as it came, the
+  same MediaExtractor read-back as an AVC merge, fast, and no need for Android's AV1 MP4 writer
+  (the CI emulator's API 34 MediaMuxer writes none, P4); the fixed MediaMuxer way stays its
+  safety net. (3) **Details** on a finished merged row while AV1 merges are on (a debug build
+  with the switch on, `showsDetails(av1Decoder)`): "Download details" with its status, type,
+  place, versions and the "AV1 decoder: …" line; a release, both previews and the switch off as
+  before. The live join's checks read with the same codec list, so they take AV1 pieces too.
+  - Checked locally on the real 240p and sound pieces (185 files each from the demo server,
+    joined as R7 joins them; a throwaway JVM probe, not committed): the stream copy merged them
+    into 31,098,138 bytes (29.7 MiB, the row's "30 MB"; the sheet's "~29 MB"), 17,616 video and
+    34,406 sound samples, each byte for byte and at its time as in the joined files (ffmpeg's
+    frame checksums), the sound's edit list at 2,048; video 12:13.999 and sound 12:13.936 as
+    presented; ffmpeg (dav1d) decodes the whole file without an error. The first three pieces
+    of 480p (`video_eng=793000`) and 720p (`video_eng=2928000`) merge the same way.
+  - Tests: `StreamCopyAudioVideoMuxerTest` (new: an AV1 video at 16 kHz and an AAC at 48 kHz
+    whose edit list starts at 2,048, both fragmented: stream-copied with no fallback, 60 and
+    564 samples byte for byte, both entries as given, the sound's edit list kept, every sound
+    sample presented where its input presented it, the first at −42,667 µs);
+    `AudioVideoMuxEngineTest` (new: −42,667, −21,333 and 0 µs do not end a track, nor −1 µs
+    while its track is there; −1 with no track does). On the old code both fail.
+    `MergedLengthCheckTest`'s codec the stream copy refuses is now `hvc1`; `Mp4TestFiles` (an
+    `av1C`). App: `DownloadLabelsTest`, `DownloadsScreenTest` (Details on a finished merge only
+    while AV1 merges are on, never on a lone file or in a quiet build). Emulator
+    (`EditListedSoundMergeInstrumentedTest`, new): the test sound with an edit list at 2,048
+    merged with the AV1 test video (Android 14 or newer: stream copy, every sample, Media3
+    prepares its sound) and with the AVC video today's way (every sample, in time);
+    `AudioVideoMuxerInstrumentedTest`'s P4 probe asks today's way alone (`fastMerge = false`),
+    since the stream copy now takes its AV1. Local: `:core-download` (351) and `:app` (1,589)
+    unit tests, 0 failures; lint.
+  - CHANGELOG `[1.0.2]`: one line under Fixed.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 

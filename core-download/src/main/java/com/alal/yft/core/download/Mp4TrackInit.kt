@@ -93,8 +93,8 @@ internal class TrackInit(
                     width = entry.u16(VISUAL_WIDTH) shl 16
                     height = entry.u16(VISUAL_WIDTH + 2) shl 16
                 }
-                // VP9 frames are copied whole: no avcC and no NAL lengths (item 5); so is any
-                // other codec that is read only for its length (R6).
+                // VP9 frames are copied whole: no avcC and no NAL lengths (item 5); so are AV1's
+                // (R8) and any other codec's that is read only for its length (R6).
                 if (entry.type in AVC_ENTRIES) nalLengthSize(entry) else null
             } else {
                 null

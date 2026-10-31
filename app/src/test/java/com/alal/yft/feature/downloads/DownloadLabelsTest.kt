@@ -446,6 +446,44 @@ class DownloadLabelsTest {
         assertTrue(failureDetailsText(failed, "1.0", "16", 36).endsWith("Android: 16 (API 36)"))
     }
 
+    /**
+     * v1.0.2 fix R8: while a debug build's AV1 merges are on (the AV1 line is given), a finished
+     * merge shows Details, which end with that line. Without the line (the release, a preview,
+     * the switch off) it shows none, as before; nor does a finished download that is no merge.
+     */
+    @Test
+    fun aFinishedMergeShowsDetailsOnlyWhileAv1MergesAreOn() {
+        val decoder = "AV1 decoder: hardware (c2.qti.av1.decoder)"
+        val done = row(DownloadTaskStatus.COMPLETED, plan = DownloadPlanType.AUDIO_VIDEO_MUX)
+
+        assertTrue(done.showsDetails(decoder))
+        assertFalse(done.showsDetails(null))
+        assertFalse(done.showsDetails)
+        assertFalse(row(DownloadTaskStatus.COMPLETED).showsDetails(decoder))
+        val running = row(DownloadTaskStatus.RUNNING, plan = DownloadPlanType.AUDIO_VIDEO_MUX)
+        assertFalse(running.showsDetails(decoder))
+        // A failed merge shows its Failure details as before, with the line or without.
+        val failed = row(
+            DownloadTaskStatus.FAILED,
+            plan = DownloadPlanType.AUDIO_VIDEO_MUX,
+            failure = DownloadFailureReason.INCOMPATIBLE_TRACKS,
+        )
+        assertTrue(failed.showsDetails(null))
+        assertTrue(failed.showsDetails(decoder))
+        assertEquals(
+            listOf(
+                "YFT download",
+                "Status: COMPLETED",
+                "Download type: Merge (audio + video)",
+                "Saved to: App storage",
+                "App: YFT 1.0",
+                "Android: 16 (API 36)",
+                decoder,
+            ),
+            downloadDetailsText(done, "1.0", "16", 36, av1Decoder = decoder).lines(),
+        )
+    }
+
     private fun row(
         status: DownloadTaskStatus,
         name: String = "Mountain Lake 4K.mp4",

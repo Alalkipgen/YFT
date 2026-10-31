@@ -890,8 +890,9 @@ private fun DownloadCard(
     var menuOpen by remember { mutableStateOf(false) }
     var detailsOpen by remember { mutableStateOf(false) }
     // Decision 30 (v): a quiet build shows a failure's Details only with Show details on; the
-    // failed download's Retry stays (a function).
-    val showDetails = row.showsDetails && !LocalQuietRelease.current
+    // failed download's Retry stays (a function). v1.0.2 fix R8: while a debug build's AV1
+    // merges are on, a finished merge has Details with the AV1 line (read again as the menu opens).
+    val showDetails = row.showsDetails(Av1MergeSwitch.detailLine()) && !LocalQuietRelease.current
     // Track E (E-D9): the trial's tool, as the trial's VK value break (never in a quiet build).
     val trialTools = BuildConfig.SOCIAL_TRIAL && !LocalQuietRelease.current
     val actions = cardActions(

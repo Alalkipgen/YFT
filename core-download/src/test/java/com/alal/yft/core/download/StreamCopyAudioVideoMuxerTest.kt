@@ -8,6 +8,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
+import kotlin.random.Random
 import kotlinx.coroutines.CancellationException
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -110,6 +111,79 @@ class StreamCopyAudioVideoMuxerTest {
         val sound = String(dump.tracks[1].sampleDescription, 20, 4, Charsets.ISO_8859_1)
         assertEquals("mp4a", sound)
         assertEquals(3_000L, dump.movieDuration)
+    }
+
+    /**
+     * v1.0.2 fix R8, as tears-of-steel-av1's 240p: AV1 video at 16,000 ticks a second in pieces
+     * of 4 s, and AAC at 48 kHz whose edit list starts at 2,048 ticks (audio_eng=128002), so its
+     * first two samples are presented before 0. Both tracks are copied with every sample, the
+     * sound's edit list kept: each sound sample is presented where its input presented it,
+     * beside the picture. Before R8 the stream copy took no AV1 and today's way merged instead,
+     * which ended the sound at its first sample.
+     */
+    @Test
+    fun `an AV1 video and a sound that starts before 0 keep every sample in time (R8)`() {
+        val random = Random(26)
+        val video = Track(
+            video = true,
+            timescale = 16_000,
+            fragments = List(3) {
+                List(20) { index ->
+                    Sample(random.nextBytes(50 + random.nextInt(400)), 3_200, sync = index == 0)
+                }
+            },
+            sampleEntry = "av01",
+        )
+        val audio = Track(
+            video = false,
+            timescale = 48_000,
+            fragments = List(3) {
+                List(188) { Sample(random.nextBytes(100 + random.nextInt(300)), 1_024) }
+            },
+            edits = listOf(Edit(0, 2_048)),
+        )
+        val fallback = RecordingFallback()
+        val output = file("av1.mp4")
+
+        val attempt = StreamCopyAudioVideoMuxer(fallback, PASSING).mux(
+            file("video.mp4", Mp4TestFiles.fragmented(video)),
+            file("audio.m4a", Mp4TestFiles.fragmented(audio)),
+            MuxOutput.ToFile(output),
+            "video/mp4",
+        ) { _, _ -> }
+
+        assertEquals("today's way", emptyList<String>(), fallback.calls)
+        assertEquals(LocalMuxResult.Completed(output.length()), attempt.result)
+        val details = attempt.details!!
+        assertEquals(MuxDetails.STREAM_COPY, details.path)
+        assertNull(details.streamCopyNote)
+        assertEquals(60L to 564L, details.videoSamples to details.audioSamples)
+        val merged = output.readBytes()
+        val dump = Mp4Dump(merged)
+        assertEquals(listOf("vide", "soun"), dump.tracks.map { it.handler })
+        // Every sample byte for byte, at its decode time; both entries (the av1C too) as given.
+        assertSamples(video, dump.tracks[0], merged)
+        assertSamples(audio, dump.tracks[1], merged)
+        listOf(video, audio).forEachIndexed { index, track ->
+            val input = Mp4Dump(Mp4TestFiles.fragmented(track)).tracks.single()
+            assertArrayEquals(input.sampleDescription, dump.tracks[index].sampleDescription)
+        }
+        // The picture starts at 0. The sound keeps its edit list: sample n is presented at
+        // n × 1,024 - 2,048 ticks, as in its input, so the first two before 0.
+        assertEquals(emptyList<Pair<Long, Long>>(), dump.tracks[0].edits)
+        val soundEnd = 564L * 1_024
+        assertEquals(
+            listOf((soundEnd - 2_048) * 1_000 / 48_000 to 2_048L),
+            dump.tracks[1].edits,
+        )
+        val presentedUs = dump.tracks[1].samples.map { sample ->
+            val ticks = sample.decodeTime + sample.compositionOffset - 2_048
+            Math.round(ticks * 1e6 / 48_000)
+        }
+        assertEquals(listOf(-42_667L, -21_333L, 0L, 21_333L), presentedUs.take(4))
+        val inputUs = List(564) { n -> Math.round((n * 1_024L - 2_048) * 1e6 / 48_000) }
+        assertEquals(inputUs, presentedUs)
+        assertEquals(12_000L, dump.movieDuration)
     }
 
     @Test

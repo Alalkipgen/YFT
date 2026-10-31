@@ -354,7 +354,13 @@ internal object Mp4TestFiles {
             )
             // Item 5: a VP9 entry holds a vpcC (profile 0, level 5.1, 8 bits, 4:2:0) instead.
             val vpcC = fullBox("vpcC", 1, 0, byteArrayOf(0, 51, 0x82.toByte(), 1, 1, 1, 0, 0))
-            val config = if (track.sampleEntry == "vp09") vpcC else avcC
+            // R8: an AV1 entry holds an av1C (main profile, level 4.0, 8 bits, 4:2:0).
+            val av1C = box("av1C", byteArrayOf(0x81.toByte(), 0x08, 0x0c, 0))
+            val config = when (track.sampleEntry) {
+                "vp09" -> vpcC
+                "av01" -> av1C
+                else -> avcC
+            }
             box(track.sampleEntry, fixed.array(), config, *extra)
         } else {
             val fixed = ByteBuffer.allocate(28)

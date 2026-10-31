@@ -90,7 +90,11 @@ object AudioVideoMuxCompatibility {
     const val MP4_OUTPUT_MIME = "video/mp4"
     const val WEBM_OUTPUT_MIME = "video/webm"
 
-    /** Android 14: the first release whose MediaMuxer may write AV1 into MPEG-4. */
+    /**
+     * Android 14: the first release whose MediaMuxer may write AV1 into MPEG-4. v1.0.2 fix R8: an
+     * AV1 merge is a stream copy first (`av01` copied as it is, [StreamCopyTrackKind.VIDEO]), and
+     * this MediaMuxer way only when the stream copy does not count.
+     */
     const val AV1_MP4_MIN_SDK = 34
 
     /**
@@ -286,7 +290,8 @@ interface LocalAudioVideoMuxer {
  * tracks' samples copied in large blocks, then read back with MediaExtractor — and today's
  * MediaExtractor → MediaMuxer way only when the stream copy does not count. WebM goes the
  * MediaMuxer way. v1.0.2 fix R6: today's way's MP4 is read back for its length before it counts
- * ([LengthCheckedAudioVideoMuxer]).
+ * ([LengthCheckedAudioVideoMuxer]). v1.0.2 fix R8: AV1 video is stream-copied too, so a sound's
+ * edit list and every one of its samples stay as in AVC merges.
  *
  * MediaExtractor/MediaMuxer behavior is device-dependent and remains an explicit device test.
  */
@@ -736,7 +741,14 @@ internal class MediaMuxerAudioVideoMuxer(
         val format: MediaFormat,
     )
 
-    /** One input track; its current sample's time and flags are read once (P35). */
+    /**
+     * One input track; its current sample's time and flags are read once (P35). v1.0.2 fix R8:
+     * only "no sample" ends the track ([endsTrack]), not a time before 0: Android 11 and newer
+     * give a sound's first samples before its edit list's start such a time (gapless AAC, such
+     * as a DASH sound whose `elst` starts at 2,048), and their MediaMuxer takes it and writes the
+     * edit list again. A time before 0 used to end the sound at its first sample, so the merge
+     * kept the picture alone.
+     */
     private class SampleSource(
         val extractor: MediaExtractor,
         val outputTrack: Int,
@@ -750,7 +762,11 @@ internal class MediaMuxerAudioVideoMuxer(
 
         fun load() {
             timeUs = extractor.sampleTime
-            if (timeUs < 0) finished = true else flags = extractor.sampleFlags
+            if (endsTrack(timeUs) { extractor.sampleTrackIndex }) {
+                finished = true
+            } else {
+                flags = extractor.sampleFlags
+            }
         }
 
         fun advance() {
@@ -765,6 +781,17 @@ internal class MediaMuxerAudioVideoMuxer(
         const val MIB = 1_024 * 1_024
     }
 }
+
+/**
+ * v1.0.2 fix R8: whether MediaExtractor's [sampleTimeUs] means it has no sample left. It gives -1
+ * then, and also for a sample at -1 µs, which still has its track ([trackIndex], asked only
+ * then); any other time before 0 is a sample (a sound's first ones before its edit list starts).
+ */
+internal inline fun endsTrack(sampleTimeUs: Long, trackIndex: () -> Int): Boolean =
+    sampleTimeUs == NO_SAMPLE_TIME_US && trackIndex() < 0
+
+/** MediaExtractor's sample time when it has no sample left. */
+internal const val NO_SAMPLE_TIME_US = -1L
 
 interface AudioVideoMuxRunner {
     suspend fun transfer(

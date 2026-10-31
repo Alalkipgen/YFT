@@ -393,7 +393,19 @@ internal val DownloadRowUiState.showsFailureDetails: Boolean
 internal val DownloadRowUiState.showsDetails: Boolean
     get() = showsFailureDetails || renewalLines.isNotEmpty()
 
-/** The Details text: a failure's ([failureDetailsText]), else the fresh links' (Track E). */
+/**
+ * v1.0.2 fix R8: while a debug build's AV1 merges are on ([av1Decoder] given, as for
+ * [av1DecoderLine]), a finished merged download shows Details too: they end with the phone's AV1
+ * decoders. Otherwise as [showsDetails].
+ */
+internal fun DownloadRowUiState.showsDetails(av1Decoder: String?): Boolean =
+    showsDetails ||
+        (status == DownloadTaskStatus.COMPLETED && av1DecoderLine(this, av1Decoder) != null)
+
+/**
+ * The Details text: a failure's ([failureDetailsText]), else the fresh links' (Track E); R8: for
+ * a finished merge with the AV1 line, its status, type, place, versions and that line.
+ */
 internal fun downloadDetailsText(
     row: DownloadRowUiState,
     appVersion: String,

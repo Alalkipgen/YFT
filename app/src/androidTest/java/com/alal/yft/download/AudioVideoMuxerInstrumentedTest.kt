@@ -131,7 +131,9 @@ class AudioVideoMuxerInstrumentedTest {
      * on the API 34 emulator (P4). The probe still tries it on Android 14+ and logs a `YFT-DIAG`
      * line with the step that failed, so CI shows when a new image starts to write AV1. v1.0.2
      * item 26: the line also names the kinds of the phone's AV1 decoders ([Av1Decoders.kinds]:
-     * hardware, software, both or none), as the debug switch's Details line does.
+     * hardware, software, both or none), as the debug switch's Details line does. v1.0.2 fix R8:
+     * an AV1 merge is a stream copy first (`EditListedSoundMergeInstrumentedTest`), so the probe
+     * merges today's MediaMuxer way alone (`fastMerge = false`), the stream copy's fallback.
      */
     @Test
     fun av1MergesStayOffWhileThisPhoneCannotMakeThem() {
@@ -139,7 +141,8 @@ class AudioVideoMuxerInstrumentedTest {
         val video = asset("mux/video-av1.mp4")
         val output = File(directory, "av1.mp4")
 
-        val result = AndroidMp4AudioVideoMuxer().mux(video, asset("mux/audio-aac.m4a"), output)
+        val result = AndroidMp4AudioVideoMuxer(fastMerge = false)
+            .mux(video, asset("mux/audio-aac.m4a"), output)
         val step = if (result is LocalMuxResult.Completed) "none" else failedStep(video)
         Log.i(
             TAG,
