@@ -246,7 +246,8 @@ fun QuickDownloadScreen(
         val choices = state.choices
         when {
             choices != null -> {
-                val compact = QuickDownloadChoices.compact(choices, state.defaultQuality)
+                val compact =
+                    QuickDownloadChoices.compact(choices, state.defaultQuality, state.selectedId)
                 Column(
                     modifier = Modifier
                         .weight(1f, fill = false)

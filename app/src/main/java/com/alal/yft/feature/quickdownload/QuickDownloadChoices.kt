@@ -211,9 +211,14 @@ object QuickDownloadChoices {
      * expanding/collapsing never changes the selection or lists an option twice.
      * If no lower video exists, the nearest higher one is the second choice.
      * D2: the audio rows are the first one (M4A) and the lowest MP3 offered: 128 kbps on
-     * YouTube, 192 on any other site.
+     * YouTube, 192 on any other site. N11 (v1.0.2): the selected row ([selectedId]) always
+     * shows too, in its place in the full list.
      */
-    fun compact(choices: QuickChoices, quality: QualityPreference): QuickChoices {
+    fun compact(
+        choices: QuickChoices,
+        quality: QualityPreference,
+        selectedId: String? = null,
+    ): QuickChoices {
         val measured = choices.video.filter { it.variant.height != null }
         val videos = measured.ifEmpty { choices.video }
         val preferred = preselect(choices.copy(video = videos), quality)
@@ -223,7 +228,7 @@ object QuickDownloadChoices {
         }
         val next = lower ?: videos.filter { it.id != preferred?.id }
             .minByOrNull { it.rankHeight ?: Int.MAX_VALUE }
-        return choices.copy(
+        val short = choices.copy(
             audio = listOfNotNull(
                 choices.audio.firstOrNull(),
                 choices.audio.filter { it.variant.mp3 != null }
@@ -231,6 +236,14 @@ object QuickDownloadChoices {
             ).distinctBy(SheetOption::id),
             video = listOfNotNull(preferred, next).distinctBy(SheetOption::id),
         )
+        val selected = choices.option(selectedId)
+        if (selected == null || short.option(selected.id) != null) return short
+        fun withSelected(rows: List<SheetOption>, full: List<SheetOption>) =
+            (rows + selected).sortedBy(full::indexOf)
+        return when (selected.section) {
+            OptionSection.AUDIO -> short.copy(audio = withSelected(short.audio, choices.audio))
+            OptionSection.VIDEO -> short.copy(video = withSelected(short.video, choices.video))
+        }
     }
 
     /**

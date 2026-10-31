@@ -2791,6 +2791,18 @@ Keep at least the heading and one blank line between sections, so Git merges the
     picked; the user's pick of the OGG stays).
   - CHANGELOG `[1.0.2]`: one line under Fixed.
 
+- N11 (the same page: the collapsed list showed M4A, MP3, 144p and "More formats · 1", the
+  preselected OGG hidden, so "Download · 600 KB" had no visible check). The cause:
+  `QuickDownloadChoices.compact` made the short list from the Default quality's row and the next
+  one only, whatever was selected. Done: `compact` takes the selected row's id (the screen passes
+  `state.selectedId`); when the short list lacks it, it is added to its section, in its place in
+  the full list; "More formats · N" counts one fewer. Rows, ids and the selection unchanged.
+  - Tests: `QuickDownloadChoicesTest` (+1: YouTube's 1080p selected with 720p as Default: the
+    short list 1080p, 720p, 480p in the full list's order; a shown or unknown id: as before),
+    `LargeFontFitTest` (+1: N11: the collapsed sheet with the hidden 1080p selected shows its
+    row whole at 130 % and 150 %).
+  - CHANGELOG `[1.0.2]`: one line under Fixed.
+
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
 - Plan: `docs/TRACK_E_PLAN.md` (the owner's go, 2026-10-27, while S5's run 3 waits). Branch from

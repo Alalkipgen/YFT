@@ -12,9 +12,12 @@ import androidx.compose.ui.text.TextLayoutResult
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.core.model.settings.HomeSites
+import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.feature.downloads.SelectionBar
 import com.alal.yft.feature.home.HomeScreen
 import com.alal.yft.feature.home.HomeUiState
+import com.alal.yft.feature.quickdownload.QuickDownloadChoices
+import com.alal.yft.feature.quickdownload.QuickDownloadFixtures
 import com.alal.yft.feature.quickdownload.QuickDownloadScreen
 import com.alal.yft.feature.quickdownload.QuickDownloadUiState
 import com.alal.yft.feature.quickdownload.SheetHeader
@@ -35,8 +38,9 @@ import org.robolectric.annotation.GraphicsMode
  * v1.0.2 fix batch after #149 (the owner's phone: Xiaomi HyperOS, large text): the texts that
  * were cut at 130 % and 150 % text fit there now, on a 360 dp wide screen, one test per fix
  * (N1 Home's site names, N3 Downloads' select-mode buttons, N4 the bottom bar's tab names, N7
- * the sheet's length, …). A text fits when its layout neither overflows nor ends in an
- * ellipsis. With `YFT_RENDER_DIR` set, each case is also saved as `fit<percent>-<name>.png`.
+ * the sheet's length, N11 the sheet's selected row, …). A text fits when its layout neither
+ * overflows nor ends in an ellipsis. With `YFT_RENDER_DIR` set, each case is also saved as
+ * `fit<percent>-<name>.png`.
  */
 @RunWith(ParameterizedRobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -131,6 +135,35 @@ class LargeFontFitTest(private val fontScale: Float) {
         render("n7-sheet-length")
 
         composeRule.onNodeWithText("14:05", useUnmergedTree = true).assertFits("14:05")
+    }
+
+    @Test
+    fun `N11 the collapsed sheet shows the selected row`() {
+        val choices = QuickDownloadFixtures.choices(QuickDownloadFixtures.youtube())!!
+        val short = QuickDownloadChoices.compact(choices, QualityPreference.UP_TO_720P)
+        val hidden = choices.video.first { short.option(it.id) == null }
+        composeRule.setContent {
+            DesignStage(themeMode = ThemeMode.LIGHT, fontScale = fontScale) {
+                QuickDownloadScreen(
+                    state = QuickDownloadUiState(
+                        header = SheetHeader(
+                            title = "Ocean waves",
+                            source = "youtube.com",
+                            durationMillis = 845_000,
+                            audioOnly = false,
+                        ),
+                        choices = choices,
+                        selectedId = hidden.id,
+                        defaultQuality = QualityPreference.UP_TO_720P,
+                    ),
+                    onSelect = {},
+                    onDownload = {},
+                )
+            }
+        }
+        render("n11-sheet-selected-row")
+
+        composeRule.onNodeWithText(hidden.title, useUnmergedTree = true).assertFits(hidden.title)
     }
 
     /**

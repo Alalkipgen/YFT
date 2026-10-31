@@ -656,6 +656,24 @@ class QuickDownloadChoicesTest {
     }
 
     @Test
+    fun theSelectedRowAlwaysShowsInTheShortList() {
+        // N11 (v1.0.2): a row picked under More formats, or preselected there, stays in the
+        // collapsed list, in its place in the full list.
+        val full = choices(QuickDownloadFixtures.youtube())!!
+        val short = QuickDownloadChoices.compact(full, QualityPreference.UP_TO_720P)
+        val hidden = full.video.first { short.option(it.id) == null }
+
+        val kept = QuickDownloadChoices.compact(full, QualityPreference.UP_TO_720P, hidden.id)
+
+        assertEquals(short.video.size + 1, kept.video.size)
+        assertEquals(full.video.filter { kept.option(it.id) != null }, kept.video)
+        assertEquals(short.audio, kept.audio)
+        // A row the short list shows anyway, or no selection: the short list as before.
+        assertEquals(short, QuickDownloadChoices.compact(full, QualityPreference.UP_TO_720P, short.video.first().id))
+        assertEquals(short, QuickDownloadChoices.compact(full, QualityPreference.UP_TO_720P, "gone"))
+    }
+
+    @Test
     fun preselectionFollowsTheDefaultQuality() {
         val choices = choices(QuickDownloadFixtures.youtube())!!
         val tall = choices(listOf(video(1080), video(720)))!!

@@ -114,6 +114,8 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   within the phone's limit; it was cut mid-word and lost " 480p".
 - The Download sheet starts on the MP4 when a page offers the same video as MP4 and as an OGG or
   WebM of unknown quality (such as w3schools' sample video).
+- The Download sheet's short list always shows the selected row, so **Download** never names a
+  format you cannot see.
 - VK: a file that answers 400 after it gave bytes (VK's answer on a new network) is a dead link
   too and gets a fresh link; a 400 before any byte fails as before.
 - A download stopped at **Link expired** keeps its progress for the fresh link, and its Cancel or
