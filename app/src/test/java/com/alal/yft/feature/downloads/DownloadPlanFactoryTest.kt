@@ -46,6 +46,37 @@ class DownloadPlanFactoryTest {
     }
 
     @Test
+    fun `a size too small for the length is not the download's total`() {
+        // G1 (v1.0.2): a 1:47:11 YouTube M4A once read "1 B" over a bad connection.
+        val replay = variant(
+            kind = MediaKind.DIRECT,
+            trackType = MediaTrackType.AUDIO,
+            container = "m4a",
+            mimeType = "audio/mp4",
+            size = 1L,
+            sizeAccuracy = MediaSizeAccuracy.EXACT,
+        ).copy(durationMillis = 6_431_000)
+        fun total(variant: MediaVariant) =
+            ((factory(variant) as DownloadPlanResult.Ready).request as DownloadRequest.Direct)
+                .plan.expectedBytes
+        assertNull(total(replay))
+        // A clip of a few seconds keeps its small size; so does a size with no length known.
+        assertEquals(6_000L, total(replay.copy(durationMillis = 5_000, sizeBytes = 6_000)))
+        assertEquals(1L, total(replay.copy(durationMillis = null)))
+        // A merge's stated sound length the same: the download asks for it.
+        val merged = variant(
+            url = "https://rr3---sn-a.googlevideo.com/videoplayback?itag=136&sig=private",
+            container = "mp4",
+        ).copy(
+            codecs = listOf("avc1.4d401f"),
+            audioCompanion = companion().copy(contentLengthBytes = 1),
+            durationMillis = 6_431_000,
+        )
+        val request = (factory(merged) as DownloadPlanResult.Ready).request as DownloadRequest.Mux
+        assertEquals(WholeFileTrack(), request.plan.audio.wholeFile)
+    }
+
+    @Test
     fun `an mp3 choice downloads its aac file and is named and typed as mp3`() {
         val source = variant(
             id = "m4a",
@@ -234,7 +265,7 @@ class DownloadPlanFactoryTest {
         assertEquals(10_103_000L, plan.video.expectedDurationMillis)
         assertEquals(10_103_000L, plan.audio.expectedDurationMillis)
         // YouTube states the sound's length, so its download needs no length request (P41).
-        assertEquals(WholeFileTrack(totalBytes = 1_024), plan.audio.wholeFile)
+        assertEquals(WholeFileTrack(totalBytes = 163_000_000), plan.audio.wholeFile)
         assertEquals(5_000L, plan.expiresAtEpochMs)
         assertTrue(plan.video.taskId != plan.audio.taskId)
     }
@@ -782,7 +813,7 @@ class DownloadPlanFactoryTest {
             userAgent = "fixture-agent",
             cookie = null,
         ),
-        contentLengthBytes = 1_024,
+        contentLengthBytes = 163_000_000,
         expiresAtEpochMs = expiresAt,
     )
 

@@ -9,6 +9,7 @@ import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.Mp3Variants
+import com.alal.yft.core.model.media.PlausibleSize
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.settings.QualityPreference
@@ -305,16 +306,17 @@ object QuickDownloadChoices {
     /**
      * P25: the stated size, else an estimate from the bitrate and the length ("~54 MB", a
      * merge's sound included), else null for "Size unknown"; a row never disappears for it.
+     * G1 (v1.0.2): a stated size too small for the length counts as not stated ([PlausibleSize]).
      */
     private fun sizeOf(variant: MediaVariant, length: Long?): String? {
-        variant.sizeText()?.let { return it }
         val duration = variant.durationMillis?.takeIf { it > 0 } ?: length
+        variant.sizeText(duration)?.let { return it }
         val picture = YftQualityNames.estimatedBytes(variant.bitrateBitsPerSecond, duration)
             ?: return null
         val companion = variant.audioCompanion
         val sound = when {
             companion == null -> 0L
-            else -> companion.contentLengthBytes
+            else -> PlausibleSize.of(companion.contentLengthBytes, duration)
                 ?: YftQualityNames.estimatedBytes(companion.bitrateBitsPerSecond, duration)
                 ?: return null
         }

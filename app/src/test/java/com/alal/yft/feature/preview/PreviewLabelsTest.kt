@@ -6,6 +6,7 @@ import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaSizeAccuracy
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
+import com.alal.yft.ui.format.YftFormat
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -59,6 +60,24 @@ class PreviewLabelsTest {
         assertEquals("720p · HD · 2.50 Mbps", labels["high"])
         assertEquals("720p · HD · 1.20 Mbps", labels["low"])
         assertEquals("480p", labels["other"])
+    }
+
+    @Test
+    fun aSizeTooSmallForTheLengthIsLeftOut() {
+        // G1 (v1.0.2): a 1:47:11 YouTube M4A once read "1 B" over a bad connection.
+        val replay = audio().copy(
+            durationMillis = 6_431_000,
+            sizeBytes = 1,
+            sizeAccuracy = MediaSizeAccuracy.EXACT,
+        )
+        assertNull(replay.sizeText())
+        assertEquals("Download", replay.downloadLabel())
+        // Without the file's own length, the page's length decides.
+        assertNull(replay.copy(durationMillis = null).sizeText(length = 6_431_000))
+        // A clip of a few seconds keeps its small size.
+        val clip = replay.copy(durationMillis = 5_000, sizeBytes = 6_000)
+        assertEquals(YftFormat.bytes(6_000), clip.sizeText())
+        assertEquals("Download · ${YftFormat.bytes(6_000)}", clip.downloadLabel())
     }
 
     @Test

@@ -61,6 +61,7 @@ import com.alal.yft.core.model.media.MediaAsset
 import com.alal.yft.core.model.media.MediaSizeAccuracy
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
+import com.alal.yft.core.model.media.PlausibleSize
 import com.alal.yft.ui.components.YftCard
 import com.alal.yft.ui.components.YftDivider
 import com.alal.yft.ui.components.YftIcon
@@ -752,9 +753,14 @@ private fun resolutionName(height: Int): String? = when {
     else -> null
 }
 
-/** "96 MB" when the size is exact, "~96 MB" when estimated, nothing when unknown. */
-internal fun MediaVariant.sizeText(): String? {
-    val bytes = sizeBytes?.takeIf { it > 0 } ?: return null
+/**
+ * "96 MB" when the size is exact, "~96 MB" when estimated, nothing when unknown. G1 (v1.0.2): a
+ * size too small for the file's length, or else [length], is unknown ([PlausibleSize]).
+ */
+internal fun MediaVariant.sizeText(length: Long? = null): String? {
+    val stated = sizeBytes?.takeIf { it > 0 } ?: return null
+    val bytes = PlausibleSize.of(stated, durationMillis?.takeIf { it > 0 } ?: length)
+        ?: return null
     return when (sizeAccuracy) {
         MediaSizeAccuracy.EXACT -> YftFormat.bytes(bytes)
         MediaSizeAccuracy.ESTIMATED -> "~${YftFormat.bytes(bytes)}"

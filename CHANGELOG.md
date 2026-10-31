@@ -120,6 +120,10 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
 - Downloads' folder chip: Download/YFT picked again in the folder picker reads as the default
   ("Download/YFT · 6.8 GB free") instead of "YFT"; another picked folder shows its path
   ("Movies/Test") and, on the phone's own storage, its free space.
+- A size too small for the media's length (under 1 KB a second; a 1:47:11 M4A once read "1 B"
+  over a bad connection) counts as unknown: the Download sheet's row and **Download** show no
+  such size ("Size unknown", or the usual "~" estimate), and the download learns the real size.
+  A clip of a few seconds keeps its small size.
 - VK: a file that answers 400 after it gave bytes (VK's answer on a new network) is a dead link
   too and gets a fresh link; a 400 before any byte fails as before.
 - A download stopped at **Link expired** keeps its progress for the fresh link, and its Cancel or

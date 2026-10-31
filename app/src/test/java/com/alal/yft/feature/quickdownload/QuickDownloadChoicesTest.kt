@@ -656,6 +656,22 @@ class QuickDownloadChoicesTest {
     }
 
     @Test
+    fun aStatedSizeTooSmallForTheLengthReadsSizeUnknown() {
+        // G1 (v1.0.2): a 1:47:11 YouTube M4A once read "1 B" over a bad connection.
+        val replay = 6_431_000L
+        fun m4a(bytes: Long, length: Long) = choices(
+            listOf(audio(128, bytes = bytes).copy(durationMillis = length, bitrateBitsPerSecond = null)),
+        )!!.audio.first { it.variant.mp3 == null }
+        val unknown = m4a(1, replay)
+        assertNull(unknown.size)
+        assertEquals("Download", downloadLabel(unknown))
+        // A clip of a few seconds keeps its small size.
+        val clip = m4a(6_000, 5_000)
+        assertEquals(YftFormat.bytes(6_000), clip.size)
+        assertEquals("Download · ${YftFormat.bytes(6_000)}", downloadLabel(clip))
+    }
+
+    @Test
     fun theSelectedRowAlwaysShowsInTheShortList() {
         // N11 (v1.0.2): a row picked under More formats, or preselected there, stays in the
         // collapsed list, in its place in the full list.

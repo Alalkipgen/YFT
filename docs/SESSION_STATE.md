@@ -2826,6 +2826,19 @@ Keep at least the heading and one blank line between sections, so Git merges the
     space), `DownloadLabelsTest` ("Download/YFT · 18 GB free", "Movies/Test · 18 GB free").
   - CHANGELOG `[1.0.2]`: one line under Fixed.
 
+- G1 (a YouTube M4A, a 1:47:11 live replay, first looked up through a share, once showed "1 B";
+  a re-lookup showed ~110 MB, probably a bad connection). Done: `PlausibleSize` (core-model): a
+  size under 1 KB (1,000 bytes) for each second of the length is unknown; no length known, the
+  size stays. Used by `MediaVariant.sizeText(length)` (the sheet's row and **Download**, the
+  Preview screen), the sound of a merge in `QuickDownloadChoices.sizeOf`, and
+  `DownloadPlanFactory` (a direct download's `expectedBytes`, a merge's whole-file totals), so
+  the download learns the real size. An unknown size falls back as before: the "~" estimate from
+  the bitrate, else "Size unknown". No lookup change; no new UI text.
+  - Tests: `PlausibleSizeTest` (new), `PreviewLabelsTest` (+1), `QuickDownloadChoicesTest` (+1:
+    1 B for 1:47:11: "Size unknown" and "Download"; 6 KB for 5 s kept), `DownloadPlanFactoryTest`
+    (+1; the shared sound fixture now states 163 MB for its 2:48:23 merge).
+  - CHANGELOG `[1.0.2]`: one line under Fixed.
+
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
 - Plan: `docs/TRACK_E_PLAN.md` (the owner's go, 2026-10-27, while S5's run 3 waits). Branch from

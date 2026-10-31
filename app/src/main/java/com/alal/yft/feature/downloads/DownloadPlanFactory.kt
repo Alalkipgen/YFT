@@ -16,6 +16,7 @@ import com.alal.yft.core.model.media.MediaAsset
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
+import com.alal.yft.core.model.media.PlausibleSize
 import com.alal.yft.core.model.media.VariantSupport
 import com.alal.yft.detection.Av1MergeSwitch
 import java.net.URI
@@ -116,8 +117,12 @@ object DownloadPlanFactory {
 
         val fileName = fileName(asset, variant)
         val context = variant.requestContext
+        // G1 (v1.0.2): a size too small for this length is not the download's total.
+        val length = variant.durationMillis?.takeIf { it > 0 } ?: asset.durationMillis
         variant.audioCompanion?.let { companion ->
-            return mergedRequest(variant, companion, taskId, fileName, nowEpochMs, sdkInt, av1Enabled)
+            return mergedRequest(
+                variant, companion, taskId, fileName, nowEpochMs, sdkInt, av1Enabled, length,
+            )
         }
 
         return when (variant.kind) {
@@ -129,7 +134,7 @@ object DownloadPlanFactory {
                         suggestedFileName = fileName,
                         requestContext = context,
                         mimeType = variant.mimeType,
-                        expectedBytes = variant.exactSizeBytes(),
+                        expectedBytes = PlausibleSize.of(variant.exactSizeBytes(), length),
                         expiresAtEpochMs = expiry,
                         maxRequestBytes = maxRequestBytesFor(variant.playbackUrl),
                         mp3 = variant.mp3?.let { conversion ->
@@ -222,6 +227,7 @@ object DownloadPlanFactory {
         nowEpochMs: Long,
         sdkInt: Int,
         av1Enabled: Boolean,
+        length: Long?,
     ): DownloadPlanResult {
         val playlists = variant.kind == MediaKind.HLS
         val dashVideo = variant.manifestVariantId?.takeIf(String::isNotBlank)
@@ -271,7 +277,8 @@ object DownloadPlanFactory {
                 wholeFile = if (playlists || dash) {
                     null
                 } else {
-                    WholeFileTrack(totalBytes = statedLengthOf(variant.playbackUrl))
+                    val total = statedLengthOf(variant.playbackUrl)
+                    WholeFileTrack(totalBytes = PlausibleSize.of(total, length))
                 },
                 hlsPlaylist = playlists,
                 expectedDurationMillis = variant.durationMillis?.takeIf { it > 0 },
@@ -290,7 +297,8 @@ object DownloadPlanFactory {
                     null
                 } else {
                     val stated = companion.contentLengthBytes
-                    WholeFileTrack(totalBytes = statedLengthOf(companion.mediaUrl, stated))
+                    val total = statedLengthOf(companion.mediaUrl, stated)
+                    WholeFileTrack(totalBytes = PlausibleSize.of(total, length))
                 },
                 hlsPlaylist = playlists,
                 expectedDurationMillis = variant.durationMillis?.takeIf { it > 0 },
