@@ -101,6 +101,10 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   whose manifest names its files at an http address is downloaded over https only: from the same
   address at https, or from the manifest's own address; when neither answers, the download fails
   and its Details say why.
+- A DASH stream's quality downloads the quality you picked: every row downloaded the manifest's
+  first track, often its sound alone (a 360p video saved as "Video 1 · DASH · M4A"). A quality
+  the manifest no longer has fails with **This quality is not available now — choose another**,
+  its Details naming it, instead of saving another one.
 - Home's **Your sites**: a site's name has its whole third of the row and, in large text, is drawn
   a little smaller instead of being cut ("Faceboo…").
 - Downloads' select mode: **Remove from list** and **Delete files** go onto two lines in large

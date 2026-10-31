@@ -1,0 +1,314 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Created with Unified Streaming Platform  (version=1.13.0-29687) -->
+<MPD
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns="urn:mpeg:dash:schema:mpd:2011"
+  xsi:schemaLocation="urn:mpeg:dash:schema:mpd:2011 http://standards.iso.org/ittf/PubliclyAvailableStandards/MPEG-DASH_schema_files/DASH-MPD.xsd"
+  type="static"
+  mediaPresentationDuration="PT12M13.999S"
+  maxSegmentDuration="PT5S"
+  minBufferTime="PT10S"
+  profiles="urn:mpeg:dash:profile:isoff-live:2011">
+  <Period
+    id="1"
+    duration="PT12M13.999S">
+    <BaseURL>dash/</BaseURL>
+    <AdaptationSet
+      id="1"
+      group="1"
+      contentType="audio"
+      lang="en"
+      minBandwidth="64008"
+      maxBandwidth="128002"
+      segmentAlignment="true"
+      audioSamplingRate="48000"
+      mimeType="audio/mp4"
+      codecs="mp4a.40.2"
+      startWithSAP="1">
+      <AudioChannelConfiguration
+        schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011"
+        value="2" />
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
+      <SegmentTemplate
+        timescale="48000"
+        initialization="tears-of-steel-av1-$RepresentationID$.dash"
+        media="tears-of-steel-av1-$RepresentationID$-$Time$.dash">
+        <SegmentTimeline>
+          <S t="0" d="190464" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="191488" />
+          <S d="192512" />
+          <S d="94480" />
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation
+        id="audio_eng=64008"
+        bandwidth="64008">
+      </Representation>
+      <Representation
+        id="audio_eng=128002"
+        bandwidth="128002">
+      </Representation>
+    </AdaptationSet>
+    <AdaptationSet
+      id="2"
+      group="2"
+      contentType="video"
+      lang="en"
+      par="240:107"
+      minBandwidth="106000"
+      maxBandwidth="2928000"
+      maxWidth="1920"
+      maxHeight="856"
+      segmentAlignment="true"
+      sar="1:1"
+      mimeType="video/mp4"
+      startWithSAP="1">
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
+      <SegmentTemplate
+        timescale="16000"
+        initialization="tears-of-steel-av1-$RepresentationID$.dash"
+        media="tears-of-steel-av1-$RepresentationID$-$Time$.dash">
+        <SegmentTimeline>
+          <S t="0" d="64000" r="182" />
+          <S d="31984" />
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation
+        id="video_eng=106000"
+        bandwidth="106000"
+        width="480"
+        height="214"
+        codecs="av01.0.00M.08.0.110"
+        scanType="progressive">
+      </Representation>
+      <Representation
+        id="video_eng=208000"
+        bandwidth="208000"
+        width="640"
+        height="284"
+        codecs="av01.0.01M.08.0.110"
+        scanType="progressive">
+      </Representation>
+      <Representation
+        id="video_eng=505000"
+        bandwidth="505000"
+        width="1280"
+        height="570"
+        codecs="av01.0.05M.08.0.110"
+        scanType="progressive">
+      </Representation>
+      <Representation
+        id="video_eng=793000"
+        bandwidth="793000"
+        width="1280"
+        height="570"
+        codecs="av01.0.05M.08.0.110"
+        scanType="progressive">
+      </Representation>
+      <Representation
+        id="video_eng=986000"
+        bandwidth="986000"
+        width="1920"
+        height="856"
+        codecs="av01.0.08M.08.0.110"
+        scanType="progressive">
+      </Representation>
+      <Representation
+        id="video_eng=1937000"
+        bandwidth="1937000"
+        width="1920"
+        height="856"
+        codecs="av01.0.08M.08.0.110"
+        scanType="progressive">
+      </Representation>
+      <Representation
+        id="video_eng=2928000"
+        bandwidth="2928000"
+        width="1920"
+        height="856"
+        codecs="av01.0.08M.08.0.110"
+        scanType="progressive">
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>

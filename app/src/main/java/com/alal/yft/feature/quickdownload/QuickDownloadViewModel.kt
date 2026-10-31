@@ -1421,15 +1421,29 @@ class QuickDownloadViewModel @Inject constructor(
             }
             is VariantResolutionResult.Success -> result.asset
         }
+        // v1.0.2 fix R2: a DASH row is its own Representation, never the first one with the
+        // manifest's address (every DASH row has it) and never another track.
+        val dash = option.variant.kind == MediaKind.DASH
         val wantedId = option.variant.mp3?.sourceVariantId
             ?: option.source.asset?.variants?.firstOrNull {
                 it.playbackUrl == option.variant.playbackUrl && it.mp3 == null && !it.audioFromVideo
             }?.id ?: option.variant.id
-        val base = resolved.variants.firstOrNull { it.id == wantedId && it.isPreviewable }
-            ?: resolved.variants.singleOrNull { it.isPreviewable && it.mp3 == null }
-            ?: return Prepared.Failed(QUALITY_UNAVAILABLE)
-        val stated = option.source.asset?.variants?.firstOrNull { it.id == wantedId }
-            ?: option.variant
+        val base = if (dash) {
+            DashRowFile.find(resolved.variants, option.variant)
+                ?: return Prepared.Failed(
+                    QUALITY_UNAVAILABLE,
+                    listOf(DashRowFile.missingLine(option.variant)),
+                )
+        } else {
+            resolved.variants.firstOrNull { it.id == wantedId && it.isPreviewable }
+                ?: resolved.variants.singleOrNull { it.isPreviewable && it.mp3 == null }
+                ?: return Prepared.Failed(QUALITY_UNAVAILABLE)
+        }
+        val stated = if (dash) {
+            option.variant
+        } else {
+            option.source.asset?.variants?.firstOrNull { it.id == wantedId } ?: option.variant
+        }
         val file = base.copy(
             width = base.width ?: stated.width,
             height = base.height ?: stated.height,

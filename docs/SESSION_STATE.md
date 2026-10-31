@@ -2872,6 +2872,32 @@ Keep at least the heading and one blank line between sections, so Git merges the
     level and `###` at least 5 % wider than the text; N2's sizes fail it at 130, 150 and 200 %,
     e.g. 196 vs 192 px at 150 %). Local: both classes, 0 failures.
   - CHANGELOG `[1.0.2]`: N2's line under Changed.
+- R1's commit: `d8012334`.
+- R2 (Repro A `exMPD_BIP_TC1.mpd`: 360p saved the sound alone, "Video 1 · DASH · M4A · 5.1 MB";
+  Repro B, Unified Streaming's AV1 `tears-of-steel-av1.ism/.mpd`: 240p started
+  `audio_eng=64008`). Cause: the sheet's Download found its row again in the manifest read for
+  it by the file's address (`QuickDownloadViewModel.prepare`: the first row of that address
+  that is not an MP3 or a video's sound), and every quality of a DASH manifest has the
+  manifest's address, so every row queued the first Representation (A's audio "1", B's
+  `audio_eng=64008`). The download's reader asks the queued Representation's id exactly and
+  falls back to none (`DashDownloadManifestParser`: one Representation of that id or
+  Unsupported); item 59's test planned the row itself, never through the Download.
+  Done: `DashRowFile` (new): a DASH row is found by its Representation's id, its kind of track
+  (merged, video only, audio) and its sound's Representation; none → "This quality is not
+  available now — choose another" (the sheet's existing words) and the Details line "Not in
+  the manifest now: Representation 5 (video) with sound 1" (new); nothing is queued, never
+  another Representation or another track. Other files are found as before.
+  - Tests: `DashRowDownloadTest` (new: both manifests as their sites served them on 2026-10-31,
+    `app/src/test/resources/dash/`, through the app's resolver, the sheet and its Download;
+    A's 360p → video 5 + sound 1 in one MP4, its M4A → 1; B with AV1 merges off: 720p · HD,
+    480p, 240p → `video_eng=2928000`, `793000`, `208000` alone, 240p 640 × 284, its M4A →
+    `audio_eng=128002`; a Representation or its sound gone at Download → the failure and
+    nothing queued; the old code fails all three), `DashRowFileTest` (new: a merged, a
+    video-only and an audio row of each manifest with their plans' exact Representations, B's
+    merge as with AV1 merges on; never the video without its sound, the merge for a silent row,
+    another sound or B's first sound). Local: the quickdownload, detection, downloads and
+    download packages, 791 tests, 0 failures.
+  - CHANGELOG `[1.0.2]`: one line under Fixed.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
