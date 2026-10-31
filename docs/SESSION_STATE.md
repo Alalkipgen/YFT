@@ -2776,6 +2776,21 @@ Keep at least the heading and one blank line between sections, so Git merges the
     its last whole word). Checked by CI.
   - CHANGELOG `[1.0.2]`: one line under Fixed.
 
+- N8 (Instagram's 640 × 640 video labelled "720p · HD"): the owner's decision, no change. A
+  640 × 640 video keeps "720p · HD" under the shared nearest-height rule (the same rule gives a
+  1920 × 960 file "1080p", item 9); "640p" would need another rule for one site.
+- N10 (w3schools' html5_video page: the sheet preselected "Quality unknown · As the page plays
+  it · OGG" over the MP4). The cause: neither file states its format, so each row comes only
+  when its file is read; the OGG was read first, was the only row and was preselected, and the
+  sheet kept that pick when the MP4 (144p) came. Done: `QuickDownloadUiState.selectionByUser`
+  (set by `select`, cleared with the selection); `showChoices` keeps the user's pick, a row of
+  known quality or a pick being downloaded, and makes the sheet's own pick of a file of unknown
+  quality again as rows come, so the MP4 is preselected. `preselect`, rows and their order stay
+  as they were. No lookup change.
+  - Tests: `QuickDownloadViewModelTest` (+1: OGG read first, MP4 144p read later: the MP4 is
+    picked; the user's pick of the OGG stays).
+  - CHANGELOG `[1.0.2]`: one line under Fixed.
+
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
 - Plan: `docs/TRACK_E_PLAN.md` (the owner's go, 2026-10-27, while S5's run 3 waits). Branch from

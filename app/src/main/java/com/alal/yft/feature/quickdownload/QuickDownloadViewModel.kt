@@ -134,6 +134,11 @@ data class QuickDownloadUiState(
     val adSkipped: Boolean = false,
     val defaultQuality: QualityPreference = DownloadPreferences().defaultQuality,
     val selectedId: String? = null,
+    /**
+     * N10 (v1.0.2): [selectedId] is the user's pick. The sheet's own pick of a file of unknown
+     * quality gives way when a better row comes (w3schools' MP4, measured after its OGG).
+     */
+    val selectionByUser: Boolean = false,
     val downloadStatus: PreviewDownloadStatus = PreviewDownloadStatus.Idle,
     /** P18: what Download takes while the sheet waits: the Default quality's video, or audio. */
     val earlySection: OptionSection = OptionSection.VIDEO,
@@ -375,6 +380,7 @@ class QuickDownloadViewModel @Inject constructor(
             if (state.choices?.option(selectionId) == null) return@update state
             state.copy(
                 selectedId = selectionId,
+                selectionByUser = true,
                 downloadStatus = PreviewDownloadStatus.Idle,
                 startedNote = null,
             )
@@ -434,6 +440,7 @@ class QuickDownloadViewModel @Inject constructor(
                 canReload = false,
                 adSkipped = false,
                 selectedId = null,
+                selectionByUser = false,
                 downloadStatus = PreviewDownloadStatus.Idle,
                 startsWhenReady = false,
                 startedNote = null,
@@ -833,6 +840,7 @@ class QuickDownloadViewModel @Inject constructor(
                 loading = false,
                 choices = null,
                 selectedId = null,
+                selectionByUser = false,
                 failure = goneMessage ?: ONLY_AD_FOUND,
                 failureDetails = attemptLines(),
                 canReload = page.owner == LookupOwner.BROWSER,
@@ -1056,6 +1064,7 @@ class QuickDownloadViewModel @Inject constructor(
                 header = header,
                 choices = null,
                 selectedId = null,
+                selectionByUser = false,
                 freshLink = false,
                 adSkipped = false,
                 attemptDetails = emptyList(),
@@ -1174,6 +1183,7 @@ class QuickDownloadViewModel @Inject constructor(
                     header = group?.header(),
                     choices = null,
                     selectedId = null,
+                    selectionByUser = false,
                     freshLink = false,
                     attemptDetails = emptyList(),
                 )
@@ -1221,7 +1231,8 @@ class QuickDownloadViewModel @Inject constructor(
                             QuickDownloadFailures.linkLines(source.candidate, now())
                     }
                     .orEmpty(),
-                selectedId = state.selectedId?.takeIf { choices?.option(it) != null }
+                selectedId = state.selectedId
+                    ?.takeIf { id -> choices?.option(id)?.let { state.keeps(it) } == true }
                     ?: choices?.let {
                         QuickDownloadChoices.preselect(it, state.defaultQuality)?.id
                     },
@@ -1553,6 +1564,15 @@ class QuickDownloadViewModel @Inject constructor(
             )
         }
     }
+
+    /**
+     * N10 (v1.0.2): the user's pick, a row of known quality, or a pick being downloaded stays;
+     * the sheet's own pick of a file of unknown quality is made again as rows come, so the MP4
+     * measured after the page's OGG is preselected (w3schools' html5_video).
+     */
+    private fun QuickDownloadUiState.keeps(option: SheetOption): Boolean =
+        selectionByUser || option.variant.height != null ||
+            downloadStatus != PreviewDownloadStatus.Idle
 
     private val QuickDownloadUiState.canChangeSelection: Boolean
         get() = downloadStatus != PreviewDownloadStatus.Enqueuing &&

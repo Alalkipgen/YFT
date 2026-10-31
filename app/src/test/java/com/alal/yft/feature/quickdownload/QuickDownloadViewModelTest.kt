@@ -696,6 +696,38 @@ class QuickDownloadViewModelTest {
     }
 
     @Test
+    fun theSheetsOwnPickOfAnUnknownOggGivesWayToTheMp4ReadAfterIt() = runTest {
+        // N10 (v1.0.2): w3schools' html5_video page offers mov_bbb.ogg and mov_bbb.mp4, neither
+        // stated; the OGG was read first and preselected, and the MP4 (144p) read later was not.
+        val ogg = video(null, label = null, videoId = null, index = 1).copy(
+            mediaUrl = "https://media.example.test/mov_bbb.ogg",
+            mimeType = "video/ogg",
+            codecs = emptyList(),
+        )
+        val mp4 = video(null, label = null, videoId = null, index = 2).copy(codecs = emptyList())
+        resolver.heights[mp4.mediaUrl] = 176
+        fun picked(byUser: Boolean): String? {
+            val gate = CompletableDeferred<Unit>()
+            resolver.beforeResolve = { if (it.mediaUrl == mp4.mediaUrl) gate.await() }
+            select(listOf(ogg, mp4))
+            val viewModel = viewModel()
+            val state = viewModel.uiState.value
+            val first = state.choices!!.option(state.selectedId!!)!!
+            assertEquals(ogg.mediaUrl, first.source.candidate.mediaUrl)
+            if (byUser) viewModel.select(first.id)
+            gate.complete(Unit)
+            advanceUntilIdle()
+            val after = viewModel.uiState.value
+            assertEquals(2, after.choices!!.video.size)
+            return after.choices!!.option(after.selectedId!!)!!.source.candidate.mediaUrl
+        }
+
+        assertEquals(mp4.mediaUrl, picked(byUser = false))
+        // The user's own pick of the OGG stays.
+        assertEquals(ogg.mediaUrl, picked(byUser = true))
+    }
+
+    @Test
     fun aFailedSizeCheckKeepsTheQualityAndADownloadOnADeadLinkQueuesNothing() = runTest {
         val candidate = video(720, videoId = "facebook:fixture")
         resolver.failure = VariantResolutionFailure.HTTP_STATUS
