@@ -5,6 +5,7 @@ import android.media.MediaFormat
 import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
+import android.util.Base64
 import android.util.Log
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -35,10 +36,19 @@ import org.junit.runner.RunWith
  * v1.0.2 fix R8 on the CI emulator: a sound whose edit list starts its media at 2,048 ticks, as
  * tears-of-steel-av1's DASH sound (`audio_eng=128002`), keeps every sample in a merge. Android 11
  * and newer give its first two samples times before 0, which today's MediaMuxer way took for
- * the end of the sound (the merge kept the picture alone). The AV1 test video is stream-copied
- * with it (the stream copy took no AV1 before R8, and this emulator's MediaMuxer writes no AV1,
- * P4); the AVC test video goes today's way with it. Each merged sound is read back with
- * MediaExtractor: every sample of its input, byte for byte and at the input's time.
+ * the end of the sound (the merge kept the picture alone). An AV1 video is stream-copied with it
+ * (the stream copy took no AV1 before R8); the AVC test video goes today's way with it. Each
+ * merged sound is read back with MediaExtractor: every sample of its input, byte for byte and
+ * at the input's time.
+ *
+ * The AV1 video is `mux/video-av1-with-av1c.mp4.b64` (Base64 text, as the VP9 big keyframe's):
+ * P4's `mux/video-av1.mp4` remuxed by FFmpeg 7.0 with `-c copy -use_editlist 0` and
+ * `-movflags dash+global_sidx+delay_moov`, the same 15 samples byte for byte, with the `av1C`
+ * that P4's file leaves empty (FFmpeg adds a `btrt` too): its 4 bytes and the sequence header,
+ * 16 bytes, as a real AV1 file has one (tears-of-steel-av1's is 17 bytes). Android reads no AV1
+ * track without it: `MPEG4Extractor::getTrack` wants at least 4 bytes starting 0x81, else
+ * `selectTrack` throws IllegalArgumentException; with P4's file CI run #202 failed so ("video
+ * unreadable").
  */
 @RunWith(AndroidJUnit4::class)
 class EditListedSoundMergeInstrumentedTest {
@@ -54,7 +64,7 @@ class EditListedSoundMergeInstrumentedTest {
     @Test
     fun anAv1VideoIsStreamCopiedWithEverySampleOfASoundThatStartsBefore0() {
         assumeTrue(Build.VERSION.SDK_INT >= AudioVideoMuxCompatibility.AV1_MP4_MIN_SDK)
-        val video = File(directory, "video-av1.mp4").apply { writeBytes(assetBytes(AV1_ASSET)) }
+        val video = File(directory, "video-av1.mp4").apply { writeBytes(base64Asset(AV1_ASSET)) }
         val audio = editListedSound()
         val output = File(directory, "av1.mp4")
 
@@ -279,6 +289,10 @@ class EditListedSoundMergeInstrumentedTest {
     private fun assetBytes(name: String): ByteArray =
         instrumentation.context.assets.open(name).use { it.readBytes() }
 
+    /** A binary fixture kept as Base64 text (MIME lines), decoded. */
+    private fun base64Asset(name: String): ByteArray =
+        Base64.decode(String(assetBytes(name), Charsets.US_ASCII), Base64.DEFAULT)
+
     private fun tickUs(timescale: Int): Long = 1_000_000L / timescale + 1
 
     private class Sampled(val timeUs: Long, val bytes: ByteArray)
@@ -287,7 +301,7 @@ class EditListedSoundMergeInstrumentedTest {
 
     private companion object {
         const val TAG = "YftEditListMerge"
-        const val AV1_ASSET = "mux/video-av1.mp4"
+        const val AV1_ASSET = "mux/video-av1-with-av1c.mp4.b64"
         const val AVC_ASSET = "mux/video-avc.mp4"
         const val AAC_ASSET = "mux/audio-aac.m4a"
         const val MP4 = AudioVideoMuxCompatibility.MP4_OUTPUT_MIME
