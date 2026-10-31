@@ -60,8 +60,9 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
 
 ### Changed
 
-- The release notes on **Updates**: headings are a size larger than before and bold, with more
-  room above them, so each part of the notes stands out.
+- The release notes on **Updates**: headings are larger than before and bold, with more room
+  above them, so each part of the notes stands out; the smallest heading is clearly larger than
+  the text also with a large text size.
 - Deleting files reads the same on Downloads and in the Library: the question ends "This can't be
   undone.", the note after it says "Deleted 1 file." or "Deleted 3 files.", and **Delete** is red
   on both (it was teal on Downloads). The empty Library also names the folder you chose for

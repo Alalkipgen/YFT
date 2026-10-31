@@ -2858,6 +2858,21 @@ Keep at least the heading and one blank line between sections, so Git merges the
     as the run's notices). The emulator's times: FIX_ADD_PLAN §6.
   - CHANGELOG `[1.0.2]`: one line under Fixed.
 
+- After Preview #161 (Preview APK run 41172470902, the code of `e29fcdbb`; the owner's Redmi
+  Note 13 Pro, Android 16, large text size): the owner's list R1–R5, one commit each, its message
+  starting with the item's ID; no version, tag, release, PR or merge; item 26's switch unchanged.
+- R1 (follow-up to N2: the release notes' `###` drew as large as bold body text at the owner's
+  text size, 63 vs 62 px; titleSmall 15 sp vs bodyMedium 14 sp, and Android 14 and newer grow
+  large text less than small text). Done (`ReleaseNotesView.headingStyle`, the owner's styles):
+  `#` headlineSmall (24 sp), `##` titleLarge (22 sp), `###` and below titleMedium (17 sp), all
+  bold; the room above them as N2's.
+  - Tests: `ReleaseNotesHeadingTest` (the new sizes), `ReleaseNotesHeadingSizeTest` (new: native
+    graphics, the text size set as on a phone, so Android's own scaling, at 100, 130, 150 and
+    200 %: the same word as `#`, `##`, `###` and bold body text; each heading wider than the next
+    level and `###` at least 5 % wider than the text; N2's sizes fail it at 130, 150 and 200 %,
+    e.g. 196 vs 192 px at 150 %). Local: both classes, 0 failures.
+  - CHANGELOG `[1.0.2]`: N2's line under Changed.
+
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
 - Plan: `docs/TRACK_E_PLAN.md` (the owner's go, 2026-10-27, while S5's run 3 waits). Branch from

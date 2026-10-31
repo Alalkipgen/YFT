@@ -110,11 +110,15 @@ private fun NoteBlockView(block: NoteBlock, modifier: Modifier) {
     }
 }
 
-/** v1.0.2 fix N2: `#` titleLarge, `##` titleMedium, `###` and below titleSmall; all bold. */
+/**
+ * v1.0.2 fixes N2 and R1: `#` headlineSmall (24 sp), `##` titleLarge (22 sp), `###` and below
+ * titleMedium (17 sp); all bold. R1: `###` was titleSmall (15 sp), which a large text size drew
+ * as large as bold body text (bodyMedium, 14 sp).
+ */
 internal fun headingStyle(level: Int, typography: Typography): TextStyle = when (level) {
-    1 -> typography.titleLarge
-    2 -> typography.titleMedium
-    else -> typography.titleSmall
+    1 -> typography.headlineSmall
+    2 -> typography.titleLarge
+    else -> typography.titleMedium
 }.copy(fontWeight = FontWeight.Bold)
 
 /**

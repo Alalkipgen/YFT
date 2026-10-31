@@ -8,16 +8,16 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * v1.0.2 fix N2: the release notes' headings stand out from their text: `#` titleLarge (22 sp),
- * `##` titleMedium (17 sp), `###` and below titleSmall (15 sp), all bold (the text is
- * bodyMedium, 14 sp), with more room above them: 24, 20 and 16 dp (12 dp before).
+ * v1.0.2 fixes N2 and R1: the release notes' headings stand out from their text: `#`
+ * headlineSmall (24 sp), `##` titleLarge (22 sp), `###` and below titleMedium (17 sp), all bold
+ * (the text is bodyMedium, 14 sp), with more room above them: 24, 20 and 16 dp (12 dp before).
  */
 class ReleaseNotesHeadingTest {
     @Test
     fun `each heading level is a size up and bold`() {
         val sizes = (1..4).map { level -> headingStyle(level, YftTypography) }
 
-        assertEquals(listOf(22.sp, 17.sp, 15.sp, 15.sp), sizes.map { it.fontSize })
+        assertEquals(listOf(24.sp, 22.sp, 17.sp, 17.sp), sizes.map { it.fontSize })
         assertEquals(List(4) { FontWeight.Bold }, sizes.map { it.fontWeight })
         assertEquals(14.sp, YftTypography.bodyMedium.fontSize)
     }
