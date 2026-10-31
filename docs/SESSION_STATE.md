@@ -2730,6 +2730,17 @@ Keep at least the heading and one blank line between sections, so Git merges the
     (the new words). Checked by CI.
   - CHANGELOG `[1.0.2]`: one line under Changed.
 
+- N6 (TikTok's 720 × 1280 row says 720p, its file "my babies 1280p"). The cause: a video's file
+  is named from the variant's label, which `QuickDownloadViewModel.named` set to the raw height
+  (`"${height}p"`, plus the frame rate above 31 fps). Done: the label is the row's quality,
+  `YftQualityNames.quality(QuickDownloadChoices.standardHeight(width, height), fps)`, the same
+  name the row's title starts with: 720 × 1280 → "720p", 1920 × 960 at 60 fps → "1080p60"; a
+  landscape standard size is named as before. The ViewModel's own `HIGH_FRAME_RATE` went with it.
+  - Tests: `QuickDownloadViewModelTest` (+2: a 720 × 1280 row "720p · HD" queued as "720p"
+    with its height kept 1280; a 1920 × 960 60 fps row "1080p60 · Full HD" queued as "1080p60").
+    Checked by CI.
+  - CHANGELOG `[1.0.2]`: one line under Fixed.
+
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
 - Plan: `docs/TRACK_E_PLAN.md` (the owner's go, 2026-10-27, while S5's run 3 waits). Branch from

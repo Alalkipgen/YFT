@@ -49,6 +49,7 @@ import com.alal.yft.thumbnail.DownloadThumbnails
 import com.alal.yft.thumbnail.ThumbnailUrls
 import com.alal.yft.ui.components.isAudio
 import com.alal.yft.ui.components.isSavable
+import com.alal.yft.ui.format.YftQualityNames
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -1522,7 +1523,8 @@ class QuickDownloadViewModel @Inject constructor(
 
     /**
      * Video files are named after their quality ("720p"); the video's sound kept as M4A after
-     * the video alone; other audio keeps its own label ("MP3 192 kbps").
+     * the video alone; other audio keeps its own label ("MP3 192 kbps"). N6 (v1.0.2): the quality
+     * is the row's ("720p" for a 720 × 1280 portrait video, not "1280p").
      */
     private fun named(variant: MediaVariant): MediaVariant {
         if (variant.trackType == MediaTrackType.AUDIO) {
@@ -1530,9 +1532,8 @@ class QuickDownloadViewModel @Inject constructor(
             return if (plainM4a) variant.copy(label = null) else variant
         }
         val height = variant.height ?: return variant.copy(label = null)
-        val rate = variant.framesPerSecond?.takeIf { it > HIGH_FRAME_RATE }
-            ?.let { Math.round(it).toString() }.orEmpty()
-        return variant.copy(label = "${height}p$rate")
+        val standard = QuickDownloadChoices.standardHeight(variant.width, height)
+        return variant.copy(label = YftQualityNames.quality(standard, variant.framesPerSecond))
     }
 
     private suspend fun currentPreferences(): DownloadPreferences = try {
@@ -1614,7 +1615,6 @@ class QuickDownloadViewModel @Inject constructor(
 
         /** P17: HTTP 403 and 410 mean the lookup's links no longer work. */
         private val LINK_GONE_STATUSES = setOf(403, 410)
-        private const val HIGH_FRAME_RATE = 31.0
 
         /** P11: show a site's stated whole file even before its size check completes. */
         fun stated(candidate: MediaCandidate, now: Long = System.currentTimeMillis()): MediaAsset? =

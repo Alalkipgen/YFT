@@ -105,6 +105,8 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   text instead of being cut.
 - The bottom bar: in large text a tab's name is drawn a little smaller to fit its tab instead of
   being cut ("Downlo…").
+- A downloaded video's file name says the quality its row showed: a 720 × 1280 TikTok video
+  picked as **720p** is saved as "… 720p", not "… 1280p".
 - VK: a file that answers 400 after it gave bytes (VK's answer on a new network) is a dead link
   too and gets a fresh link; a 400 before any byte fails as before.
 - A download stopped at **Link expired** keeps its progress for the fresh link, and its Cancel or

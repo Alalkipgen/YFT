@@ -126,6 +126,31 @@ class QuickDownloadViewModelTest {
     }
 
     @Test
+    fun aPortraitVideoIsNamedAfterItsRowNotItsHeight() = runTest {
+        // N6 (v1.0.2): TikTok's 720 × 1280 file is the 720p row, so its file says 720p too.
+        select(listOf(video(1280, 9 * MIB, width = 720, label = null)))
+        val viewModel = viewModel()
+        assertEquals("720p · HD", viewModel.uiState.value.selectedOption?.title)
+
+        viewModel.download()
+        advanceUntilIdle()
+        assertEquals("720p", starter.variants.single().label)
+        assertEquals(1280, starter.variants.single().height)
+    }
+
+    @Test
+    fun aWideHighFrameRateVideoIsNamedAfterItsRow() = runTest {
+        // N6: a 1920 × 960 file at 60 fps is the 1080p60 row; its file was "960p60".
+        select(listOf(video(960, 90 * MIB, fps = 60.0, width = 1920, label = null)))
+        val viewModel = viewModel()
+        assertEquals("1080p60 · Full HD", viewModel.uiState.value.selectedOption?.title)
+
+        viewModel.download()
+        advanceUntilIdle()
+        assertEquals("1080p60", starter.variants.single().label)
+    }
+
+    @Test
     fun aFourKRowThePhoneMayNotPlayIsWarnedAboutAndStillDownloads() = runTest {
         // P6: the phone's decoder list decides; the file itself is fine, so it stays offered.
         val fourK = video(2160, 300 * MIB, merged = true).copy(
