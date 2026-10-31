@@ -122,10 +122,10 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   list does (such as Unified Streaming's Tears of Steel): from Android 11 the sound ended at its
   first sample, so the file had no sound.
 - Facebook and Instagram on the phone offer each quality of the page's own DASH manifest, merged
-  with its sound (such as Facebook's 1080p AV1 or an Instagram reel's merged sizes), and the sound
-  alone: Android's own XML reader refused that manifest reader's safety settings, as it did the
-  DASH stream reader's, so only the page's plain files were offered. The backup finder reads such
-  manifests on the phone too, VK's page manifest among them.
+  with its sound (such as a Facebook video's AVC 1080p or an Instagram reel's merged sizes), and the
+  sound alone: Android's own XML reader refused that manifest reader's safety settings, as it did
+  the DASH stream reader's, so only the page's plain files were offered. The backup finder reads
+  such manifests on the phone too, VK's page manifest among them.
 - A download whose link dies in the middle goes on from where it stopped on its fresh link also
   when the site's file names no version, as VK's and Facebook's files do: it started again at 0 B
   there, and after **Pause**, a lost network or **Retry** on the same link. On VK, a download
