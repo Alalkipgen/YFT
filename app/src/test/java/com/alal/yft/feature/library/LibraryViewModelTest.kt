@@ -38,6 +38,24 @@ class LibraryViewModelTest {
     }
 
     @Test
+    fun theChosenFolderIsNamedForTheEmptyText() = runTest {
+        val repository = FakeRepository(mutableListOf(), folder = "Movies")
+        val viewModel = LibraryViewModel(repository, playback)
+
+        viewModel.refresh()
+        runCurrent()
+        assertEquals(
+            LibraryUiState.Ready(items = emptyList(), chosenFolder = "Movies"),
+            viewModel.uiState.value,
+        )
+
+        repository.folder = null
+        viewModel.refresh()
+        runCurrent()
+        assertEquals(LibraryUiState.Ready(items = emptyList()), viewModel.uiState.value)
+    }
+
+    @Test
     fun readFailureIsExplainedAndRetryRecovers() = runTest {
         val repository = FakeRepository(mutableListOf(libraryItem("a")), failReads = true)
         val viewModel = LibraryViewModel(repository, playback)
@@ -135,7 +153,7 @@ class LibraryViewModelTest {
         assertEquals(listOf("a"), repository.deleted)
         val state = ready(viewModel)
         assertEquals(listOf("b"), state.items.map(LibraryItem::id))
-        assertEquals("Deleted a.mp4.", state.message)
+        assertEquals("Deleted 1 file.", state.message)
     }
 
     @Test
@@ -173,6 +191,7 @@ class LibraryViewModelTest {
         val items: MutableList<LibraryItem>,
         var failReads: Boolean = false,
         val deleteResult: Boolean = true,
+        var folder: String? = null,
     ) : LibraryRepository {
         val deleted = mutableListOf<String>()
 
@@ -180,6 +199,8 @@ class LibraryViewModelTest {
             if (failReads) throw IOException("unreadable")
             return items.toList()
         }
+
+        override suspend fun chosenFolderName(): String? = folder
 
         override suspend fun delete(item: LibraryItem): Boolean {
             if (!deleteResult) return false

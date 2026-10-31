@@ -212,21 +212,35 @@ class LibraryScreenTest {
         composeRule.onNodeWithTag("library-more-lake").performClick()
         composeRule.onNodeWithTag("library-delete-lake").performClick()
         composeRule.onNodeWithText(
-            "Mountain Lake.mp4 will be removed from Download/YFT. This cannot be undone.",
+            "Mountain Lake.mp4 will be removed from Download/YFT. This can't be undone.",
         ).assertIsDisplayed()
         composeRule.onNodeWithTag("library-delete-confirm").performClick()
         assertEquals(1, confirmed)
     }
 
     @Test
+    fun theEmptyLibraryNamesTheChosenFolder() {
+        val state = mutableStateOf<LibraryUiState>(LibraryUiState.Ready(items = emptyList()))
+        setScreen(state = { state.value })
+        composeRule.onNodeWithText(
+            "Completed downloads saved to Download/YFT or to app storage appear here.",
+        ).assertIsDisplayed()
+
+        state.value = LibraryUiState.Ready(items = emptyList(), chosenFolder = "Movies")
+        composeRule.onNodeWithText(
+            "Completed downloads saved to Download/YFT, to Movies or to app storage appear here.",
+        ).assertIsDisplayed()
+    }
+
+    @Test
     fun theLastOutcomeShowsUntilDismissed() {
         var dismissed = 0
         setScreen(
-            state = { LibraryUiState.Ready(items = listOf(lake), message = "Deleted a.mp4.") },
+            state = { LibraryUiState.Ready(items = listOf(lake), message = "Deleted 1 file.") },
             onDismissMessage = { dismissed += 1 },
         )
 
-        composeRule.onNodeWithTag("library-message").assertTextEquals("Deleted a.mp4.")
+        composeRule.onNodeWithTag("library-message").assertTextEquals("Deleted 1 file.")
         composeRule.onNodeWithTag("library-message-dismiss").performClick()
         assertEquals(1, dismissed)
     }

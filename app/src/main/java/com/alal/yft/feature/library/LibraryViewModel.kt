@@ -33,6 +33,8 @@ sealed interface LibraryUiState {
         val pendingDelete: List<LibraryItem> = emptyList(),
         /** A one-line outcome of the user's last action. */
         val message: String? = null,
+        /** N5 (v1.0.2): the chosen folder's name while new downloads go there, else null. */
+        val chosenFolder: String? = null,
     ) : LibraryUiState
 
     data class Error(val message: String) : LibraryUiState
@@ -102,6 +104,7 @@ class LibraryViewModel internal constructor(
                         items.any { it.id == pending.id }
                     },
                     message = previous?.message,
+                    chosenFolder = loadChosenFolder(),
                 )
             }
             val loaded = playback.state.value?.item
@@ -218,6 +221,14 @@ class LibraryViewModel internal constructor(
         null
     }
 
+    private suspend fun loadChosenFolder(): String? = try {
+        repository.chosenFolderName()
+    } catch (cancellation: CancellationException) {
+        throw cancellation
+    } catch (_: Exception) {
+        null
+    }
+
     private fun updateReady(transform: (LibraryUiState.Ready) -> LibraryUiState.Ready) {
         mutableUiState.update { current ->
             if (current is LibraryUiState.Ready) transform(current) else current
@@ -244,17 +255,17 @@ private class DeleteRun(items: List<LibraryItem>) {
 }
 
 /**
- * The line after a delete: "Deleted a.mp4.", "Deleted 3 files.", "a.mp4 could not be deleted.",
- * "Deleted 2 files; b.mp4 could not be deleted."; null when nothing was deleted or tried (the
- * user declined Android's request).
+ * The line after a delete: "Deleted 1 file.", "Deleted 3 files." (N5: counted, as on Downloads),
+ * "a.mp4 could not be deleted.", "Deleted 2 files; b.mp4 could not be deleted."; null when
+ * nothing was deleted or tried (the user declined Android's request).
  */
 internal fun deletedMessage(deleted: List<LibraryItem>, failed: List<LibraryItem>): String? {
-    fun files(items: List<LibraryItem>) =
-        items.singleOrNull()?.displayName ?: "${items.size} files"
+    fun count(items: List<LibraryItem>) = if (items.size == 1) "1 file" else "${items.size} files"
+    fun files(items: List<LibraryItem>) = items.singleOrNull()?.displayName ?: count(items)
     return when {
         deleted.isEmpty() && failed.isEmpty() -> null
-        failed.isEmpty() -> "Deleted ${files(deleted)}."
+        failed.isEmpty() -> "Deleted ${count(deleted)}."
         deleted.isEmpty() -> "${files(failed)} could not be deleted."
-        else -> "Deleted ${files(deleted)}; ${files(failed)} could not be deleted."
+        else -> "Deleted ${count(deleted)}; ${files(failed)} could not be deleted."
     }
 }

@@ -332,7 +332,7 @@ private fun ReadyLibrary(
                     .fillMaxSize()
                     .testTag("library-empty"),
             ) {
-                EmptyLibrary()
+                EmptyLibrary(chosenFolder = state.chosenFolder)
             }
 
             shown.isEmpty() -> CenteredStatus(
@@ -793,7 +793,7 @@ private fun MessageRow(message: String, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun EmptyLibrary() {
+private fun EmptyLibrary(chosenFolder: String?) {
     val colors = YftTheme.colors
     Box(
         modifier = Modifier
@@ -819,7 +819,7 @@ private fun EmptyLibrary() {
         textAlign = TextAlign.Center,
     )
     Text(
-        text = "Completed downloads saved to Download/YFT or to app storage appear here.",
+        text = emptyLibraryText(chosenFolder),
         modifier = Modifier.padding(top = 6.dp),
         color = colors.textSecondary,
         style = MaterialTheme.typography.bodyMedium,
@@ -871,13 +871,24 @@ private fun CenteredStatus(modifier: Modifier, content: @Composable () -> Unit) 
 }
 
 /**
+ * N5 (v1.0.2): where the empty library's files would come from; a folder picked in Android's
+ * folder picker is named too while new downloads go there.
+ */
+internal fun emptyLibraryText(chosenFolder: String?): String = if (chosenFolder == null) {
+    "Completed downloads saved to Download/YFT or to app storage appear here."
+} else {
+    "Completed downloads saved to Download/YFT, to $chosenFolder or to app storage appear here."
+}
+
+/**
  * "a.mp4 will be removed from Download/YFT. …", or (v1.0.2 item 5b) for several files "These 3
- * files will be removed from Download/YFT and App storage. This cannot be undone."
+ * files will be removed from Download/YFT and App storage. This can't be undone." (N5: the
+ * Downloads screen's words).
  */
 internal fun deleteQuestionText(items: List<LibraryItem>): String {
     val item = items.singleOrNull()
     if (item != null) {
-        return "${item.displayName} will be removed from ${item.place}. This cannot be undone."
+        return "${item.displayName} will be removed from ${item.place}. This can't be undone."
     }
     val places = items.map(LibraryItem::place).distinct()
     val where = if (places.size == 1) {
@@ -885,7 +896,7 @@ internal fun deleteQuestionText(items: List<LibraryItem>): String {
     } else {
         places.dropLast(1).joinToString(", ") + " and " + places.last()
     }
-    return "These ${items.size} files will be removed from $where. This cannot be undone."
+    return "These ${items.size} files will be removed from $where. This can't be undone."
 }
 
 private fun noMatchText(filter: LibraryFilter, query: String): String = when {

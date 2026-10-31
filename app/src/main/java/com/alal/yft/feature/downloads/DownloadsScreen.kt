@@ -434,8 +434,14 @@ internal fun DeleteFileDialog(
         modifier = Modifier.testTag("download-delete-file-dialog"),
         title = { Text(deleteFilesTitle(question.count), color = colors.textPrimary) },
         text = { Text(text, color = colors.textPrimary) },
+        // N5 (v1.0.2): Delete in the same red as the Library's.
         confirmButton = {
-            YftTextButton("Delete", onConfirm, Modifier.testTag("download-delete-file-confirm"))
+            YftTextButton(
+                text = "Delete",
+                onClick = onConfirm,
+                modifier = Modifier.testTag("download-delete-file-confirm"),
+                color = colors.coralText,
+            )
         },
         dismissButton = {
             YftTextButton("Cancel", onCancel, Modifier.testTag("download-delete-file-cancel"))

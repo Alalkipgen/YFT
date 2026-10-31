@@ -171,7 +171,7 @@ class LibrarySelectModeTest {
         composeRule.onNodeWithText("Delete 3 files?").assertIsDisplayed()
         composeRule.onNodeWithText(
             "These 3 files will be removed from App storage, Download/YFT and Movies. " +
-                "This cannot be undone.",
+                "This can't be undone.",
         ).assertIsDisplayed()
         // Cancel keeps what was picked.
         composeRule.onNodeWithTag("library-delete-dismiss").performClick()
@@ -196,16 +196,16 @@ class LibrarySelectModeTest {
     @Test
     fun theQuestionNamesTheFileOrWhereThePickedFilesAre() {
         assertEquals(
-            "Alpha.mp4 will be removed from App storage. This cannot be undone.",
+            "Alpha.mp4 will be removed from App storage. This can't be undone.",
             deleteQuestionText(listOf(alpha)),
         )
         assertEquals(
-            "These 2 files will be removed from App storage. This cannot be undone.",
+            "These 2 files will be removed from App storage. This can't be undone.",
             deleteQuestionText(listOf(alpha, song)),
         )
         assertEquals(
             "These 3 files will be removed from Download/YFT and App storage. " +
-                "This cannot be undone.",
+                "This can't be undone.",
             deleteQuestionText(listOf(beta, alpha, song)),
         )
     }

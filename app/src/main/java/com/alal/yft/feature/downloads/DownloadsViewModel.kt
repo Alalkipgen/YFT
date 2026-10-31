@@ -388,20 +388,20 @@ private class DeleteRun(ids: List<String>) {
 
 /** Ask before "Delete file" deletes (P42, owner default ON). */
 internal const val DELETE_CONFIRM = true
-internal const val FILE_DELETED = "File deleted"
+internal const val FILE_DELETED = "Deleted 1 file."
 internal const val FILE_NOT_DELETED = "Could not delete the file"
 
 /**
- * The snackbar after "Delete file" (item 5): one file keeps P42's words; several say how many
- * went and how many stayed. Nothing when every file stayed because Android's request was
- * declined.
+ * The snackbar after "Delete file" (item 5): how many went ("Deleted 1 file.", "Deleted 3
+ * files.", the Library's words since N5) and how many stayed; one file that stayed keeps P42's
+ * words. Nothing when every file stayed because Android's request was declined.
  */
 internal fun filesDeletedMessage(total: Int, deleted: Int, failed: Int): String? = when {
     deleted == 0 && failed == 0 -> null
     total == 1 -> if (deleted == 1) FILE_DELETED else FILE_NOT_DELETED
-    failed == 0 -> "${files(deleted)} deleted"
+    failed == 0 -> "Deleted ${files(deleted)}."
     deleted == 0 -> "Could not delete ${files(failed)}"
-    else -> "${files(deleted)} deleted; ${files(failed)} could not be deleted"
+    else -> "Deleted ${files(deleted)}; ${files(failed)} could not be deleted."
 }
 
 private fun files(count: Int): String = if (count == 1) "1 file" else "$count files"

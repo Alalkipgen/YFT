@@ -2705,6 +2705,31 @@ Keep at least the heading and one blank line between sections, so Git merges the
     Downloads, Library and Settings shown whole). Checked by CI.
   - CHANGELOG `[1.0.2]`: one line under Fixed.
 
+- N5 (deleting read differently on the two screens: Library "This cannot be undone." and
+  "Deleted a.mp4.", Downloads "File deleted" / "2 files deleted"; Downloads' Delete teal, the
+  Library's red; the empty Library named only Download/YFT and app storage). Done:
+  - Library question (`deleteQuestionText`): "… This can't be undone." for one file and several.
+  - Library note (`LibraryViewModel.deletedMessage`): "Deleted 1 file." / "Deleted N files."
+    (counted, not named); failures unchanged ("a.mp4 could not be deleted.", "2 files could not
+    be deleted."); mixed: "Deleted 1 file; 2 files could not be deleted.", "Deleted 2 files;
+    c.mp4 could not be deleted.".
+  - Downloads note (`filesDeletedMessage`): `FILE_DELETED` "Deleted 1 file." (also a single
+    file from its ⋯ menu), "Deleted N files."; failures unchanged ("Could not delete the file",
+    "Could not delete N files"); mixed: "Deleted 2 files; 1 file could not be deleted.".
+  - Downloads' delete question: **Delete** in `coralText`, as the Library's (`DeleteFileDialog`).
+  - The empty Library (`emptyLibraryText`): while new downloads go to a folder picked in
+    Android's folder picker, "Completed downloads saved to Download/YFT, to <folder> or to app
+    storage appear here." (the folder's name, as the files' place); otherwise as before. The name
+    comes from `LibraryRepository.chosenFolderName()` (new, default null; Android's from the
+    same preference as the listed folder) into `LibraryUiState.Ready.chosenFolder`.
+  - Tests: `DeleteColourTest` (new, Robolectric native graphics: the ink of each screen's Delete
+    is the red, not the teal), `LibraryScreenTest` (+1: the empty text without and with a chosen
+    folder; the question's words), `LibraryViewModelTest` (+1: the folder's name into the state
+    and out again), `ChosenFolderLibraryTest` (the name only while new downloads go there),
+    `LibraryViewModelDeleteTest`, `LibrarySelectModeTest`, `DownloadsViewModelDeleteFileTest`
+    (the new words). Checked by CI.
+  - CHANGELOG `[1.0.2]`: one line under Changed.
+
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
 - Plan: `docs/TRACK_E_PLAN.md` (the owner's go, 2026-10-27, while S5's run 3 waits). Branch from

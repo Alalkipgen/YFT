@@ -18,6 +18,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -144,11 +145,14 @@ class ChosenFolderLibraryTest {
         )
 
         assertEquals(listOf("Clip.mp4"), repository.items().map(LibraryItem::displayName))
+        // N5 (v1.0.2): and named in the empty library's text.
+        assertEquals("Movies", repository.chosenFolderName())
 
         preferences.state.value = preferences.state.value.copy(
             location = DownloadLocation.SHARED_DOWNLOADS,
         )
         assertEquals(emptyList<LibraryItem>(), repository.items())
+        assertNull(repository.chosenFolderName())
     }
 
     private class FakePreferences(initial: DownloadPreferences) : DownloadPreferencesRepository {

@@ -73,7 +73,7 @@ class DownloadsViewModelDeleteFileTest {
         )
         assertTrue(store.tasks.isEmpty())
         assertTrue(viewModel.uiState.value.rows.isEmpty())
-        assertEquals(listOf("File deleted"), messages)
+        assertEquals(listOf("Deleted 1 file."), messages)
     }
 
     @Test
@@ -207,7 +207,7 @@ class DownloadsViewModelDeleteFileTest {
 
         assertEquals(listOf("b.mp4", "a.mp4"), deleter.files.map { it.displayName })
         assertEquals(listOf("r"), store.tasks.keys.toList())
-        assertEquals(listOf("2 files deleted"), messages)
+        assertEquals(listOf("Deleted 2 files."), messages)
     }
 
     @Test
@@ -222,7 +222,7 @@ class DownloadsViewModelDeleteFileTest {
         runCurrent()
 
         assertEquals(listOf("a"), store.tasks.keys.toList())
-        assertEquals(listOf("1 file deleted; 1 file could not be deleted"), messages)
+        assertEquals(listOf("Deleted 1 file; 1 file could not be deleted."), messages)
     }
 
     @Test
@@ -248,7 +248,7 @@ class DownloadsViewModelDeleteFileTest {
 
         assertEquals(3, deleter.files.size)
         assertTrue(store.tasks.isEmpty())
-        assertEquals(listOf("2 files deleted"), messages)
+        assertEquals(listOf("Deleted 2 files."), messages)
     }
 
     @Test
@@ -266,7 +266,7 @@ class DownloadsViewModelDeleteFileTest {
         runCurrent()
 
         assertEquals(listOf("a"), store.tasks.keys.toList())
-        assertEquals(listOf("1 file deleted"), messages)
+        assertEquals(listOf("Deleted 1 file."), messages)
     }
 
     @Test
@@ -291,19 +291,19 @@ class DownloadsViewModelDeleteFileTest {
 
     @Test
     fun theMessageSaysHowManyWentAndHowManyStayed() {
-        assertEquals("File deleted", filesDeletedMessage(total = 1, deleted = 1, failed = 0))
+        assertEquals("Deleted 1 file.", filesDeletedMessage(total = 1, deleted = 1, failed = 0))
         assertEquals(
             "Could not delete the file",
             filesDeletedMessage(total = 1, deleted = 0, failed = 1),
         )
         assertNull(filesDeletedMessage(total = 1, deleted = 0, failed = 0))
-        assertEquals("3 files deleted", filesDeletedMessage(total = 3, deleted = 3, failed = 0))
+        assertEquals("Deleted 3 files.", filesDeletedMessage(total = 3, deleted = 3, failed = 0))
         assertEquals(
             "Could not delete 2 files",
             filesDeletedMessage(total = 2, deleted = 0, failed = 2),
         )
         assertEquals(
-            "2 files deleted; 1 file could not be deleted",
+            "Deleted 2 files; 1 file could not be deleted.",
             filesDeletedMessage(total = 3, deleted = 2, failed = 1),
         )
         assertNull(filesDeletedMessage(total = 2, deleted = 0, failed = 0))

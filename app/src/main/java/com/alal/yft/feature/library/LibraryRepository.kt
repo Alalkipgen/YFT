@@ -45,6 +45,12 @@ interface LibraryRepository {
     suspend fun items(): List<LibraryItem>
 
     /**
+     * N5 (v1.0.2): the name of the folder picked in Android's folder picker while new downloads
+     * go there, for the empty library's text; null otherwise.
+     */
+    suspend fun chosenFolderName(): String? = null
+
+    /**
      * Deletes the file behind [item]; true when it is gone (also when it was gone already, P42),
      * false when it could not be removed.
      */
@@ -94,6 +100,8 @@ class AndroidLibraryRepository(
         val folder = chosenFolder()
         return withContext(ioDispatcher) { listed(folder) }
     }
+
+    override suspend fun chosenFolderName(): String? = chosenFolder()?.name
 
     private fun listed(folder: SaveFolder?): List<LibraryItem> {
         val shared = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

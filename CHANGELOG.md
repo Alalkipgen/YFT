@@ -62,6 +62,10 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
 
 - The release notes on **Updates**: headings are a size larger than before and bold, with more
   room above them, so each part of the notes stands out.
+- Deleting files reads the same on Downloads and in the Library: the question ends "This can't be
+  undone.", the note after it says "Deleted 1 file." or "Deleted 3 files.", and **Delete** is red
+  on both (it was teal on Downloads). The empty Library also names the folder you chose for
+  downloads.
 - **YouTube refused** keeps its hint and **Reset YouTube session**; YFT asks for a fresh link by
   itself only after the phone's network changed (once per download), else on Retry.
 - Home's **Your sites** shows every site, three to a row in your order with **Add** last, instead

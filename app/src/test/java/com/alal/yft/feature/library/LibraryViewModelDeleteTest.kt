@@ -107,7 +107,7 @@ class LibraryViewModelDeleteTest {
 
         assertEquals(1, repository.calls.size)
         assertEquals(listOf(b, c), ready(viewModel).items)
-        assertEquals("Deleted a.mp4.", ready(viewModel).message)
+        assertEquals("Deleted 1 file.", ready(viewModel).message)
     }
 
     @Test
@@ -250,14 +250,14 @@ class LibraryViewModelDeleteTest {
     }
 
     @Test
-    fun theMessageNamesOneFileAndCountsMore() {
+    fun theMessageCountsTheDeletedFilesAndNamesOneThatStayed() {
         assertNull(deletedMessage(emptyList(), emptyList()))
-        assertEquals("Deleted a.mp4.", deletedMessage(listOf(a), emptyList()))
+        assertEquals("Deleted 1 file.", deletedMessage(listOf(a), emptyList()))
         assertEquals("Deleted 3 files.", deletedMessage(listOf(a, b, c), emptyList()))
         assertEquals("a.mp4 could not be deleted.", deletedMessage(emptyList(), listOf(a)))
         assertEquals("2 files could not be deleted.", deletedMessage(emptyList(), listOf(a, b)))
         assertEquals(
-            "Deleted a.mp4; 2 files could not be deleted.",
+            "Deleted 1 file; 2 files could not be deleted.",
             deletedMessage(listOf(a), listOf(b, c)),
         )
     }
