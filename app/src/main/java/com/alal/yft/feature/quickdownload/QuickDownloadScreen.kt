@@ -410,23 +410,37 @@ private fun Header(header: SheetHeader, title: String = header.title) {
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
             )
+            // N7 (v1.0.2): the length is always shown whole ("14:05"); a long site name
+            // ("vksport.vkvideo.ru") in large text ends in an ellipsis instead of cutting it.
             Row(modifier = Modifier.padding(top = 4.dp)) {
                 header.source?.let { site ->
                     Text(
-                        text = if (header.durationMillis != null) "$site · " else site,
-                        modifier = Modifier.testTag("quick-source"),
+                        text = site,
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .testTag("quick-source"),
                         color = colors.textSecondary,
                         style = MaterialTheme.typography.bodyMedium,
                         maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 header.durationMillis?.let { length ->
+                    if (header.source != null) {
+                        Text(
+                            text = " · ",
+                            color = colors.textSecondary,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                        )
+                    }
                     Text(
                         text = YftFormat.duration(length),
                         modifier = Modifier.testTag("quick-length"),
                         color = colors.textSecondary,
                         style = MaterialTheme.typography.bodyMedium,
                         maxLines = 1,
+                        softWrap = false,
                     )
                 }
             }

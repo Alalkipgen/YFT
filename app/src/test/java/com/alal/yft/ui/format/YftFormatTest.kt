@@ -21,6 +21,10 @@ class YftFormatTest {
         assertEquals("0:07", YftFormat.duration(6_600))
         assertEquals("4:12", YftFormat.duration(252_000))
         assertEquals("1:02:03", YftFormat.duration(3_723_000))
+        // N7 (v1.0.2): the owner's examples, the VK video's length among them.
+        assertEquals("0:08", YftFormat.duration(8_000))
+        assertEquals("14:05", YftFormat.duration(845_000))
+        assertEquals("1:02:05", YftFormat.duration(3_725_000))
     }
 
     @Test

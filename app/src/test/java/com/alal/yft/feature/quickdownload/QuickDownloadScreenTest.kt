@@ -87,7 +87,7 @@ class QuickDownloadScreenTest {
 
         composeRule.onNodeWithText(SHEET_TITLE).assertExists()
         composeRule.onNodeWithText("Ocean waves").assertExists()
-        composeRule.onNodeWithTag("quick-source").assert(hasText("youtube.com · "))
+        composeRule.onNodeWithTag("quick-source").assert(hasText("youtube.com"))
         composeRule.onNodeWithTag("quick-length").assert(hasText("4:12"))
         val audioTop = composeRule.onNodeWithTag("quick-section-audio").assert(hasText("Audio"))
             .fetchSemanticsNode().positionInRoot.y

@@ -15,6 +15,9 @@ import com.alal.yft.core.model.settings.HomeSites
 import com.alal.yft.feature.downloads.SelectionBar
 import com.alal.yft.feature.home.HomeScreen
 import com.alal.yft.feature.home.HomeUiState
+import com.alal.yft.feature.quickdownload.QuickDownloadScreen
+import com.alal.yft.feature.quickdownload.QuickDownloadUiState
+import com.alal.yft.feature.quickdownload.SheetHeader
 import com.alal.yft.ui.navigation.YftBottomBar
 import com.alal.yft.ui.navigation.YftDestination
 import java.io.File
@@ -31,8 +34,8 @@ import org.robolectric.annotation.GraphicsMode
 /**
  * v1.0.2 fix batch after #149 (the owner's phone: Xiaomi HyperOS, large text): the texts that
  * were cut at 130 % and 150 % text fit there now, on a 360 dp wide screen, one test per fix
- * (N1 Home's site names, N3 Downloads' select-mode buttons, N4
- * the bottom bar's tab names, …). A text fits when its layout neither overflows nor ends in an
+ * (N1 Home's site names, N3 Downloads' select-mode buttons, N4 the bottom bar's tab names, N7
+ * the sheet's length, …). A text fits when its layout neither overflows nor ends in an
  * ellipsis. With `YFT_RENDER_DIR` set, each case is also saved as `fit<percent>-<name>.png`.
  */
 @RunWith(ParameterizedRobolectricTestRunner::class)
@@ -104,6 +107,30 @@ class LargeFontFitTest(private val fontScale: Float) {
         YftDestination.topLevel.map(YftDestination::title).forEach { name ->
             composeRule.onNodeWithText(name, useUnmergedTree = true).assertFits(name)
         }
+    }
+
+    @Test
+    fun `N7 the sheet's length is shown whole beside a long site name`() {
+        composeRule.setContent {
+            DesignStage(themeMode = ThemeMode.LIGHT, fontScale = fontScale) {
+                QuickDownloadScreen(
+                    state = QuickDownloadUiState(
+                        header = SheetHeader(
+                            title = "Обзор матча",
+                            source = "vksport.m.vkvideo.ru",
+                            durationMillis = 845_000,
+                            audioOnly = false,
+                        ),
+                        loading = true,
+                    ),
+                    onSelect = {},
+                    onDownload = {},
+                )
+            }
+        }
+        render("n7-sheet-length")
+
+        composeRule.onNodeWithText("14:05", useUnmergedTree = true).assertFits("14:05")
     }
 
     /**

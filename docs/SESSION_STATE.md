@@ -2741,6 +2741,21 @@ Keep at least the heading and one blank line between sections, so Git merges the
     Checked by CI.
   - CHANGELOG `[1.0.2]`: one line under Fixed.
 
+- N7 (VK: the sheet showed "14:5" for a 14:05 video, vkvideo.ru/video-212508059_456245329, a
+  VK Sport channel's video whose page opens on vksport.(m.)vkvideo.ru). Found: the length is
+  formatted padded already (`YftFormat.duration`, the only formatter the sheet uses: "0:08",
+  "14:05", "1:02:05"); the exact "14:5" did not reproduce. What did: the header's second line
+  was two one-line texts in a `Row`, "<site> · " then the length, with no room kept for the
+  length; with the channel's long address in large text the length was cut (renders on 360 dp:
+  "vksport.vkvideo.ru · 14" at 130 %, the length gone at 150 %). Done (`QuickDownloadScreen`
+  header): the site name takes what the length and " · " leave (`weight(1f, fill = false)`) and
+  ends in an ellipsis; " · " is its own text; the length never wraps. Seen: "vksport.m.vk… ·
+  14:05" at 130 % and 150 %; a short site name as before. No lookup change.
+  - Tests: `LargeFontFitTest` (+1: N7: "vksport.m.vkvideo.ru" and 845 s: "14:05" shown whole),
+    `YftFormatTest` (the owner's three examples), `QuickDownloadScreenTest` (the source text is
+    the site alone; " · " is drawn beside it). Checked by CI.
+  - CHANGELOG `[1.0.2]`: one line under Fixed.
+
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
 - Plan: `docs/TRACK_E_PLAN.md` (the owner's go, 2026-10-27, while S5's run 3 waits). Branch from

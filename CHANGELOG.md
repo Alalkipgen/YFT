@@ -107,6 +107,8 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   being cut ("Downlo…").
 - A downloaded video's file name says the quality its row showed: a 720 × 1280 TikTok video
   picked as **720p** is saved as "… 720p", not "… 1280p".
+- The Download sheet always shows a video's whole length ("14:05"): in large text a long site name
+  (such as VK's vksport.vkvideo.ru) ends in "…" instead of cutting the length.
 - VK: a file that answers 400 after it gave bytes (VK's answer on a new network) is a dead link
   too and gets a fresh link; a 400 before any byte fails as before.
 - A download stopped at **Link expired** keeps its progress for the fresh link, and its Cancel or
