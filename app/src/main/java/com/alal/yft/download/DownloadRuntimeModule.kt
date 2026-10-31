@@ -146,6 +146,7 @@ object DownloadRuntimeModule {
         dash: DashTransferRunner,
         mux: AudioVideoMuxRunner,
         mp3: LocalMp3Transcoder,
+        sources: DownloadSources,
         @ApplicationContext context: Context,
     ): DownloadTransferDispatcher = Mp3ConvertingTransferDispatcher(
         delegate = DefaultDownloadTransferDispatcher(
@@ -156,6 +157,8 @@ object DownloadRuntimeModule {
         ),
         transcoder = mp3,
         workspaceRoot = File(context.noBackupFilesDir, MP3_WORKSPACE_DIRECTORY),
+        // G2 (v1.0.2): "MP3: 4:12 of sound, decode 1.2 s, encode 6.8 s" in the row's Details.
+        onDetail = sources::note,
     )
 
     @Provides

@@ -2839,6 +2839,25 @@ Keep at least the heading and one blank line between sections, so Git merges the
     (+1; the shared sound fixture now states 163 MB for its 2:48:23 merge).
   - CHANGELOG `[1.0.2]`: one line under Fixed.
 
+- G2 (MP3 converting slow on the owner's phone: a 3:19 YouTube song took ~20 s at 128 kbps on
+  Preview #149, longer than a 4K merge; its M4A finished at once). The cause: the decode loop
+  in `AndroidMp3Transcoder` queued at most one input and took at most one output a pass, each
+  with a 10 ms wait, so each ~23 ms AAC frame waited for the decoder in turn. Done: each pass
+  queues every free input and takes every ready output without waiting (timeout 0); it waits
+  (`IDLE_WAIT_US` 5 ms, on the output) only when neither moved. The end-of-stream break and the
+  stuck-decoder guard stay (1 000 idle waits after the end is queued, 5 s, as 500 × 10 ms
+  before). LAME unchanged. New Details line (listed by the owner): `Mp3Times.line`, "MP3: 4:12
+  of sound, decode 1.2 s, encode 6.8 s" (the sound's length from the decoded frames; encode =
+  LAME's time, decode = the rest of the loop), in `Mp3TranscodeResult.Completed.detail`;
+  `Mp3ConvertingTransferDispatcher(onDetail)` gives it to `DownloadSources.note`, so a finished
+  MP3's row shows **Details** with it (in memory, as Track E's lines). No lookup change.
+  - Tests: `Mp3TimesTest` (new), `Mp3ConvertingTransferDispatcherTest` (+1),
+    `Mp3TranscoderTimingInstrumentedTest` (new, emulator: a 4-minute and a 1-hour source from the
+    2-second fixture's frames, converted and read back; each logs its line and the old loop's
+    decode time, stopped at 120 s; `scripts/ci-emulator-smoke.sh` shows the `YftMp3Timing` lines
+    as the run's notices). The emulator's times: FIX_ADD_PLAN §6.
+  - CHANGELOG `[1.0.2]`: one line under Fixed.
+
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
 - Plan: `docs/TRACK_E_PLAN.md` (the owner's go, 2026-10-27, while S5's run 3 waits). Branch from

@@ -17,7 +17,8 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 
 sealed interface Mp3TranscodeResult {
-    data class Completed(val bytesWritten: Long) : Mp3TranscodeResult
+    /** G2 (v1.0.2): [detail], the conversion's Details line ([Mp3Times.line]). */
+    data class Completed(val bytesWritten: Long, val detail: String? = null) : Mp3TranscodeResult
 
     /** [detail]: the exception behind the failure, from [DownloadFailureDetails.of] (P21). */
     data class Failure(
@@ -48,8 +49,30 @@ internal object PcmLayout {
     }
 }
 
+/** G2 (v1.0.2): the MP3 conversion's Details line. */
+object Mp3Times {
+    /** "MP3: 4:12 of sound, decode 1.2 s, encode 6.8 s". */
+    fun line(soundMillis: Long, decodeMillis: Long, encodeMillis: Long): String =
+        "MP3: ${length(soundMillis)} of sound, decode ${MergeTimes.duration(decodeMillis)}, " +
+            "encode ${MergeTimes.duration(encodeMillis)}"
+
+    /** "0:08", "4:12", "1:02:05". */
+    fun length(millis: Long): String {
+        val seconds = millis.coerceAtLeast(0) / 1_000
+        val hours = seconds / 3_600
+        val minutes = seconds % 3_600 / 60
+        return if (hours > 0) {
+            String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds % 60)
+        } else {
+            String.format(Locale.US, "%d:%02d", minutes, seconds % 60)
+        }
+    }
+}
+
 /**
  * Decodes the AAC track with MediaCodec and encodes MP3 with [encoders] (LAME by default).
+ * G2 (v1.0.2): each pass queues every free input and takes every ready output without waiting;
+ * it waits a short time only when neither moved (before, one of each a pass with 10 ms waits).
  *
  * The output starts with an ID3v2 title tag. A file without an AAC track, a decoder error or a
  * sample rate LAME rejects fails as [DownloadFailureReason.INCOMPATIBLE_TRACKS]; write errors
@@ -67,6 +90,7 @@ class AndroidMp3Transcoder(
         var decoder: MediaCodec? = null
         var encoder: Mp3FrameEncoder? = null
         var started = false
+        var detail: String? = null
         return try {
             extractor.setDataSource(source.absolutePath)
             val track = (0 until extractor.trackCount).firstOrNull { index ->
@@ -93,72 +117,100 @@ class AndroidMp3Transcoder(
                 var pcm = ShortArray(0)
                 var pair = ShortArray(0)
                 var idleAfterInput = 0
-                while (true) {
+                val loopStart = System.nanoTime()
+                var encodeNanos = 0L
+                var soundFrames = 0L
+                decode@ while (true) {
                     currentCoroutineContext().ensureActive()
-                    if (!inputDone) inputDone = queueInput(extractor, codec)
-                    val index = codec.dequeueOutputBuffer(info, TIMEOUT_US)
-                    if (index == MediaCodec.INFO_TRY_AGAIN_LATER && inputDone) {
+                    var moved = false
+                    while (!inputDone) {
+                        inputDone = queueInput(extractor, codec) ?: break
+                        moved = true
+                    }
+                    var index = codec.dequeueOutputBuffer(info, 0)
+                    if (index == MediaCodec.INFO_TRY_AGAIN_LATER && !moved) {
+                        index = codec.dequeueOutputBuffer(info, IDLE_WAIT_US)
+                    }
+                    if (index == MediaCodec.INFO_TRY_AGAIN_LATER) {
                         // A decoder that never signals the end must not hang the download.
-                        if (++idleAfterInput > MAX_IDLE_POLLS) {
+                        if (inputDone && !moved && ++idleAfterInput > MAX_IDLE_WAITS) {
                             return failure(DownloadFailureReason.INCOMPATIBLE_TRACKS)
                         }
                         continue
                     }
                     idleAfterInput = 0
-                    if (index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                        val changed = codec.outputFormat
-                        if (changed.containsKey(MediaFormat.KEY_PCM_ENCODING) &&
-                            changed.getInteger(MediaFormat.KEY_PCM_ENCODING) !=
-                            AudioFormat.ENCODING_PCM_16BIT
-                        ) {
-                            return failure(DownloadFailureReason.INCOMPATIBLE_TRACKS)
+                    while (index != MediaCodec.INFO_TRY_AGAIN_LATER) {
+                        if (index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                            val changed = codec.outputFormat
+                            if (changed.containsKey(MediaFormat.KEY_PCM_ENCODING) &&
+                                changed.getInteger(MediaFormat.KEY_PCM_ENCODING) !=
+                                AudioFormat.ENCODING_PCM_16BIT
+                            ) {
+                                return failure(DownloadFailureReason.INCOMPATIBLE_TRACKS)
+                            }
+                            val next = PcmStream(
+                                sampleRate = changed.getInteger(MediaFormat.KEY_SAMPLE_RATE),
+                                channels = changed.getInteger(MediaFormat.KEY_CHANNEL_COUNT),
+                            )
+                            // The encoder is fixed once it has started.
+                            if (encoder != null && next != stream) {
+                                return failure(DownloadFailureReason.INCOMPATIBLE_TRACKS)
+                            }
+                            stream = next
+                            index = codec.dequeueOutputBuffer(info, 0)
+                            continue
                         }
-                        val next = PcmStream(
-                            sampleRate = changed.getInteger(MediaFormat.KEY_SAMPLE_RATE),
-                            channels = changed.getInteger(MediaFormat.KEY_CHANNEL_COUNT),
-                        )
-                        // The encoder is fixed once it has started.
-                        if (encoder != null && next != stream) {
-                            return failure(DownloadFailureReason.INCOMPATIBLE_TRACKS)
+                        if (index < 0) {
+                            index = codec.dequeueOutputBuffer(info, 0)
+                            continue
                         }
-                        stream = next
-                        continue
+                        if (info.size > 0) {
+                            val buffer = codec.getOutputBuffer(index)
+                                ?: return failure(DownloadFailureReason.INCOMPATIBLE_TRACKS)
+                            buffer.position(info.offset)
+                            buffer.limit(info.offset + info.size)
+                            val shorts = buffer.order(ByteOrder.nativeOrder()).asShortBuffer()
+                            val count = shorts.remaining()
+                            if (pcm.size < count) pcm = ShortArray(count)
+                            shorts.get(pcm, 0, count)
+                            val encodeStart = System.nanoTime()
+                            val active = encoder ?: encoders.open(
+                                stream.sampleRate,
+                                PcmLayout.encoderChannels(stream.channels),
+                                encoding.bitrateKbps,
+                            )?.also { encoder = it }
+                                ?: return failure(DownloadFailureReason.INCOMPATIBLE_TRACKS)
+                            val frames = count / stream.channels
+                            if (stream.channels <= 2) {
+                                active.encode(pcm, frames, sink)
+                            } else {
+                                pair = PcmLayout.frontPair(pcm, frames, stream.channels, pair)
+                                active.encode(pair, frames, sink)
+                            }
+                            encodeNanos += System.nanoTime() - encodeStart
+                            soundFrames += frames
+                        }
+                        codec.releaseOutputBuffer(index, false)
+                        if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break@decode
+                        index = codec.dequeueOutputBuffer(info, 0)
                     }
-                    if (index < 0) continue
-                    if (info.size > 0) {
-                        val buffer = codec.getOutputBuffer(index)
-                            ?: return failure(DownloadFailureReason.INCOMPATIBLE_TRACKS)
-                        buffer.position(info.offset)
-                        buffer.limit(info.offset + info.size)
-                        val shorts = buffer.order(ByteOrder.nativeOrder()).asShortBuffer()
-                        val count = shorts.remaining()
-                        if (pcm.size < count) pcm = ShortArray(count)
-                        shorts.get(pcm, 0, count)
-                        val active = encoder ?: encoders.open(
-                            stream.sampleRate,
-                            PcmLayout.encoderChannels(stream.channels),
-                            encoding.bitrateKbps,
-                        )?.also { encoder = it }
-                            ?: return failure(DownloadFailureReason.INCOMPATIBLE_TRACKS)
-                        val frames = count / stream.channels
-                        if (stream.channels <= 2) {
-                            active.encode(pcm, frames, sink)
-                        } else {
-                            pair = PcmLayout.frontPair(pcm, frames, stream.channels, pair)
-                            active.encode(pair, frames, sink)
-                        }
-                    }
-                    codec.releaseOutputBuffer(index, false)
-                    if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break
                 }
                 val active = encoder ?: return failure(DownloadFailureReason.INCOMPATIBLE_TRACKS)
+                val flushStart = System.nanoTime()
                 active.flush(sink)
+                val ended = System.nanoTime()
+                encodeNanos += ended - flushStart
+                detail = Mp3Times.line(
+                    soundMillis = soundFrames * 1_000 / stream.sampleRate,
+                    decodeMillis = (ended - loopStart - encodeNanos) / 1_000_000,
+                    encodeMillis = encodeNanos / 1_000_000,
+                )
                 sink.flush()
                 file.fd.sync()
             }
             val bytes = output.length()
             if (bytes > tag.size) {
-                Mp3TranscodeResult.Completed(bytes)
+                Mp3TranscodeResult.Completed(bytes, detail)
             } else {
                 failure(DownloadFailureReason.INTEGRITY_MISMATCH)
             }
@@ -185,11 +237,14 @@ class AndroidMp3Transcoder(
         }
     }
 
-    /** Feeds one compressed sample; true once the end of the stream is queued. */
-    private fun queueInput(extractor: MediaExtractor, codec: MediaCodec): Boolean {
-        val index = codec.dequeueInputBuffer(TIMEOUT_US)
-        if (index < 0) return false
-        val buffer = codec.getInputBuffer(index) ?: return false
+    /**
+     * Feeds one compressed sample without waiting; true once the end of the stream is queued,
+     * null when no input buffer is free.
+     */
+    private fun queueInput(extractor: MediaExtractor, codec: MediaCodec): Boolean? {
+        val index = codec.dequeueInputBuffer(0)
+        if (index < 0) return null
+        val buffer = codec.getInputBuffer(index) ?: return null
         val size = extractor.readSampleData(buffer, 0)
         if (size < 0) {
             codec.queueInputBuffer(index, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
@@ -225,8 +280,9 @@ class AndroidMp3Transcoder(
     }
 
     private companion object {
-        const val TIMEOUT_US = 10_000L
-        const val MAX_IDLE_POLLS = 500
+        /** G2: the short wait when neither side moved; 1 000 of them (5 s) is a stuck decoder. */
+        const val IDLE_WAIT_US = 5_000L
+        const val MAX_IDLE_WAITS = 1_000
         const val OUTPUT_BUFFER_BYTES = 64 * 1_024
     }
 }

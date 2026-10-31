@@ -21,6 +21,8 @@ test_result=$?
 
 adb logcat -d >"$raw"
 log_result=$?
+# v1.0.2 fix G2: the MP3 timing test's lines, as notices on the run's page.
+grep -o 'YftMp3Timing: .*' "$raw" | sed 's/^YftMp3Timing: /::notice title=MP3 timing::/' || true
 adb pull "$device_screenshots/." "$output/screenshots"
 pull_result=$?
 python3 scripts/ci-smoke-diagnostics.py --raw-log "$raw" --output-dir "$output" \
