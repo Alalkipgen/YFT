@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# R1 canary (MASTER_KEY_PLAN §4.1): runs the opt-in MasterParityLiveTest on a connected phone or
+# Master parity check canary: runs the opt-in MasterParityLiveTest on a connected phone or
 # emulator and pulls its sanitized report (host + content ID only). Never part of default CI:
 # server IPs hit sign-in walls. Master never plays a video; with ATTENDED=1 tap Play on each page
 # when logcat (tag YftParity) says "play now".

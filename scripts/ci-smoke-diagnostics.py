@@ -48,7 +48,7 @@ def escape_annotation(text):
 
 
 def site_diagnostics(sanitized):
-    """P2 page diagnostics: only whitelisted key=value lines and console error types."""
+    """Page diagnostics: only whitelisted key=value lines and console error types."""
     lines = []
     for line in sanitized.splitlines():
         match = DIAGNOSTIC.search(line)
@@ -69,7 +69,7 @@ def site_cases(lines):
     """Groups diagnostic lines by case, without the video ancestor chains.
 
     GitHub cuts an annotation at about 4 KB, which hid the TikTok lines behind Facebook's, so
-    every case gets its own notice. The ancestor chains found the 0-height reel box (P2) and are
+    every case gets its own notice. The ancestor chains found the 0-height reel box and are
     no longer needed.
     """
     cases = {}

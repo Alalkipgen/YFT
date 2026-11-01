@@ -66,7 +66,7 @@ class YouTubeExtractorTest {
             listOf("video/mp4", "video/mp4", "video/mp4", "audio/mp4"),
             result.candidates.map(MediaCandidate::mimeType),
         )
-        // The picture YouTube states reaches the download sheet without another request (P3).
+        // The picture YouTube states reaches the download sheet without another request.
         assertEquals(
             listOf(1920, 1280, 640, null),
             result.candidates.map(MediaCandidate::width),
@@ -129,8 +129,8 @@ class YouTubeExtractorTest {
         }
 
         assertEquals(listOf(PAGE_FETCH), http.requestedUrls)
-        // visionOS is asked before the watch page (P14), so without the page's key. Its failed
-        // request is not asked again, and the embedded player's answer is complete (P22).
+        // visionOS is asked before the watch page, so without the page's key. Its failed
+        // request is not asked again, and the embedded player's answer is complete.
         assertEquals(listOf(PLAYER_URL_WITHOUT_PAGE, PLAYER_ENDPOINT), http.postedUrls)
         val solverRequest = runner.requests.single()
         assertEquals(PHONE_PLAYER, solverRequest.playerScriptUrl)
@@ -154,7 +154,7 @@ class YouTubeExtractorTest {
             as SiteExtractionResult.Success
 
         val candidates = result.candidates
-        // 1080p stays AVC; above it YouTube has no AVC, so 2K and 4K are VP9 (P6). The brighter
+        // 1080p stays AVC; above it YouTube has no AVC, so 2K and 4K are VP9. The brighter
         // HDR VP9 and the AV1 copies of the same qualities are not offered beside them.
         assertEquals(listOf(313, 271, 137, 22, 18, 140), candidates.map(::itagOf))
         assertEquals(
@@ -318,7 +318,7 @@ class YouTubeExtractorTest {
             )
             assertEquals(NOW + 21_540_000L, candidate.expiresAtEpochMs)
         }
-        // Merged rows with their audio track are complete (P22), so nothing else is asked: not
+        // Merged rows with their audio track are complete, so nothing else is asked: not
         // even the Android app, whose only download is a progressive 360p file.
         assertEquals(listOf("VISIONOS"), http.postedClients())
         assertTrue(runner.requests.isEmpty())
@@ -347,7 +347,7 @@ class YouTubeExtractorTest {
         assertEquals(listOf("VISIONOS", "WEB_EMBEDDED_PLAYER", "ANDROID"), http.postedClients())
         YouTubeClientProfiles.DEVICE_CLIENTS.forEach { profile ->
             val index = http.postedClients().indexOf(profile.clientName)
-            // visionOS is asked before the watch page (P14), so it has no visitor data to send.
+            // visionOS is asked before the watch page, so it has no visitor data to send.
             val visitor = VISITOR_DATA.takeUnless { profile == YouTubeClientProfiles.VISION_OS }
             val headers = http.postedHeaders[index]
             assertEquals(profile.id, profile.userAgent, headers["User-Agent"])
@@ -403,8 +403,8 @@ class YouTubeExtractorTest {
             listOf(true, true, false),
             result.candidates.map { it.audioCompanion != null },
         )
-        // A separate video merged with its audio track and the audio track itself are complete
-        // (P22): the embedded player could add only progressive files of the same qualities.
+        // A separate video merged with its audio track and the audio track itself are complete:
+        // the embedded player could add only progressive files of the same qualities.
         assertEquals(listOf("VISIONOS"), http.postedClients())
         assertTrue(result.details.contains("client VISIONOS: 3 downloads offered"))
     }
@@ -474,7 +474,7 @@ class YouTubeExtractorTest {
         result.candidates.dropLast(1).forEach { merged ->
             assertEquals(audio.mediaUrl, merged.audioCompanion?.mediaUrl)
         }
-        // They are complete (P22), so the clients that would answer through SABR are not asked.
+        // They are complete, so the clients that would answer through SABR are not asked.
         assertEquals(listOf("VISIONOS"), http.postedClients())
     }
 
@@ -562,7 +562,7 @@ class YouTubeExtractorTest {
 
     @Test
     fun `clients are asked in the order the owner chose`() = runTest {
-        // A visionOS request that failed is not asked again; the Android app comes last (P22).
+        // A visionOS request that failed is not asked again; the Android app comes last.
         val inline = client(page = watchPage(BOT_CHECK))
         YouTubeExtractor(inline).extract(request())
         assertEquals(
@@ -570,7 +570,7 @@ class YouTubeExtractorTest {
             inline.postedClients(),
         )
 
-        // visionOS's refusal is asked again, with the page's visitor data (P22).
+        // visionOS's refusal is asked again, with the page's visitor data.
         val refused = client(page = watchPage(BOT_CHECK), visionOs = BOT_CHECK)
         YouTubeExtractor(refused).extract(request())
         assertEquals(
@@ -1226,7 +1226,7 @@ class YouTubeExtractorTest {
         assertFailure(SiteExtractionFailure.RESPONSE_CHANGED, result)
         assertEquals(List(5) { PLAYER_URL_WITHOUT_PAGE }, http.postedUrls)
         // A page that names no client of its own is treated as the desktop site. It gives no
-        // visitor data either, so visionOS's refusal is not asked again (P22).
+        // visitor data either, so visionOS's refusal is not asked again.
         assertEquals(
             listOf("VISIONOS", "WEB", "WEB_EMBEDDED_PLAYER", MOBILE_SITE, "ANDROID"),
             http.postedClients(),
@@ -1343,7 +1343,7 @@ class YouTubeExtractorTest {
         val result = YouTubeExtractor(http, runner, tokens).extract(request())
             as SiteExtractionResult.Success
 
-        // One small request (P14): no watch page, no other client, no script and no token.
+        // One small request: no watch page, no other client, no script and no token.
         assertTrue(http.requestedUrls.isEmpty())
         assertEquals(listOf("VISIONOS"), http.postedClients())
         assertEquals(listOf(PLAYER_URL_WITHOUT_PAGE), http.postedUrls)
@@ -1722,7 +1722,7 @@ class YouTubeExtractorTest {
 
     /**
      * visionOS's answer with one unused format (the low-bitrate audio) without a size, so it is
-     * not a lookup on its own (P14) and the chain runs with the same rows.
+     * not a lookup on its own and the chain runs with the same rows.
      */
     private fun chainVisionOs(): String =
         fixture("player_visionos.json").replace(LOW_AUDIO_LENGTH, "")
@@ -1764,7 +1764,7 @@ class YouTubeExtractorTest {
             "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
         val BOT_CHECK: String = Fixtures.read("youtube/player_bot_check.json")
 
-        /** The rows of `player_visionos_ladder.json` and `player_cipher_ladder.json` (P22). */
+        /** The rows of `player_visionos_ladder.json` and `player_cipher_ladder.json`. */
         val LADDER_ROWS = listOf(
             "2160p", "1440p", "1080p", "720p", "480p", "360p", "240p", "144p", "Audio 131 kbps",
         )

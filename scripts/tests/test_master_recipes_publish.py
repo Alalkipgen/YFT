@@ -1,4 +1,4 @@
-"""Social plan S4 (MASTER_KEY_SOCIAL_PLAN.md section 7.3): the master-recipes-publish workflow.
+"""Signed recipe config: the master-recipes-publish workflow.
 
 The owner's label recipes:<name> on draft PR #2 (or a manual run, once on the default branch)
 signs one committed config and publishes it on the branch "recipes". The job runs only for the
@@ -6,7 +6,7 @@ owner, a recipes: label and the repository's own pull request; the helper compos
 (the next version, the expiry date), checks it as the reader would and verifies the envelope.
 Throwaway keys only (made per run in a temporary directory, never kept).
 
-VK Master plan section 9 (R9 schema 2): a committed config is schema 2, and one run publishes two
+Schema 2 (VK ladder): a committed config is schema 2, and one run publishes two
 files from it with one version and one key: master-recipes.json (schema 1, vk and V1-V3 left out,
 for v1.0.0) and master-recipes-2.json (schema 2, for v1.0.1). The workflow's own step scripts are
 dry-run here against a temporary git remote (never the repository's, never its recipes branch).
@@ -204,7 +204,7 @@ class HelperTest(unittest.TestCase):
                 self.assertEqual(out.read_text(encoding="utf-8"), legacy_compose(without_vk(source), 3, "2027-12-31"))
 
     def test_the_vk_drill_turns_v2_off_in_the_schema_2_file_only(self):
-        """VK Master plan section 12 (R9's drill): v1.0.1's file turns VK's V2 off; v1.0.0's is the defaults'."""
+        """The VK drill: v1.0.1's file turns VK's V2 off; v1.0.0's is the defaults'."""
         composed = {}
         for name in ("defaults", "drill-vk-v2-off"):
             result, out, out2 = self.compose(RECIPES / "configs" / f"{name}.json")

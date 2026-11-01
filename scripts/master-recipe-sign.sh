@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# R9: keys and signing for Master's data-only recipe config (MASTER_KEY_PHASE1_PLAN.md R9).
+# Signed recipe config: keys and signing for Master's data-only recipe config.
 # The app carries only the public key (-Pyft.masterRecipeKey=<hex>; a social-ladder debug build:
 # extractor-master/recipes/master-recipes.pub.hex); keep the private key off the repo. Schema:
 # extractor-master/recipes/master-recipes.schema.json.
@@ -9,10 +9,10 @@
 #   bash scripts/master-recipe-sign.sh sign ~/yft-recipe-key.pem config.json recipes/master-recipes.json
 #
 # The signed file goes to the address in yft.masterRecipeUrl (default: master-recipes.json on the
-# branch "recipes", raw.githubusercontent.com). Raise "version" for every new config. Social plan
-# S4: the master-recipes-publish workflow signs and publishes the committed configs
-# (extractor-master/recipes/configs/) with the repository's key; this script is its signer. VK
-# Master plan section 9: it signs both payloads of one config with the same key, schema 1
+# branch "recipes", raw.githubusercontent.com). Raise "version" for every new config.
+# The master-recipes-publish workflow signs and publishes the committed configs
+# (extractor-master/recipes/configs/) with the repository's key; this script is its signer.
+# It signs both payloads of one config with the same key, schema 1
 # (master-recipes.json) and schema 2 (master-recipes-2.json, master-recipes-2.schema.json).
 set -euo pipefail
 

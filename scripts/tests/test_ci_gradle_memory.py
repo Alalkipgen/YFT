@@ -1,4 +1,4 @@
-"""v1.0.2 item 0 (the owner, 2026-10-29): the CI runner's Gradle memory, from one place.
+"""CI Gradle memory (the owner, 2026-10-29): the CI runner's Gradle memory, from one place.
 
 gradle.properties keeps the agents' 4 GiB sizes; on CI every workflow that runs Gradle runs
 scripts/ci-gradle-memory.sh right after its setup-gradle step. The script writes the two values

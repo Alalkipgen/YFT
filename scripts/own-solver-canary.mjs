@@ -188,7 +188,7 @@ async function main() {
   console.log(`verdict: ${named.join("; ")} (player ${player}, ${inCorpus ? "in" : "not in"} corpus)`);
   const passed = canaryPasses(all);
   if (!passed) {
-    console.log("runbook (MASTER_KEY_PHASE1_1_PLAN.md §6):");
+    console.log("runbook (docs/TESTING.md, Own-solver canary):");
     if (!inCorpus) console.log(`  1. node scripts/verify-own-solver.mjs --add ${player}   # add to the corpus, then review`);
     console.log(`  2. node scripts/verify-own-solver.mjs --only ${player}   # reproduce (B: add --strategy B); classify G1-G4 or new`);
     console.log("  3. fix the core, then: node scripts/verify-own-solver.mjs --faults   # every player, no wrong value");

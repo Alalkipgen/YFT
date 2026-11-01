@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# v1.0.2 item 0 (the owner, 2026-10-29): the CI runner's Gradle memory, from this one place.
+# CI Gradle memory (the owner, 2026-10-29): the CI runner's Gradle memory, from this one place.
 #
-# gradle.properties keeps the sizes of the agents' 4 GiB computers (docs/FIX_ADD_PLAN.md). Two of
+# gradle.properties keeps the sizes of the agents' 4 GiB computers. Two of
 # Part 1's runs ran out of memory on the runner with them, not in the code: checkpoint validation
 # 40911946099 (the Kotlin compiler) and Preview APK 40917475008 (R8, :app:minifyPreviewWithR8).
 # Every workflow that runs Gradle runs this script right after its setup-gradle step. It writes the

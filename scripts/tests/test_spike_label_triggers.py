@@ -1,13 +1,13 @@
-"""N6 plan adapted (owner 2026-10-13): manual spike runs are labels on draft PR #2.
+"""Own-solver canary (owner 2026-10-13): manual spike runs are labels on draft PR #2.
 
 GitHub shows "Run workflow" only for workflows on the default branch, so the owner starts the
 canary with the label run-canary and the opt-in APK with its ladder on (ownSolverNext) with the
-label build-optin-apk (MASTER_KEY_PHASE1_2_PLAN.md §3 N6). The workflows' expressions are
+label build-optin-apk. The workflows' expressions are
 evaluated for every event they take: a push, a manual run, each label and any other label.
 
-Phase 1.3 D7 (owner 2026-10-15): the opt-in APK workflow's second job, d7-matrix, builds the phone
-check's debug APKs (D5c's h-only the seventh; routeb and fb-trial since: nine; the social plan's task
-6a renamed fb-trial social-trial, the one trial APK for all four sites) after the build job, only for a
+Owner test APKs (owner 2026-10-15): the opt-in APK workflow's second job, d7-matrix, builds the phone
+check's debug APKs (h-only the seventh; routeb and fb-trial since: nine; fb-trial was later renamed
+social-trial, the one trial APK for all four sites) after the build job, only for a
 push whose commit message carries [d7].
 """
 
@@ -255,7 +255,7 @@ class CanaryLabelTest(LabelTriggerTest):
         self.assert_label_groups(CANARY, "own-solver-canary-")
 
     def test_a_weekly_schedule_runs_the_canary_on_mains_last_commit(self):
-        # v1.0.2 (item 17): one weekday, off the hour; GitHub runs a schedule from main only.
+        # One weekday, off the hour; GitHub runs a schedule from main only.
         cron = one(r'^    - cron: "([^"]+)"$', trigger(CANARY, "schedule"))
         minute, hour, day, month, weekday = cron.split()
         self.assertEqual(("*", "*"), (day, month))
@@ -325,8 +325,8 @@ class OptInApkLabelTest(LabelTriggerTest):
 
 
 class D7MatrixTest(unittest.TestCase):
-    """Phase 1.3 D7 (owner 2026-10-15): the phone-check APKs, one per mode, all flags on (D5c: h-only;
-    then routeb, route B's trial, and fb-trial, the social ladder's trial: nine; task 6a: social-trial)."""
+    """Owner test APKs (owner 2026-10-15): the phone-check APKs, one per mode, all flags on (h-only;
+    then routeb, route B's trial, and fb-trial, the social ladder's trial: nine; later social-trial)."""
 
     MODES = {
         "normal": ("", ""),
@@ -368,7 +368,7 @@ class D7MatrixTest(unittest.TestCase):
         self.assertEqual([":app:assembleDebug"], [word for word in command.split() if word.startswith(":")])
 
     def test_only_social_trial_turns_the_social_ladder_and_its_trial_on(self):
-        # Social plan task 6a: the ninth mode, social-trial (fb-trial before), is the one trial APK
+        # The ninth mode, social-trial (fb-trial before), is the one trial APK
         # for Facebook, TikTok, X and Instagram; the other eight modes and the push build leave both
         # flags at the Gradle default (off). Instagram's probe has no build flag (its own switch).
         entries = re.findall(r"^          - mode: (.+)\n((?:            .*\n)+)", D7, re.M)

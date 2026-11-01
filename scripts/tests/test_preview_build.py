@@ -1,4 +1,4 @@
-"""P7: the owner's preview build is the release build under its own app ID and a test key only."""
+"""Preview APK: the owner's preview build is the release build under its own app ID and a test key only."""
 
 import pathlib
 import re

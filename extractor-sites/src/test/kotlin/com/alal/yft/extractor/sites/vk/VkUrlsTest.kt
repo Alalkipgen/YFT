@@ -21,7 +21,7 @@ class VkUrlsTest {
             "https://vkvideo.ru/video-50883936_456244102" to video,
             "https://www.vkvideo.ru/video-50883936_456244102" to video,
             "https://m.vkvideo.ru/video-50883936_456244102" to video,
-            // v1.0.2: a channel's own vkvideo.ru subdomain (the census's B0, slot 5).
+            // A channel's own vkvideo.ru subdomain (found by the site census).
             "https://vksport.vkvideo.ru/video-50883936_456244102" to video,
             "https://VKSport.vkvideo.ru/video-50883936_456244102?list=ln-x" to
                 "$video?list=ln-x",

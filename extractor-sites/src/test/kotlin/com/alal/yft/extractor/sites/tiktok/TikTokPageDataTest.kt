@@ -17,7 +17,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * P40 step 1: the post's data a TikTok page already holds ([SiteExtractionRequest.pageData]).
+ * The post's data a TikTok page already holds ([SiteExtractionRequest.pageData]).
  * The item fixtures are what `core-browser/src/main/assets/tiktok/page-data.js` returned on the
  * instrumented fixture page (`app/src/androidTest/assets/tiktok/video.html`) in Chromium.
  */
@@ -239,13 +239,13 @@ class TikTokPageDataTest {
             request(identity, data(oneQualityItem(), SitePageDataSource.TAB_API_ANSWER)),
         ) as SiteExtractionResult.Success
 
-        // P46: TikTok's phone player gets one file; the desktop page lists every quality.
+        // TikTok's phone player gets one file; the desktop page lists every quality.
         assertEquals(listOf(identity.canonicalPageUrl), http.requestedUrls)
         assertEquals(
             TikTokAgents().desktop("fixture-tab-agent"),
             http.requestedHeaders.single()["User-Agent"],
         )
-        // P47: the tab's 540p stays; the desktop page adds the heights it lacks.
+        // The tab's 540p stays; the desktop page adds the heights it lacks.
         assertEquals(
             listOf("fixture-1080.mp4", "fixture-720.mp4", "phone-540.mp4"),
             result.candidates.map { it.mediaUrl.substringAfterLast('/').substringBefore('?') },
@@ -290,7 +290,7 @@ class TikTokPageDataTest {
             request(identity, data(twoCodecItem(), SitePageDataSource.TAB_API_ANSWER)),
         ) as SiteExtractionResult.Success
 
-        // P47: 540p in H.264 and H.265 is one quality to the user.
+        // 540p in H.264 and H.265 is one quality to the user.
         assertEquals(listOf(identity.canonicalPageUrl), http.requestedUrls)
         assertTrue(
             result.details.contains("desktop page: asked for more qualities (tab: 2 working)"),

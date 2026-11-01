@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Decision 30 (R8, the release commit): the shrunk builds are run, not only compiled. Installs the
-# #12 normal preview (com.alal.yft.preview) and the #12 trial (com.alal.yft.trial) built in this
+# Minified build check: the shrunk builds are run, not only compiled. Installs the
+# preview (com.alal.yft.preview) and the trial preview (com.alal.yft.trial) built in this
 # job, drives each through its screens (app/src/androidTest/.../minified/MinifiedBuildCheckTest.kt,
 # run from the debug test APK) and reads their logs. Each check's RESULT line becomes an
 # annotation (no address: the test drops them); a line of either app's own naming an R8-type error

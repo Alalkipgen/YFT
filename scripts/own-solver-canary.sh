@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Phase 1.1 S6 phone canary (MASTER_KEY_PHASE1_1_PLAN.md §3 S6, runbook §6): runs the opt-in
+# Solver canary on the phone (runbook: docs/TESTING.md, Own-solver canary): runs the opt-in
 # OwnSolverCanaryTest on a connected phone or emulator. Today's YouTube player goes through main's
 # ejs runner and Master's own runner, both in their real WebView engines; the report says
 # pass/fail per kind (n, sig) with timings. Never part of default CI. The computer-side check of
@@ -35,5 +35,5 @@ latest=$(ls -t "$OUT"/own-solver-canary-*.json 2>/dev/null | head -n 1 || true)
 if grep -q '://' "$latest"; then echo "report contains an address: $latest" >&2; exit 1; fi
 echo "own-solver phone canary: $latest"
 cat "$latest"; echo
-[[ $status -eq 0 ]] || echo "FAIL: follow MASTER_KEY_PHASE1_1_PLAN.md §6 (runbook)" >&2
+[[ $status -eq 0 ]] || echo "FAIL: follow docs/TESTING.md, Own-solver canary" >&2
 exit $status

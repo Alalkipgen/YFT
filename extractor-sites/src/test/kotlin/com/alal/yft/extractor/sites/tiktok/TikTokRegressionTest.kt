@@ -14,9 +14,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * P39 regression proof. These tests use only the adapter API that P38 already had (one
- * constructor argument, no file checks), so they also run against the P38 adapter, where each
- * one fails: TikTok's live page shapes (2026-10-09) that P38 read as a changed page.
+ * Regression proof. These tests use only the adapter API that the older adapter already had (one
+ * constructor argument, no file checks), so they also run against that older adapter, where each
+ * one fails: TikTok's live page shapes (2026-10-09) that it read as a changed page.
  */
 class TikTokRegressionTest {
     @Test

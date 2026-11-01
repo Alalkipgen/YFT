@@ -24,7 +24,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** VK5, path D (VK_PLAN §13): only after the embed's adult answer; v1's message when it fails. */
+/** Path D: only after the embed's adult answer; v1's message when it fails. */
 class VkPathDTest {
     @Test
     fun `the embed's adult answer opens path d, which gives every rendition`() = runTest {

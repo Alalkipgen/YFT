@@ -56,7 +56,7 @@ class XExtractorTest {
                 "https://x.com/fixture_user/status/1785999999999999999",
                 candidate.pageUrl,
             )
-            // v1.0.2 item 51: a post of one video names no item.
+            // A post of one video names no item.
             assertNull(candidate.postItem)
         }
         assertEquals(
@@ -90,7 +90,7 @@ class XExtractorTest {
             third.details.drop(1),
         )
         assertEquals(listOf(1080, 270), first.candidates.map { it.height })
-        // v1.0.2 item 51: the post's other video comes with the linked one, under its own name.
+        // The post's other video comes with the linked one, under its own name.
         val linked = third.candidates.single().postItem!!
         assertEquals("Video 2 of 2", linked.label)
         assertEquals(listOf(1080, 270), linked.others.map { it.height })

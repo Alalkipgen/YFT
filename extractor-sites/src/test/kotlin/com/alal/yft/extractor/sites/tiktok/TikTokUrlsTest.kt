@@ -24,7 +24,7 @@ class TikTokUrlsTest {
 
     @Test
     fun `mobile and author-less forms resolve to the same canonical identity`() {
-        // P36: the author-less address TikTok answers is /@/video/<id> (/video/<id> gives 404).
+        // The author-less address TikTok answers is /@/video/<id> (/video/<id> gives 404).
         val forms = listOf(
             "https://m.tiktok.com/v/7311234567890123456.html",
             "https://www.tiktok.com/video/7311234567890123456",

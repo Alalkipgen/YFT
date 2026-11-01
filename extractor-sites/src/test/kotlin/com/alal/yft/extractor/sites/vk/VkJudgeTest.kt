@@ -65,7 +65,7 @@ class VkJudgeTest {
 
     companion object {
         /**
-         * Synthetic (VK0 found no real audio-only master): the hls_fmp4 master's own audio
+         * Synthetic (no real audio-only master was found): the hls_fmp4 master's own audio
          * renditions with one audio variant and no video variant.
          */
         fun audioOnlyMaster(): String {
