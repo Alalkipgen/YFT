@@ -49,8 +49,11 @@ If the docs and verified code disagree, build and test results win, and the docs
 
 - Write plain English in short sentences.
 - Use the feature names in `docs/GLOSSARY.md`. Do not add work labels (task, plan, run or agent
-  names and numbers) to docs, code comments or Lookup details. Literal app output in backticks and
-  released `CHANGELOG.md` sections stay as they are.
+  names and numbers) to docs, code comments, commit messages or Lookup details. Literal app output
+  in backticks, build flags, class names, commit SHAs, version numbers and released `CHANGELOG.md`
+  sections stay as they are.
+- A new feature gets its name in `docs/GLOSSARY.md` first, in the same commit as its code. Use that
+  name in plans, comments and commit messages; never a new step or ID label.
 - Docs describe the current state only. History lives in git and in released changelog sections.
 - New owner decisions go to `docs/DECISIONS.md`, open questions to `docs/PLAN.md`, user-visible
   changes to the unreleased section of `CHANGELOG.md`.
