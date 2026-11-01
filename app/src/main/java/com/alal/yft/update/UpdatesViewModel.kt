@@ -13,7 +13,7 @@ class UpdatesViewModel @Inject constructor(
 ) : ViewModel() {
     val state: StateFlow<UpdateState> = controller.state
 
-    /** The in-app download, checks and Android's installer (U2). */
+    /** The in-app download, checks and Android's installer. */
     val install: StateFlow<InstallState> = installFlow.state
 
     fun checkNow() = controller.checkNow()
@@ -35,7 +35,7 @@ class UpdatesViewModel @Inject constructor(
     fun confirmFailed(sessionId: Int) = installFlow.confirmFailed(sessionId)
 }
 
-/** Settings → About's Updates row: its second line and the New badge (§4.5). */
+/** Settings → About's Updates row: its second line and the New badge. */
 data class UpdatesRow(val supporting: String, val isNew: Boolean)
 
 /**
@@ -55,7 +55,7 @@ fun UpdateState.settingsRow(): UpdatesRow? {
     }
 }
 
-/** Home's small card while an update is found (v1.0.2; `IN_APP_UPDATE_PLAN.md` §10): its lines. */
+/** Home's small card while an update is found: its lines. */
 data class HomeUpdateCard(val title: String, val supporting: String)
 
 /**

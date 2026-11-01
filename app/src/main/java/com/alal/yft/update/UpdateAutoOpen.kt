@@ -13,10 +13,10 @@ import com.alal.yft.feature.home.HOME_DOWNLOAD_LINK_KEY
 import com.alal.yft.ui.navigation.YftDestination
 
 /**
- * Opens the Updates screen by itself, once per found version (§4.5): at once when Home is in
+ * Opens the Updates screen by itself, once per found version: at once when Home is in
  * front, else at the next app open — never over another screen or a sheet, never as a dialog.
  * Back is "not now": the screen does not open again for that version. It also starts Android's
- * install confirmation once the checks passed (§4.4 step 7). Both are collected only while the app
+ * install confirmation once the checks passed. Both are collected only while the app
  * is in front, so nothing opens from the background: a confirmation that came then waits for it.
  */
 @Composable

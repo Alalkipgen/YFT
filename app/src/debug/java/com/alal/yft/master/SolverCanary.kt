@@ -32,7 +32,7 @@ import okhttp3.Cache
 import okhttp3.OkHttpClient
 
 /**
- * Phase 1.2 N7, owner tool (debug build only): the phone canary. On today's YouTube player
+ * Solver canary (an owner tool, debug build only) on the phone. On today's YouTube player
  * (phone build, then main build) it runs ejs (the reference) and each own solver step through
  * [OwnSolverProbe]: P twice (raw, then the prepared program with the parts the first run found
  * right), B twice (raw, then with the parts the first run found right, when it kept any) and the
@@ -40,12 +40,12 @@ import okhttp3.OkHttpClient
  * computer canary (`OwnSolverCanaryTest`). Before them, the app's lookup of one public video with V
  * ([SolverCanaryLookup]), first so that in a new process it includes the engine's cold start.
  *
- * Every step uses the app's breaker ([OwnSolverAppBreaker], owner's option b): a step the breaker
- * has off is not run, and the first step whose engine gives no readable reply (none, a timeout, a
- * gone renderer) stops the canary, so the report says where it stopped
- * ([OwnSolverProbe.Run.stopped]). A reply with an error class or out of time does not: the steps
- * after it still run (N7: the phone's B1 error stopped every step after it). The probe's timed
- * window is the job only (sending it to its reply); the breaker's marker writes fall outside it.
+ * Every step uses the app's breaker ([OwnSolverAppBreaker]): a step the breaker has off is not run,
+ * and the first step whose engine gives no readable reply (none, a timeout, a gone renderer) stops
+ * the canary, so the report says where it stopped ([OwnSolverProbe.Run.stopped]). A reply with an
+ * error class or out of time does not: the steps after it still run (once, on the phone, B1's error
+ * stopped every step after it). The probe's timed window is the job only (sending it to its reply);
+ * the breaker's marker writes fall outside it.
  */
 internal class SolverCanary(
     private val context: Context,
@@ -55,7 +55,7 @@ internal class SolverCanary(
 ) {
     /**
      * The tool's own visible WebView: its longest pause during a page job (the in-app browser's
-     * stall), and the JS heap limit of the app's WebView renderer (N7 round 2: B's memory).
+     * stall), and the JS heap limit of the app's WebView renderer (for B's memory).
      */
     interface StallMeter {
         suspend fun prepare()

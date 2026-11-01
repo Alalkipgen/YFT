@@ -20,7 +20,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Phase 1.2 N7: the solver canary's verdicts, hit times and report text, from synthetic counts and
+ * Solver canary: its verdicts, hit times and report text, from synthetic counts and
  * job summaries (no player, no input and no value of a real run).
  */
 class SolverCanaryReportTest {

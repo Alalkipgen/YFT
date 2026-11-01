@@ -5,7 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** v1.0.2: Home's update card (`IN_APP_UPDATE_PLAN.md` §10) says what Settings' New says. */
+/** Home's update card says what Settings' New says. */
 class HomeUpdateCardTest {
     private fun state(mode: UpdateMode, found: FoundUpdate?, lastGoodAt: Long? = null) =
         UpdateState(

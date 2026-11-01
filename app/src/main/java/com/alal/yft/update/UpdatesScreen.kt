@@ -82,10 +82,10 @@ fun UpdatesRoute(onNavigateBack: () -> Unit, viewModel: UpdatesViewModel = hiltV
 }
 
 /**
- * Settings → About → Updates (§4.5): the installed version; a found update with its notes and
+ * Settings → About → Updates: the installed version; a found update with its notes and
  * **Download APK to update**, or the latest-version line with **Check now**; the switch
  * **Check automatically** at the bottom, and in test mode **Reinstall this build (test)**. The
- * button runs the in-app update (U2: checksum, signature, package and version, then Android's
+ * button runs the in-app update (checksum, signature, package and version, then Android's
  * installer); every failure offers **Download in browser** (the APK's GitHub link). Every line says
  * only what was checked.
  */
@@ -282,7 +282,7 @@ private fun Available(
     }
 }
 
-/** The security line under the button: only what is checked (§4.5's table). */
+/** The security line under the button: only what is checked. */
 @Composable
 private fun SecurityLine(text: String, verified: Boolean, modifier: Modifier = Modifier) {
     val colors = YftTheme.colors
@@ -390,8 +390,8 @@ private fun Problem(text: String, onOpenLink: (() -> Unit)?) {
 }
 
 /**
- * Test mode only (§4.4 step 9): this build's own APK through checks 2 and 3 and Android's real
- * confirmation. It is no release, so no checksum is claimed. Never in the release.
+ * Test mode only (the reinstall test): this build's own APK through checks 2 and 3 and Android's
+ * real confirmation. It is no release, so no checksum is claimed. Never in the release.
  */
 @Composable
 private fun TestReinstall(
@@ -532,7 +532,7 @@ private fun AutoCheck(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     }
 }
 
-/** Which step failed (§4.4); "Nothing was installed." follows each. */
+/** Which step failed; "Nothing was installed." follows each. */
 internal fun InstallFailure.text(): String = when (this) {
     InstallFailure.NoSpace -> "Not enough free space for the update."
     InstallFailure.NoChecksum ->
@@ -648,7 +648,7 @@ internal fun openInstallSettings(context: Context): Boolean {
 }
 
 /**
- * **Download in browser**: the APK's GitHub link with `ACTION_VIEW` (U1's button, U2's way out):
+ * **Download in browser**: the APK's GitHub link with `ACTION_VIEW`:
  * the user's browser downloads it and Android's installer takes over. No selector: on a phone
  * with two browsers it would ask which one every time. YFT has no web-link filter, so its own
  * browser never opens. False: no app can.

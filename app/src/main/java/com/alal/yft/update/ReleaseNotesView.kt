@@ -29,10 +29,10 @@ import androidx.compose.ui.unit.dp
 import com.alal.yft.ui.theme.YftTheme
 
 /**
- * The release notes on the Updates screen (§4.5, v1.0.2), as [ReleaseNotes.blocks]: headings,
+ * The release notes on the Updates screen, as [ReleaseNotes.blocks]: headings,
  * paragraphs, list items with their marker in a hanging column, and code on a card-coloured
  * block. Bold, italic and code inside a block are AnnotatedString spans. Nothing here can be
- * tapped: a link shows its text only (U3).
+ * tapped: a link shows its text only.
  */
 @Composable
 internal fun ReleaseNotesView(notes: String, modifier: Modifier = Modifier) {
@@ -65,7 +65,7 @@ private fun NoteBlockView(block: NoteBlock, modifier: Modifier) {
             text = text,
             modifier = modifier.semantics { heading() },
             color = colors.textPrimary,
-            // v1.0.2 fix N2: a size up for each level, all bold, so a heading stands out.
+            // A size up for each level, all bold, so a heading stands out.
             style = headingStyle(block.level, typography),
         )
         NoteKind.PARAGRAPH -> Text(
@@ -111,8 +111,8 @@ private fun NoteBlockView(block: NoteBlock, modifier: Modifier) {
 }
 
 /**
- * v1.0.2 fixes N2 and R1: `#` headlineSmall (24 sp), `##` titleLarge (22 sp), `###` and below
- * titleMedium (17 sp); all bold. R1: `###` was titleSmall (15 sp), which a large text size drew
+ * `#` headlineSmall (24 sp), `##` titleLarge (22 sp), `###` and below
+ * titleMedium (17 sp); all bold. Before, `###` was titleSmall (15 sp), which a large text size drew
  * as large as bold body text (bodyMedium, 14 sp).
  */
 internal fun headingStyle(level: Int, typography: Typography): TextStyle = when (level) {
@@ -122,7 +122,7 @@ internal fun headingStyle(level: Int, typography: Typography): TextStyle = when 
 }.copy(fontWeight = FontWeight.Bold)
 
 /**
- * More space before a heading (v1.0.2 fix N2: more again, the most before `#`), less after one
+ * More space before a heading (the most before `#`), less after one
  * and between list items.
  */
 internal fun gapBefore(previous: NoteBlock, block: NoteBlock): Dp = when {

@@ -18,9 +18,9 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * v1.0.2 fix R1: at the owner's large text size a `###` heading was drawn as large as bold body
+ * At the owner's large text size a `###` heading was drawn as large as bold body
  * text (63 vs 62 px on the phone). Android 14 and newer scale large text less than small text, so
- * a heading only 1 sp up (titleSmall, 15 sp, before R1) all but lost its lead. The same word as
+ * a heading only 1 sp up (the old titleSmall, 15 sp) all but lost its lead. The same word as
  * `#`, `##`, `###` and bold body text, measured with native graphics at each text size: each
  * heading is wider than the next level, and `###` at least 5% wider than the bold body text.
  */

@@ -30,7 +30,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * The owner's large text size (U3): **Download APK to update** wraps to two lines instead of being
+ * The owner's large text size: **Download APK to update** wraps to two lines instead of being
  * cut ("Download APK to upd…"), and a primary button elsewhere keeps its one line. Native graphics,
  * so the text is measured as on a phone.
  */

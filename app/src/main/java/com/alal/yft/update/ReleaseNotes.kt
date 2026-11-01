@@ -1,7 +1,7 @@
 package com.alal.yft.update
 
 /**
- * The release notes' Markdown as blocks for the Updates screen (§4.5, v1.0.2): a small subset of
+ * The release notes' Markdown as blocks for the Updates screen: a small subset of
  * CommonMark that [ReleaseNotesView] renders with an AnnotatedString.
  *
  * Blocks: `#` to `###` headings; paragraphs (a line break inside one is a space, two spaces or a
@@ -9,7 +9,7 @@ package com.alal.yft.update
  * fenced code (```` ``` ```` or `~~~`) as written. Inline: `**bold**` and `__bold__`,
  * `*italic*` and `_italic_` (CommonMark's rules, so `2 * 3` and `snake_case` stay as written),
  * `` `code` `` and backslash escapes. A link shows its text only and an image its alt text:
- * nothing in the notes is ever opened (U3). Anything else stays plain text as written (`####`, a
+ * nothing in the notes is ever opened. Anything else stays plain text as written (`####`, a
  * rule, a table, a quote, HTML), and a mark without its other half stays a character, so no text
  * is lost, whatever the body holds.
  */

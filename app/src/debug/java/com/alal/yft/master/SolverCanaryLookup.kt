@@ -47,18 +47,18 @@ import okhttp3.Response
 import org.json.JSONObject
 
 /**
- * Phase 1.2 N7, owner tool (debug build only): the app's YouTube lookup of one public video, V
- * included, timed from its start to the rows ("P (b) in total", MASTER_KEY_PHASE1_2_PLAN.md §3
- * N7). The runner is the app's [OwnPlayerScriptRunner] with the ladder, the app's breaker and the
- * tool's own locator and V files (under `filesDir/owner-canary/`, so the app's files stay as they
- * are); the reader asks YouTube as the N2 stream check does ([StreamCheckMeasurement]'s requests,
- * copied) and the app's gate runs V. Run first in a new process, its worker P job is the P hit
- * after a restart (the engine's cold start included).
+ * Solver canary (owner tool, debug build only): the app's YouTube lookup of one public video, V
+ * included, timed from its start to the rows. The runner is the app's [OwnPlayerScriptRunner]
+ * with the ladder, the app's breaker and the tool's own locator and V files (under
+ * `filesDir/owner-canary/`, so the app's files stay as they are); the reader asks YouTube as
+ * the Stream check meter does ([StreamCheckMeasurement]'s requests, copied) and the app's gate
+ * runs V. Run first in a new process, its worker P job is the P hit after a restart (the
+ * engine's cold start included).
  *
  * A lookup YouTube refused (or whose worker P the breaker has off) is "not measured" and the canary
  * goes on; a job without a readable reply (a timeout, a gone renderer, the engine, a broken reply)
- * stops the canary ([Outcome.stoppedAt]). An error class, a budget or the lookup cap does not (N7,
- * as the steps: [OwnSolverProbe.Run.stopped]).
+ * stops the canary ([Outcome.stoppedAt]). An error class, a budget or the lookup cap does not
+ * (as the steps: [OwnSolverProbe.Run.stopped]).
  */
 internal class SolverCanaryLookup(
     private val context: Context,
@@ -136,7 +136,7 @@ internal class SolverCanaryLookup(
         return Outcome(lookup, stoppedAt)
     }
 
-    /** The lookup's reader: YouTube's page and player answer as N2's stream check asks them. */
+    /** The lookup's reader: YouTube's page and player answer, as the Stream check meter asks. */
     private inner class CanaryReader(
         private val video: String,
         private val http: ExtractorHttpClient,
@@ -243,7 +243,7 @@ internal class SolverCanaryLookup(
         }
     }
 
-    // Copied from StreamCheckMeasurement (N2): the player request's body, the stream it picks and
+    // Copied from StreamCheckMeasurement: the player request's body, the stream it picks and
     // the address it builds.
     private fun playerBody(client: Client, video: String, clientVersion: String, visitorData: String?, sts: Int): String =
         JSONObject()
@@ -361,7 +361,7 @@ internal class SolverCanaryLookup(
 
         fun stops(failure: String): Boolean = STOP_ENDS.any(failure::endsWith)
 
-        // Copied from StreamCheckMeasurement (N2).
+        // Copied from StreamCheckMeasurement.
         private const val ORIGIN = "https://www.youtube.com"
         private const val EMBED_URL = "https://github.com/Alalkipgen/YFT"
         private const val PHONE_VARIANT = "player-plasma-ias-phone-en_US.vflset/base.js"

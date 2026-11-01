@@ -33,7 +33,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S0c: the site census screen's main ([SiteCensusLookup]): main's post and the
+ * Site census: the screen's main ([SiteCensusLookup]): main's post and the
  * browser's identity for a link, main's own lookup through the app's adapter coordinator (fresh,
  * its asks in the row's record, the hidden page after a failed page read, its answer marked) and
  * the census over it. Fake clients and fixture posts only; no link of the owner's.

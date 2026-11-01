@@ -41,13 +41,13 @@ import okhttp3.Request
 import okhttp3.Response
 
 /**
- * Owner tool, debug build only (Phase 1.3 D0): "YFT client census" runs [ClientCensus] on the
+ * Owner tool, debug build only: "YFT client census" runs [ClientCensus] on the
  * phone without a computer, in three modes — **Full census** (videos 1–10, every client, the
  * version sources; ≤ 6 MB), **Weekly check** (≤ 60 s, ≤ 2 MB, ≤ 20 requests) and **A check**
- * (D5a, owner 2026-10-16: video 2's visionOS 1.02 and, only when that answers directly, 1.05
+ * (YouTube ladder: video 2's visionOS 1.02 and, only when that answers directly, 1.05
  * once; ≤ 4 requests; reported, not kept for the diff). Its launcher entry exists
  * only when the build has `yft.masterCapture` and `yft.ownSolver` on (manifest placeholder
- * `yftOwnerTools`). A run starts only on a tap and belongs to this screen (guardrail 11: nothing
+ * `yftOwnerTools`). A run starts only on a tap and belongs to this screen (nothing
  * is scheduled, closing the tool ends it); the report, which never holds an address, a value or
  * a video ID, is shown with a copy button, and the run's summary is kept in
  * `files/master/census-last.json` for the next diff.

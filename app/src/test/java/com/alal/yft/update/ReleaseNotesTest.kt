@@ -7,7 +7,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The notes' Markdown (§4.5, v1.0.2): `#` to `###` headings, bold, italic, code, `- `, `* ` and
+ * The notes' Markdown: `#` to `###` headings, bold, italic, code, `- `, `* ` and
  * `1. ` lists and paragraphs; a link's text only and an image's alt text; anything else as
  * written. Blocks read as lines here: "H2 " before a heading, the marker before an item (two
  * spaces per depth), <b>, <i> and <c> around the marks.

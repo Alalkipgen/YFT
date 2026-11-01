@@ -8,7 +8,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * v1.0.2 fixes N2 and R1: the release notes' headings stand out from their text: `#`
+ * The release notes' headings stand out from their text: `#`
  * headlineSmall (24 sp), `##` titleLarge (22 sp), `###` and below titleMedium (17 sp), all bold
  * (the text is bodyMedium, 14 sp), with more room above them: 24, 20 and 16 dp (12 dp before).
  */
