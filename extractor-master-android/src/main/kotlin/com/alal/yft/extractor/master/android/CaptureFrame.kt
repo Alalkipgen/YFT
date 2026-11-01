@@ -26,12 +26,12 @@ internal data class FrameRequest(
     val url: String,
     val mime: String?,
     val preview: Boolean,
-    /** R7: appended to the focused video's MediaSource by the page's player. */
+    /** Playback hooks: appended to the focused video's MediaSource by the page's player. */
     val fed: Boolean = false,
     val width: Int? = null,
     val height: Int? = null,
     /**
-     * F1 (V3's retest, 2026-10-26): the page's answer was a piece of a file (a 206 or a
+     * VK's pack proof (the capture step's retest, 2026-10-26): the page's answer was a piece of a file (a 206 or a
      * Content-Range short of its total) to a request that named no range, so the address names
      * that piece: still the player's request, never a file row ([MasterMainSelection]).
      */

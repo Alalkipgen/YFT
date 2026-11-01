@@ -5,7 +5,7 @@ import android.content.Context
 import com.alal.yft.extractor.master.solver.OwnSolverBreaker
 
 /**
- * Phase 1.2 N5b: the breaker's markers on disk (app-private preferences), so a job that took the
+ * Own-solver ladder: the breaker's markers on disk (app-private preferences), so a job that took the
  * process down is still counted after the restart. Keys are a player ID and a step name; no
  * input, value or address is stored. Only ownSolverNext builds make one.
  */

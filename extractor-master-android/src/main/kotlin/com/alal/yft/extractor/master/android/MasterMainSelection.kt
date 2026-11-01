@@ -30,18 +30,18 @@ import kotlin.math.abs
 /**
  * Opt-in policy. Captured source identities and the observed playing URL are never changed.
  *
- * R4: [inspect] adds each checked file's fingerprint (length + keyframe cues). Files that are one
+ * Media fingerprint: [inspect] adds each checked file's fingerprint (length + keyframe cues). Files that are one
  * video's qualities form one group (main's qualities instead of extra "More" videos); a lone file
  * whose cues disagree with a main confirmed by two agreeing files is an ad, preview or related
- * clip and is dropped. Without cues nothing is grouped or dropped (behaviour before R4).
+ * clip and is dropped. Without cues nothing is grouped or dropped (the behaviour before fingerprints).
  *
- * F1 (VK's pack proof, V3's retest 2026-10-26): a piece of a file is never a row, whatever its
+ * VK's pack proof (the capture step's retest, 2026-10-26): a piece of a file is never a row, whatever its
  * length: an address naming a closed `bytes=A-B` range ([MediaFileUrls.isPiece]) or one whose
  * page answer was a piece to a request that named no range ([MasterBrowserSession.piece]). It is
  * never checked and never offered (a piece's own start may state the whole video's length: VK's
  * 1.4 KB init piece did); it still counts as the player's request. The page's manifest is the row.
  *
- * VK's pack proof (V3's retest 2 of f22c2217, 2026-10-26: 18 observations, all pieces, no row):
+ * VK's pack proof (the capture step's second retest, of f22c2217, 2026-10-26: 18 observations, all pieces, no row):
  * in a VK lookup ([MainPages.site]) whose captured rows gave nothing, the pieces' whole files
  * ([VkPieceFiles]): at most [VkPieceFiles.MAX_PICTURES] pictures and [VkPieceFiles.MAX_SOUNDS]
  * sounds are checked (V, in the lookup's reads), and the tallest mergeable picture with the
@@ -54,7 +54,7 @@ import kotlin.math.abs
  * [VkPageData.MAX_FILES] checked from the tallest, the first that passes admitted; the pieces'
  * row takes the data's title when it has none.
  *
- * v1.0.2 (item 11): once a page-data file is admitted, each other height V passes is a row of its
+ * Once a page-data file is admitted, each other height V passes is a row of its
  * own, on V's facts (its start, its size; the data's length held to the player's; no inspection,
  * no read beyond V's): at most [VkPageData.MAX_ROWS] in all, the lookup's V reads, so within VK's
  * budget. They are one group, the data's order (the tallest first): one video's qualities, never
@@ -155,7 +155,7 @@ class MasterMainSelection(
         }
 
         /**
-         * v1.0.2 (item 11): another page-data file V passed once one was admitted: another quality
+         * Another page-data file V passed once one was admitted: another quality
          * of that video (the data names them all, each with its sound inside), on V's facts: no
          * inspection, no request beyond V's read of its start.
          */
@@ -198,7 +198,7 @@ class MasterMainSelection(
         }
         // The owner's retest of 7e101aa4: nothing captured passed in a VK lookup: the page's own
         // data for the video (every quality's whole file, the title; see [VkPageData]), the
-        // tallest file that passes, admitted as any passed row is. v1.0.2 (item 11): then each
+        // tallest file that passes, admitted as any passed row is. Then each
         // other height V passes, a quality of its own (at most MAX_ROWS; MAX_FILES before one is
         // admitted, so the pieces keep their reads).
         var dataLine: String? = null
@@ -239,7 +239,7 @@ class MasterMainSelection(
             dataLine = "master: VK page data: files=${pageData.size}; tried=$tried; passed=$passed; " +
                 "admitted=${checked.size}"
         }
-        // VK's pack proof (V3's retest 2): nothing captured passed in a VK lookup (its capture holds
+        // VK's pack proof (the capture step's second retest): nothing captured passed in a VK lookup (its capture holds
         // no page manifest that did): the whole files of the pieces its player asked for, the
         // tallest picture with the fullest sound (see [VkPieceFiles]).
         var pieceLine: String? = null
@@ -317,7 +317,7 @@ class MasterMainSelection(
                 listOfNotNull(census(snapshot, target != null), tally.line(), dataLine, pieceLine),
             )
         }
-        // v1.0.2 (item 11): the page data's files are one video's qualities (its own data names
+        // The page data's files are one video's qualities (its own data names
         // them, bound to the video): one group, the data's order (the tallest first).
         val groups = if (dataRows) listOf(checked.toList()) else FingerprintGroups.of(ranked) { prints[it.mediaUrl] }
         val selected = groups.flatten()
@@ -383,7 +383,7 @@ class MasterMainSelection(
         }
     }
 
-    /** F1: [url] names a piece of a file, by its address or by the page's answer to it. */
+    /** [url] names a piece of a file, by its address or by the page's answer to it. */
     private fun piece(url: String): Boolean = MediaFileUrls.isPiece(url) || session.piece(url)
 
     private fun ad(media: MediaCandidate, facts: PageVideoFacts?): Boolean =
@@ -408,7 +408,7 @@ class MasterMainSelection(
         if (media.codecs.all { it.trim().lowercase().startsWith("avc") }) 1 else 0
 
     /**
-     * VK's pack proof (V3's retest 2): what the capture held, counts only (never an address): its
+     * VK's pack proof (the capture step's second retest): what the capture held, counts only (never an address): its
      * requests, the manifests among them (DASH, HLS), the pieces, the player's own, its page data.
      */
     private fun census(snapshot: PageSnapshot, length: Boolean): String {

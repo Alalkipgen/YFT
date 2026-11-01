@@ -1,5 +1,5 @@
-// Master Phase 1.2 N4 (strategy E). The WebView settings and the request filter follow
-// WebViewOwnSolverEngine (Phase 1.1 S5, unchanged); the reply path differs (see below).
+// Own-solver ladder (strategy E). The WebView settings and the request filter follow
+// WebViewOwnSolverEngine (the YouTube own solver's engine, unchanged); the reply path differs (see below).
 package com.alal.yft.extractor.master.android.solver
 
 import android.annotation.SuppressLint
@@ -34,7 +34,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Phase 1.2 N4: strategy E, Master's own solver core in a real page (a real DOM), for players
+ * Own-solver ladder: strategy E, Master's own solver core in a real page (a real DOM), for players
  * whose code needs browser objects the worker lacks (plan section 1 rule 4).
  *
  * Each run gets a fresh, offscreen WebView that is destroyed afterwards. The host page
@@ -65,7 +65,7 @@ class WebViewPageSolverEngine(
         }
     }
 
-    /** N5b: the job is "started" once the host page read it (the input route). */
+    /** The job is "started" once the host page read it (the input route). */
     override val reportsReady: Boolean get() = true
 
     override suspend fun run(input: String): String? = run(input, NO_EVENTS)

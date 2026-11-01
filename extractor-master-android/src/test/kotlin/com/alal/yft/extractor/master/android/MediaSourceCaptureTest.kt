@@ -17,7 +17,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** R7: MSE facts from `yft-master-mse.js` through the frame, the session and the engine. */
+/** Playback hooks: MSE facts from `yft-master-mse.js` through the frame, the session and the engine. */
 class MediaSourceCaptureTest {
     private val page = "https://page.test/watch"
     private val fed = "https://cdn.test/media/main"

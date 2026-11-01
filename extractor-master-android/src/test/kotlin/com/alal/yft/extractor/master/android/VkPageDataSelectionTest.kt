@@ -18,7 +18,7 @@ import org.junit.Test
  * player had asked for by then) titled "ВКонтакте | VK Видео". In a VK lookup whose captured rows
  * gave nothing, the selection now checks the page's own data for the video first (its MP4 files
  * from the tallest, at most 3) and admits the first that passes, with the data's title; the
- * pieces' files only after that, their row titled by the data. v1.0.2 (item 11): once one is
+ * pieces' files only after that, their row titled by the data. Once one is
  * admitted, each other height V passes is a row of its own, one video's qualities (one group, the
  * tallest first, no "More" videos), only the first inspected, at most [VkPageData.MAX_ROWS] read.
  * JVM only; the addresses are made up.

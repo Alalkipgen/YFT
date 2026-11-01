@@ -14,7 +14,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * R4: automatic main selection with fingerprints. Offline fixtures: the cues stand for what the
+ * Media fingerprint: automatic main selection with fingerprints. Offline fixtures: the cues stand for what the
  * bounded metadata read found (sidx/EXTINF); nothing is played, decoded or synthesized.
  */
 class MasterFingerprintSelectionTest {

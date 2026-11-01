@@ -6,7 +6,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** R5: the policy put into the shipped asset; the JS behaviour is covered by codecs.test.cjs. */
+/** Codec steering: the policy put into the shipped asset; the JS behaviour is covered by codecs.test.cjs. */
 class CodecSteeringTest {
     private val asset = File("src/main/assets/${CodecSteering.ASSET}").readText()
 

@@ -119,7 +119,7 @@ class MasterBrowserSessionTest {
 
     @Test
     fun theTabShowsAVideoOnlyAfterAFrameOfItsScopeShowedOne() {
-        // Social plan task 14 (observation e): a frame with a visible video's tag or the focused
+        // Social ladders: a frame with a visible video's tag or the focused
         // player says the tab has a video to play; a page without one (a wall, X's "not found")
         // does not, nor does another scope's frame, a new page or a cleared session.
         val session = MasterBrowserSession()

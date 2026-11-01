@@ -39,11 +39,11 @@ class WebViewPlaybackCapture(
     val session: MasterBrowserSession = MasterBrowserSession(),
     private val contentIdOf: (String) -> String? = { null },
     metadata: suspend (MediaCandidate) -> MediaCandidate = { it },
-    /** R4: the bounded metadata read with the file's fingerprint; wins over [metadata]. */
+    /** Media fingerprint: the bounded metadata read with the file's fingerprint; wins over [metadata]. */
     inspect: (suspend (MediaCandidate) -> InspectedMedia)? = null,
-    /** R5: codec steering at document start; null (default) installs nothing. */
+    /** Codec steering at document start; null (default) installs nothing. */
     private val codecs: CodecSteering? = null,
-    /** R7: MSE/EME metadata hooks at document start (`yft-master-mse.js`). */
+    /** Playback hooks: MSE/EME metadata hooks at document start (`yft-master-mse.js`). */
     private val mediaHooks: Boolean = true,
 ) : PlaybackCaptureProvider {
     private val mainSelection = MasterMainSelection(session, enabled, metadata, inspect)
@@ -177,7 +177,7 @@ class WebViewPlaybackCapture(
         val view = browser.get() ?: return
         val source = script ?: return
         val page = JSONObject.quote(scope.pageUrl)
-        // V3's retest (2026-10-26): on VK's pages the bind carries the page's manifests (see
+        // VK's pack proof (the capture step's retest, 2026-10-26): on VK's pages the bind carries the page's manifests (see
         // [carriesManifests]); every other site's bind is the one of before.
         val carry = if (carriesManifests(scope.pageUrl)) ", true" else ""
         view.evaluateJavascript(
@@ -283,7 +283,7 @@ class WebViewPlaybackCapture(
         )
 
         /**
-         * V3's retest (2026-10-26): whether a bind on [pageUrl] (HTTPS on one of [EARLY_ORIGINS],
+         * VK's pack proof (the capture step's retest, 2026-10-26): whether a bind on [pageUrl] (HTTPS on one of [EARLY_ORIGINS],
          * the default port) carries the page's manifests: VK's player fetches its manifest once a
          * document, so the capture keeps the manifests the document fetched (before its first
          * bind and during any bind, at most 16, by the address they were fetched on) and offers

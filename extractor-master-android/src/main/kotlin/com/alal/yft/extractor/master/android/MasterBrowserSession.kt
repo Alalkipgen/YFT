@@ -29,9 +29,9 @@ class MasterBrowserSession {
     private var previousPlayer: FramePlayer? = null
     private var previousSampleAt = 0L
     private var protected = false
-    /** Social plan task 14 (observation e): a frame of this scope showed a visible video. */
+    /** Social ladders: a frame of this scope showed a visible video. */
     private var sawVideo = false
-    /** F1: this scope's addresses whose page answer was a piece of a file (at most 200). */
+    /** This scope's addresses whose page answer was a piece of a file (at most 200). */
     private val pieces = linkedSetOf<String>()
 
     @Synchronized
@@ -58,7 +58,7 @@ class MasterBrowserSession {
     }
 
     /**
-     * Social plan task 14 (observation e): whether a frame sampled on [pageUrl]'s page of
+     * Social ladders: whether a frame sampled on [pageUrl]'s page of
      * [generation] (the current scope only) showed a video — a visible `<video>` of the page or
      * its focused player — so the lookup's words may ask the user to play it. False for another
      * scope, after navigation and after [clear]. Memory only; no address or frame is kept for it.
@@ -108,7 +108,7 @@ class MasterBrowserSession {
         val current = scope ?: return false
         if (frame.pageUrl != current.pageUrl || frame.generation != current.generation) return false
         protected = protected || frame.protected
-        // Task 14: the page's script lists only visible videos (their tags) and its focused player.
+        // The page's script lists only visible videos (their tags) and its focused player.
         sawVideo = sawVideo || frame.player != null ||
             frame.html?.contains("<video", ignoreCase = true) == true
         frame.html?.let { store.recordHtml(current.generation, it) }
@@ -122,7 +122,7 @@ class MasterBrowserSession {
         frame.requests.forEach { observed ->
             if (!secure(observed.url)) return@forEach
             if (MediaUrlClassifier.classify(observed.url, observed.mime) == null) return@forEach
-            // F1: a piece stays the player's request (recorded as before); it is never a row.
+            // A piece stays the player's request (recorded as before); it is never a row.
             if (observed.piece && pieces.add(observed.url) && pieces.size > MAX_PIECES) {
                 pieces.remove(pieces.first())
             }
@@ -155,7 +155,7 @@ class MasterBrowserSession {
     }
 
     /**
-     * F1 (V3's retest, 2026-10-26): whether the current scope's page got [url]'s answer as a piece
+     * VK's pack proof (the capture step's retest, 2026-10-26): whether the current scope's page got [url]'s answer as a piece
      * of a file to a request that named no range ([FrameRequest.piece]): that address gives the
      * piece only, so it is never a file row. Memory only, cleared with the scope.
      */
