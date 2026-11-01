@@ -42,19 +42,19 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S3 (task 8): the census's weekly check W ([SiteWeekly], `SiteCensus.run` with
- * [ClientCensus.Mode.WEEKLY]) over fake sites: its slots only, Master's part on slot 1 only, each
- * way once, its caps (requests, bytes, the time: each checked before every step, the time
- * bounding each step), the census's stops and cooldowns ("not run", never waited out or passed),
- * its own baselines, its header and first line, the diff's lines one per change with the runbook
- * step each names, and the runbook's entry for every step. Made-up links and IDs; no live calls.
+ * The weekly site check ([SiteWeekly], `SiteCensus.run` with [ClientCensus.Mode.WEEKLY]) over fake
+ * sites: its slots only, Master's part on slot 1 only, each way once, its caps (requests, bytes,
+ * the time: each checked before every step, the time bounding each step), the census's stops and
+ * cooldowns ("not run", never waited out or passed), its own baselines, its header and first line,
+ * the diff's lines one per change with the runbook step each names, and each step's entry in
+ * docs/TESTING.md's "Weekly site check runbook". Made-up links and IDs; no live calls.
  */
 class SiteWeeklyTest {
     private var now = NOW_MS
     private val clock = { now }
 
     @Test
-    fun `W runs its three slots, Master's part on slot 1 only, each way once, and keeps its own baseline`() = runTest {
+    fun `the weekly check runs its three slots, Master's part on slot 1 only, each way once, and keeps its own baseline`() = runTest {
         val http = xSite()
         val steps = mutableListOf<String>()
         val links = X_LINKS + mapOf("instagram" to mapOf(2 to IG_REEL))
@@ -128,7 +128,7 @@ class SiteWeeklyTest {
     }
 
     @Test
-    fun `a census-only state and export hold nothing of W, and the A check is not the census's`() = runTest {
+    fun `a census-only state and export hold nothing of the weekly check, and the A check is not the census's`() = runTest {
         val http = xSite()
 
         val outcome = census(MAIN, http).run(listOf(SiteWays.X), X_LINKS, null)
@@ -144,7 +144,7 @@ class SiteWeeklyTest {
     }
 
     @Test
-    fun `W's request and byte caps stop the site's rest with no cooldown, and nothing after them runs`() = runTest {
+    fun `the weekly request and byte caps stop the site's rest with no cooldown, and nothing after them runs`() = runTest {
         val http = xSite()
         val recorder = LookupRecorder(http)
         val asking = ScriptedMain { link ->
@@ -186,10 +186,10 @@ class SiteWeeklyTest {
         assertEquals("V asked once (slot 1, under the request cap), never under the byte cap", 1, http.probedUrls.size)
     }
 
-    /** The test's virtual time ([kotlinx.coroutines.test.TestCoroutineScheduler.currentTime]) is W's clock. */
+    /** The test's virtual time ([kotlinx.coroutines.test.TestCoroutineScheduler.currentTime]) is the weekly check's clock. */
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun `W's time bounds each step - main, V or Master's part cut at 60 s is not run, and the site's rest neither`() = runTest {
+    fun `the weekly time cap bounds each step - main, the row check or Master's part cut at 60 s is not run, and the site's rest neither`() = runTest {
         val virtual = { NOW_MS + testScheduler.currentTime }
         val slowMain = ScriptedMain { link ->
             delay(25_000)
@@ -237,7 +237,7 @@ class SiteWeeklyTest {
     }
 
     @Test
-    fun `a 429 in W stops the site and cools it, and the next W reads it not run, never waited out or passed`() = runTest {
+    fun `a 429 in the weekly check stops the site and cools it, and the next run reads it not run, never waited out or passed`() = runTest {
         var limited = false
         val http = FakeExtractorHttpClient(
             getResponder = { url, _ ->
@@ -285,7 +285,7 @@ class SiteWeeklyTest {
     }
 
     @Test
-    fun `F5 - a W run whose every ask got the login wall keeps its BREAKING lines and one note, and is never the baseline`() = runTest {
+    fun `a weekly run whose every ask got the login wall keeps its BREAKING lines and one note, and is never the baseline`() = runTest {
         val walled = HashSet<String>()
         val (http, main) = walledSite(walled)
         val census = census(main, http)
@@ -309,7 +309,7 @@ class SiteWeeklyTest {
         )
         assertEquals(
             "one note, the baseline kept",
-            listOf("  note: X: every ask walled: likely this network's address, §7.5; not a baseline"),
+            listOf("  note: X: every ask walled: likely this network's address (Weekly site check runbook); not a baseline"),
             lines.filter { it.startsWith("  note: ") && ("walled" in it || "baseline" in it) },
         )
         assertEquals("W's baseline stays the first run's", listOf(NOW_MS), json(second.stateJson)["weekly"].asArrayOrEmpty.map { it["at"].asLongOrNull })
@@ -333,7 +333,7 @@ class SiteWeeklyTest {
     }
 
     @Test
-    fun `F5 - a stored W baseline whose every ask was walled is set aside, and the next run from a good address starts it`() = runTest {
+    fun `a stored weekly baseline whose every ask was walled is set aside, and the next run from a good address starts it`() = runTest {
         val walled = HashSet<String>(W_POSTS)
         val (http, main) = walledSite(walled)
         val census = census(main, http)
@@ -344,11 +344,11 @@ class SiteWeeklyTest {
             walledRun.report.lines().containsAll(
                 listOf(
                     "  note: X: no baseline yet (VPN off, signed out)",
-                    "  note: X: every ask walled: likely this network's address, §7.5; not a baseline",
+                    "  note: X: every ask walled: likely this network's address (Weekly site check runbook); not a baseline",
                 ),
             ),
         )
-        // An earlier APK's state: the walled run kept as W's baseline (2026-10-23, 02:24 UTC).
+        // An earlier APK's state: the walled run kept as the weekly baseline (2026-10-23, 02:24 UTC).
         val prints = SiteWeekly.linksOf(SiteWays.X, X_LINKS.getValue("x")).mapValues { (_, link) -> SiteCensus.fingerprintOf(link) }
         val stored = SiteCensusState.write(
             SiteCensusState(
@@ -367,7 +367,7 @@ class SiteWeeklyTest {
             again.report.lines().containsAll(
                 listOf(
                     "  note: X: the baseline of $DATE (VPN off, signed out) had every ask walled: set aside",
-                    "  note: X: every ask walled: likely this network's address, §7.5; not a baseline",
+                    "  note: X: every ask walled: likely this network's address (Weekly site check runbook); not a baseline",
                 ),
             ),
         )
@@ -389,7 +389,7 @@ class SiteWeeklyTest {
     }
 
     @Test
-    fun `W's diff - a line per change, each naming its runbook step - and the census's diff joins them as before`() {
+    fun `the weekly diff - a line per change, each naming its runbook step - and the census's diff joins them as before`() {
         val before = site(
             "x", "X",
             row(1, master = master("trial", rows = 3, v = "pass", wrong = 0)),
@@ -474,7 +474,7 @@ class SiteWeeklyTest {
     }
 
     @Test
-    fun `W's caps and slots are as documented, and every runbook step has its entry in the plan's section 7_5`() {
+    fun `the caps and slots are as documented, and every runbook step has its entry in the testing doc's runbook`() {
         assertEquals(60_000L, SiteWeekly.MAX_MILLIS)
         assertEquals(2L * 1024 * 1024, SiteWeekly.MAX_BYTES)
         assertEquals(24, SiteWeekly.MAX_REQUESTS)
@@ -488,13 +488,19 @@ class SiteWeeklyTest {
         }
         assertEquals("one step per kind of line, numbered 1 to 8", (1..8).toList(), Step.entries.map { it.number })
 
-        val plan = listOf("../MASTER_KEY_SOCIAL_PLAN.md", "MASTER_KEY_SOCIAL_PLAN.md").map(::File).first(File::isFile).readText()
-        val section = plan.substringAfter("\n### 7.5 ", "").substringBefore("\n## ")
-        assertTrue("§7.5 is W's runbook", section.startsWith("W's runbook"))
+        val testing = listOf("../docs/TESTING.md", "docs/TESTING.md").map(::File).first(File::isFile).readText()
+        val section = testing.substringAfter("\n## Weekly site check runbook", "").substringBefore("\n## ")
+        assertTrue(
+            "docs/TESTING.md has the heading \"## Weekly site check runbook\" and a section under it",
+            section.startsWith("\n") && section.isNotBlank(),
+        )
         for (step in Step.entries) {
-            assertTrue("§7.5 lacks ${step.label}", section.contains("\n${step.number}. **${step.label}**"))
+            assertTrue("the Weekly site check runbook lacks ${step.label}", section.contains("\n${step.number}. **${step.label}**"))
         }
-        assertTrue("§7.5 says what to do with a walled run (F5)", section.contains("note: <Site>: ${SiteWeekly.WALLED}; not a baseline"))
+        assertTrue(
+            "the Weekly site check runbook says what to do with a walled run",
+            section.contains("note: <Site>: ${SiteWeekly.WALLED}; not a baseline"),
+        )
     }
 
     private fun census(
@@ -504,7 +510,7 @@ class SiteWeeklyTest {
         caps: SiteWeekly.Caps = SiteWeekly.Caps(),
     ) = SiteCensus(main, http, VALID, meter, clock, weeklyCaps = caps)
 
-    /** X's widget answering the video post's fixture, and its files answering V. */
+    /** X's widget answering the video post's fixture, and its files answering the row check. */
     private fun xSite() = FakeExtractorHttpClient(
         getResponder = { url, _ ->
             FakeExtractorHttpClient.json(Fixtures.read("x/tweet_video.json"), url).takeIf { url.startsWith(WIDGET) }
@@ -513,7 +519,7 @@ class SiteWeeklyTest {
     )
 
     /**
-     * F5: X's widget (main's ask and Master's) answering the fixture, or a login status (401) for
+     * X's widget (main's ask and Master's) answering the fixture, or a login status (401) for
      * the posts in [walled]; main's answer for those the wall too (LOGIN_REQUIRED).
      */
     private fun walledSite(walled: Set<String>): Pair<FakeExtractorHttpClient, MainLookup> {
