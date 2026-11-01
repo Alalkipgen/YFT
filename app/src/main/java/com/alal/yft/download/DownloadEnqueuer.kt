@@ -31,7 +31,7 @@ data class PreparedDestination(
     /** The name the file is published under; differs from the request when it was taken. */
     val fileName: String,
     /**
-     * v1.0.2 item 28: the chosen folder could not be used (deleted, access gone, card removed),
+     * Save folder: the chosen folder could not be used (deleted, access gone, card removed),
      * so the file goes to the default place instead; its row says so.
      */
     val folderUnavailable: Boolean = false,
@@ -40,7 +40,7 @@ data class PreparedDestination(
 /** Creates a safe staging destination that stays unpublished until the transfer is verified. */
 interface DownloadDestinationProvider {
     /**
-     * v1.0.2 item 28: [folder] is the folder picked for [DownloadLocation.CHOSEN_FOLDER]; the
+     * Save folder: [folder] is the folder picked for [DownloadLocation.CHOSEN_FOLDER]; the
      * other locations never use it.
      */
     @Throws(IOException::class)
@@ -55,7 +55,7 @@ interface DownloadDestinationProvider {
 /** Narrow probe boundary so enqueue logic stays testable without network access. */
 interface DirectMetadataProbe {
     /**
-     * [askHead] false (v1.0.2): the row's file was already got by its adapter's one-byte check
+     * [askHead] false: the row's file was already got by its adapter's one-byte check
      * (`MediaCandidate.fileChecked`, TikTok), so only the range GET asks it.
      */
     suspend fun probe(plan: DirectDownloadPlan, askHead: Boolean = true): DirectProbeResult
@@ -71,8 +71,8 @@ interface PreviewDownloadStarter {
     suspend fun enqueue(asset: MediaAsset, variant: MediaVariant): EnqueueResult
 
     /**
-     * Track E: like [enqueue], with where the file came from ([origin]: the page's file, the
-     * file before its conversion, who looked it up), so a link that dies after the download
+     * Fresh link renewal: like [enqueue], with where the file came from ([origin]: the page's file,
+     * the file before its conversion, who looked it up), so a link that dies after the download
      * started can be renewed; null when the screen does not know.
      */
     suspend fun enqueue(
@@ -111,9 +111,9 @@ class DownloadEnqueuer(
     private val taskIds: () -> String = { UUID.randomUUID().toString() },
     private val clock: () -> Long = System::currentTimeMillis,
     private val storage: StorageSpace = StorageSpace.Unknown,
-    /** Track E: each queued download's source, for a fresh link (memory only). */
+    /** Fresh link renewal: each queued download's source, for a fresh link (memory only). */
     private val sources: DownloadSources? = null,
-    /** v1.0.2 item 28: the folder picked for [DownloadLocation.CHOSEN_FOLDER], if any. */
+    /** Save folder: the folder picked for [DownloadLocation.CHOSEN_FOLDER], if any. */
     private val folder: suspend () -> SaveFolder? = { null },
     /** Where a chosen folder's provider is asked, away from the main thread. */
     private val folderDispatcher: CoroutineDispatcher = Dispatchers.IO,
@@ -141,13 +141,13 @@ class DownloadEnqueuer(
         }
 
         val target = location()
-        // v1.0.2 item 28: the chosen folder is read only when it is the target.
+        // Save folder: the chosen folder is read only when it is the target.
         val targetFolder = if (target == DownloadLocation.CHOSEN_FOLDER) folder() else null
         // A streaming size is only trusted when the manifest stated it exactly.
         val exactStreamBytes = variant.sizeBytes
             ?.takeIf { variant.sizeAccuracy == MediaSizeAccuracy.EXACT }
-        // Track E: the source is remembered just before the queue gets the task, so no failure
-        // of its first run comes before it; a task the queue never got leaves none.
+        // Fresh link renewal: the source is remembered just before the queue gets the task, so no
+        // failure of its first run comes before it; a task the queue never got leaves none.
         val remember = Remember(taskId, origin, asset, variant)
         return when (request) {
             is DownloadRequest.Direct -> enqueueDirect(
@@ -155,7 +155,7 @@ class DownloadEnqueuer(
                 target = target,
                 targetFolder = targetFolder,
                 remember = remember,
-                // v1.0.2: a file TikTok's adapter already got skips the HEAD (its host may 404).
+                // A file TikTok's adapter already got skips the HEAD (its host may 404).
                 askHead = origin?.candidate?.fileChecked != true,
             )
             is DownloadRequest.Hls ->
@@ -199,10 +199,10 @@ class DownloadEnqueuer(
     }
 
     /**
-     * Track E: remembers a download's source under the name it is saved as, just before the
-     * queue gets the task; forgets it again when queueing fails. v1.0.2 (item 50): also the
-     * quality a video was picked as, for its row, wherever it was picked; (item 28) and that the
-     * chosen folder could not be used, for the row's notice.
+     * Fresh link renewal: remembers a download's source under the name it is saved as, just before
+     * the queue gets the task; forgets it again when queueing fails. Also the quality a video was
+     * picked as, for its row, wherever it was picked; and that the chosen folder could not be used
+     * (Save folder), for the row's notice.
      */
     private inner class Remember(
         private val taskId: String,
@@ -305,7 +305,7 @@ class DownloadEnqueuer(
         }
 
     /**
-     * Rejects work of a known size that cannot fit, before any destination exists (R3). Unknown
+     * Rejects work of a known size that cannot fit, before any destination exists. Unknown
      * sizes and unmeasurable volumes pass; the engines still report a full disk if a write fails.
      */
     private fun insufficientSpace(requiredBytes: Long?, target: DownloadLocation): EnqueueResult? {

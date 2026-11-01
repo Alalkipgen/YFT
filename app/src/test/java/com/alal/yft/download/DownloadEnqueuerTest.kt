@@ -68,7 +68,7 @@ class DownloadEnqueuerTest {
     }
 
     /**
-     * v1.0.2: a file TikTok's adapter already got with its one-byte check is probed without the
+     * A file TikTok's adapter already got with its one-byte check is probed without the
      * HEAD (TikTok's host answers some HEADs 404); every other file, and a download without its
      * origin, asks the HEAD first.
      */
@@ -212,7 +212,7 @@ class DownloadEnqueuerTest {
     }
 
     /**
-     * v1.0.2 item 28: the picked folder reaches the provider only for the chosen-folder location,
+     * Save folder: the picked folder reaches the provider only for the chosen-folder location,
      * for every plan type; any other location asks the provider as before, without a folder.
      */
     @Test
@@ -239,7 +239,7 @@ class DownloadEnqueuerTest {
         assertEquals(0, shared.folderReads)
     }
 
-    /** v1.0.2 item 28: a folder the provider could not use leaves the row's notice. */
+    /** Save folder: a folder the provider could not use leaves the row's notice. */
     @Test
     fun `a download the chosen folder could not take is noted for its row`() = runTest {
         val sources = DownloadSources()

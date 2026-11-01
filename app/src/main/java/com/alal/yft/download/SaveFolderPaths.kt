@@ -5,7 +5,7 @@ import java.net.URI
 import java.net.URLDecoder
 
 /**
- * M1 (v1.0.2): a folder picked in Android's folder picker as people read it: its place on the
+ * Save folder: a folder picked in Android's folder picker as people read it: its place on the
  * phone's storage or a memory card ("Movies/Test", "Download/YFT"), read from the picker's
  * address (`content://com.android.externalstorage.documents/tree/primary%3AMovies%2FTest`).
  */

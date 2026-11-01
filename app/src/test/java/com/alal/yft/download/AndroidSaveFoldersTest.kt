@@ -16,7 +16,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** v1.0.2 item 28: YFT's access to the folder picked in Android's folder picker. */
+/** Save folder: YFT's access to the folder picked in Android's folder picker. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class AndroidSaveFoldersTest {

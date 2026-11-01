@@ -20,7 +20,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** P42: "Delete file" deletes by the record's destination, with fakes for each place. */
+/** "Delete file" deletes by the record's destination, with fakes for each place. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class DownloadedFileDeleterTest {
@@ -110,7 +110,7 @@ class DownloadedFileDeleterTest {
 
     @Test
     fun severalItemsThatNeedConsentShareOneSystemRequestOnAndroidElevenAndLater() = runTest {
-        // v1.0.2 item 5b: the Library's select mode deletes the picked files together.
+        // Delete file: the Library's select mode deletes the picked files together.
         val system = FakeSystem(refused = setOf(MEDIA_B, MEDIA_C))
         val document = SavedDownloadFile(DownloadDestinationKind.SAF_DOCUMENT, DOC_URI, "d.mp4")
         val files = listOf(media(), media(MEDIA_B), document, media(MEDIA_C))
@@ -218,7 +218,7 @@ class DownloadedFileDeleterTest {
         private val documentExists: Boolean = false,
         private val documentError: Exception? = null,
         private val appFile: File? = null,
-        /** v1.0.2 item 5b: the items YFT may not delete on its own, by URI. */
+        /** Delete file: the items YFT may not delete on its own, by URI. */
         private val refused: Set<String> = emptySet(),
         /** Android 10: refused items without a user action. */
         private val unaskable: Set<String> = emptySet(),

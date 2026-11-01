@@ -7,7 +7,7 @@ import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.download.Mp3Encoding
 
 /**
- * What a running task does right now (P34). The queue keeps a task `RUNNING` through its
+ * What a running task does right now. The queue keeps a task `RUNNING` through its
  * download, its merge or MP3 conversion and its save, so the step is read from its checkpoint
  * and its bytes: a merged download says so in its [AudioVideoMuxCheckpoint], any other task
  * whose bytes are all in is converting (MP3) or saving.
@@ -28,7 +28,7 @@ internal enum class TaskWork {
 
 /** The step of a task that runs, or null when it waits, is paused or has ended. */
 internal fun StoredDownloadTask.work(): TaskWork? {
-    // Track E: a fresh link is a lookup over the network, so the task still downloads.
+    // Fresh link renewal: a fresh link is a lookup over the network, so the task still downloads.
     if (status == DownloadTaskStatus.RENEWING_LINK) return TaskWork.DOWNLOADING
     if (status !in RUNNING_STATUSES) return null
     (checkpoint as? AudioVideoMuxCheckpoint)?.let { mux ->

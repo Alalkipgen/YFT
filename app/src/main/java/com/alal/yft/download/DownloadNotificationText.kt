@@ -13,11 +13,11 @@ import com.alal.yft.feature.downloads.timeLeftLabel
 import com.alal.yft.ui.format.YftFormat
 
 /**
- * What the ongoing download notification says (P34, R22), worked out without Android so the
+ * What the ongoing download notification says, worked out without Android so the
  * texts can be tested on the JVM:
  * - one download: its title, "45% · 1.2 MB/s · 61 MB of 96 MB · 15 s left" and its bar;
  * - several: "Downloading 3 videos · 45%", "2.4 MB/s · 1 min left" and one line each;
- * - a merge or save: P27's "Merging audio and video · 45%";
+ * - a merge or save: "Merging audio and video · 45%";
  * - waiting: "Waiting for network" or "Waiting for Wi-Fi".
  */
 internal data class ActiveNotificationContent(
@@ -75,7 +75,7 @@ internal fun finishedNoticeText(task: StoredDownloadTask): String? = when (task.
     DownloadTaskStatus.COMPLETED -> "Downloaded$SEPARATOR${shortTitle(task)}"
     DownloadTaskStatus.FAILED -> "Download failed$SEPARATOR${shortTitle(task)} \u2014 " +
         failureLabel(task.failureReason ?: DownloadFailureReason.NETWORK)
-    // Item 7 Track B1: a link YouTube refused while it had time left did not expire.
+    // YouTube session reset: a link YouTube refused while it had time left did not expire.
     DownloadTaskStatus.NEEDS_REFRESH -> "Download failed$SEPARATOR${shortTitle(task)} \u2014 " +
         if (task.failureReason == DownloadFailureReason.YOUTUBE_REFUSED) {
             "YouTube refused"

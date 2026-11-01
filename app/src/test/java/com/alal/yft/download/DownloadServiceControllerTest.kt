@@ -15,7 +15,9 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** P34: the download service's decisions — foreground, locks, types, notices and freezes. */
+/**
+ * Download queue: the download service's decisions — foreground, locks, types, notices and freezes.
+ */
 class DownloadServiceControllerTest {
     private var now = 100_000L
     private val wake = FakeLock()

@@ -34,7 +34,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
- * Keeps YFT running while downloads, merges, MP3 conversions and saves go on (P34): a
+ * Keeps YFT running while downloads, merges, MP3 conversions and saves go on: a
  * foreground service with the ongoing notification, a wake lock and a Wi-Fi lock while work
  * runs, the media-processing type on Android 15 while merging, and a once-a-second tick that
  * renews the locks, updates the notification and notices when the phone froze YFT.
@@ -51,7 +51,7 @@ class DownloadForegroundService : Service() {
     @Inject
     lateinit var policy: DownloadNetworkStatus
 
-    /** P17: a download whose links stopped working drops its video's remembered lookup. */
+    /** Lookup reuse: a download whose links stopped working drops its video's remembered lookup. */
     @Inject
     lateinit var lookups: SiteLookupCache
 
@@ -220,14 +220,14 @@ class DownloadForegroundService : Service() {
         const val ACTION_PAUSE_ALL = "com.alal.yft.action.PAUSE_ALL_DOWNLOADS"
         private const val TAG = "YftDownloads"
 
-        /** Instrumented tests run the service on their own queue (P34); always null in the app. */
+        /** Instrumented tests run the service on their own queue; always null in the app. */
         @VisibleForTesting
         @Volatile
         internal var testQueue: DownloadQueue? = null
 
         /**
          * Starts the service; when Android refuses a start from the background, the downloads
-         * stay queued and a notice says to open YFT (P34).
+         * stay queued and a notice says to open YFT.
          */
         fun start(context: Context) {
             try {

@@ -19,7 +19,7 @@ import java.util.UUID
  *
  * Pending MediaStore items need Android 10 (API 29). Older releases fall back to app-private
  * storage because exposing a half-written public file under its final name is not acceptable.
- * Users can also choose app storage explicitly, or (v1.0.2 item 28) a folder of their own through
+ * Users can also choose app storage explicitly, or a folder of their own (Save folder) through
  * Android's folder picker: a hidden temporary document there ([SafDownloadDestination]) gets the
  * file's name only after the check, on every Android version. A folder that can no longer be
  * used gives way to the default place, and the prepared destination says so.
@@ -176,7 +176,7 @@ internal object AppPrivateNames {
 }
 
 /**
- * v1.0.2 item 28: a free name in a chosen folder, given its entries' [names]: a name is taken
+ * Save folder: a free name in a chosen folder, given its entries' [names]: a name is taken
  * by a file or folder of that name, in any case (memory cards ignore it), or by another
  * download's hidden temporary document (`.name.yft-<id>.part`, to which the phone's storage
  * may add the type's extension).

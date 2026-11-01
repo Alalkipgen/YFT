@@ -41,8 +41,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Track E (E3, E-D8): a dead link of a page no adapter reads is renewed by reading the page again
- * once, quietly, as its owner read it (P37's reader: the browser's with the tab's agent, Home's
+ * Fresh link renewal: a dead link of a page no adapter reads is renewed by reading the page again
+ * once, quietly, as its owner read it (the browser's reader with the tab's agent, Home's
  * with Home's agent and no cookie), and taking the same file from it: its address under a fresh
  * signature, else the video of its length (within 2 s). A pasted file link, a page that is the
  * file itself and a file an adapter's page did not name are not renewed; nor is a 400 off VK.
@@ -289,7 +289,7 @@ class PageRereadRenewalTest {
     }
 
     /**
-     * v1.0.2: a page read again without its player data (a notice, a check) leaves "Link
+     * A page read again without its player data (a notice, a check) leaves "Link
      * expired" with Retry, and its row says to reopen the page; a read that finds the player
      * takes that back.
      */
@@ -392,7 +392,7 @@ class PageRereadRenewalTest {
     private fun clip(name: String, read: Int, host: String = "cdn.example.test") =
         "https://$host/videos/clip-$name.mp4?token=$read"
 
-    /** P37's reader: read n answers [answer] (n), or throws [thrown]; [rereads] as built. */
+    /** The page reader: read n answers [answer] (n), or throws [thrown]; [rereads] as built. */
     private class FakeReader(
         override val rereads: Int = BrowserPageReader.DEFAULT_REREADS,
     ) : BrowserPageReader {

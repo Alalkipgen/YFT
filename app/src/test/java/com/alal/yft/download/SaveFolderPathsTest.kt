@@ -7,7 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** M1 (v1.0.2): a picked folder's readable path, from the folder picker's address. */
+/** Save folder: a picked folder's readable path, from the folder picker's address. */
 class SaveFolderPathsTest {
     @Test
     fun `a folder on the phone's storage is named by its path`() {

@@ -48,7 +48,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.TestScope
 
-/** Track E (E2): a task store in memory; with [failure] every save fails, as a full disk. */
+/** Fresh link renewal: a task store in memory; with [failure] every save fails, as a full disk. */
 internal class MemoryTaskStore : DownloadTaskStore {
     private val saved = linkedMapOf<String, StoredDownloadTask>()
     var failure: IOException? = null
@@ -69,7 +69,7 @@ internal class MemoryTaskStore : DownloadTaskStore {
 internal class RecordingProbe : DirectMetadataProbe {
     val plans = CopyOnWriteArrayList<DirectDownloadPlan>()
 
-    /** Whether each probe asked the HEAD first (v1.0.2: not for a file its adapter checked). */
+    /** Whether each probe asked the HEAD first (not for a file its adapter checked). */
     val askedHead = CopyOnWriteArrayList<Boolean>()
     var answer: (DirectDownloadPlan) -> DirectProbeResult = { plan ->
         DirectProbeResult.Success(RenewalFixtures.metadata(plan.sourceUrl))

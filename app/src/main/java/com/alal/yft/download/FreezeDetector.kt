@@ -1,6 +1,6 @@
 package com.alal.yft.download
 
-/** A time the phone stopped YFT while it held its wake lock (P34, R24). */
+/** A time the phone stopped YFT while it held its wake lock. */
 internal data class BackgroundFreeze(
     /** How long YFT did nothing beyond the tick it waited for. */
     val lostMs: Long,
@@ -9,7 +9,7 @@ internal data class BackgroundFreeze(
 )
 
 /**
- * Notices that the phone froze or stopped YFT in the background (P34, R24): the download service
+ * Notices that the phone froze or stopped YFT in the background: the download service
  * ticks once a [intervalMs] on its own clock (`SystemClock.elapsedRealtime`, which keeps counting
  * in deep sleep). A tick that comes more than [lateMs] late while YFT holds its wake lock cannot
  * be the phone sleeping: something stopped the app.

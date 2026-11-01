@@ -57,12 +57,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Track E (E2): a dead link of a site adapter's video is renewed by looking its page up again as
- * its owner did, finding the same video and quality, and planning it under the same task and
- * file name; what is no dead link of a known video is left to the queue. E3 (E-D1): VK's 400
- * after its file gave bytes is a dead link, before any byte or off VK a failure as before. The
- * adapters, the resolver and the file probe are fakes; the coordinator, the enqueue and the
- * queue are real.
+ * Fresh link renewal: a dead link of a site adapter's video is renewed by looking its page up again
+ * as its owner did, finding the same video and quality, and planning it under the same task and
+ * file name; what is no dead link of a known video is left to the queue. VK's 400 after its file
+ * gave bytes is a dead link, before any byte or off VK a failure as before. The adapters, the
+ * resolver and the file probe are fakes; the coordinator, the enqueue and the queue are real.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SiteLinkRenewalTest {
@@ -191,7 +190,7 @@ class SiteLinkRenewalTest {
     }
 
     /**
-     * v1.0.2 item 51: another video item of a post is renewed from the rows of that item the
+     * Another video item of a post is renewed from the rows of that item the
      * fresh answer carries with the item its link names, by the item's own video id and height.
      */
     @Test
@@ -225,7 +224,7 @@ class SiteLinkRenewalTest {
         }
 
     /**
-     * v1.0.2: TikTok's adapter marks the files its one-byte check got, so neither the downloads'
+     * TikTok's adapter marks the files its one-byte check got, so neither the downloads'
      * probes nor the fresh links' ask the HEAD (TikTok's host answers some HEADs 404).
      */
     @Test
@@ -254,7 +253,7 @@ class SiteLinkRenewalTest {
         val plan = renew(harness, low, x).plan as DirectDownloadPlan
 
         assertEquals(link(x, "720-low", 1), plan.sourceUrl)
-        // Every other site's file asks the HEAD first (v1.0.2: only checked files skip it).
+        // Every other site's file asks the HEAD first (only checked files skip it).
         assertEquals(listOf(true, true), probe.askedHead)
     }
 
@@ -455,7 +454,7 @@ class SiteLinkRenewalTest {
             val id = download(harness, lookUp(youtube).titled("360p")).taskId
             runCurrent()
 
-            // No lookup by itself (E-D5'): the row is B1's, with its hint and Reset.
+            // No lookup by itself: the row is a YouTube refusal's, with its hint and Reset.
             val stopped = harness.queue.tasks.value.single()
             assertEquals(DownloadTaskStatus.NEEDS_REFRESH, stopped.status)
             assertEquals(DownloadFailureReason.YOUTUBE_REFUSED, stopped.failure?.reason)
@@ -920,14 +919,16 @@ class SiteLinkRenewalTest {
         val GONE = LinkRenewal.Unavailable(SiteLinkRenewal.VIDEO_GONE)
         val NO_QUALITY = LinkRenewal.Unavailable(SiteLinkRenewal.QUALITY_GONE)
 
-        /** B1: YouTube's media host refusing a link with time left (the queue's own reason). */
+        /** YouTube's media host refusing a link with time left (the queue's own reason). */
         val YOUTUBE_REFUSAL = DownloadFailure(
             reason = DownloadFailureReason.YOUTUBE_REFUSED,
             httpStatusCode = 403,
             stage = DownloadFailureStage.CONNECT,
         )
 
-        /** VK's media hosts answer a link that died (a new IP) with 400 (census §4). */
+        /**
+         * VK's media hosts answer a link that died (a new IP) with 400 (as the Site census found).
+         */
         val BAD_REQUEST = DownloadFailure(
             reason = DownloadFailureReason.HTTP_STATUS,
             httpStatusCode = 400,

@@ -72,7 +72,7 @@ object DownloadRuntimeModule {
         RoomDownloadTaskStore(dao)
 
     /**
-     * Track E (E-D9): the trial's "Break this download's link"; in every other build it is off
+     * Fresh link renewal: the trial's "Break this download's link"; in every other build it is off
      * and the downloads' client is the app's own.
      */
     @Provides
@@ -124,13 +124,13 @@ object DownloadRuntimeModule {
         @ApplicationContext context: Context,
         space: StorageSpace,
     ): AudioVideoMuxRunner = AudioVideoMuxEngine(
-        // P50: an HLS video quality and its audio rendition are fetched as HLS, then merged.
+        // Sound pairing: an HLS video quality and its audio rendition, fetched as HLS, then merged.
         dashTransfer = PlaylistTrackTransferRunner(dash = dash, hls = hls),
         muxer = muxer,
         workspaceRoot = File(context.noBackupFilesDir, MUX_WORKSPACE_DIRECTORY),
         // The smaller of app storage and the shared volume: a merge writes into one or both.
         freeBytes = { space.availableBytes(DownloadLocation.SHARED_DOWNLOADS) },
-        // v1.0.2 item 26: AV1 merges, a debug build's test switch (the release: off).
+        // AV1 merge switch: AV1 merges, a debug build's test switch (the release: off).
         av1Merges = Av1MergeSwitch::merges,
     )
 
@@ -154,12 +154,12 @@ object DownloadRuntimeModule {
             hls = hls,
             dash = dash,
             mux = mux,
-            // Task 3 (phase-v102-easy): "Live video saved 54 s short of 2h10m33s, at the end: …".
+            // Live download: "Live video saved 54 s short of 2h10m33s, at the end: …".
             onDetail = sources::note,
         ),
         transcoder = mp3,
         workspaceRoot = File(context.noBackupFilesDir, MP3_WORKSPACE_DIRECTORY),
-        // G2 (v1.0.2): "MP3: 4:12 of sound, decode 1.2 s, encode 6.8 s" in the row's Details.
+        // MP3 conversion: "MP3: 4:12 of sound, decode 1.2 s, encode 6.8 s" in the row's Details.
         onDetail = sources::note,
     )
 
@@ -169,13 +169,13 @@ object DownloadRuntimeModule {
     fun provideDownloadScope(): CoroutineScope =
         CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    /** Track E: whose sign-in a fresh link's lookup sends, by the lookup's owner. */
+    /** Fresh link renewal: whose sign-in a fresh link's lookup sends, by the lookup's owner. */
     @Provides
     @Singleton
     fun provideLookupSessions(tikTok: TikTokPageSettings): LookupSessions =
         AndroidLookupSessions(tikTok)
 
-    /** Track E (E-D5'): the phone's network changes, for "YouTube refused". */
+    /** Fresh link renewal: the phone's network changes, for "YouTube refused". */
     @Provides
     @Singleton
     fun provideNetworkChanges(
@@ -184,8 +184,8 @@ object DownloadRuntimeModule {
     ): NetworkChanges = NetworkChanges(network, scope)
 
     /**
-     * Track E: each queued download's source, in memory only (E-D2). A page an adapter reads
-     * renews only the adapter's video (E3).
+     * Fresh link renewal: each queued download's source, in memory only. A page an adapter reads
+     * renews only the adapter's video.
      */
     @Provides
     @Singleton
@@ -200,10 +200,10 @@ object DownloadRuntimeModule {
     )
 
     /**
-     * Track E: fresh links from the site's page. The lookup's parts are made when a link first
-     * dies, so the queue never waits for them and no cycle runs through them. E3 (E-D8): a page
-     * no adapter reads is read again as its owner read it: the browser's re-read (the tab's
-     * agent and cookies, P37), or Home's (Home's agent, no cookie).
+     * Fresh link renewal: fresh links from the site's page. The lookup's parts are made when a link
+     * first dies, so the queue never waits for them and no cycle runs through them. A page no
+     * adapter reads is read again as its owner read it: the browser's re-read (the tab's agent and
+     * cookies), or Home's (Home's agent, no cookie).
      */
     @Provides
     @Singleton
@@ -250,7 +250,7 @@ object DownloadRuntimeModule {
         scope = scope,
         linkRenewal = renewal,
     ).also { queue ->
-        // A source goes when its download completes, is cancelled or removed (E-D2).
+        // A source goes when its download completes, is cancelled or removed.
         scope.launch { queue.tasks.collect(sources::prune) }
     }
 
@@ -271,7 +271,7 @@ object DownloadRuntimeModule {
         folders: SaveFolders,
     ): DownloadDestinationProvider = AndroidDownloadDestinationProvider(context, folders)
 
-    /** v1.0.2 item 28: the folder picked in Android's folder picker, and YFT's access to it. */
+    /** Save folder: the folder picked in Android's folder picker, and YFT's access to it. */
     @Provides
     @Singleton
     fun provideSaveFolders(@ApplicationContext context: Context): SaveFolders =
@@ -283,7 +283,7 @@ object DownloadRuntimeModule {
         @ApplicationContext context: Context,
     ): DownloadServiceStarter = ForegroundDownloadServiceStarter(context)
 
-    /** P34: freezes, the cards the user put away and whether a download was started. */
+    /** Download queue: freezes, the cards the user put away and whether a download was started. */
     @Provides
     @Singleton
     fun provideBackgroundHealthStore(

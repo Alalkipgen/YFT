@@ -28,7 +28,7 @@ data class FolderEntry(
 }
 
 /**
- * v1.0.2 item 28: the folder the user picks in Android's folder picker (the Storage Access
+ * Save folder: the folder the user picks in Android's folder picker (the Storage Access
  * Framework) for new downloads. YFT keeps read and write access to it ([take]) and never gives
  * that access back, so the files saved there earlier still open after another choice. Before
  * each download it checks that it can still make files there ([usable]): a deleted folder, a

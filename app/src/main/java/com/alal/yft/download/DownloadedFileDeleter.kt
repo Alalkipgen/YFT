@@ -15,7 +15,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** A finished download's file, where its record says it was saved (P42). */
+/** A finished download's file, where its record says it was saved. */
 data class SavedDownloadFile(
     val kind: DownloadDestinationKind,
     /** The MediaStore item or SAF document; unused for app storage. */
@@ -24,7 +24,7 @@ data class SavedDownloadFile(
     val displayName: String,
 )
 
-/** What deleting a saved file came to (P42). */
+/** What deleting a saved file came to. */
 sealed interface FileDeletion {
     /** The file is gone, also when it was gone already. */
     data object Deleted : FileDeletion
@@ -40,7 +40,7 @@ sealed interface FileDeletion {
 }
 
 /**
- * v1.0.2 item 5b: what deleting several saved files at once came to. Android asks the user
+ * Delete file: what deleting several saved files at once came to. Android asks the user
  * first about [asking] (files YFT may not delete on its own): the screen launches [request],
  * then deletes them again. Android 10 asks about one file at a time, so the files after it are
  * [waiting] for that answer before they are tried again.
@@ -61,7 +61,7 @@ fun interface DownloadedFileDeleter {
     suspend fun delete(file: SavedDownloadFile): FileDeletion
 
     /**
-     * v1.0.2 item 5b: deletes [files] together, so that Android asks once for all of those that
+     * Deletes [files] together, so that Android asks once for all of those that
      * need the user's consent where it can (Android 11 and later). This default deletes them
      * one at a time and stops at the first that needs consent; the rest wait.
      */
@@ -98,7 +98,7 @@ interface FileDeleteSystem {
     fun mediaItemExists(uri: String): Boolean
 
     /**
-     * Android 11+: the system's "Allow YFT to delete?" request; v1.0.2 item 5b: one request for
+     * Android 11+: the system's "Allow YFT to delete?" request; one request for
      * all of [uris].
      */
     fun mediaDeleteRequest(uris: List<String>): IntentSender
@@ -116,7 +116,7 @@ interface FileDeleteSystem {
 }
 
 /**
- * Deletes by the record's destination (P42): YFT's MediaStore item through the content
+ * Deletes by the record's destination: YFT's MediaStore item through the content
  * resolver (asking the user when Android requires it), a SAF document through
  * DocumentsContract and an app-private file directly. A file that is already gone counts as
  * deleted, so its row can go too.
@@ -135,7 +135,7 @@ class AndroidDownloadedFileDeleter(
         }
 
     /**
-     * v1.0.2 item 5b: tries every file first; then one Android request covers all the
+     * Delete file: tries every file first; then one Android request covers all the
      * MediaStore items YFT may not delete on its own (Android 11+). Android 10 asks about one
      * item at a time, so the items after it wait; before Android 10 there is nothing to ask.
      */

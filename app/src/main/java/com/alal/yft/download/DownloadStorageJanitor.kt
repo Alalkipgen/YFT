@@ -24,7 +24,7 @@ data class JanitorReport(
 )
 
 /**
- * Removes download storage nothing can use any more (hardening finding P2).
+ * Removes download storage nothing can use any more.
  *
  * Transfer runtime state lives only in memory, so after process death a staged `.part` file in
  * app storage can never be resumed, and a streaming workspace whose task was deleted or finished
@@ -60,7 +60,7 @@ class DownloadStorageJanitor(
             .map(StoredDownloadTask::id)
         val listed = queue.tasks.value.mapTo(mutableSetOf(), StoredDownloadTask::id)
         return withContext(ioDispatcher) {
-            // P19: pictures of downloads whose record went while nothing was watching.
+            // Pictures of downloads whose record went while nothing was watching.
             thumbnails.keepOnly(listed, olderThanEpochMs = cutoff)
             JanitorReport(
                 partialFiles = deleteStalePartialFiles(cutoff),

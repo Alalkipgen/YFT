@@ -18,7 +18,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * v1.0.2 item 28: new downloads go to the folder picked in Android's folder picker, as a hidden
+ * Save folder: new downloads go to the folder picked in Android's folder picker, as a hidden
  * document named only after the check; a folder that can no longer be used gives way to the
  * default place, which the prepared destination reports for the row's notice.
  */

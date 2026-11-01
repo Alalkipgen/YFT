@@ -22,13 +22,13 @@ interface DownloadStorageSource {
     suspend fun freeBytes(location: DownloadLocation): Long?
 
     /**
-     * v1.0.2 item 28: the chosen folder's name while new downloads can go there, asked again
+     * Save folder: the chosen folder's name while new downloads can go there, asked again
      * each time; null when it can no longer be used, as they go to [defaultLocation] then.
      */
     suspend fun folderName(): String? = null
 
     /**
-     * M1 (v1.0.2): free bytes where the chosen folder is, when that can be read (the phone's own
+     * Save folder: free bytes where the chosen folder is, when that can be read (the phone's own
      * storage); null otherwise (a memory card, a cloud app) and when the folder cannot be used.
      */
     suspend fun folderFreeBytes(): Long? = null
@@ -54,7 +54,7 @@ class PreferencesDownloadStorageSource(
     private val sharedDownloadsSupported: Boolean =
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    /** v1.0.2 item 28: whether the chosen folder can still be used. */
+    /** Save folder: whether the chosen folder can still be used. */
     private val folders: SaveFolders = SaveFolders.None,
 ) : DownloadStorageSource {
     override val location: Flow<DownloadLocation?> = preferences.preferences
@@ -70,7 +70,7 @@ class PreferencesDownloadStorageSource(
     override suspend fun freeBytes(location: DownloadLocation): Long? =
         withContext(ioDispatcher) { space.availableBytes(location) }
 
-    /** M1 (v1.0.2): the folder's path ("Movies/Test", "Download/YFT"), else its name. */
+    /** Save folder: the folder's path ("Movies/Test", "Download/YFT"), else its name. */
     override suspend fun folderName(): String? = usableFolder()?.let(SaveFolderPaths::label)
 
     override suspend fun folderFreeBytes(): Long? {

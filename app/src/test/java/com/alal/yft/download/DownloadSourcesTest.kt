@@ -33,8 +33,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Track E (E2): where each download came from, in memory only: remembered as the queue gets the
- * task, under the name it is saved as, and dropped with the task or by Clear browsing data.
+ * Fresh link renewal: where each download came from, in memory only: remembered as the queue gets
+ * the task, under the name it is saved as, and dropped with the task or by Clear browsing data.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class DownloadSourcesTest {
@@ -137,7 +137,7 @@ class DownloadSourcesTest {
         )
     }
 
-    /** v1.0.2 (item 50): each video's picked quality, for its row; sound has none. */
+    /** Each video's picked quality, for its row; sound has none. */
     @Test
     fun `every video download keeps the quality it was picked as and sound none`() = runTest {
         val harness = EnqueueHarness(this)
@@ -242,7 +242,7 @@ class DownloadSourcesTest {
         assertTrue(sources.renewals.value.notes.isEmpty())
     }
 
-    /** v1.0.2: a page read again without its player data is marked until the next answer. */
+    /** A page read again without its player data is marked until the next answer. */
     @Test
     fun `a page read again without its player stays marked until the next answer`() {
         val sources = DownloadSources()

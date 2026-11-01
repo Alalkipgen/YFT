@@ -24,10 +24,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * Track E: where a download came from, as the sheet (or Download as) knew it when the user
- * tapped Download: the page's file the user chose ([candidate]: its page, video and facts), the
- * file before an MP3 or M4A conversion ([base]), who looked the video up ([owner]; null when the
- * screen does not know: the browser's rule) and the agent of that lookup. Memory only.
+ * Fresh link renewal: where a download came from, as the sheet (or Download as) knew it when the
+ * user tapped Download: the page's file the user chose ([candidate]: its page, video and facts),
+ * the file before an MP3 or M4A conversion ([base]), who looked the video up ([owner]; null when
+ * the screen does not know: the browser's rule) and the agent of that lookup. Memory only.
  */
 data class DownloadOrigin(
     val candidate: MediaCandidate,
@@ -52,7 +52,7 @@ data class DownloadConversion(
 }
 
 /**
- * Track E (E0 §6 Q3): the facts that name a download's quality across two lookups of one video.
+ * Fresh link renewal: the facts that name a download's quality across two lookups of one video.
  * A variant's id is no key (the resolver numbers by position), so these are: the kind, the track
  * type, whether the sound is merged in, the picture's height, width and frame rate, the
  * container, the codecs and the merged sound's codecs (by family, "avc1", "mp4a"), the site's
@@ -184,11 +184,11 @@ data class DownloadQualityKey(
 }
 
 /**
- * Track E: what a fresh link of one download needs, in memory only (E-D2): the page the lookup
+ * Fresh link renewal: what a fresh link of one download needs, in memory only: the page the lookup
  * asked for, the video it named, who looked it up and how (the agent; whether the site's
  * sign-in went with it), the quality and the conversion, and what names the file (the variant's
  * label, the title, the name it is saved under). [durationMillis] is the video's stated length;
- * [networkChanges] the phone's network changes when the link was found (E-D5'). [mediaPath] (E3)
+ * [networkChanges] the phone's network changes when the link was found. [mediaPath]
  * is the file's address without its signature on a page no adapter reads, to find the same file
  * when the page is read again. Its `toString` names no address.
  */
@@ -208,10 +208,10 @@ data class DownloadSource(
     val networkChanges: Long,
     val mediaPath: String? = null,
 ) {
-    /** E3 (E-D8): a page no adapter reads, read again quietly for the same file (P37). */
+    /** A page no adapter reads, read again quietly for the same file. */
     val rereadable: Boolean get() = videoId.isNullOrBlank() && !mediaPath.isNullOrBlank()
 
-    /** E2: a site adapter named the video, so its page can be looked up again; E3: or read. */
+    /** A site adapter named the video, so its page can be looked up again; or [rereadable]. */
     val renewable: Boolean get() = !videoId.isNullOrBlank() || rereadable
 
     override fun toString(): String =
@@ -220,10 +220,10 @@ data class DownloadSource(
 }
 
 /**
- * Track E: what Downloads shows of the renewals: the rows that a Retry renews (E-D6: only while
- * the app has the row's source), each download's renewal lines for its Details, and (v1.0.2) the
+ * Fresh link renewal: what Downloads shows of the renewals: the rows that a Retry renews (only
+ * while the app has the row's source), each download's renewal lines for its Details, and the
  * downloads whose page, read again for a fresh link, had no player data ([noPlayer]) and each
- * unfinished download's picked quality ("1080p", [qualities]) for its row. Item 28: the
+ * unfinished download's picked quality ("1080p", [qualities]) for its row. Save folder: the
  * downloads that went to the default place because the chosen folder could not be used
  * ([folderUnavailable]).
  */
@@ -240,16 +240,15 @@ data class DownloadRenewals(
 }
 
 /**
- * Track E: every download's [DownloadSource], in memory only (E-D2). A source is remembered when
- * the download is queued and dropped when it completes, is cancelled or deleted ([prune]) and by
- * Clear browsing data ([clear]); nothing is written to disk, so after a restart there is none.
- * v1.0.2 (item 50): also the quality each download was picked as ([picked]), for its row until
- * it finishes; it goes with the task, as the source does, but stays through Clear browsing data
- * (a quality's name is no browsing data). After a restart the row reads as before. Item 28: and
- * the downloads the chosen folder could not take ([folderUnavailable]), for their row's notice
- * while the row is listed, finished or not; Clear browsing data keeps them too.
- * [adapterPage] says whether a site adapter reads a page: there only the adapter's video is
- * renewed, never a file it did not name (E3).
+ * Fresh link renewal: every download's [DownloadSource], in memory only. A source is remembered
+ * when the download is queued and dropped when it completes, is cancelled or deleted ([prune]) and
+ * by Clear browsing data ([clear]); nothing is written to disk, so after a restart there is none.
+ * Also the quality each download was picked as ([picked]), for its row until it finishes; it goes
+ * with the task, as the source does, but stays through Clear browsing data (a quality's name is no
+ * browsing data). After a restart the row reads as before. Save folder: also the downloads the
+ * chosen folder could not take ([folderUnavailable]), for their row's notice while the row is
+ * listed, finished or not; Clear browsing data keeps them too. [adapterPage] says whether a site
+ * adapter reads a page: there only the adapter's video is renewed, never a file it did not name.
  */
 class DownloadSources(
     private val sessions: LookupSessions = LookupSessions.None,
@@ -266,10 +265,10 @@ class DownloadSources(
     /** The downloads whose page, read again for their last fresh link, had no player data. */
     private val noPlayer = mutableSetOf<String>()
 
-    /** v1.0.2 (item 50): each unfinished download's picked quality, "1080p" or "4K". */
+    /** Each unfinished download's picked quality, "1080p" or "4K". */
     private val qualities = LinkedHashMap<String, String>()
 
-    /** v1.0.2 (item 28): the downloads that went to the default place, not the chosen folder. */
+    /** Save folder: the downloads that went to the default place, not the chosen folder. */
     private val folderUnavailable = mutableSetOf<String>()
     private val mutableRenewals = MutableStateFlow(DownloadRenewals.None)
     val renewals: StateFlow<DownloadRenewals> = mutableRenewals.asStateFlow()
@@ -279,7 +278,7 @@ class DownloadSources(
      * (after the conversion) and the [fileName] it is saved under. Whether the site's sign-in
      * went with the lookup follows the owner's rule now: Home sends only TikTok's or Instagram's
      * sign-in, the browser the site's cookies it holds. A file no adapter named keeps its
-     * address without the signature, unless it is a pasted file link or the page itself (E3).
+     * address without the signature, unless it is a pasted file link or the page itself.
      */
     fun remember(
         taskId: String,
@@ -321,21 +320,21 @@ class DownloadSources(
 
     operator fun get(taskId: String): DownloadSource? = synchronized(lock) { sources[taskId] }
 
-    /** v1.0.2 (item 50): [taskId] was picked as [quality] ("1080p"), for its row until done. */
+    /** [taskId] was picked as [quality] ("1080p"), for its row until done. */
     fun picked(taskId: String, quality: String) {
         synchronized(lock) {
             if (qualities.put(taskId, quality) != quality) publishLocked()
         }
     }
 
-    /** v1.0.2 (item 28): [taskId] goes to the default place, as the chosen folder could not. */
+    /** Save folder: [taskId] goes to the default place, as the chosen folder could not. */
     fun folderUnavailable(taskId: String) {
         synchronized(lock) {
             if (folderUnavailable.add(taskId)) publishLocked()
         }
     }
 
-    /** A fresh link came for [taskId]: its network moment is now (E-D5'). */
+    /** A fresh link came for [taskId]: its network moment is now. */
     fun renewed(taskId: String) {
         synchronized(lock) {
             val source = sources[taskId] ?: return
@@ -353,7 +352,7 @@ class DownloadSources(
     }
 
     /**
-     * v1.0.2: whether [taskId]'s page, read again for a fresh link, had no player data (a notice,
+     * Whether [taskId]'s page, read again for a fresh link, had no player data (a notice,
      * a check). Retry would read the same page again, so Downloads says to reopen it in the
      * browser instead; the next answer of a renewal replaces it.
      */
@@ -447,7 +446,7 @@ class DownloadSources(
     }
 
     /**
-     * E3: [candidate]'s file without its signature, for a page read again; null for a pasted
+     * [candidate]'s file without its signature, for a page read again; null for a pasted
      * file link, a page that is the file itself, and a page a site adapter reads.
      */
     private fun pagePath(candidate: MediaCandidate): String? {
@@ -469,7 +468,7 @@ class DownloadSources(
 }
 
 /**
- * Track E (E-D5'): how many times the phone's network changed in this process, read only from
+ * Fresh link renewal: how many times the phone's network changed in this process, read only from
  * the app's own [NetworkStatusSource]: Wi-Fi and mobile data swapped while connected, or the
  * network dropped and came back. Never an address check.
  */

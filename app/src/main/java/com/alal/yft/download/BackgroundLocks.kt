@@ -5,7 +5,7 @@ import android.content.Context
 import android.net.wifi.WifiManager
 import android.os.PowerManager
 
-/** A lock the download service holds while work runs (P34): a wake lock or a Wi-Fi lock. */
+/** A lock the download service holds while work runs: a wake lock or a Wi-Fi lock. */
 internal interface WorkLock {
     val isHeld: Boolean
 
@@ -17,7 +17,7 @@ internal interface WorkLock {
 
 /**
  * Holds a partial wake lock while any task runs (download, merge, MP3 conversion or save) and a
- * Wi-Fi lock while bytes are downloaded, and releases each as soon as its work ends (P34, G3).
+ * Wi-Fi lock while bytes are downloaded, and releases each as soon as its work ends.
  * The wake lock is taken with [timeoutMs] and renewed every [renewEveryMs] while work goes on,
  * so a lock the service forgets can never keep the phone awake for long.
  */

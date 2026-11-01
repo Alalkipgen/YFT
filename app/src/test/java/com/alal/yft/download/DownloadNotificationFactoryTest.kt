@@ -47,7 +47,7 @@ class DownloadNotificationFactoryTest {
 
         assertNotNull(channel)
         assertEquals(NotificationManager.IMPORTANCE_LOW, channel.importance)
-        // P34: the title counts the downloads with their percent; the text holds the speed.
+        // Download queue: the title counts downloads and their percent; the text has the speed.
         assertEquals(
             "Downloading 2 videos · 50%",
             notification.extras.getString(Notification.EXTRA_TITLE),
@@ -71,7 +71,7 @@ class DownloadNotificationFactoryTest {
 
         val notification = factory.active(listOf(unknown))
 
-        // P34: one download shows its own title.
+        // Download queue: one download shows its own title.
         assertEquals("unknown", notification.extras.getString(Notification.EXTRA_TITLE))
         assertEquals(true, notification.extras.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE))
     }
