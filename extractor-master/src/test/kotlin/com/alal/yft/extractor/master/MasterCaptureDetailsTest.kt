@@ -11,9 +11,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan task 12 (the phone session of 2026-10-22, observation b): the visible tab's own
+ * Seen on the phone on 2026-10-22: the visible tab's own
  * playback (capture) answered by the app's selection kept only the selection's own line, so a
- * social lookup's Details lost the ladder's lines before it (I2's, X1's, the capture's request).
+ * social lookup's Details lost the ladder's lines before it (the Instagram ladder's `master: instagram I2`, the X ladder's `master: x X1 main's answer`, the capture's request).
  * Now a lookup a social ladder claims keeps them first and the selection's own last, for every
  * kind of answer; every other lookup (no ladder, or a lookup it does not claim): as before.
  */

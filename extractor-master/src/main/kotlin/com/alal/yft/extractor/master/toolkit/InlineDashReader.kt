@@ -36,10 +36,10 @@ internal object InlineDashReader {
         key: String,
     ): Result {
         if (xml.length > 256 * 1024) return Result(emptyList())
-        // v1.0.2 R9: Android's own parser (`org.apache.harmony.xml.parsers`) throws for
+        // Android's own parser (`org.apache.harmony.xml.parsers`) throws for
         // `isXIncludeAware`, for every feature but namespaces and validation and for every
         // attribute, so asking them all at once left every inline manifest unread on a phone (the
-        // JVM's parser knows them all), as F1's DASH reader did. Each one is asked on its own and
+        // JVM's parser knows them all), as the first inline DASH reader did. Each one is asked on its own and
         // one the parser does not know is skipped; a document type is refused before parsing.
         if (DOCUMENT_TYPE.containsMatchIn(xml)) return Result(emptyList())
         val root = runCatching {
@@ -149,7 +149,7 @@ internal object InlineDashReader {
             (childNodes.item(index) as? Element)?.takeIf { it.localName == name }
         }
 
-    /** One hardening setting; a parser that does not know it throws, and it is skipped (R9). */
+    /** One hardening setting; a parser that does not know it throws, and it is skipped. */
     private inline fun ifKnown(setting: () -> Unit) {
         try {
             setting()
@@ -159,6 +159,6 @@ internal object InlineDashReader {
         }
     }
 
-    /** A document type or an entity declaration (R9): refused before any parser reads it. */
+    /** A document type or an entity declaration: refused before any parser reads it. */
     private val DOCUMENT_TYPE = Regex("""<!\s*(?:DOCTYPE|ENTITY)""", RegexOption.IGNORE_CASE)
 }

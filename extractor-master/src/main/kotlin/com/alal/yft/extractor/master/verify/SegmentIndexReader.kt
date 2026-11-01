@@ -1,7 +1,7 @@
 package com.alal.yft.extractor.master.verify
 
 /**
- * R4: segment timing only — DASH/ISO-BMFF `sidx` subsegment durations and HLS `#EXTINF` piece
+ * Media fingerprint: segment timing only — DASH/ISO-BMFF `sidx` subsegment durations and HLS `#EXTINF` piece
  * lengths, read from bytes or text that were already fetched within the metadata budget. Never
  * decodes, plays or seeks a video and never requests anything itself.
  *

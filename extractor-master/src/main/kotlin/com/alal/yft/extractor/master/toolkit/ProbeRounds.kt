@@ -1,6 +1,6 @@
 /*
- * Provenance (Master toolkit T8, copied, not moved; main 34a41890):
- *   extractor-sites/.../tiktok/TikTokExtractor.kt  check, probeAll, probe (R30 rounds),
+ * Provenance (Master toolkit, copied, not moved; main 34a41890):
+ *   extractor-sites/.../tiktok/TikTokExtractor.kt  check, probeAll, probe (its check rounds),
  *                                                  MAX_FILE_CHECKS, MAX_PARALLEL_CHECKS
  * Adapted: generic over the quality value; the one-byte check is a parameter.
  */
@@ -13,7 +13,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 
 /**
- * T8: verified rows by rounds of one-byte checks. Round one checks the first address of every
+ * Master toolkit: verified rows by rounds of one-byte checks. Round one checks the first address of every
  * quality; each next round checks the next address of the qualities still refused. At most
  * [maxChecks] checks per lookup (minus a [reserve] kept for a later file) and [maxParallel] at
  * a time. A quality is a row only when one of its addresses answered.

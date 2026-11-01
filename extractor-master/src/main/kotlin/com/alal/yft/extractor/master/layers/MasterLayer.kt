@@ -88,8 +88,8 @@ internal class LayerStack(private val layers: List<MasterLayer>) {
         const val MAX_RAW_CANDIDATES = 200
 
         /**
-         * Delivered markup, known payload keys, captured requests, then the additive shape
-         * search: Shape search only adds files the first three did not find, so their order is unchanged.
+         * Delivered markup, known payload keys, captured requests, then the additive Shape search:
+         * it only adds files the first three did not find, so their order is unchanged.
          */
         fun standard(recipeOf: (String) -> ContractRecipe? = ContractRecipes::of) = LayerStack(
             listOf(ContractLayer(recipeOf), RecipeLayer(), CaptureLayer(), ShapeLayer()),

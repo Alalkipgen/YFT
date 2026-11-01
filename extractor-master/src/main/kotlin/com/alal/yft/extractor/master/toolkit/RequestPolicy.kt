@@ -1,12 +1,12 @@
 /*
- * Provenance (Master toolkit T9, copied, not moved; main 34a41890):
+ * Provenance (Master toolkit, copied, not moved; main 34a41890):
  *   extractor-sites/.../tiktok/TikTokExtractor.kt      mergedCookie, cookieFor, mediaCookie,
  *                                                      mediaHeaders
  *   extractor-sites/.../facebook/FacebookExtractor.kt  mediaContext (re-anchored to the page)
  *   extractor-sites/.../vimeo/VimeoExtractor.kt        configHeaders, mediaContext
  *   core-media/.../resolver/DefaultVariantResolver.kt  withPageOrigin (Origin from the page)
  *   extractor-api/.../ResponseCookie.kt                matches (depended on, not copied)
- * Adapted: one policy object over BrowserRequestContext; UrlPolicy.context stays the L1/L4 rule.
+ * Adapted: one policy object over BrowserRequestContext; UrlPolicy.context stays the Browser capture and Recipe reader rule.
  */
 package com.alal.yft.extractor.master.toolkit
 
@@ -14,7 +14,7 @@ import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.extractor.api.ResponseCookie
 
 /**
- * T9: the request policy. A cookie goes only to the origin it was read for (the tab's cookie to
+ * Master toolkit: the request policy. A cookie goes only to the origin it was read for (the tab's cookie to
  * the page's origin, an answer's cookie to the hosts it [ResponseCookie.matches]); Referer and
  * Origin are re-anchored to the page; a cross-origin hop strips every credential and the
  * stripped values are never restored later in the chain.

@@ -17,7 +17,7 @@ import org.junit.Assume.assumeTrue
 import org.junit.Test
 
 /**
- * R1 offline parity: Master's standard stack over main's own site fixtures
+ * Master parity check, offline: Master's standard stack over main's own site fixtures
  * (`extractor-sites/src/test/resources/fixtures`, passed in by Gradle). Each fixture must keep at
  * least its baseline rows and heights and the same terminal verdict. A new or removed fixture
  * after a main sync fails until the baseline is rewritten on purpose:

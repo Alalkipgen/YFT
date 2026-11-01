@@ -1,5 +1,5 @@
 /*
- * Provenance (Master toolkit T2, copied, not moved; main 34a41890):
+ * Provenance (Master toolkit, copied, not moved; main 34a41890):
  *   extractor-sites/.../tiktok/TikTokPageParser.kt      balancedObject, lenientRead, decodeEntities
  *   extractor-sites/.../instagram/InstagramMedia.kt     InstagramPageDocuments.objectAt, stringAt
  *   extractor-sites/.../vimeo/VimeoConfigParser.kt      objectAfter (marker, then the object)

@@ -11,7 +11,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** R4: fingerprints from the HLS fixtures; grouping and dropping over checked files. */
+/** Media fingerprint: fingerprints from the HLS fixtures; grouping and dropping over checked files. */
 class MediaFingerprintTest {
     private val hd = print("ladder-1080.m3u8")
     private val sd = print("ladder-720.m3u8")

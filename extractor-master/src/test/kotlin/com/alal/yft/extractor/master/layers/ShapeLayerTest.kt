@@ -18,7 +18,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 
-/** Phase 1 R3: L3 shape search with content-ID anchoring (MASTER_KEY_PHASE1_PLAN.md §2 R3). */
+/** Shape search with content-ID anchoring. */
 class ShapeLayerTest {
     private val siteFixtures = System.getProperty("yft.siteFixtures")?.let(::File)
 
@@ -73,7 +73,7 @@ class ShapeLayerTest {
             first.candidates.map { it.mediaUrl },
         )
         assertEquals(720, first.candidates.single().width)
-        // Without an expected ID nothing L3 finds is named the page's main video.
+        // Without an expected ID nothing Shape search finds is named the page's main video.
         val open = collect(PAGE, html = html, id = null)
         assertEquals(4, open.candidates.size)
         assertTrue(open.candidates.none { it.pageRole == PageMediaRole.MAIN })
@@ -81,7 +81,7 @@ class ShapeLayerTest {
 
     @Test
     fun `a player's stand-in file and a site's build resource are never the video's (task 18, O1)`() {
-        // The Facebook plugin player's config (S4's phone session, 2026-10-23): its own video ID
+        // The Facebook plugin player's config (seen on the phone on 2026-10-23): its own video ID
         // anchors its stand-in file (`abortDummy`) as well as its 2 files.
         val config = """{"video_id":"555","videoData":[{"video_id":"555",""" +
             """"hd_src":"https://video.example-cdn.test/v/main-720.mp4",""" +

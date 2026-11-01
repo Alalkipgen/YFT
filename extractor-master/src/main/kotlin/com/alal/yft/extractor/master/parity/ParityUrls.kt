@@ -8,7 +8,7 @@ import com.alal.yft.extractor.api.json.asStringOrNull
 import com.alal.yft.extractor.api.json.get
 
 /**
- * R1: the frozen parity list (`parity-urls.json`, MASTER_KEY_PLAN §4.3) as data. A case with no
+ * Master parity check: the frozen parity list (`parity-urls.json`) as data. A case with no
  * URL is an "owner picks" slot: it is never committed with a link and the live run skips it.
  */
 data class ParityCase(

@@ -8,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.concurrent.atomic.AtomicInteger
 
-/** R3 T8: ProbeRounds. */
+/** Master toolkit: ProbeRounds. */
 class ProbeRoundsTest {
     @Test
     fun `first addresses first, then the next address of refused qualities, within the cap`() = runTest {

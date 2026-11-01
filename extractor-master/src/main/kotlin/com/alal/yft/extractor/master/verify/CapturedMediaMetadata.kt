@@ -40,7 +40,7 @@ class CapturedMediaMetadata(client: OkHttpClient) {
     }
 
     /**
-     * R4: the same bounded read, keeping the keyframe cues as a [MediaFingerprint]. An MP4 gives
+     * Media fingerprint: the same bounded read, keeping the keyframe cues as a [MediaFingerprint]. An MP4 gives
      * its `sidx`; an HLS playlist gives its `#EXTINF` pieces (a master's first video playlist is
      * read only on the master's own origin, so no header goes to another site).
      */

@@ -1,6 +1,6 @@
 package com.alal.yft.extractor.master.verify
 
-/** Bounded ISO-BMFF metadata only. Never decodes, plays or seeks a video. `sidx`: R4 reader. */
+/** Bounded ISO-BMFF metadata only. Never decodes, plays or seeks a video. `sidx`: the Media fingerprint's reader. */
 internal object CapturedMp4Facts {
     data class Facts(
         val durationMillis: Long?,
@@ -8,7 +8,7 @@ internal object CapturedMp4Facts {
         val height: Int?,
         val protected: Boolean,
         val audioOnly: Boolean = false,
-        /** R4: keyframe cues from the first `sidx` (empty when the file has none). */
+        /** Media fingerprint: keyframe cues from the first `sidx` (empty when the file has none). */
         val cuesMillis: List<Long> = emptyList(),
     )
 

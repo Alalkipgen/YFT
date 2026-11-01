@@ -8,7 +8,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** R4: offline sidx bytes and HLS fixture playlists; nothing is fetched or decoded. */
+/** Media fingerprint: offline sidx bytes and HLS fixture playlists; nothing is fetched or decoded. */
 class SegmentIndexReaderTest {
     @Test
     fun `a version 0 sidx gives the length and every later segment start`() {

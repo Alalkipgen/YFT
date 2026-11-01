@@ -1,6 +1,6 @@
 package com.alal.yft.extractor.master.parity
 
-/** §4.2 pass criteria as pure checks. An empty list means the case passes for its scope. */
+/** The parity pass rules as pure checks. An empty list means the case passes for its scope. */
 object ParityVerdict {
     const val DURATION_SLACK_MS = 2_000L
 
@@ -36,7 +36,7 @@ object ParityVerdict {
         return problems
     }
 
-    /** §4.2 time: B's median ≤ A's median × 1.2 + 500 ms. */
+    /** Time: B's median ≤ A's median × 1.2 + 500 ms. */
     fun timeOk(aMedianMs: Long, bMedianMs: Long): Boolean = bMedianMs * 10 <= aMedianMs * 12 + 5_000
 
     fun median(values: List<Long>): Long? {

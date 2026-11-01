@@ -14,7 +14,7 @@ data class MasterMainPresentation(val main: MediaGroup, val more: List<MediaGrou
 
         /**
          * One group per [keyOf] value, in first-seen order; the first is main. By default every
-         * file is its own group; R4 passes fingerprint keys so one video's qualities share one.
+         * file is its own group; the Media fingerprint passes fingerprint keys so one video's qualities share one.
          */
         fun from(
             candidates: List<MediaCandidate>,

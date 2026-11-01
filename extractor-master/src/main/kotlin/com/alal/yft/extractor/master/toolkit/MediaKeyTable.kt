@@ -1,11 +1,11 @@
 /*
- * Provenance (Master toolkit T4, copied as data, not moved; main 34a41890):
+ * Provenance (Master toolkit, copied as data, not moved; main 34a41890):
  *   extractor-sites/.../facebook/FacebookPageParser.kt  MEDIA_KEYS, LEGACY_FIELDS
  *   extractor-sites/.../instagram/InstagramMedia.kt     video_versions, video_url, isPost
  *   extractor-sites/.../tiktok/TikTokPageParser.kt      playAddr, downloadAddr, bitrateInfo
  *   extractor-sites/.../x/XExtractor.kt                 video_info.variants
  *   extractor-sites/.../vimeo/VimeoConfigParser.kt      files.progressive/hls/dash
- * Spike recipes (PayloadRecipes) stay the source for L4; this table feeds L3.
+ * Spike recipes (PayloadRecipes) stay the source for the Recipe reader; this table feeds Shape search.
  */
 package com.alal.yft.extractor.master.toolkit
 
@@ -15,15 +15,15 @@ import com.alal.yft.extractor.master.recipes.NodeRule
 import com.alal.yft.extractor.master.recipes.PayloadRecipes
 
 /**
- * T4: the media-key table as data, versioned. L3 ([com.alal.yft.extractor.master.layers.ShapeLayer])
- * uses the known keys so it always finds what L4 finds; the hint words let it keep finding
+ * Master toolkit: the media-key table as data, versioned. Shape search ([com.alal.yft.extractor.master.layers.ShapeLayer])
+ * uses the known keys so it always finds what the Recipe reader finds; the hint words let it keep finding
  * media after a site renames a key. Changing a list here is a behavior change: bump [VERSION].
  */
 internal object MediaKeyTable {
-    /** 2: social plan task 18's [STAND_IN_HINTS]. */
+    /** 2: [STAND_IN_HINTS] (a player's stand-in file names no video's file). */
     const val VERSION = 2
 
-    /** Known single-address keys and the MIME type L4 gives them (null: read from a sibling). */
+    /** Known single-address keys and the MIME type the Recipe reader gives them (null: read from a sibling). */
     val ADDRESS_KEYS: Map<String, String?> = buildMap {
         PayloadRecipes.NODE_RULES.forEach { rule ->
             when (rule) {
@@ -32,7 +32,7 @@ internal object MediaKeyTable {
                 else -> Unit
             }
         }
-        // main's keys that L4 does not list (yet).
+        // main's keys that the Recipe reader does not list (yet).
         put("hd_src", "video/mp4")
         put("sd_src", "video/mp4")
         put("hd_src_no_ratelimit", "video/mp4")
@@ -68,13 +68,13 @@ internal object MediaKeyTable {
         }
     }.toSet()
 
-    /** Content ID fields, as L4 reads them (after `videoDetails.videoId`). */
+    /** Content ID fields, as the Recipe reader reads them (after `videoDetails.videoId`). */
     val ID_FIELDS: List<String> = PayloadRecipes.CONTENT_ID_FIELDS
 
-    /** L4's rule: a plain `id` names media when one of these is present. */
+    /** The Recipe reader's rule: a plain `id` names media when one of these is present. */
     val MEDIA_ID_FIELDS: Set<String> = PayloadRecipes.MEDIA_ID_FIELDS + "video"
 
-    /** L3 also takes a plain `id` from an entity that holds media directly. */
+    /** Shape search also takes a plain `id` from an entity that holds media directly. */
     val ENTITY_TYPENAME = Regex("""(?i)video|media|clip|reel|post|tweet""")
     val ENTITY_FIELDS = setOf(
         "title", "caption", "desc", "description", "owner", "author", "user", "name",
@@ -109,13 +109,13 @@ internal object MediaKeyTable {
     val AD_HINTS = Regex("""(?i)(?:^|_|\b)(?:ads?|advert|vast|preroll|pre_roll|sponsor)(?:_|$|\b)""")
 
     /**
-     * Social plan task 18 (O1, S4's phone session of 2026-10-23): a key naming a player's stand-in
+     * Seen on the phone on 2026-10-23: a key naming a player's stand-in
      * file — the Facebook plugin player's `abortDummy`, one 400 × 224 frame of 0.03 s it loads to
      * stop a download — names no video's file (the address's own key, its object's or its list's).
      */
     val STAND_IN_HINTS = listOf("dummy", "placeholder", "abort")
 
-    /** Subtrees L3 never reads: YouTube streams belong to the YouTube module only (R2/R6). */
+    /** Subtrees Shape search never reads: YouTube streams belong to the Master YouTube module only. */
     val SKIP_SUBTREES = setOf("streamingData", "adPlacements", "playerAds", "adSlots")
 
     val IMAGE_EXTENSIONS = setOf(
@@ -123,10 +123,10 @@ internal object MediaKeyTable {
     )
 
     /**
-     * A DRM statement on an object: L4's boolean flags; Facebook's `drm_info` only with a licence
+     * A DRM statement on an object: the Recipe reader's boolean flags; Facebook's `drm_info` only with a licence
      * (main's FacebookPageParser.drmAssessment: an empty `video_license_uri_map` is a public
      * reel); a non-empty DRM object such as Vimeo's `files.drm` (main's VimeoConfigParser); a
-     * licence URL. Never bypassed: L3 stops.
+     * licence URL. Never bypassed: Shape search stops.
      */
     val DRM_FLAG_FIELDS: List<String> = PayloadRecipes.DRM_FLAGS
     val DRM_INFO_FIELDS = setOf("drm_info", "drmInfo")

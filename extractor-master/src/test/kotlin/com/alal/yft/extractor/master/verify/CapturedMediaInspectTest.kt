@@ -18,7 +18,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** R4: the bounded metadata read keeps keyframe cues; offline answers only. */
+/** Media fingerprint: the bounded metadata read keeps keyframe cues; offline answers only. */
 class CapturedMediaInspectTest {
     private val requests = mutableListOf<Pair<String, String?>>()
 

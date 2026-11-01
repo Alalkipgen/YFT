@@ -3,8 +3,8 @@ package com.alal.yft.extractor.master.lookup
 import com.alal.yft.extractor.api.ExtractorHttpResult
 
 /**
- * Lookup record: what a [LookupRecord] made for the site
- * census writes next to each ask: the way that asked ([way]: main's "public page", Master's
+ * Lookup record: what a [LookupRecord] made for the Site census writes
+ * next to each ask: the way that asked ([way]: main's "public page", Master's
  * "plugin player", a "file check", ...), and what a 2xx answer held ([read]). The site table
  * ([com.alal.yft.extractor.master.social.SiteWays]) gives one instance per census row. A record
  * given none (every lookup of the app, route B included) labels nothing and counts as before.

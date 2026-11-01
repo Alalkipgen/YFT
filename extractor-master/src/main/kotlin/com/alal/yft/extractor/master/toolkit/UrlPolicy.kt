@@ -116,7 +116,7 @@ internal object UrlPolicy {
     }
 
     /**
-     * Social plan task 18 (O1, S4's phone session of 2026-10-23): a site's own build resource —
+     * Seen on the phone on 2026-10-23: a site's own build resource —
      * Meta's static-resource path (`/rsrc.php/`: its pages' scripts, styles and sounds, and the
      * plugin player's stand-in file, one 400 × 224 frame of 0.03 s) — is never a post's video.
      */
@@ -138,7 +138,7 @@ internal object UrlPolicy {
     fun pathSegment(url: String, segment: String): Boolean =
         segment.isNotEmpty() && runCatching { URI(url).path }.getOrNull().orEmpty().split('/').any { it == segment }
 
-    /** T10 (main VimeoConfigParser.PLAUSIBLE_EXPIRY_SECONDS): epoch seconds a config may state. */
+    /** Master toolkit (main VimeoConfigParser.PLAUSIBLE_EXPIRY_SECONDS): epoch seconds a config may state. */
     val PLAUSIBLE_EXPIRY_SECONDS = 1_400_000_000L..4_102_444_800L
 
     private const val BUILD_RESOURCE_PATH = "/rsrc.php/"

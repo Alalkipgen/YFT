@@ -3,7 +3,7 @@ package com.alal.yft.extractor.master.parity
 import com.alal.yft.core.model.media.MediaCandidate
 import java.security.MessageDigest
 
-/** §4.1 arms: A = main (flag off), B = Master (flag on), C = universal only (measurement). */
+/** Master parity check arms: A = main (flag off), B = Master (flag on), C = universal only (measurement). */
 enum class ParityArm { A, B, C }
 
 /** One quality row as the report keeps it: shape only, never an address. */
@@ -18,7 +18,7 @@ data class ParityRow(
     /** True when the row's one-byte check (or manifest read) opened; null when not checked. */
     val opened: Boolean?,
 ) {
-    /** The join key between arms (§4.2: "a row that A has and B lacks"). */
+    /** The join key between arms (the pass rule: "a row that A has and B lacks"). */
     val key: String get() = "${kind}:${height ?: "audio"}:${codec?.substringBefore('.') ?: "?"}"
 }
 
@@ -52,7 +52,7 @@ data class ParityEntry(
 )
 
 /**
- * R1: the parity report holds host and content ID only. Addresses, cookies, headers and titles
+ * Master parity check: the parity report holds host and content ID only. Addresses, cookies, headers and titles
  * never enter it: rows keep their shape, titles a short hash, IDs a strict pattern or a hash.
  * [toJson] fails closed if any `scheme://` text would still be written.
  */

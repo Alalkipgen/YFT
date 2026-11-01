@@ -7,8 +7,8 @@ import com.alal.yft.extractor.master.toolkit.UrlPolicy
 
 /**
  * What may be offered at all: HTTPS, unexpired, not DRM, not an ad, not a preview, not a site's
- * build resource ([UrlPolicy.buildResource], social plan task 18: whichever layer or capture found
- * it) and not a piece of a file (F1, VK's pack proof: an address naming a closed `bytes=A-B`
+ * build resource ([UrlPolicy.buildResource]: whichever layer or capture found
+ * it) and not a piece of a file (VK's pack proof: an address naming a closed `bytes=A-B`
  * range, [MediaFileUrls.isPiece], gives that piece only).
  */
 internal object CandidateGate {

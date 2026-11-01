@@ -21,7 +21,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * v1.0.2 R9: Android's own XML parser knows none of the hardening settings Master's inline DASH
+ * Android's own XML parser knows none of the hardening settings Master's inline DASH
  * reader ([InlineDashReader.read]) asked all at once, so on a phone every inline manifest went
  * unread: Master's layers found no whole file in one, VK's page manifest gave no row
  * ([VkPageDash]) and the census's row check left a DASH row unknown ([SiteRowCheck]). The JVM's
@@ -80,7 +80,7 @@ class InlineDashReaderOnAndroidTest {
                 body.replace("v720.mp4?_nc_cat=1&amp;oh=fixture", "&secret;"),
             """<!doctype MPD SYSTEM "https://dtd.example.test/mpd.dtd">$body""",
         )
-        // The JVM's own parser refused them before R9 too; the Android-like one has no hardening
+        // The JVM's own parser refused them before this fix too; the Android-like one has no hardening
         // of its own, so only the reader's refusal stands between it and the entities.
         refused.forEach { xml ->
             assertEquals(xml, InlineDashReader.Result(emptyList()), InlineDashReader.read(xml, request(), null, KEY))
