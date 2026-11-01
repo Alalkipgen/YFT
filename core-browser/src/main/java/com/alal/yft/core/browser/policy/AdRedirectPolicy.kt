@@ -4,7 +4,7 @@ import java.net.URI
 import java.util.Locale
 
 /**
- * Where a page may send the browser's tab (P32, decision F4). Pure: the WebView clients ask it
+ * Where a page may send the browser's tab. Pure: the WebView clients ask it
  * with what the WebView reports about a navigation.
  *
  * Blocked: a navigation to a host of [AdNetworks] (pop-up and redirect ad networks; also a hop

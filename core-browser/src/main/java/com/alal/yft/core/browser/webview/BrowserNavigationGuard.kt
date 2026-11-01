@@ -3,7 +3,7 @@ package com.alal.yft.core.browser.webview
 import androidx.annotation.MainThread
 import com.alal.yft.core.browser.policy.AdRedirectPolicy
 
-/** A navigation or window the browser kept from replacing the page (P32). */
+/** A navigation or window the browser kept from replacing the page. */
 data class BlockedNavigation(
     val url: String,
     val host: String,
@@ -13,7 +13,7 @@ data class BlockedNavigation(
 )
 
 /**
- * What the browser's WebView clients block (P32), shared by both clients and the screen.
+ * What the browser's WebView clients block, shared by both clients and the screen.
  * [enabled] is Settings › Browser › Block pop-ups and ad redirects. Page timing and the user's
  * choices are main-thread state; [blocksResource] is read from request threads.
  */

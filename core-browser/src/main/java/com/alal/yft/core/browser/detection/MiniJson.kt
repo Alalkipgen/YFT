@@ -1,7 +1,7 @@
 package com.alal.yft.core.browser.detection
 
 /**
- * P28: a small, bounded JSON reader for the JSON-LD a page states about itself, so the page's
+ * A small, bounded JSON reader for the JSON-LD a page states about itself, so the page's
  * facts are read the same way on Home (plain JVM, no `org.json`) and in the browser. Objects
  * become maps, arrays lists, numbers doubles. Anything malformed, deeper than [MAX_DEPTH] or
  * longer than [MAX_LENGTH] reads as null; it never throws.

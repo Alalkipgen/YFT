@@ -5,7 +5,7 @@ import com.alal.yft.extractor.generic.classifier.MediaUrlClassifier
 import java.net.URI
 
 /**
- * P28: the files a page's own video player is set up with, read from its scripts without
+ * The files a page's own video player is set up with, read from its scripts without
  * running them. Common player setups by player, never by site: JW Player
  * (`setup({file | sources | playlist})`), Video.js (`data-setup`, source lists), Flowplayer,
  * Clappr and Plyr (`source`, `sources`), KVS-style `flashvars` (`video_url`, `video_alt_url`
@@ -58,7 +58,7 @@ object PlayerSetupScanner {
         }
         // A setup's own `file:` or `source:` with nested parts (tracks, ads) around it.
         SETUP_URL_KEY.findAll(text).forEach { match -> add(match.groupValues[2], null) }
-        // P28: more files than a player has qualities is a list of other videos, not a setup.
+        // More files than a player has qualities is a list of other videos, not a setup.
         return found.values.toList().takeIf { it.size <= MAX_SOURCES }.orEmpty()
     }
 
@@ -101,7 +101,7 @@ object PlayerSetupScanner {
     }
 
     private const val MAX_SCRIPT_LENGTH = 300_000
-    /** P28: a player has a handful of qualities; more files are a list of other videos. */
+    /** A player has a handful of qualities; more files are a list of other videos. */
     private const val MAX_SOURCES = 8
     private const val HEIGHT_4K = 2160
     private const val HEIGHT_2K = 1440

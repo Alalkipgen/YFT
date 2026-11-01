@@ -13,7 +13,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * P5: what the feed script may hand back and how it becomes one link the site adapter reads.
+ * What the feed script may hand back and how it becomes one link the site adapter reads.
  * The script itself runs on the sanitized feed fixtures in `FocusedVideoProbeInstrumentedTest`.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -172,7 +172,7 @@ class FocusedVideoProbeTest {
                 FeedSite.TIKTOK,
             ),
         )
-        // P36: a video whose author the page did not show.
+        // A video whose author the page did not show.
         assertEquals(
             "https://www.tiktok.com/@/video/7300000000000000001",
             FocusedVideoProbe.canonicalVideoUrl(
@@ -193,7 +193,7 @@ class FocusedVideoProbeTest {
 
     @Test
     fun aTikTokFeedCardWithoutAVideoLinkGivesTheVideoOfItsPlayer() {
-        // P36 (R19): what the script hands back on the card of today's For You feed: no /video/
+        // What the script hands back on the card of today's For You feed: no /video/
         // link, the video id in the player's wrapper id, the author's /@ link in the card.
         val card = Regex("<article[\\s\\S]*?</article>")
             .find(fixture("focused-video/tiktok-foryou-card.html"))!!.value
@@ -339,7 +339,7 @@ class FocusedVideoProbeTest {
 
     @Test
     fun theOnScreenPlayersOwnHttpsFileComesWithTheLink() {
-        // P39 (R25): the browser offers this file when TikTok's page cannot be read.
+        // The browser offers this file when TikTok's page cannot be read.
         val file = "https://v16-webapp-prime.us.tiktok.com/video/tos/useast5/fixture/?a=1"
         val answer = { src: Any? ->
             JSONObject.quote(

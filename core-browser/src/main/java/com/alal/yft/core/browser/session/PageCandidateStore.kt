@@ -27,7 +27,7 @@ class PageCandidateStore(
 
     private val mutableFacts = MutableStateFlow<PageVideoFacts?>(null)
 
-    /** P28: what the current page states about its own video; null until it states anything. */
+    /** What the current page states about its own video; null until it states anything. */
     val facts: StateFlow<PageVideoFacts?> = mutableFacts.asStateFlow()
 
     fun beginPage(pageUrl: String) {
@@ -42,7 +42,7 @@ class PageCandidateStore(
     }
 
     /**
-     * P28: the page's [facts] as its DOM probe read them; a newer read keeps what an older one
+     * The page's [facts] as its DOM probe read them; a newer read keeps what an older one
      * found and it lacks. Facts sent for another page are ignored.
      */
     fun submitFacts(pageUrl: String, facts: PageVideoFacts?) {
@@ -56,7 +56,7 @@ class PageCandidateStore(
     /**
      * Keeps the current page's candidates under a new address of the same page, for example when
      * the site adds a parameter or a fragment to the address it shows. Only the grouping key
-     * changes; anything submitted for the old address afterwards is ignored. P28: the page's
+     * changes; anything submitted for the old address afterwards is ignored. The page's
      * facts stay too.
      */
     fun movePage(pageUrl: String) {

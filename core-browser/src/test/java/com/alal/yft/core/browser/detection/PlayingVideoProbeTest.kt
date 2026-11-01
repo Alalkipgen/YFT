@@ -32,7 +32,7 @@ class PlayingVideoProbeTest {
         assertNull(PlayingVideoProbe.parse("\"" + "a".repeat(5_000) + "\""))
     }
 
-    /** P24: the script's answer as WebView hands it over: a JSON string of the page's videos. */
+    /** The script's answer as WebView hands it over: a JSON string of the page's videos. */
     private fun answer(vararg videos: JSONObject): String = JSONObject.quote(
         JSONObject()
             .put("now", 1_700_000_100_000L)

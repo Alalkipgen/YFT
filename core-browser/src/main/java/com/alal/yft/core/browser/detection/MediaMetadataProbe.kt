@@ -78,7 +78,7 @@ class MediaMetadataProbe(
     }
 
     /**
-     * P24: the length and tallest picture an HLS or DASH [candidate] states, read from its
+     * The length and tallest picture an HLS or DASH [candidate] states, read from its
      * manifest's text and, for an HLS master (which states no length), from its first
      * quality's playlist: so the length of a player that plays a page-built stream finds its
      * manifest. Two small bounded text requests at most, sent like the header probe and with
@@ -188,7 +188,7 @@ class MediaMetadataProbe(
         return TextAnswer(code, null, text)
     }
 
-    /** P24: a page's player asks for its manifest with the page's `Origin`; so does this. */
+    /** A page's player asks for its manifest with the page's `Origin`; so does this. */
     private fun Map<String, String>.withPageOrigin(pageUrl: String?): Map<String, String> {
         if (keys.any { it.equals("Origin", ignoreCase = true) }) return this
         if (keys.none { it.equals("Referer", ignoreCase = true) }) return this

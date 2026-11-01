@@ -43,7 +43,7 @@ class BrowserObservationMapperTest {
 
     @Test
     fun aByteRangeRequestIsTheWholeFileAndItsProbeAsksForTheWholeFile() {
-        // P3-FIX: one candidate and one size per file, not one per piece the player fetched.
+        // One candidate and one size per file, not one per piece the player fetched.
         val piece = request(
             "https://video.cdn.test/v/t42/abc_n.mp4?_nc_cat=1&bytestart=812&byteend=1907&oh=x",
             method = "GET",
@@ -105,7 +105,7 @@ class BrowserObservationMapperTest {
 
     @Test
     fun anAdsFileIsAPreviewByItsServerItsFolderOrTheFrameThatAskedForIt() {
-        // P24: the page's player asks with the page as its Referer, so its files keep no role.
+        // The page's player asks with the page as its Referer, so its files keep no role.
         fun role(url: String, referer: String? = null) = BrowserObservationMapper.fromRequest(
             request(url, method = "GET").copy(
                 headers = referer?.let { mapOf("Referer" to it) } ?: emptyMap(),

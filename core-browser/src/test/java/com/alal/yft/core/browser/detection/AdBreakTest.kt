@@ -8,7 +8,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** P28: the ad networks of free video sites, and the ad file a player fetches after VAST. */
+/** The ad networks of free video sites, and the ad file a player fetches after VAST. */
 class AdBreakTest {
     private val page = "https://tube.example.test/watch/77"
 

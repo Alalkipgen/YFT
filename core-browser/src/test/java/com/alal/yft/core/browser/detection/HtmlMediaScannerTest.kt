@@ -128,7 +128,7 @@ class HtmlMediaScannerTest {
 
     @Test
     fun aVideoPageWithPreviewThumbnailsNamesItsStreamAsItsVideo() {
-        // P24: the owner's case: the page's player config names an HLS master; 40 thumbnail
+        // The owner's case: the page's player config names an HLS master; 40 thumbnail
         // links carry muted looping preview clips; an ad frame carries no file.
         val html = fixture("p24-preview-grid.html")
         val watch = "https://videos.example.test/watch/42"

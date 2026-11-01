@@ -60,7 +60,7 @@ class DomMediaProbeTest {
 
     @Test
     fun parserMarksPreviewsAndThePagesNamedStream() {
-        // P24: muted loops and thumbnails' clips are previews; an og:video file is the video.
+        // Muted loops and thumbnails' clips are previews; an og:video file is the video.
         fun entry(url: String) = JSONObject().put("url", url).put("type", "video/mp4")
         val fixture = JSONArray()
             .put(entry("https://cdn.test/p/1.mp4").put("muted", true).put("loop", true))
