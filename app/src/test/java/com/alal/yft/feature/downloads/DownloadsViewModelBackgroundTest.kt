@@ -30,7 +30,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
-/** P34: Resume starts the background service, and the cards follow the phone's settings. */
+/**
+ * Download queue: Resume starts the background service, and the cards follow the phone's settings.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 class DownloadsViewModelBackgroundTest {
     @get:Rule

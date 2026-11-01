@@ -14,7 +14,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Track E (E-D6): the rows of downloads whose link YFT can renew, and their Details. */
+/** Fresh link renewal: the rows of downloads whose link YFT can renew, and their Details. */
 class DownloadRenewalRowsTest {
     @Test
     fun onlyALinkExpiredRowYftCanLookUpAgainOffersRetry() {
@@ -42,7 +42,7 @@ class DownloadRenewalRowsTest {
         assertFalse(DownloadAction.RETRY in rows.getValue("running").availableActions)
     }
 
-    /** v1.0.2 (item 50): a row names the quality it was picked as while the app holds it. */
+    /** A row names the quality it was picked as while the app holds it. */
     @Test
     fun aRunningRowNamesThePickedQualityTheAppHolds() {
         val state = DownloadsUiState.from(
@@ -61,7 +61,7 @@ class DownloadRenewalRowsTest {
         assertEquals("MP4", metaLabel(rows.getValue("restored")))
     }
 
-    /** v1.0.2 (item 28): a row the chosen folder could not take says so, finished or not. */
+    /** Save folder: a row the chosen folder could not take says so, finished or not. */
     @Test
     fun aRowTheChosenFolderCouldNotTakeCarriesItsNotice() {
         val state = DownloadsUiState.from(
@@ -79,7 +79,7 @@ class DownloadRenewalRowsTest {
         assertFalse(rows.getValue("kept").folderUnavailable)
     }
 
-    /** v1.0.2: a row whose page, read again, had no player data is marked; Retry stays. */
+    /** A row whose page, read again, had no player data is marked; Retry stays. */
     @Test
     fun aRowWhosePageReadAgainHadNoPlayerIsMarkedAndKeepsRetry() {
         val state = DownloadsUiState.from(

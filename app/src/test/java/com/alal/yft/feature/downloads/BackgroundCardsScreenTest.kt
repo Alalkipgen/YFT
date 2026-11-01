@@ -18,7 +18,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** P34: the notifications and battery cards on Downloads and what their buttons do. */
+/** Download queue: the notifications and battery cards on Downloads and what their buttons do. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w360dp-h780dp")
 class BackgroundCardsScreenTest {

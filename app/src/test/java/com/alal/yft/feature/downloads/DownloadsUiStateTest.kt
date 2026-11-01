@@ -110,7 +110,7 @@ class DownloadsUiStateTest {
         assertEquals(DownloadFailureReason.NETWORK, row.failureReason)
     }
 
-    /** P21: the row carries the stored stage and detail for its Details dialog. */
+    /** Download queue: the row carries the stored stage and detail for its Details dialog. */
     @Test
     fun failedTaskKeepsItsFailureDetailsForTheDialog() {
         val failure = DownloadFailure(

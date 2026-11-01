@@ -104,7 +104,7 @@ fun HomeRoute(
     onOpenSearch: () -> Unit = {},
     onOpenUpdates: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
-    /** The updater's state for the update card (v1.0.2); null (screen tests): no card. */
+    /** The updater's state for the update card; null (screen tests): no card. */
     updatesViewModel: UpdatesViewModel? = null,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -159,7 +159,7 @@ fun HomeRoute(
 
 /**
  * Home from the design (`01-home-light`, `07-home-dark`): the YFT header, the Promptbox card
- * with Paste and Open browser, a found update's card ([updateCard], v1.0.2), "Your sites" and the
+ * with Paste and Open browser, a found update's card ([updateCard]), "Your sites" and the
  * two newest downloads.
  *
  * The clipboard is read only inside the Paste and Use click handlers; [copiedLinkHint] comes
@@ -314,7 +314,7 @@ private fun LinkCard(
             onCancelSearch = { onAction(HomeAction.CancelSearch) },
             onEdit = { onAction(HomeAction.EditLink) },
         )
-        // Decision 30 (v): a quiet build's Copy details only with Show details on.
+        // Quiet details: a quiet build's Copy details only with Show details on.
         if (state.status is PromptboxStatus.NotFound && !LocalQuietRelease.current) {
             YftTonalButton(
                 text = "Copy details",
@@ -380,7 +380,7 @@ private fun SitesSection(
                 .takeIf { sites.isNotEmpty() || editing },
             actionTestTag = "home-sites-edit",
         )
-        // v1.0.2: three tiles a row and as many rows as the sites need, so every site shows
+        // Three tiles a row and as many rows as the sites need, so every site shows
         // without a sideways swipe; the sites in their order, then Add (null here).
         val cells: List<HomeSite?> = if (editing) sites else sites + null
         Column(
@@ -425,7 +425,7 @@ internal fun SiteTile(
     onRemove: () -> Unit,
     tag: String = "home-site-${site.url}",
     /**
-     * v1.0.2 fix N1: as wide as its cell on Home's grid (a third of the row), so a name fits in
+     * As wide as its cell on Home's grid (a third of the row), so a name fits in
      * large text; the browser's start page keeps the tile's own width.
      */
     fillCell: Boolean = false,
@@ -504,7 +504,7 @@ internal fun SiteTile(
 @Composable
 private fun AddSiteTile(onClick: () -> Unit) {
     val colors = YftTheme.colors
-    // v1.0.2 fix N1: as wide as its cell, as the sites' tiles are.
+    // As wide as its cell, as the sites' tiles are.
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -540,7 +540,7 @@ private fun AddSiteTile(onClick: () -> Unit) {
     }
 }
 
-/** v1.0.2 fix N1: a name too long for its cell in large text is drawn smaller, not cut. */
+/** A name too long for its cell in large text is drawn smaller, not cut. */
 @Composable
 private fun SiteLabel(text: String) {
     YftFitText(
@@ -552,7 +552,7 @@ private fun SiteLabel(text: String) {
     )
 }
 
-/** A found update (v1.0.2): one small card under the Promptbox; a tap opens Updates. */
+/** A found update: one small card under the Promptbox; a tap opens Updates. */
 @Composable
 private fun UpdateCard(card: HomeUpdateCard, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val colors = YftTheme.colors
@@ -748,5 +748,5 @@ private val UPDATE_CIRCLE = 40.dp
 private val SITE_ROW_GAP = 12.dp
 private const val THUMBNAIL_RATIO = 16f / 9f
 
-/** Key on Home's back stack entry for a link the browser hands over to look up (T13). */
+/** Key on Home's back stack entry for a link the browser hands over to look up. */
 internal const val HOME_DOWNLOAD_LINK_KEY = "home_download_link"

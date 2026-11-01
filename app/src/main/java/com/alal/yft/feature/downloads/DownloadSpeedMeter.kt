@@ -5,7 +5,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * The one speed estimate of every running download (P34): the Downloads cards and the
+ * The one speed estimate of every running download: the Downloads cards and the
  * notification both read this [TransferRateTracker], so they show the same number. Callers
  * pass the queue's latest snapshot; samples closer together than the tracker's interval fold.
  */

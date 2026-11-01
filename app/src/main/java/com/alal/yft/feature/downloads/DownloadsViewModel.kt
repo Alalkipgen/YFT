@@ -44,7 +44,7 @@ import kotlinx.coroutines.launch
  *
  * The queue remains the single owner of transfer state, so this view model performs no transfer
  * work and keeps no copy of sensitive request context. Speeds come from the [DownloadSpeedMeter]
- * the notification reads too (P34), from the progress the queue publishes.
+ * the notification reads too, from the progress the queue publishes.
  */
 @HiltViewModel
 class DownloadsViewModel @Inject constructor(
@@ -55,13 +55,13 @@ class DownloadsViewModel @Inject constructor(
     private val health: BackgroundHealthStore,
     private val systemStatus: BackgroundSystemStatus,
     private val serviceStarter: DownloadServiceStarter,
-    /** "Delete file" (P42); tests of other controls leave it out. */
+    /** "Delete file"; tests of other controls leave it out. */
     private val fileDeleter: DownloadedFileDeleter = DownloadedFileDeleter.Unavailable,
-    /** "Reset YouTube session" (item 7 Track B3); tests of other controls leave it out. */
+    /** "Reset YouTube session"; tests of other controls leave it out. */
     private val youTubeSession: YouTubeSessionReset = YouTubeSessionReset.Unavailable,
-    /** Track E: which rows a Retry renews, and their fresh links' lines. */
+    /** Fresh link renewal: which rows a Retry renews, and their fresh links' lines. */
     private val sources: DownloadSources = DownloadSources(),
-    /** Track E (E-D9): the trial's "Break this download's link"; off in every other build. */
+    /** Fresh link renewal: the trial's "Break this download's link"; off in every other build. */
     private val trialBreak: TrialLinkBreak = TrialLinkBreak(available = false),
 ) : ViewModel() {
     /** Without a network policy or storage, for tests that only exercise the queue. */
@@ -87,7 +87,7 @@ class DownloadsViewModel @Inject constructor(
         fileDeleter = DownloadedFileDeleter.Unavailable,
     )
 
-    /** For tests of "Delete file" (P42), with or without its question ([DELETE_CONFIRM]). */
+    /** For tests of "Delete file", with or without its question ([DELETE_CONFIRM]). */
     internal constructor(
         queue: DownloadQueue,
         fileDeleter: DownloadedFileDeleter,
@@ -105,7 +105,7 @@ class DownloadsViewModel @Inject constructor(
         this.asksBeforeDeletingFile = asksBeforeDeletingFile
     }
 
-    /** For tests of "Reset YouTube session" (item 7 Track B3). */
+    /** For tests of "Reset YouTube session". */
     internal constructor(queue: DownloadQueue, youTubeSession: YouTubeSessionReset) : this(
         queue = queue,
         networkStatus = DownloadNetworkStatus.AlwaysAllowed,
@@ -125,16 +125,16 @@ class DownloadsViewModel @Inject constructor(
     private var asksBeforeDeletingFile = DELETE_CONFIRM
     private val mutableDeleteFileQuestion = MutableStateFlow<DeleteFileQuestion?>(null)
 
-    /** The open "Delete this file?" question, or null (P42). */
+    /** The open "Delete this file?" question, or null. */
     val deleteFileQuestion: StateFlow<DeleteFileQuestion?> =
         mutableDeleteFileQuestion.asStateFlow()
     private val consentRequests = Channel<IntentSender>(Channel.BUFFERED)
 
-    /** Android's own "Allow YFT to delete?" requests, for the screen to launch (P42). */
+    /** Android's own "Allow YFT to delete?" requests, for the screen to launch. */
     val deleteConsentRequests: Flow<IntentSender> = consentRequests.receiveAsFlow()
     private var consentFor: String? = null
 
-    /** Item 5 (v1.0.2): the files "Delete file" is still deleting, or null. */
+    /** The files "Delete file" is still deleting, or null. */
     private var deleteRun: DeleteRun? = null
     private val mutableMessages = Channel<String>(Channel.BUFFERED)
 
@@ -174,7 +174,7 @@ class DownloadsViewModel @Inject constructor(
                 DownloadAction.PAUSE -> queue.pause(id)
                 DownloadAction.RESUME, DownloadAction.RETRY -> {
                     queue.resume(id)
-                    // P34: a resumed download needs the service too, or it stops in the
+                    // Download queue: a resumed download needs the service too, or it stops in the
                     // background; Pause all had stopped it.
                     serviceStarter.start()
                 }
@@ -184,11 +184,11 @@ class DownloadsViewModel @Inject constructor(
         }
     }
 
-    /** "Delete file" on a finished download (P42): asks first while [DELETE_CONFIRM] is on. */
+    /** "Delete file" on a finished download: asks first while [DELETE_CONFIRM] is on. */
     fun onDeleteFile(id: String) = onDeleteFiles(listOf(id))
 
     /**
-     * Item 5 (v1.0.2): "Delete file" for the finished downloads picked in select mode; one
+     * "Delete file" for the finished downloads picked in select mode; one
      * question names the count ("Delete 3 files?"), or the file when there is one.
      */
     fun onDeleteFiles(ids: List<String>) {
@@ -202,7 +202,7 @@ class DownloadsViewModel @Inject constructor(
         }
     }
 
-    /** Item 5 (v1.0.2): "Remove from list" for the picked downloads; their files stay. */
+    /** "Remove from list" for the picked downloads; their files stay. */
     fun removeFromList(ids: List<String>) {
         val finished = finishedTasks(ids)
         viewModelScope.launch { finished.forEach { queue.deleteRecord(it.id) } }
@@ -245,7 +245,7 @@ class DownloadsViewModel @Inject constructor(
         }
     }
 
-    /** Deletes the files one after another (item 5); a file that stays keeps its row. */
+    /** Deletes the files one after another; a file that stays keeps its row. */
     private fun deleteFiles(ids: List<String>) {
         val running = deleteRun
         if (running != null) {
@@ -293,7 +293,7 @@ class DownloadsViewModel @Inject constructor(
     }
 
     /**
-     * Item 7 Track B3: "Reset YouTube session", asked on a download YouTube refused while its
+     * "Reset YouTube session", asked on a download YouTube refused while its
      * link had time left; the snackbar says what went (the screen asked first).
      */
     fun resetYouTubeSession() {
@@ -314,12 +314,12 @@ class DownloadsViewModel @Inject constructor(
     }
 
     /**
-     * Track E (E-D9), the trial only: the download's current link answers 403 from now on, so
+     * Fresh link renewal, the trial only: the download's current link answers 403 from now on, so
      * its next request finds it dead and the queue gets a fresh one.
      */
     fun breakLink(id: String) = trialBreak.breakLink(id)
 
-    /** Reads the battery and notification state again: YFT is back on the screen (P34). */
+    /** Reads the battery and notification state again: YFT is back on the screen. */
     fun refreshBackground() {
         val state = systemStatus.read()
         if (state.notificationsVisible) health.resetNotificationsCard()
@@ -350,8 +350,8 @@ class DownloadsViewModel @Inject constructor(
         .catch { emit(null) }
 
     /**
-     * v1.0.2 item 28: a chosen folder shows its name; one that can no longer be used shows the
-     * default place, where new downloads go then. M1: the name is the folder's path
+     * Save folder: a chosen folder shows its name; one that can no longer be used shows the
+     * default place, where new downloads go then. The name is the folder's path
      * ("Download/YFT", "Movies/Test") with its free space when that can be read.
      */
     private suspend fun summary(location: DownloadLocation): DownloadStorageSummary {
@@ -368,7 +368,7 @@ class DownloadsViewModel @Inject constructor(
 }
 
 /**
- * "Delete this file?" for the finished download [id] (P42); item 5 (v1.0.2): or "Delete 3
+ * "Delete this file?" for the finished download [id], or "Delete 3
  * files?" for the downloads picked in select mode ([ids], [fileName] being the first one's).
  */
 data class DeleteFileQuestion(val ids: List<String>, val fileName: String) {
@@ -381,7 +381,7 @@ data class DeleteFileQuestion(val ids: List<String>, val fileName: String) {
         get() = ids.size
 }
 
-/** Item 5 (v1.0.2): the picked files left to delete and how the deleted ones went. */
+/** The picked files left to delete and how the deleted ones went. */
 private class DeleteRun(ids: List<String>) {
     val left = ArrayDeque(ids)
     var total = ids.size
@@ -389,15 +389,15 @@ private class DeleteRun(ids: List<String>) {
     var failed = 0
 }
 
-/** Ask before "Delete file" deletes (P42, owner default ON). */
+/** Ask before "Delete file" deletes (owner default ON). */
 internal const val DELETE_CONFIRM = true
 internal const val FILE_DELETED = "Deleted 1 file."
 internal const val FILE_NOT_DELETED = "Could not delete the file"
 
 /**
- * The snackbar after "Delete file" (item 5): how many went ("Deleted 1 file.", "Deleted 3
- * files.", the Library's words since N5) and how many stayed; one file that stayed keeps P42's
- * words. Nothing when every file stayed because Android's request was declined.
+ * The snackbar after "Delete file": how many went ("Deleted 1 file.", "Deleted 3
+ * files.", the Library's words) and how many stayed; one file that stayed reads
+ * [FILE_NOT_DELETED]. Nothing when every file stayed because Android's request was declined.
  */
 internal fun filesDeletedMessage(total: Int, deleted: Int, failed: Int): String? = when {
     deleted == 0 && failed == 0 -> null
@@ -409,7 +409,7 @@ internal fun filesDeletedMessage(total: Int, deleted: Int, failed: Int): String?
 
 private fun files(count: Int): String = if (count == 1) "1 file" else "$count files"
 
-/** Item 7 Track B3: what "Reset YouTube session" did, for the snackbar. */
+/** What "Reset YouTube session" did, for the snackbar. */
 internal fun youTubeResetMessage(result: YouTubeSessionResetResult): String =
     if (result.cookiesLeft == 0) {
         "YouTube session reset (${cookies(result.cookiesRemoved)} removed). Reopen the page " +

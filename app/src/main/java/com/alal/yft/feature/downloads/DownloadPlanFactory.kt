@@ -79,7 +79,7 @@ object DownloadPlanFactory {
         "audio/x-mpegurl",
     )
 
-    /** D1: containers that name a playlist, not a file's type. */
+    /** Containers that name a playlist, not a file's type. */
     private val PLAYLIST_CONTAINERS = setOf("m3u8", "m3u", "mpd", "hls", "dash")
     private const val HLS_VIDEO_MIME_TYPE = "video/mp4"
     private const val HLS_AUDIO_MIME_TYPE = "audio/mp4"
@@ -90,7 +90,7 @@ object DownloadPlanFactory {
         taskId: String,
         nowEpochMs: Long,
         sdkInt: Int = Build.VERSION.SDK_INT,
-        // v1.0.2 item 26: AV1 merges — the release's constant, or a debug build's test switch.
+        // AV1 merge switch: AV1 merges — the release's constant, or a debug build's test switch.
         av1Enabled: Boolean = Av1MergeSwitch.merges(),
     ): DownloadPlanResult {
         require(taskId.isNotBlank())
@@ -117,7 +117,7 @@ object DownloadPlanFactory {
 
         val fileName = fileName(asset, variant)
         val context = variant.requestContext
-        // G1 (v1.0.2): a size too small for this length is not the download's total.
+        // A size too small for this length is not the download's total.
         val length = variant.durationMillis?.takeIf { it > 0 } ?: asset.durationMillis
         variant.audioCompanion?.let { companion ->
             return mergedRequest(
@@ -143,7 +143,7 @@ object DownloadPlanFactory {
                                 title = asset.title?.trim()?.takeIf(String::isNotEmpty),
                             )
                         },
-                        // An MP3 reads the video's AAC track itself; an M4A copies it (P3).
+                        // An MP3 reads the video's AAC track itself; an M4A copies it.
                         audioOnly = variant.audioFromVideo && variant.mp3 == null,
                     ),
                     fileName = fileName,
@@ -152,7 +152,7 @@ object DownloadPlanFactory {
             )
 
             MediaKind.HLS -> {
-                // D1: the playlist is never the file's type: its pieces become an MP4 (an M4A for
+                // The playlist is never the file's type: its pieces become an MP4 (an M4A for
                 // sound alone), or keep their own format when they cannot be remuxed.
                 val mimeType = if (variant.trackType == MediaTrackType.AUDIO) {
                     HLS_AUDIO_MIME_TYPE
@@ -214,10 +214,10 @@ object DownloadPlanFactory {
     /**
      * Plans a video-only file and its companion audio as two whole-file tracks merged into one
      * MP4. Each track is fetched in bounded byte ranges with its own request context; the pair is
-     * rejected up front when the phone's muxer cannot combine the codecs. P50: or an HLS video
-     * quality with its HLS audio rendition, both fetched as playlists. v1.0.2 item 59: or a DASH
-     * video representation with its manifest's sound ([CompanionAudio.representationId]), each
-     * one read from the manifest (a `SegmentBase` file is asked in ranges).
+     * rejected up front when the phone's muxer cannot combine the codecs. Or, for Sound pairing, an
+     * HLS video quality with its HLS audio rendition, both fetched as playlists, or a DASH video
+     * representation with its manifest's sound ([CompanionAudio.representationId]), each one read
+     * from the manifest (a `SegmentBase` file is asked in ranges).
      */
     private fun mergedRequest(
         variant: MediaVariant,
@@ -259,7 +259,7 @@ object DownloadPlanFactory {
             )
         }
         val stem = fileName.substringBeforeLast('.')
-        // VP9 WebM video is merged with its WebM sound into a WebM (P6), everything else into MP4.
+        // VP9 WebM video is merged with its WebM sound into a WebM, everything else into MP4.
         val outputMimeType = AudioVideoMuxCompatibility.outputMimeTypeFor(variant.mimeType)
         val webm = outputMimeType == AudioVideoMuxCompatibility.WEBM_OUTPUT_MIME
         val plan = AudioVideoMuxDownloadPlan(
@@ -329,7 +329,7 @@ object DownloadPlanFactory {
 
     /**
      * The exact length YouTube's media servers give a file in its address (clen), or the
-     * [contentLength] YouTube stated for it, so the download needs no request to learn it (P41).
+     * [contentLength] YouTube stated for it, so the download needs no request to learn it.
      * Null for other servers, whose stated sizes may be estimates.
      */
     internal fun statedLengthOf(url: String, contentLength: Long? = null): Long? {
@@ -348,7 +348,7 @@ object DownloadPlanFactory {
 
     /**
      * Builds a safe output name from non-sensitive metadata only. The playback URL is never used
-     * because signed URLs can carry credentials. D3: at most [MAX_FILE_NAME_LENGTH] characters
+     * because signed URLs can carry credentials. At most [MAX_FILE_NAME_LENGTH] characters
      * and [FileNames.MAX_NAME_BYTES] UTF-8 bytes with the extension, cut at a grapheme boundary.
      */
     internal fun fileName(asset: MediaAsset, variant: MediaVariant): String {
@@ -359,7 +359,7 @@ object DownloadPlanFactory {
         val maxBase = (MAX_FILE_NAME_LENGTH - extension.length - 1).coerceAtLeast(1)
         val maxBaseBytes =
             (FileNames.MAX_NAME_BYTES - FileNames.utf8Bytes(extension) - 1).coerceAtLeast(1)
-        // N9 (v1.0.2): a name too long keeps its quality (" 480p") and extension whole; only
+        // A name too long keeps its quality (" 480p") and extension whole; only
         // the title is shortened, at the end of a word when one ends near.
         val suffix = label?.let { " $it" }.orEmpty()
         val titleChars = maxBase - suffix.length
@@ -379,18 +379,18 @@ object DownloadPlanFactory {
     }
 
     internal fun extensionFor(variant: MediaVariant): String {
-        // Merged downloads are written as MP4, VP9 WebM ones as WebM (P6).
+        // Merged downloads are written as MP4, VP9 WebM ones as WebM.
         if (variant.audioCompanion != null) {
             val output = AudioVideoMuxCompatibility.outputMimeTypeFor(variant.mimeType)
             return if (output == AudioVideoMuxCompatibility.WEBM_OUTPUT_MIME) "webm" else "mp4"
         }
-        // D1: an HLS download is remuxed into an MP4, an M4A for sound alone.
+        // An HLS download is remuxed into an MP4, an M4A for sound alone.
         if (variant.kind == MediaKind.HLS) return defaultExtension(variant)
         // Sound alone in an MP4 container is an M4A file (Facebook's and YouTube's audio tracks).
         if (variant.trackType == MediaTrackType.AUDIO && variant.isMp4Container()) return "m4a"
         variant.container?.takeIf { it.isNotBlank() }?.let { container ->
             val extension = container.lowercase(Locale.US).trimStart('.').sanitizeForFileSystem()
-            // D1: a playlist (m3u8, mpd) is never a file's type; its media type says it.
+            // A playlist (m3u8, mpd) is never a file's type; its media type says it.
             if (extension !in PLAYLIST_CONTAINERS) {
                 return extension.ifBlank { defaultExtension(variant) }
             }
@@ -399,7 +399,7 @@ object DownloadPlanFactory {
             "video/mp4", "application/mp4" -> "mp4"
             "video/webm" -> "webm"
             "video/x-matroska" -> "mkv"
-            // D1: MPEG-TS bytes downloaded whole stay MPEG-TS, never under an MP4's name.
+            // MPEG-TS bytes downloaded whole stay MPEG-TS, never under an MP4's name.
             "video/mp2t" -> "ts"
             "audio/mp4", "audio/mp4a-latm" -> "m4a"
             "audio/mpeg" -> "mp3"
@@ -434,7 +434,7 @@ object DownloadPlanFactory {
      * Keeps only characters that are safe in a user-visible file name.
      *
      * Dots are intentionally dropped so a hostile title can never produce a traversal segment
-     * such as `..`; the extension is appended separately. D3: a letter's marks stay with it
+     * such as `..`; the extension is appended separately. A letter's marks stay with it
      * (Myanmar, Thai, Hindi), no longer turned into spaces ([FileNames.keepWords]).
      */
     private fun String.sanitizeForFileSystem(): String =

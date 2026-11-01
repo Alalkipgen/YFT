@@ -30,10 +30,10 @@ sealed interface LinkInspection {
         val pageUrl: String,
         val pageTitle: String?,
         val candidates: List<MediaCandidate>,
-        /** P28: what the page states about its own video: its length, title and picture. */
+        /** Ad filter: what the page states about its own video: its length, title and picture. */
         val facts: PageVideoFacts? = null,
         /**
-         * v1.0.2 item 13 (a): the lookup's own detail lines, which Home's sheet shows as its
+         * The lookup's own detail lines, which Home's sheet shows as its
          * Lookup details: a site reader's failure lines when the page itself then gave the media;
          * none for every other find (a site reader's own success, a media link, a page alone).
          */
@@ -48,14 +48,14 @@ sealed interface LinkInspection {
         val message: String,
         val canOpenInBrowser: Boolean = true,
         val details: List<String> = emptyList(),
-        /** P16: false when asking again cannot change the answer (a protected video). */
+        /** Download sheet: false when asking again cannot change the answer (a protected video). */
         val canRetry: Boolean = true,
     ) : LinkInspection
 }
 
 /**
- * P16: a link to one video of a site an adapter reads, known before any request. [key] is the
- * video's "site:contentId" and [pageUrl] the address the lookup asks for.
+ * Download sheet: a link to one video of a site an adapter reads, known before any request. [key]
+ * is the video's "site:contentId" and [pageUrl] the address the lookup asks for.
  */
 data class SiteVideoLink(val key: String, val pageUrl: String) {
     override fun toString(): String = "SiteVideoLink(site=${key.substringBefore(':')})"
@@ -65,11 +65,11 @@ data class SiteVideoLink(val key: String, val pageUrl: String) {
 fun interface LinkInspector {
     suspend fun inspect(link: String): LinkInspection
 
-    /** P17: Try again: like [inspect], but never answered from a remembered lookup. */
+    /** Lookup reuse: Try again is like [inspect], but never answered from a remembered lookup. */
     suspend fun inspectAgain(link: String): LinkInspection = inspect(link)
 
     /**
-     * P16: the video [link] names when a site adapter reads it, so Home opens its sheet before
+     * The video [link] names when a site adapter reads it, so Home opens its sheet before
      * [inspect] answers; null for every other link.
      */
     fun siteVideo(link: String): SiteVideoLink? = null
@@ -79,9 +79,9 @@ fun interface LinkInspector {
  * Checks a link the way the design's Promptbox promises ("Looking for media…"), in order:
  * a direct media or manifest address, a site adapter for pages one supports, then the page's
  * own markup. Nothing here carries the user's browser session but a TikTok link's lookup,
- * which gets the browser's TikTok cookies when the owner allows it (P40, G3): the page fetch
- * has no cookies, so pages that need sign-in or build their player with scripts end in "No
- * downloadable media", where Home offers the full browser instead.
+ * which gets the browser's TikTok cookies when the owner allows it (TikTok page reader): the page
+ * fetch has no cookies, so pages that need sign-in or build their player with scripts end in
+ * "No downloadable media", where Home offers the full browser instead.
  */
 class HeadlessLinkInspector internal constructor(
     private val fetchPage: suspend (url: String) -> HeadlessPageFetcher.Result,
@@ -104,7 +104,7 @@ class HeadlessLinkInspector internal constructor(
         )::fetch,
         probeMedia = MediaMetadataProbe(client)::probe,
         siteAdapters = siteAdapters,
-        // P49: an Instagram link carries the browser's Instagram sign-in, if there is one.
+        // Instagram adapter: an Instagram link carries the browser's Instagram sign-in, if any.
         homeCookie = { url ->
             TikTokHomeSession.cookieFor(url, tikTokSettings) ?: InstagramHomeSession.cookieFor(url)
         },
@@ -162,7 +162,7 @@ class HeadlessLinkInspector internal constructor(
                 requestContext = BrowserRequestContext(
                     url,
                     HeadlessIdentity.USER_AGENT,
-                    // P40 (G3): a TikTok link carries the browser's TikTok cookies, if allowed.
+                    // TikTok page reader: a TikTok link carries the browser's cookies, if allowed.
                     cookie = homeCookie(url),
                 ),
                 nowEpochMs = now,
@@ -204,7 +204,7 @@ class HeadlessLinkInspector internal constructor(
                         now = now,
                     ),
                 ),
-                // v1.0.2 item 13 (a): a site reader's failure before the link gave the media.
+                // Download sheet: a site reader's failure before the link gave the media.
                 details = DiagnosticTextSanitizer.details(adapterDetails),
             )
 
@@ -234,7 +234,7 @@ class HeadlessLinkInspector internal constructor(
                             )
                         },
                         facts = scan.facts.takeUnless { it.isEmpty },
-                        // v1.0.2 item 13 (a): a site reader's failure before the page's markup.
+                        // Download sheet: a site reader's failure before the page's markup.
                         details = DiagnosticTextSanitizer.details(adapterDetails),
                     )
                 }

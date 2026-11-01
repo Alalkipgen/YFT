@@ -309,7 +309,7 @@ class HomeScreenTest {
         val docs = HomeSite("Docs", "https://docs.test")
         setContent(HomeUiState(sites = HomeSites.DEFAULTS + docs))
 
-        // D4: Instagram and X are defaults too; v1.0.2: every tile shows without a swipe.
+        // Instagram and X are defaults too; every tile shows without a swipe.
         val slugs = listOf("youtube", "facebook", "tiktok", "instagram", "x")
         HomeSites.DEFAULTS.zip(slugs).forEach { (site, slug) ->
             composeRule.onNodeWithTag("site-logo-$slug", useUnmergedTree = true).assertIsDisplayed()
@@ -336,7 +336,7 @@ class HomeScreenTest {
         assertEquals(listOf(3, 3, 1), rows.map { it.size })
         rows.forEach { row ->
             assertTrue(row.all { it.top == row.first().top })
-            // v1.0.2 fix N1: each tile fills its third of the row, so neighbours may touch.
+            // Each tile fills its third of the row, so neighbours may touch.
             assertTrue(row.zipWithNext().all { (left, right) -> right.left >= left.right })
             // The columns line up from row to row.
             row.forEachIndexed { column, tile -> assertEquals(rows[0][column].left, tile.left) }

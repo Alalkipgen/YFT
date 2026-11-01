@@ -36,8 +36,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Item 5 (v1.0.2): a long press on a finished download starts select mode; the bar removes the
- * picked downloads from the list or deletes their files with one question. Before item 5 a
+ * A long press on a finished download starts select mode; the bar removes the
+ * picked downloads from the list or deletes their files with one question. Before, a
  * download could only be removed or deleted one at a time from its own menu.
  */
 @RunWith(RobolectricTestRunner::class)

@@ -4,10 +4,10 @@ import com.alal.yft.download.BackgroundHealth
 import com.alal.yft.download.BackgroundSystemState
 import com.alal.yft.download.freezeMessage
 
-/** BATTERY_CARD (G4) default: the battery card in Downloads; OFF keeps Settings and freezes. */
+/** BATTERY_CARD default: the battery card in Downloads; OFF keeps Settings and freezes. */
 internal const val BATTERY_CARD = true
 
-/** What the Downloads screen says about running in the background (P34). */
+/** What the Downloads screen says about running in the background. */
 data class BackgroundCardsUiState(
     /** "Turn on notifications to see download progress outside YFT". */
     val notificationsCard: Boolean = false,
@@ -62,7 +62,7 @@ internal fun backgroundCards(
     )
 }
 
-/** Settings › Downloads › Background downloads: "Allowed" or "Limited" (P34). */
+/** Settings › Downloads › Background downloads: "Allowed" or "Limited". */
 internal fun backgroundDownloadsValue(system: BackgroundSystemState): String =
     if (system.unrestricted) "Allowed" else "Limited"
 

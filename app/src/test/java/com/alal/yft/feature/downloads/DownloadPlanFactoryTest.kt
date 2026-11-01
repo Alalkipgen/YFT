@@ -47,7 +47,7 @@ class DownloadPlanFactoryTest {
 
     @Test
     fun `a size too small for the length is not the download's total`() {
-        // G1 (v1.0.2): a 1:47:11 YouTube M4A once read "1 B" over a bad connection.
+        // A 1:47:11 YouTube M4A once read "1 B" over a bad connection.
         val replay = variant(
             kind = MediaKind.DIRECT,
             trackType = MediaTrackType.AUDIO,
@@ -261,10 +261,10 @@ class DownloadPlanFactoryTest {
         assertEquals(companion().mediaUrl, plan.audio.manifestUrl)
         assertEquals(MediaTrackType.AUDIO, plan.audio.trackType)
         assertEquals(listOf("mp4a.40.2"), plan.audio.codecs)
-        // The page's length, for a live stream's pieces (run 4f).
+        // The page's length, for a live stream's pieces.
         assertEquals(10_103_000L, plan.video.expectedDurationMillis)
         assertEquals(10_103_000L, plan.audio.expectedDurationMillis)
-        // YouTube states the sound's length, so its download needs no length request (P41).
+        // YouTube states the sound's length, so its download needs no length request.
         assertEquals(WholeFileTrack(totalBytes = 163_000_000), plan.audio.wholeFile)
         assertEquals(5_000L, plan.expiresAtEpochMs)
         assertTrue(plan.video.taskId != plan.audio.taskId)
@@ -323,7 +323,7 @@ class DownloadPlanFactoryTest {
 
     @Test
     fun `a DASH quality with its manifest's sound becomes a merge of two representations`() {
-        // v1.0.2 item 59: a page's one-file (SegmentBase) quality and its manifest's sound.
+        // Sound pairing: a page's one-file (SegmentBase) quality and its manifest's sound.
         val manifest = "https://media.example.test/dash/stream.mpd"
         val sound = companion().copy(
             mediaUrl = manifest,
@@ -467,7 +467,7 @@ class DownloadPlanFactoryTest {
     }
 
     /**
-     * v1.0.2 item 26: with a debug build's AV1 merge switch on, Android 14 or newer plans AV1 +
+     * With a debug build's AV1 merge switch on, Android 14 or newer plans AV1 +
      * AAC as one MP4 merge; Android 13 still refuses it, and the default (the release: the switch
      * absent, AV1 merges off) refuses it everywhere.
      */
@@ -498,7 +498,7 @@ class DownloadPlanFactoryTest {
 
     @Test
     fun `VP9 WebM video with its Opus track becomes a WebM merge from Android 10`() {
-        // P6: YouTube's 2K and 4K rows are VP9 WebM paired with the Opus WebM track.
+        // Merge: YouTube's 2K and 4K rows are VP9 WebM paired with the Opus WebM track.
         val webm = variant(
             url = "https://rr3---sn-a.googlevideo.com/videoplayback?itag=313&sig=private",
             label = "2160p",

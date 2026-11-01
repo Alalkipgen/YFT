@@ -144,7 +144,7 @@ class HeadlessLinkInspectorTest {
         assertEquals("Fixture clip", found.pageTitle)
         assertEquals("https://cdn.fixture.test/42.mp4", found.candidates.single().mediaUrl)
         assertTrue(fetched.isEmpty())
-        // v1.0.2 item 13 (a): a site reader's own success has no lines (as in the browser).
+        // Download sheet: a site reader's own success has no lines (as in the browser).
         assertTrue(found.details.isEmpty())
     }
 
@@ -172,7 +172,7 @@ class HeadlessLinkInspectorTest {
 
     @Test
     fun siteLookupsCarryTheCookieHomeIsAllowedToSend() = runTest {
-        // P40 (G3): TikTokHomeSession gives the browser's TikTok cookies for TikTok links only.
+        // TikTok page reader: TikTokHomeSession gives the browser's cookies to TikTok links only.
         val delegate = FixtureExtractor()
         var received: BrowserRequestContext? = null
         val recording = object : SiteExtractor by delegate {
@@ -211,7 +211,7 @@ class HeadlessLinkInspectorTest {
             FixtureExtractor(SiteExtractionResult.Failure(SiteExtractionFailure.DRM_PROTECTED)),
         )
 
-        // P16: Home opens this video's sheet before the lookup asks anything.
+        // Home opens this video's sheet before the lookup asks anything.
         assertEquals(
             SiteVideoLink("fixture:42", "https://fixture.test/video/42"),
             inspector.siteVideo("  https://fixture.test/video/42 "),
@@ -295,13 +295,13 @@ class HeadlessLinkInspectorTest {
         assertEquals("Sunset timelapse", candidate.title)
         assertEquals(HeadlessIdentity.USER_AGENT, candidate.requestContext.userAgent)
         assertNull(candidate.requestContext.cookie)
-        // v1.0.2 item 13 (a): a page no site reader reads gives no lines.
+        // Download sheet: a page no site reader reads gives no lines.
         assertTrue(result.details.isEmpty())
     }
 
     @Test
     fun aSiteReadersFailureBeforeThePagesOwnMediaGoesWithTheFindAsItsLines() = runTest {
-        // v1.0.2 item 13 (a): the site reader failed, then the page's markup gave the video: the
+        // The site reader failed, then the page's markup gave the video: the
         // find keeps the reader's lines (Home's sheet shows them as its Lookup details), cleaned.
         page = { url ->
             HeadlessPageFetcher.Result.Page(

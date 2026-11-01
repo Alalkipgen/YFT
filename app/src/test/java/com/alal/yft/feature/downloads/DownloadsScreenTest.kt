@@ -279,8 +279,8 @@ class DownloadsScreenTest {
     }
 
     /**
-     * P21: Details shows why and where a download failed; Copy details puts the same text on
-     * the clipboard, without the link or the address it failed on.
+     * Download queue: Details shows why and where a download failed; Copy details puts the same
+     * text on the clipboard, without the link or the address it failed on.
      */
     @Test
     fun failedTaskShowsItsDetailsAndCopiesThemWithoutLinks() {
@@ -323,7 +323,7 @@ class DownloadsScreenTest {
     }
 
     /**
-     * F6: a download whose link expired or was refused offers its details too, with the
+     * A download whose link expired or was refused offers its details too, with the
      * reason, the HTTP status and the link's facts, from its button and from its menu.
      */
     @Test
@@ -403,7 +403,7 @@ class DownloadsScreenTest {
             .assertIsDisplayed()
         composeRule.onNodeWithTag("downloads-pause-all").assertIsNotEnabled()
         composeRule.onAllNodesWithTag("download-action-retry-old").assertCountEquals(0)
-        // Item 7 Track B3: Reset YouTube session is offered on a YouTube refusal only.
+        // Reset YouTube session is offered on a YouTube refusal only.
         composeRule.onAllNodesWithTag("download-reset-youtube-old").assertCountEquals(0)
 
         composeRule.onNodeWithTag("download-action-delete-old").performClick()
@@ -412,9 +412,9 @@ class DownloadsScreenTest {
     }
 
     /**
-     * Item 7 Track B1: YouTube refused the download while its link had time left: the row says
-     * so instead of "Link expired" and says what to try instead of "reopen the page"; it offers
-     * removal and its details, no Retry (B3 adds Reset YouTube session, tested below).
+     * YouTube session reset: YouTube refused the download while its link had time left: the row
+     * says so instead of "Link expired" and says what to try instead of "reopen the page"; it
+     * offers removal and its details, no Retry (Reset YouTube session is tested below).
      */
     @Test
     fun aYouTubeRefusalSaysWhatToTryInsteadOfLinkExpired() {
@@ -461,7 +461,7 @@ class DownloadsScreenTest {
     }
 
     /**
-     * Item 7 Track B3: a download YouTube refused offers Reset YouTube session on its card and in
+     * A download YouTube refused offers Reset YouTube session on its card and in
      * its menu. It asks first: Cancel resets nothing, Reset resets once; no download changes.
      */
     @Test
@@ -815,7 +815,7 @@ class DownloadsScreenTest {
 
     @Test
     fun aRunningDownloadShowsThePictureSavedWhenItStartedUntilTheFileHasAFrame() {
-        // P19: "run" has a saved picture, "plain" none; "done" is finished, its file has no
+        // "run" has a saved picture, "plain" none; "done" is finished, its file has no
         // frame (yet): the saved picture stays until it has.
         val saved = object : DownloadThumbnails by DownloadThumbnails.None {
             override suspend fun load(downloadId: String): ImageBitmap? =
@@ -848,7 +848,7 @@ class DownloadsScreenTest {
         pictures("done").assertCountEquals(1)
     }
 
-    /** Decision 30 (v): a quiet build's Details only with Show details; its Retry stays. */
+    /** Quiet details: a quiet build's Details only with Show details; its Retry stays. */
     @Test
     fun aQuietBuildHidesAFailuresDetailsAndKeepsItsRetry() {
         setScreen(DownloadsUiState(listOf(failedRow())), quiet = true)
@@ -861,8 +861,8 @@ class DownloadsScreenTest {
     }
 
     /**
-     * Track E (E-D6): a "Link expired" download whose page YFT can look up again says Retry gets
-     * a fresh link and offers Retry; the tap goes to the queue as any Retry.
+     * Fresh link renewal: a "Link expired" download whose page YFT can look up again says Retry
+     * gets a fresh link and offers Retry; the tap goes to the queue as any Retry.
      */
     @Test
     fun aRenewableExpiredLinkOffersRetryAndSaysWhatItDoes() {
@@ -894,7 +894,7 @@ class DownloadsScreenTest {
     }
 
     /**
-     * v1.0.2: a "Link expired" download whose page, read again, had no player data (a notice, a
+     * A "Link expired" download whose page, read again, had no player data (a notice, a
      * check) says to reopen the page in the browser, since Retry would read it the same way;
      * Retry stays.
      */
@@ -927,7 +927,7 @@ class DownloadsScreenTest {
         assertEquals(listOf(DownloadAction.RETRY to "notice"), actions)
     }
 
-    /** Track E: a download that got a fresh link offers Details while it runs, without links. */
+    /** A download that got a fresh link offers Details while it runs, without links. */
     @Test
     fun aDownloadThatGotAFreshLinkShowsItsDetailsWhileItRuns() {
         setScreen(
@@ -960,7 +960,7 @@ class DownloadsScreenTest {
         composeRule.onAllNodesWithTag("download-menu-details-plain").assertCountEquals(0)
     }
 
-    /** Decision 30 (v): a quiet build keeps a renewed download's Details behind Show details. */
+    /** Quiet details: a quiet build keeps a renewed download's Details behind Show details. */
     @Test
     fun aQuietBuildHidesARenewedDownloadsDetails() {
         setScreen(
@@ -979,7 +979,7 @@ class DownloadsScreenTest {
     }
 
     /**
-     * v1.0.2 fix R8: while a debug build's AV1 merges are on, a finished merge offers Details,
+     * AV1 merge switch: while a debug build's AV1 merges are on, a finished merge offers Details,
      * which end with the phone's AV1 decoders; a finished download that is no merge has none, and
      * once the switch is off (read again as the menu opens) neither has the merge.
      */
@@ -1014,7 +1014,7 @@ class DownloadsScreenTest {
         }
     }
 
-    /** R8 with Decision 30 (v): a quiet build has no finished merge's Details, switch or not. */
+    /** Quiet details: a quiet build has no finished merge's Details, AV1 switch or not. */
     @Test
     fun aQuietBuildHidesAFinishedMergesDetails() {
         val context = ApplicationProvider.getApplicationContext<Context>()

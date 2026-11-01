@@ -39,7 +39,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * P42: "Delete file" deletes the saved file and then the row. Before P42 the only delete was
+ * "Delete file" deletes the saved file and then the row. Before, the only delete was
  * "Remove from list", which kept the file.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -179,7 +179,7 @@ class DownloadsViewModelDeleteFileTest {
         assertEquals(1, store.tasks.size)
     }
 
-    /** Item 5 (v1.0.2): select mode's Delete file asks once and deletes each picked file. */
+    /** Select mode's Delete file asks once and deletes each picked file. */
     @Test
     fun pickedDownloadsGetOneQuestionWithTheCountThenEachFileGoes() = runTest {
         val store = Store(

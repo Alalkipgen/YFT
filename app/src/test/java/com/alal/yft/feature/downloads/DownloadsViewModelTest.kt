@@ -233,7 +233,7 @@ class DownloadsViewModelTest {
                 viewModel.uiState.value.storage,
             )
 
-            // M1 (v1.0.2): with its free space when that can be read.
+            // Save folder: with its free space when that can be read.
             storage.folderName = "Download/YFT"
             storage.folderFree = 7_000_000_000
             storage.current.value = null

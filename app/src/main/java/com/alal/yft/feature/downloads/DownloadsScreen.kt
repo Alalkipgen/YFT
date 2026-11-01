@@ -129,7 +129,7 @@ fun DownloadsRoute(
     val deleteFileQuestion by viewModel.deleteFileQuestion.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
-    // P42: Android's "Allow YFT to delete?" for an item YFT no longer owns.
+    // Delete file: Android's "Allow YFT to delete?" for an item YFT no longer owns.
     val consent = rememberLauncherForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult(),
     ) { result -> viewModel.onDeleteConsentResult(result.resultCode == Activity.RESULT_OK) }
@@ -200,7 +200,7 @@ fun DownloadsRoute(
     )
 }
 
-/** Item 5 (v1.0.2): what the select bar does with the picked finished downloads. */
+/** What the select bar does with the picked finished downloads. */
 data class DownloadSelectionActions(
     val onRemoveFromList: (List<String>) -> Unit,
     val onDeleteFiles: (List<String>) -> Unit,
@@ -210,7 +210,7 @@ data class DownloadSelectionActions(
     }
 }
 
-/** "Delete file" on a finished download and its question (P42). */
+/** "Delete file" on a finished download and its question. */
 data class DeleteFileActions(
     val onDeleteFile: (String) -> Unit,
     val onConfirm: () -> Unit,
@@ -230,7 +230,7 @@ data class DeleteFileActions(
  * get the same controls as custom actions. A finished download's play button plays it in the
  * app ([onPlay]); its menu can also hand it to another app ([onOpen]).
  *
- * Item 5 (v1.0.2): a long press on a finished download starts select mode: taps pick finished
+ * A long press on a finished download starts select mode: taps pick finished
  * downloads, and the bar above the list removes them from the list or deletes their files
  * ([selectionActions]); Back or Cancel leaves it.
  */
@@ -249,13 +249,13 @@ fun DownloadsScreen(
     deleteFileActions: DeleteFileActions = DeleteFileActions.None,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     onResetYouTubeSession: () -> Unit = {},
-    /** Track E (E-D9): the trial's tool that breaks a download's link; only the trial has it. */
+    /** Fresh link renewal: the trial's tool that breaks a download's link; only in the trial. */
     onBreakLink: (String) -> Unit = {},
     selectionActions: DownloadSelectionActions = DownloadSelectionActions.None,
 ) {
     val colors = YftTheme.colors
     var filter by rememberSaveable { mutableStateOf(DownloadsFilter.ALL) }
-    // Item 5 (v1.0.2): the finished downloads picked in select mode, in the order picked; rows
+    // The finished downloads picked in select mode, in the order picked; rows
     // that went or the filter hides drop out, and select mode ends with the last one.
     var picked by rememberSaveable { mutableStateOf(emptyList<String>()) }
     val finishedIds = uiState.rowsFor(filter)
@@ -266,7 +266,7 @@ fun DownloadsScreen(
         onToggle = { id -> picked = if (id in picked) picked - id else picked + id },
     )
     BackHandler(enabled = selection.active) { picked = emptyList() }
-    // Item 7 Track B3: "Reset YouTube session?" is open.
+    // "Reset YouTube session?" is open.
     var youTubeResetAsked by rememberSaveable { mutableStateOf(false) }
     val storage = uiState.storage
     Box(
@@ -389,7 +389,7 @@ fun DownloadsScreen(
 }
 
 /**
- * Item 7 Track B3: "Reset YouTube session?" before YFT's browser forgets YouTube's cookies, site
+ * "Reset YouTube session?" before YFT's browser forgets YouTube's cookies, site
  * storage and remembered lookups; other sites keep their sign-ins.
  */
 @Composable
@@ -414,7 +414,7 @@ internal fun YouTubeResetDialog(
 }
 
 /**
- * "Delete this file?" before "Delete file" deletes (P42, `DELETE_CONFIRM`); item 5 (v1.0.2): or
+ * "Delete this file?" before "Delete file" deletes (`DELETE_CONFIRM`), or
  * "Delete 3 files?" for the downloads picked in select mode.
  */
 @Composable
@@ -434,7 +434,7 @@ internal fun DeleteFileDialog(
         modifier = Modifier.testTag("download-delete-file-dialog"),
         title = { Text(deleteFilesTitle(question.count), color = colors.textPrimary) },
         text = { Text(text, color = colors.textPrimary) },
-        // N5 (v1.0.2): Delete in the same red as the Library's.
+        // Delete in the same red as the Library's.
         confirmButton = {
             YftTextButton(
                 text = "Delete",
@@ -451,7 +451,7 @@ internal fun DeleteFileDialog(
 }
 
 /**
- * Item 5 (v1.0.2): the finished downloads picked in select mode ([picked], in the order picked)
+ * The finished downloads picked in select mode ([picked], in the order picked)
  * and how a card picks or drops itself.
  */
 internal class RowSelection(
@@ -467,7 +467,7 @@ internal class RowSelection(
 }
 
 /**
- * Item 5 (v1.0.2): the bar above the list in select mode: Cancel, how many are picked, Select
+ * The bar above the list in select mode: Cancel, how many are picked, Select
  * all, then **Remove from list** (the files stay) and **Delete file** (one question first).
  */
 @OptIn(ExperimentalLayoutApi::class)
@@ -535,7 +535,7 @@ internal fun SelectionBar(
     }
 }
 
-/** P34: the notifications card, then the battery card, under the network notice. */
+/** Download queue: the notifications card, then the battery card, under the network notice. */
 private fun LazyListScope.backgroundItems(
     background: BackgroundCardsUiState,
     actions: BackgroundCardActions,
@@ -818,7 +818,7 @@ private fun cardActions(
                     onAction(action, row.id)
                 },
             )
-            // P42: beside "Remove from list", which keeps the file.
+            // Delete file: beside "Remove from list", which keeps the file.
             if (action == DownloadAction.DELETE && row.status == DownloadTaskStatus.COMPLETED) {
                 add(
                     CardAction(DELETE_FILE_LABEL, deleteFileTag(row.id), YftIcons.Delete) {
@@ -847,7 +847,7 @@ private fun cardActions(
             ),
         )
     }
-    // Track E (E-D9): the trial's own tool for the phone test, on a running or paused download.
+    // Fresh link renewal: the trial's own tool for the phone test, on a running or paused download.
     // Every other build drops it with its label (BuildConfig.SOCIAL_TRIAL is false there; the
     // release check rejects the label anywhere but the trial).
     if (BuildConfig.SOCIAL_TRIAL && onBreakLink != null && row.status in BREAKABLE_STATUSES) {
@@ -861,7 +861,7 @@ private fun cardActions(
     }
 }
 
-/** Track E (E-D9): the downloads whose link the trial's tool breaks: they are using one. */
+/** Fresh link renewal: the downloads whose link the trial's tool breaks: they are using one. */
 private val BREAKABLE_STATUSES = setOf(DownloadTaskStatus.RUNNING, DownloadTaskStatus.PAUSED)
 
 @DrawableRes
@@ -889,11 +889,11 @@ private fun DownloadCard(
     val colors = YftTheme.colors
     var menuOpen by remember { mutableStateOf(false) }
     var detailsOpen by remember { mutableStateOf(false) }
-    // Decision 30 (v): a quiet build shows a failure's Details only with Show details on; the
-    // failed download's Retry stays (a function). v1.0.2 fix R8: while a debug build's AV1
+    // Quiet details: a quiet build shows a failure's Details only with Show details on; the
+    // failed download's Retry stays (a function). AV1 merge switch: while a debug build's AV1
     // merges are on, a finished merge has Details with the AV1 line (read again as the menu opens).
     val showDetails = row.showsDetails(Av1MergeSwitch.detailLine()) && !LocalQuietRelease.current
-    // Track E (E-D9): the trial's tool, as the trial's VK value break (never in a quiet build).
+    // Fresh link renewal: the trial's tool, like the VK trial break (never in a quiet build).
     val trialTools = BuildConfig.SOCIAL_TRIAL && !LocalQuietRelease.current
     val actions = cardActions(
         row = row,
@@ -906,7 +906,7 @@ private fun DownloadCard(
         showDetails = showDetails,
         onBreakLink = onBreakLink.takeIf { trialTools },
     )
-    // Item 5 (v1.0.2): finished downloads can be picked; in select mode a tap picks or drops
+    // Finished downloads can be picked; in select mode a tap picks or drops
     // them, and the other rows wait.
     val selectable = row.status == DownloadTaskStatus.COMPLETED
     val selecting = selection.active
@@ -956,7 +956,7 @@ private fun DownloadCard(
                     showDetails = showDetails,
                 )
             }
-            // v1.0.2 item 28: the chosen folder could not take this file.
+            // Save folder: the chosen folder could not take this file.
             if (row.folderUnavailable) {
                 Text(
                     text = folderUnavailableNotice(row.destinationKind),
@@ -1001,7 +1001,7 @@ private fun DownloadCard(
 }
 
 /**
- * What failed, where and on which phone (P21), with Copy details for a bug report; Track E: or,
+ * What failed, where and on which phone, with Copy details for a bug report; or,
  * for a download that got a fresh link, how it went on. The text holds no file name, link or
  * address ([downloadDetailsText]).
  */
@@ -1012,7 +1012,7 @@ internal fun FailureDetailsDialog(
     appVersion: String = BuildConfig.VERSION_NAME,
     androidRelease: String = Build.VERSION.RELEASE.orEmpty(),
     sdkInt: Int = Build.VERSION.SDK_INT,
-    // v1.0.2 item 26: the phone's AV1 decoders, only while a debug build's AV1 merges are on.
+    // AV1 merge switch: the phone's AV1 decoders, only while a debug build's AV1 merges are on.
     av1Decoder: String? = remember { Av1MergeSwitch.detailLine() },
 ) {
     val colors = YftTheme.colors
@@ -1192,8 +1192,8 @@ private fun StatusRow(
                 Text(
                     text = when {
                         row.isYouTubeRefusal() -> YOUTUBE_REFUSED_HINT
-                        // Track E (E-D6): Retry looks the page up again while YFT has its source;
-                        // a page read again without player data would be read the same way.
+                        // Fresh link renewal: Retry looks the page up again while YFT has its
+                        // source; a page read again without player data would be read the same way.
                         DownloadAction.RETRY in row.availableActions && !row.noPlayerOnPage ->
                             RENEWABLE_LINK_NOTE
                         else -> REOPEN_PAGE_NOTE
@@ -1282,7 +1282,7 @@ private fun FinishedRow(
             size = 22.dp,
         )
         if (selecting) {
-            // Item 5 (v1.0.2): the pick mark stands where Play was, so a tap only picks.
+            // The pick mark stands where Play was, so a tap only picks.
             Box(
                 modifier = Modifier
                     .size(CIRCLE_SIZE)
@@ -1317,7 +1317,7 @@ private fun RowThumbnail(
     iconSize: Dp = 28.dp,
     image: ImageBitmap? = null,
 ) {
-    // P19: the picture saved when the download started, until the file's own frame exists.
+    // The picture saved when the download started, until the file's own frame exists.
     val saved = rememberDownloadThumbnail(row.id)
     YftThumbnail(
         image = image ?: saved,

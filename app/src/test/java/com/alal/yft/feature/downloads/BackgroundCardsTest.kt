@@ -11,7 +11,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** P34: when Downloads shows the battery and notifications cards (G4). */
+/** Download queue: when Downloads shows the battery and notifications cards. */
 class BackgroundCardsTest {
     private val limited = BackgroundSystemState(
         unrestricted = false,

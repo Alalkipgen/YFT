@@ -48,7 +48,7 @@ class DownloadLabelsTest {
         assertEquals("Direct file", metaLabel(row(DownloadTaskStatus.QUEUED, name = "clip")))
     }
 
-    /** v1.0.2 (item 50): the quality the user picked, while the download is not finished. */
+    /** The quality the user picked, while the download is not finished. */
     @Test
     fun anUnfinishedVideoNamesItsPickedQualityAndItsStream() {
         fun picked(status: DownloadTaskStatus, plan: DownloadPlanType, total: Long? = null) =
@@ -206,7 +206,7 @@ class DownloadLabelsTest {
             "Chosen folder",
             storageLabel(DownloadStorageSummary(DownloadLocation.CHOSEN_FOLDER, freeBytes = null)),
         )
-        // M1 (v1.0.2): Download/YFT picked again reads as the default; another folder by its path.
+        // Save folder: Download/YFT picked again reads as the default; another folder by its path.
         assertEquals(
             "Download/YFT · 18 GB free",
             storageLabel(
@@ -242,7 +242,9 @@ class DownloadLabelsTest {
         assertEquals("download-action-pause-a", actionTag(DownloadAction.PAUSE, "a"))
     }
 
-    /** P21: what Details shows and Copy details copies, without links or the file's name. */
+    /**
+     * Download queue: what Details shows and Copy details copies, without links or the file's name.
+     */
     @Test
     fun failureDetailsNameTheReasonStageAndPhoneButNoLinks() {
         val failed = row(DownloadTaskStatus.FAILED, failure = DownloadFailureReason.NETWORK).copy(
@@ -281,7 +283,7 @@ class DownloadLabelsTest {
         }
     }
 
-    /** F6: a download whose link was never tried says so instead of an unknown reason. */
+    /** A download whose link was never tried says so instead of an unknown reason. */
     @Test
     fun failureDetailsOfALinkNeverTriedSayWhy() {
         val restored = row(DownloadTaskStatus.NEEDS_REFRESH).copy(requiresLinkRefresh = true)
@@ -299,7 +301,7 @@ class DownloadLabelsTest {
     }
 
     /**
-     * Item 7 Track B1: YouTube refused the download while its link had time left: not "Link
+     * YouTube session reset: YouTube refused the download while its link had time left: not "Link
      * expired"; the chip says YouTube refused it and Details say what to try.
      */
     @Test
@@ -330,7 +332,7 @@ class DownloadLabelsTest {
         assertEquals("Stage: Connecting to the server (CONNECT)", lines[3])
         assertEquals("HTTP status: 403", lines[4])
         assertFalse(YOUTUBE_REFUSED_HINT.contains("expired"))
-        // B3: the hint names Reset YouTube session before Clear browsing data, which signs out
+        // The hint names Reset YouTube session before Clear browsing data, which signs out
         // of every site.
         val reset = YOUTUBE_REFUSED_HINT.indexOf("tap $RESET_YOUTUBE_LABEL")
         assertTrue(YOUTUBE_REFUSED_HINT, reset >= 0)
@@ -360,7 +362,7 @@ class DownloadLabelsTest {
         assertTrue(text, text.endsWith("App: YFT \u2014\nAndroid: \u2014 (API 26)"))
     }
 
-    /** P41: a failed DASH or merged download says how long its start took. */
+    /** DASH download: a failed DASH or merged download says how long its start took. */
     @Test
     fun failureDetailsShowHowLongTheStartTook() {
         val failed = row(
@@ -434,9 +436,9 @@ class DownloadLabelsTest {
     }
 
     /**
-     * v1.0.2 item 26: while a debug build's AV1 merges are on, a merged download's Details end with
-     * the phone's AV1 decoders; no other download has the line, and without it (the release, or the
-     * switch off) the text is as before.
+     * AV1 merge switch: while a debug build's AV1 merges are on, a merged download's Details end
+     * with the phone's AV1 decoders; no other download has the line, and without it (the release,
+     * or the switch off) the text is as before.
      */
     @Test
     fun aMergedDownloadsDetailsNameTheAv1DecoderOnlyWhileAv1MergesAreOn() {
@@ -454,7 +456,7 @@ class DownloadLabelsTest {
         assertTrue(text, text.startsWith("YFT download failure\nReason: Incompatible tracks (INCOMPATIBLE_TRACKS)\n"))
         assertTrue(text, text.endsWith("Android: 16 (API 36)\n$decoder"))
         assertEquals(text, downloadDetailsText(failed, "1.0", "16", 36, av1Decoder = decoder))
-        // A completed merge's Details (shown after a fresh link, Track E) end with it too.
+        // A completed merge's Details (shown after a fresh link) end with it too.
         val done = row(DownloadTaskStatus.COMPLETED, plan = DownloadPlanType.AUDIO_VIDEO_MUX)
         assertTrue(downloadDetailsText(done, "1.0", "16", 36, av1Decoder = decoder).endsWith("(API 36)\n$decoder"))
         // Not a merge: no line. No line given (the release, the switch off): the text as before.
@@ -466,7 +468,7 @@ class DownloadLabelsTest {
     }
 
     /**
-     * v1.0.2 fix R8: while a debug build's AV1 merges are on (the AV1 line is given), a finished
+     * AV1 merge switch: while a debug build's AV1 merges are on (the AV1 line is given), a finished
      * merge shows Details, which end with that line. Without the line (the release, a preview,
      * the switch off) it shows none, as before; nor does a finished download that is no merge.
      */
