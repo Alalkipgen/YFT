@@ -24,7 +24,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Phase 1.1 S5: Master's YouTube reader with the own solver's runner. The engine is scripted;
+ * YouTube own solver: Master's YouTube reader with the own solver's runner. The engine is scripted;
  * the reader, the runner and the job/reply protocol are the real ones.
  */
 class OwnSolverYouTubeTest {
@@ -35,7 +35,7 @@ class OwnSolverYouTubeTest {
 
         val probes = mutableListOf<String>()
 
-        // N5b A.8: Phase 1.1's signatures too sign streams only once the live check opened one.
+        // The single-worker run's signatures too sign streams only once the live check opened one.
         val module = module(onMediaServer(fixture("player_cipher.json")), players, engine) { url, _ ->
             probes += url
             ExtractorProbeResult.Answered(206, 1_000_000L)

@@ -26,8 +26,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * VK's labels ([VkLabels]) on the asks of main's real VK
- * adapter (`extractor-sites`, as the app builds it) over made-up answers (`fixtures/vk-pack/`), in
+ * VK's labels ([VkLabels]) on the asks of main's real
+ * VK adapter (`extractor-sites`, as the app builds it) over made-up answers (`fixtures/vk-pack/`), in
  * a record labelled as the census labels it: the ways in main's order (the embed page, then path
  * D's anonymous token and `video.get`), each 2xx answer's mark by Master's own reader and judge
  * and its shape; main's manifest reads labelled by their address, any other file GET (V's reads)

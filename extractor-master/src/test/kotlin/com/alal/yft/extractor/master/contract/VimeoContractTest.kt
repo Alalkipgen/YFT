@@ -24,7 +24,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * R8 Vimeo: Master asks the player configuration itself (one request) and reads it with the
+ * Site contract reader, Vimeo: Master asks the player configuration itself (one request) and reads it with the
  * Vimeo key table. Parity with main's adapter on main's fixtures; access verdicts stop with 0
  * capture and 0 media checks.
  */
@@ -215,7 +215,7 @@ class VimeoContractTest {
 
         assertEquals(MasterStage.PLAYBACK_CAPTURE, (result as MasterResult.Success).stage)
         assertEquals(1, capture.calls)
-        // R8 videoKey: capture rows on a Vimeo page carry the app's key.
+        // The site contract reader's videoKey: capture rows on a Vimeo page carry the app's key.
         assertEquals(KEY, result.result.candidates.single().videoId)
     }
 

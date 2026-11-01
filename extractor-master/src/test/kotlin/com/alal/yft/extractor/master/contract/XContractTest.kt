@@ -18,7 +18,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * R8 X: Master asks X's embed-widget answer itself (the widget's token, no X cookie) and reads
+ * Site contract reader, X: Master asks X's embed-widget answer itself (the widget's token, no X cookie) and reads
  * it with the X key table. Parity with main's adapter on main's fixtures; posts the answer does
  * not show leave the page to the user's own playback.
  */

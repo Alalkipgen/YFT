@@ -44,7 +44,7 @@ class OwnSolverEnvironmentErrorsTest {
 
     @Test
     fun `the page's worker error classes are not environment errors`() {
-        // N7: own-solver-page.js prefixes a worker error event's class, so it never sends a job to E.
+        // The page script own-solver-page.js prefixes a worker error event's class, so it never sends a job to E.
         listOf(
             "WorkerError", "WorkerTypeError", "WorkerReferenceError", "WorkerStackOverflow", "WorkerOutOfMemory",
             "WorkerMessageError",

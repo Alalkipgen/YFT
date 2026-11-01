@@ -1,4 +1,4 @@
-// Provenance (Master R6): main 34a41890 extractor-sites/src/test/kotlin/com/alal/yft/extractor/
+// Provenance (Master YouTube module): main 34a41890 extractor-sites/src/test/kotlin/com/alal/yft/extractor/
 // sites/testing/ExtractorTestSupport.kt; Fixtures reads main's fixtures in place.
 package com.alal.yft.extractor.master.modules.youtube.testing
 

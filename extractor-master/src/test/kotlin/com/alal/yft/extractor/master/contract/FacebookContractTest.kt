@@ -20,7 +20,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * R8 Facebook: Master asks the embedded-video player page (`plugins/video.php`) as desktop
+ * Site contract reader, Facebook: Master asks the embedded-video player page (`plugins/video.php`) as desktop
  * Safari without the session and reads it with the Facebook key table, which also reads main's
  * page shapes. Parity with main's adapter on main's fixtures; only DRM stops, because an
  * anonymous embed's wording says nothing about what the signed-in user may watch.
@@ -139,7 +139,7 @@ class FacebookContractTest {
         val found = contractEngine(answering(embedUrl(identity) to renamed, contentType = "text/html"), validator)
             .extract(contractRequest(WATCH, identity))
 
-        // Task 18 (O1): only its 2 files, never the page link or the player's stand-in file.
+        // Only its 2 files, never the page link or the player's stand-in file.
         val rows = (found as MasterResult.Success).result.candidates
         val files = setOf(
             "https://video.example-cdn.test/v/embed-hd.mp4?oe=F2A52380&oh=fixture",

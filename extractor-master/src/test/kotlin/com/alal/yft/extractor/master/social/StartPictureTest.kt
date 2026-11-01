@@ -43,7 +43,7 @@ class StartPictureTest {
     }
 
     /**
-     * VK's pack proof (V3's retest 2): the picture track's sample entry names its codec, so a VK
+     * VK's pack proof (the capture step's second retest): the picture track's sample entry names its codec, so a VK
      * picture file row that states none names its own (the phone's merge gate reads it).
      */
     @Test

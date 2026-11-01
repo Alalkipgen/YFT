@@ -18,7 +18,7 @@ import com.alal.yft.extractor.master.modules.youtube.testing.FakeExtractorHttpCl
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 
-/** R8 test support: one capture that counts its calls, and the engine with contracts. */
+/** Site contract reader test support: one capture that counts its calls, and the engine with contracts. */
 internal class CountingCapture(
     private val result: CaptureResult = CaptureResult.Unavailable,
 ) : PlaybackCaptureProvider {

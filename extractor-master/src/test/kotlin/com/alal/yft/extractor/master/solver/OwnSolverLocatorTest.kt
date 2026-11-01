@@ -14,7 +14,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Phase 1.2 N5b A.4/A.5: the locator cache's data ([OwnSolverLocator]), its store
+ * Own-solver ladder: the locator cache's data ([OwnSolverLocator]), its store
  * ([OwnSolverLocators]), the V ledger ([OwnSolverVLedger]) and their file ([AtomicTextFile]).
  * Data only and strict: anything not exactly the core's form is refused; a store whose file is
  * corrupt, of another format or core version, or unreadable starts empty and never throws.

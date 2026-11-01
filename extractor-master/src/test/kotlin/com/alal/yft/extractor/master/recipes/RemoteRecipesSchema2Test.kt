@@ -6,8 +6,8 @@ import org.junit.Assert.assertSame
 import org.junit.Test
 
 /**
- * VK Master plan §9 (R9, wave 2): v1.0.1's address (master-recipes-2.json) is read as schema 2,
- * VK's part and rungs V1–V3 included; v1.0.0's (master-recipes.json) as schema 1, laid over the
+ * Signed recipe config: v1.0.1's address (master-recipes-2.json) is read as schema 2,
+ * VK's part and the VK ladder's rungs V1–V3 included; v1.0.0's (master-recipes.json) as schema 1, laid over the
  * bundled recipes minus VK's, VK's bundled recipe kept in its place.
  */
 class RemoteRecipesSchema2Test {

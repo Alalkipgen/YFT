@@ -11,11 +11,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * VK Master plan §9: R9 schema 2 — schema 1 plus site `vk` and rungs V1–V3, read by the unchanged
+ * Signed recipe config, schema 2 — schema 1 plus site `vk` and the VK ladder's rungs V1–V3, read by the unchanged
  * schema-1 reader through two projections; the v1.0.0 file is the schema-1 projection. Most cases
  * lay over a made-up VK stand-in ([VK_RECIPE]) so they never depend on VK's real addresses; the
  * bundled recipes ([ContractRecipes.ALL], VK's own [com.alal.yft.extractor.master.social.VkRecipe]
- * included since wave 2) are checked on their own.
+ * included) are checked on their own.
  */
 class RemoteRecipeConfig2Test {
     /** The bundled recipes a build without VK's recipe has (schema 1's sites). */
@@ -247,7 +247,7 @@ class RemoteRecipeConfig2Test {
     }
 
     private companion object {
-        /** A made-up stand-in for agent B's VK recipe (not a real VK address). */
+        /** A made-up stand-in for VK's recipe (not a real VK address). */
         val VK_RECIPE = ContractRecipe(
             site = RemoteRecipeConfig2.VK,
             endpoint = "https://api.vk.example/method/video.get?videos={id}",

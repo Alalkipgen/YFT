@@ -14,7 +14,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Phase 1.2 N5b: the ladder in [OwnPlayerScriptRunner] behind ownSolverNext ([OwnPlayerScriptRunner.Next]),
+ * Own-solver ladder: the steps in [OwnPlayerScriptRunner] behind ownSolverNext ([OwnPlayerScriptRunner.Next]),
  * on fake engines: which step answers, the job fields, ready and job timeouts, the breaker and
  * its markers, and the V hand-over ([SignatureVerdicts]).
  */
@@ -29,9 +29,9 @@ class OwnSolverLadderRunnerTest {
         assertEquals(1, worker.inputs.size)
         assertTrue("tripwire" !in worker.inputs.single())
         assertNull(worker.jobs.single().deadlineMillis)
-        // N5b A.4: no locator either.
+        // No locator either.
         assertTrue("locator" !in worker.inputs.single())
-        // N5b A.8: Phase 1.1's signature waits for V too: worker P, no hashes (per player version).
+        // The single-worker run's signature waits for V too: worker P, no hashes (per player version).
         assertEquals(PendingCheck(PLAYER, Step.WORKER_P), runner.pendingCheck(request))
         assertNull(runner.pendingCheck(request))
     }
@@ -282,7 +282,7 @@ class OwnSolverLadderRunnerTest {
             assertTrue(runner.lastFailures.containsAll(listOf("pP lookup cap", "pB lookup cap")))
 
             // P is skipped; B has its full cap now (off); page P gets what is left, 20 s, which is
-            // also its full cap (N7: page 20 s), so page P is off too.
+            // also its full cap (the page's cap is 20 s), so page P is off too.
             assertEquals(60_000L, lookup())
             assertTrue(runner.lastFailures.containsAll(listOf("P budget off", "pB lookup cap")))
             assertEquals(listOf<Long?>(40_000, 20_000, 40_000), deadlines(worker))
@@ -493,7 +493,7 @@ class OwnSolverLadderRunnerTest {
         pageCapMillis = 500,
     )
 
-    /** N5b A.2: the ladder's clock in these tests; a fake job moves it on by the time it takes. */
+    /** The ladder's clock in these tests; a fake job moves it on by the time it takes. */
     private class FakeClock(var now: Long = 0)
 
     /** The default caps (worker 40 s, page 20 s, lookup 60 s), on [clock]. */
@@ -527,7 +527,7 @@ class OwnSolverLadderRunnerTest {
 
     private fun deadlines(engine: StepEngine): List<Long?> = engine.jobs.map { it.deadlineMillis }
 
-    /** N5b A.5: the V a step's signatures need here: this player text, no locator part used. */
+    /** The V a step's signatures need here: this player text, no locator part used. */
     private fun checked(step: Step) = PendingCheck(PLAYER, step, OwnSolverLocator.sha256Hex(PLAYER_TEXT))
 
     private fun players() = FakeExtractorHttpClient(
@@ -551,7 +551,7 @@ class OwnSolverLadderRunnerTest {
         const val PLAYER_TEXT = "var _yt_player = {}; (function (g) { /* fixture */ })(_yt_player);"
         const val SIG = "AOq0QJ8wRAIgFixtureVideoSignature0123456789abcdefgh=="
         const val RATE = "Fx7nInput0"
-        /** N5b A.2: more than any step's cap. */
+        /** More than any step's cap. */
         const val SLOW = 100_000L
         val NO_EVENTS = object : OwnSolverEngine.Events {
             override fun started() = Unit

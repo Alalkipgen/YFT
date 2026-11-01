@@ -1,4 +1,4 @@
-// Provenance (Master R6 / YT-1): main 34a41890 extractor-sites/src/test/kotlin/com/alal/yft/
+// Provenance (Master YouTube module): main 34a41890 extractor-sites/src/test/kotlin/com/alal/yft/
 // extractor/sites/youtube/YouTubeClientProfileTest.kt, run unchanged against the Master copy (passthrough parity).
 package com.alal.yft.extractor.master.modules.youtube
 

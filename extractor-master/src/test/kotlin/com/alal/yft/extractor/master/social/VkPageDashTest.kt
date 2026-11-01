@@ -27,7 +27,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * VK's pack proof (V3's retest, 2026-10-26): the DASH manifest VK's player fetched on its page is
+ * VK's pack proof (the capture step's retest, 2026-10-26): the DASH manifest VK's player fetched on its page is
  * the row. In a VK lookup the shared row check reads it whole (one ask), checks its tallest picture
  * file and that file's sound (one ask each, V and the init check) and passes the row of both whole
  * files, which the app downloads and merges; its pieces are never rows. A ladder's manifest

@@ -31,10 +31,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * R9: a signed, schema-checked, data-only recipe config. A good config changes recipe data and
+ * Signed recipe config: a signed, schema-checked, data-only recipe config. A good config changes recipe data and
  * the engine reads with it; a bad, unsigned, older or expired config is ignored and the bundled
  * recipes keep working; the config is asked only from GitHub, without cookies, at most every six
- * hours after an answer (S4; once a day before).
+ * hours after an answer (once a day before it went live).
  */
 class RemoteRecipesTest {
     private val keys = keyPair()
@@ -207,7 +207,7 @@ class RemoteRecipesTest {
             assertSame(ContractRecipes.ALL, it.recipes())
         }
         assertTrue(quiet.requestedUrls.isEmpty())
-        // Without a config, the engine asks only the site, exactly as before R9.
+        // Without a config, the engine asks only the site, exactly as before the Signed recipe config.
         val identity = identify()
         val embed = "https://www.instagram.com/p/${identity.contentId}/embed/captioned/"
         val site = FakeExtractorHttpClient(
@@ -245,7 +245,7 @@ class RemoteRecipesTest {
         assertEquals(RemoteRecipeConfig.HEADERS.toSet(), enum(obj(defs, "site", "properties", "headers").entries["propertyNames"]))
         assertEquals(RemoteRecipeConfig.MIMES, enum(obj(defs, "media", "properties").entries["mime"]))
         assertEquals(ContractOrder.entries.map { it.name }.toSet(), enum(obj(defs, "media", "properties").entries["order"]))
-        // S4: the rungs a config may turn off, as the reader names them.
+        // The rungs a config may turn off, as the reader names them.
         assertEquals(RemoteRecipeConfig.RUNGS.toSet(), enum(obj(schema, "properties", "rungsOff").entries["items"]))
     }
 
