@@ -68,7 +68,7 @@ class PreviewSourceFactoryTest {
             trackType = MediaTrackType.AUDIO_VIDEO,
             audioCompanion = companion("https://media.example.test/audio/index.m3u8?token=a"),
         )
-        // P50: the rendition played as one progressive file, so the preview never started.
+        // The rendition played as one progressive file, so the preview never started.
         val sources = factory.sources(hls)
         assertEquals(2, sources.size)
         assertTrue(sources[0] is HlsMediaSource)
@@ -87,7 +87,7 @@ class PreviewSourceFactoryTest {
 
     @Test
     fun `plays a DASH page's sound from the manifest itself`() {
-        // v1.0.2 item 59: the sound is another representation of the same manifest, which
+        // The sound is another representation of the same manifest, which
         // plays its own sound; a second source would fetch the manifest twice.
         val dash = variant(MediaKind.DASH).copy(
             audioCompanion = companion("https://media.example.test/manifest.mpd")

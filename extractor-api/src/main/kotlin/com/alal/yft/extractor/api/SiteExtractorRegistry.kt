@@ -35,7 +35,7 @@ class SiteExtractorRegistry(
         adapterIds.filterNot(flags::isEnabled)
 
     /**
-     * P39: the adapter with [adapterId] while it is switched on, else null. A site's feed page
+     * The adapter with [adapterId] while it is switched on, else null. A site's feed page
      * has no video address to [select] by, yet its player's files are still that site's.
      */
     fun enabled(adapterId: String): SiteExtractor? =

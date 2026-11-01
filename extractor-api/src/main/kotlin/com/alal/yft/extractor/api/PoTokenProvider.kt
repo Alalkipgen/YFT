@@ -4,8 +4,8 @@ package com.alal.yft.extractor.api
  * Narrow bridge to the attestation a site's own web player performs before it streams.
  *
  * YouTube's web player runs YouTube's own BotGuard script, which returns a proof-of-origin
- * token that the player attaches to its media requests. The owner allowed YFT to do the same
- * (ADR-006): the host fetches the site's own current challenge, runs the site's own script in
+ * token that the player attaches to its media requests. The owner allowed YFT to do the same:
+ * the host fetches the site's own current challenge, runs the site's own script in
  * an isolated offscreen engine and returns only the token. YFT never reimplements the script.
  *
  * The interface lives here so adapters stay pure JVM code with a fake in tests, while the real

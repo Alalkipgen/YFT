@@ -116,7 +116,7 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        /** P21: the stage, HTTP status and detail of the last failure. */
+        /** The stage, HTTP status and detail of the last failure. */
         val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL(
@@ -126,7 +126,7 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        /** P31: the browser's history; download records are not touched. */
+        /** The browser's history; download records are not touched. */
         val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL(

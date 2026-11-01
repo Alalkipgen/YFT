@@ -36,8 +36,8 @@ class PreviewSourceFactory @Inject constructor(
     /**
      * The video's source, then its companion audio's when [variant] has one. The companion plays
      * as HLS when it is a playlist (an HLS video's audio rendition), else as a progressive file
-     * (P50: an HLS audio rendition read as one file did not play). A DASH page's sound, a
-     * representation of the same manifest ([CompanionAudio.representationId], v1.0.2 item 59),
+     * (an HLS audio rendition read as one file did not play). A DASH page's sound, a
+     * representation of the same manifest ([CompanionAudio.representationId]),
      * adds no source: the manifest plays its own sound.
      */
     internal fun sources(variant: MediaVariant): List<MediaSource> {

@@ -88,7 +88,7 @@ class DataStoreDownloadPreferencesRepositoryTest {
         assertEquals(DownloadPreferences(), preferences)
     }
 
-    /** v1.0.2 item 28: the chosen folder and its name survive a restart of the app. */
+    /** The chosen folder and its name survive a restart of the app. */
     @Test
     fun `a chosen folder is kept across a restart`() = runTest {
         val file = File(temporaryFolder.root, "settings.preferences_pb")
@@ -113,7 +113,7 @@ class DataStoreDownloadPreferencesRepositoryTest {
         assertEquals(FOLDER, reopened.folder)
     }
 
-    /** Item 28: choosing Download/YFT again keeps the folder for the Library; null forgets it. */
+    /** Choosing Download/YFT again keeps the folder for the Library; null forgets it. */
     @Test
     fun `another location keeps the folder and a null folder forgets it`() = runTest {
         val store = PreferenceDataStoreFactory.create(
@@ -132,7 +132,7 @@ class DataStoreDownloadPreferencesRepositoryTest {
         assertNull(DataStoreDownloadPreferencesRepository(store).preferences.first().folder)
     }
 
-    /** Item 28: a chosen folder whose address is missing cannot be used, so the default reads. */
+    /** A chosen folder whose address is missing cannot be used, so the default reads. */
     @Test
     fun `a chosen folder without its address reads as the default location`() = runTest {
         val store = PreferenceDataStoreFactory.create(

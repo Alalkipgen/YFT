@@ -47,7 +47,7 @@ class DataStoreDownloadPreferencesRepository @Inject constructor(
             stored[UNMETERED_ONLY] = next.unmeteredOnly
             stored[MAX_CONCURRENT] = next.maxConcurrentDownloads
             stored[CONFIRM_METERED] = next.confirmOnMeteredNetwork
-            // v1.0.2 item 28: the folder picked last, kept when another location is chosen.
+            // The folder picked last, kept when another location is chosen.
             val folder = next.folder
             if (folder == null) {
                 stored.remove(FOLDER_TREE)

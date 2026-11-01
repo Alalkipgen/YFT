@@ -1,4 +1,4 @@
 package com.alal.yft.core.media
 
-/** Media3-backed preview implementations are introduced in Phase 3. */
+/** Namespace marker for the media module (the Media3-backed preview). */
 object MediaFoundation

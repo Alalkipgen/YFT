@@ -8,7 +8,7 @@ import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 /**
- * The browser's history (P31, Room 6). SQLite on Android 7 has no UPSERT, so a visit is an
+ * The browser's history (database version 6). SQLite on Android 7 has no UPSERT, so a visit is an
  * update that falls back to an insert inside one transaction.
  */
 @Dao

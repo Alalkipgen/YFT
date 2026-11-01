@@ -7,13 +7,13 @@ import com.alal.yft.core.model.media.MediaVariant
 import java.util.Locale
 
 /**
- * P50: an HLS master that names its sound apart (`#EXT-X-MEDIA:TYPE=AUDIO` with a URI, as X and
+ * An HLS master that names its sound apart (`#EXT-X-MEDIA:TYPE=AUDIO` with a URI, as X and
  * many players do) leaves every video quality silent on its own. Such a quality (`AUDIO="group"`)
  * is offered with its group's first audio rendition as its companion and is downloaded as two
  * playlists merged into one MP4, so it is not listed as "No sound".
  *
  * Only where the phone's MP4 muxer takes both: AVC video (`avc1`, `avc3`) and AAC sound
- * (`mp4a.40.*`), both stated in the master's `CODECS`. Backlog item 5: a VP9 quality (`vp09`)
+ * (`mp4a.40.*`), both stated in the master's `CODECS`. A VP9 quality (`vp09`)
  * with AAC sound is paired too, merged by YFT's own stream copy, but only at a height where no
  * quality has sound after the AVC pairing (YouTube's 1440p and 2160p), so the AVC rows stay the
  * ones listed. Any other quality stays as it was. The audio renditions stay listed on their own.

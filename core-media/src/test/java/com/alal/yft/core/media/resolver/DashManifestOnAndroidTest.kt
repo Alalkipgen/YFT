@@ -10,7 +10,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * v1.0.2 fix F1 (phone test 59): Android's own XML parser knows none of the hardening settings
+ * Android's own XML parser knows none of the hardening settings
  * the manifest reader asked all at once, so on a phone every DASH manifest was unreadable ("Couldn't
  * get this video."); the JVM's parser knows them all, so the tests passed. The reader now asks
  * each one on its own and refuses a document type itself.

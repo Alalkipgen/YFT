@@ -20,7 +20,7 @@ internal object DashManifestParser {
         requestContext: BrowserRequestContext,
         expiresAtEpochMs: Long?,
     ): ManifestParseResult {
-        // v1.0.2 fix F1: no document type, so no entity, on any parser (see the factory).
+        // No document type, so no entity, on any parser (see the factory).
         if (DOCUMENT_TYPE.containsMatchIn(manifest)) return ManifestParseResult.Malformed
         val document = runCatching {
             secureDocumentBuilderFactory()
@@ -106,7 +106,7 @@ internal object DashManifestParser {
     }
 
     /**
-     * v1.0.2 fix F1: Android's own parser (`org.apache.harmony.xml.parsers`) throws for
+     * Android's own parser (`org.apache.harmony.xml.parsers`) throws for
      * `isXIncludeAware`, for every feature but namespaces and validation and for every attribute,
      * so asking them all at once made every manifest unreadable on a phone (the JVM's parser
      * knows them all). Each one is asked on its own and one the parser does not know is skipped;
@@ -145,7 +145,7 @@ internal object DashManifestParser {
     }
 
     /**
-     * v1.0.2 item 59: whether [representation] is one file: a `SegmentBase` (its own, its
+     * Whether [representation] is one file: a `SegmentBase` (its own, its
      * adaptation set's or its period's) with the representation's own `BaseURL` and no
      * initialization in another file, and no `SegmentList` or `SegmentTemplate` beside it. Only
      * noted here: the download asks such a file in ranges, and a page's video quality of this
@@ -168,7 +168,7 @@ internal object DashManifestParser {
     }
 
     /**
-     * v1.0.2 fix R3: whether [representation] is in pieces: a `SegmentTemplate` or `SegmentList`
+     * Whether [representation] is in pieces: a `SegmentTemplate` or `SegmentList`
      * (its own, its adaptation set's or its period's) and no `SegmentBase` beside it, the ways
      * the download reads pieces (`bbb_30fps.mpd`: one `SegmentTemplate` for each adaptation
      * set). Only noted here: a page's video quality of this kind is offered with its manifest's
@@ -272,7 +272,7 @@ internal object DashManifestParser {
 
     private const val DASH_MIME_TYPE = "application/dash+xml"
 
-    /** v1.0.2 fix F1: a document type or an entity declaration; such a manifest is refused. */
+    /** A document type or an entity declaration; such a manifest is refused. */
     private val DOCUMENT_TYPE = Regex("""<!\s*(?:DOCTYPE|ENTITY)""", RegexOption.IGNORE_CASE)
     private const val MILLIS_PER_SECOND = 1_000.0
     private const val MILLIS_PER_MINUTE = 60 * MILLIS_PER_SECOND

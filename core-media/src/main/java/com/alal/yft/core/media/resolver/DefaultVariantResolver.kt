@@ -76,19 +76,19 @@ class DefaultVariantResolver(
         .build()
 
     /**
-     * P24: a failure names the request it stopped at ([ResolutionStep]) and that request's host
+     * A failure names the request it stopped at ([ResolutionStep]) and that request's host
      * (never its path or query), so the sheet's Details can say where it went wrong.
      */
     override suspend fun resolve(candidate: MediaCandidate): VariantResolutionResult {
         val trace = Trace(host = candidate.mediaUrl.toHttpUrlOrNull()?.host)
         val result = try {
-            // P39 (R31): the requests never run on the caller's thread; the Download sheet
+            // The requests never run on the caller's thread; the Download sheet
             // asks from the main thread, where closing a response can throw.
             withContext(Dispatchers.IO) { resolveSafely(candidate, trace) }
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (error: IOException) {
-            // P39 step 7: every failure names its error's class, never its message.
+            // Every failure names its error's class, never its message.
             VariantResolutionResult.Failure(
                 VariantResolutionFailure.NETWORK,
                 error = error.errorClass(),
@@ -99,7 +99,7 @@ class DefaultVariantResolver(
                 error = error.errorClass(),
             )
         } catch (error: Exception) {
-            // P39 (R31): any other error ends as a failure at the step it stopped at, instead
+            // Any other error ends as a failure at the step it stopped at, instead
             // of escaping to the sheet as "manifest not readable" without a step.
             VariantResolutionResult.Failure(
                 unexpectedFailureAt(trace.step),
@@ -118,7 +118,7 @@ class DefaultVariantResolver(
         }
     }
 
-    /** P39: the exception's simple class name only, never its message, an address or a query. */
+    /** The exception's simple class name only, never its message, an address or a query. */
     private fun Exception.errorClass(): String = javaClass.simpleName.ifBlank { javaClass.name }
 
     /** The reason an unexpected error stands for at [step]. */
@@ -130,7 +130,7 @@ class DefaultVariantResolver(
     }
 
     /**
-     * P24: where a resolution is: the step and host of its latest request. P45: also that
+     * Where a resolution is: the step and host of its latest request. Also that
      * request's kind ("HEAD", "range GET", "GET") and what the browser answered when it was
      * asked the same link again ([BrowserReads]; 0 when it could not ask).
      */
@@ -195,7 +195,7 @@ class DefaultVariantResolver(
         var metadata = head.response.use { it.toDirectMetadata() }
         val headRefused = metadata.code !in SUCCESS_CODES
         if (headRefused) metadata = DirectMetadata(code = metadata.code)
-        // P24: some file servers answer HEAD with a web page, or send it to their home page,
+        // Some file servers answer HEAD with a web page, or send it to their home page,
         // while a range GET of the same address gets the file: the address itself is asked again.
         if (metadata.mimeType.isWebPage()) {
             finalUrl = initialUrl
@@ -236,7 +236,7 @@ class DefaultVariantResolver(
             )
         }
 
-        // P24: a web page is not the video, whatever its address says.
+        // A web page is not the video, whatever its address says.
         if (metadata.mimeType.isWebPage()) {
             return VariantResolutionResult.Failure(VariantResolutionFailure.INVALID_URL)
         }
@@ -268,7 +268,7 @@ class DefaultVariantResolver(
             companion != null -> MediaSizeAccuracy.ESTIMATED
             else -> MediaSizeAccuracy.EXACT
         }
-        // A video file that does not state its picture is read from its MP4 header (P3).
+        // A video file that does not state its picture is read from its MP4 header.
         val header = if (companion == null && candidate.height == null &&
             mimeType in PROBED_VIDEO_MIME_TYPES
         ) {
@@ -351,7 +351,7 @@ class DefaultVariantResolver(
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (_: Exception) {
-            // P39: the header read is optional; any error leaves the row unmeasured.
+            // The header read is optional; any error leaves the row unmeasured.
             null
         }
     }
@@ -436,7 +436,7 @@ class DefaultVariantResolver(
                             VariantResolutionFailure.INVALID_URL,
                         )
                     variant.copy(
-                        // P24: the qualities are fetched like the manifest: Referer and Origin.
+                        // The qualities are fetched like the manifest: Referer and Origin.
                         requestContext = candidate.requestContext.forTarget(
                             credentialOrigin = initialUrl,
                             targetUrl = target,
@@ -448,7 +448,7 @@ class DefaultVariantResolver(
                         VariantResolutionFailure.UNSUPPORTED_CODEC,
                     )
                 } else {
-                    // P24: an HLS master states no length; its first quality's playlist does.
+                    // An HLS master states no length; its first quality's playlist does.
                     val length = parsed.durationMillis ?: candidate.durationMillis
                         ?: if (kind == MediaKind.HLS) {
                             playlistLength(candidate, initialUrl, variants, trace)
@@ -459,7 +459,7 @@ class DefaultVariantResolver(
                     val sized = variants.map { it.withLength(length) }
                     success(
                         candidate = candidate,
-                        // P50: a video quality with its sound apart is merged with it.
+                        // A video quality with its sound apart is merged with it.
                         variants = if (kind == MediaKind.HLS) {
                             HlsAudioPairing.pair(sized)
                         } else {
@@ -473,7 +473,7 @@ class DefaultVariantResolver(
     }
 
     /**
-     * P24: the length of an HLS master's video from its first video quality's own playlist (the
+     * The length of an HLS master's video from its first video quality's own playlist (the
      * sum of its pieces), in one bounded request sent like the master's; null when it cannot be
      * read in time. Sizes are then estimated from each quality's bitrate.
      */
@@ -533,7 +533,7 @@ class DefaultVariantResolver(
         return parsed.durationMillis?.takeIf { it > 0 }
     }
 
-    /** P24: a quality of a video of [length] states it, and its size from its bitrate. */
+    /** A quality of a video of [length] states it, and its size from its bitrate. */
     private fun MediaVariant.withLength(length: Long?): MediaVariant {
         if (length == null || length <= 0) return this
         val estimate = if (sizeBytes == null) estimateSize(bitrateBitsPerSecond, length) else null
@@ -545,7 +545,7 @@ class DefaultVariantResolver(
     }
 
     /**
-     * P24: a manifest found on a page is fetched as the page's player fetches it: with the page as
+     * A manifest found on a page is fetched as the page's player fetches it: with the page as
      * `Referer` and its `Origin`. Only where the page is HTTPS and still named (same origin).
      */
     private fun BrowserRequestContext.withPageOrigin(): BrowserRequestContext {
@@ -600,7 +600,7 @@ class DefaultVariantResolver(
             }
             val requestBuilder = Request.Builder().url(currentUrl)
             val headers = candidate.requestContext.headersForTarget(credentialOrigin, currentUrl)
-            // P24: a manifest request carries the page's Origin next to its Referer.
+            // A manifest request carries the page's Origin next to its Referer.
             val sent = if (accept != null && headers.keys.any { it.equals(REFERER, true) }) {
                 candidate.requestContext.withPageOrigin().observedHeaders
                     .filterKeys { it.equals(ORIGIN, ignoreCase = true) } + headers
@@ -646,7 +646,7 @@ class DefaultVariantResolver(
     }
 
     /**
-     * P45: a refusal of a link a browser page names ([BrowserReads.isRefusal]: 403, 410, 412,
+     * A refusal of a link a browser page names ([BrowserReads.isRefusal]: 403, 410, 412,
      * 452–499) is asked once more the way the page's player asks it: by the browser's own engine
      * ([browserReads]). Only a file check, a manifest or a playlist, never a HEAD (its range GET
      * follows) nor a site adapter's file (its own rules stand). The browser's answer stands in
@@ -689,7 +689,7 @@ class DefaultVariantResolver(
         return HttpExecution.Completed(answer.toResponse(request, wantsText), finalUrl)
     }
 
-    /** P45: the browser's [BrowserReadAnswer] as the response the resolver reads. */
+    /** The browser's [BrowserReadAnswer] as the response the resolver reads. */
     private fun BrowserReadAnswer.toResponse(request: Request, wantsText: Boolean): Response {
         val type = contentType?.toMediaTypeOrNull()
         val builder = Response.Builder()
@@ -817,7 +817,7 @@ class DefaultVariantResolver(
     /**
      * A sound track its source states as `audio/mp4` stays audio when the server calls the same
      * container `video/mp4`: Facebook's CDN labels every MP4 that way, sound-only tracks
-     * included (P4). Another container, or a merge's video, keeps the server's type.
+     * included. Another container, or a merge's video, keeps the server's type.
      */
     private fun soundMimeType(candidate: MediaCandidate, serverMime: String?): String? {
         if (candidate.audioCompanion != null || serverMime == null) return null

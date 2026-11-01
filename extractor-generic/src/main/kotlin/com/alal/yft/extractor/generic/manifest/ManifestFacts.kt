@@ -4,7 +4,7 @@ import java.net.URI
 import java.util.Locale
 
 /**
- * P24: what an HLS or DASH manifest states about its video, read from the manifest's text alone
+ * What an HLS or DASH manifest states about its video, read from the manifest's text alone
  * (no media is downloaded). [durationMillis] is the whole video's length: an HLS master states
  * none, so [firstPlaylistUrl] names the playlist that does; a live stream has no length.
  */

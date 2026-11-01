@@ -44,7 +44,7 @@ data class DownloadRecordEntity(
     @ColumnInfo(name = "updated_at_epoch_ms", defaultValue = "0")
     val updatedAtEpochMs: Long = createdAtEpochMs,
     /**
-     * Where and why the last attempt failed, next to [lastErrorCode] (P21): the stage, the HTTP
+     * Where and why the last attempt failed, next to [lastErrorCode]: the stage, the HTTP
      * status and a short detail without addresses or tokens, as written by the download store.
      */
     @ColumnInfo(name = "last_error_detail")

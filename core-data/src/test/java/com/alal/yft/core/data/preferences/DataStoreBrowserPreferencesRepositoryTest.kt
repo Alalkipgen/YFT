@@ -24,7 +24,7 @@ class DataStoreBrowserPreferencesRepositoryTest {
             scope = backgroundScope,
             produceFile = { File(temporaryFolder.root, "settings.preferences_pb") },
         )
-        // What an install from before P30 wrote: other settings, no browser key.
+        // What an install from before the browser settings wrote: other settings, no browser key.
         store.edit {
             it[stringPreferencesKey("theme_mode")] = "DARK"
             it[booleanPreferencesKey("check_copied_links")] = false

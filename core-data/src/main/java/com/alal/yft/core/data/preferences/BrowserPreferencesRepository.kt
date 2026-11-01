@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
-/** Settings › Browser: the search engine (P30), saving the history (P31); later pop-ups. */
+/** Settings › Browser: the search engine, saving the history; later pop-ups. */
 interface BrowserPreferencesRepository {
     val preferences: Flow<BrowserPreferences>
     suspend fun update(transform: (BrowserPreferences) -> BrowserPreferences)
@@ -24,8 +24,8 @@ interface BrowserPreferencesRepository {
 
 /**
  * Keeps the browser's settings in the app's preferences store, each under its own key. A store
- * without a key (an install from before P30) or with a value this build does not know reads the
- * default, so an older install searches Google.
+ * without a key (an install from before the browser settings) or with a value this build does not
+ * know reads the default, so an older install searches Google.
  */
 @Singleton
 class DataStoreBrowserPreferencesRepository @Inject constructor(

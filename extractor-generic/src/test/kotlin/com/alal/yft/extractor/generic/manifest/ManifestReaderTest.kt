@@ -5,7 +5,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** P24: lengths and pictures read from a manifest's text, so a page's video can be ranked. */
+/** Lengths and pictures read from a manifest's text, so a page's video can be ranked. */
 class ManifestReaderTest {
     private val masterUrl = "https://stream.example.test/v42/master.m3u8?token=fixture"
 

@@ -38,7 +38,7 @@ class CandidateNormalizerTest {
         val result = CandidateNormalizer().normalize(pageUrl, listOf(first, second))
 
         assertEquals(1, result.size)
-        // P37: the address the page's player asked for stays over the script's later copy.
+        // The address the page's player asked for stays over the script's later copy.
         assertTrue(result.single().mediaUrl.contains("token=old"))
         assertEquals(setOf(CandidateSource.REQUEST, CandidateSource.DOM), result.single().sources)
         assertEquals("Fixture movie", result.single().title)
@@ -85,7 +85,7 @@ class CandidateNormalizerTest {
 
     @Test
     fun byteRangePiecesOfOneFileAreTheWholeFileOnce() {
-        // P3-FIX regression: Facebook's player fetched each track in byte ranges, and every
+        // Regression: Facebook's player fetched each track in byte ranges, and every
         // piece was listed as another "Video file" (26 rows in pairs).
         val track = "https://video.cdn.test/v/t42/abc_n.mp4?_nc_cat=1&oh=fake"
         val audio = "https://video.cdn.test/v/t42/def_n.mp4?_nc_cat=1&oh=fake"
@@ -108,7 +108,7 @@ class CandidateNormalizerTest {
     }
 
     /**
-     * F1 (VK's pack proof, V3's retest 2026-10-26): VK's player names each piece of a DASH track
+     * VK's pack proof (a retest, 2026-10-26): VK's player names each piece of a DASH track
      * by `bytes=A-B` in its address. A piece is never a candidate, and no whole file is made of
      * it; the page's manifest stays. Facebook's `bytestart`/`byteend` and `range=` pieces stay
      * their whole file, as before.
@@ -227,7 +227,7 @@ class CandidateNormalizerTest {
 
     @Test
     fun aFileThePageNamesAsItsVideoStaysItsVideoWhereverElseItShows() {
-        // P24: the page's JSON-LD names the stream; the same stream played muted is no preview.
+        // The page's JSON-LD names the stream; the same stream played muted is no preview.
         val stream = "https://cdn.test/v/master.m3u8"
         val named = candidate(stream, kind = MediaKind.HLS).copy(pageRole = PageMediaRole.MAIN)
         val played = candidate(stream, kind = MediaKind.HLS, observedAt = 9)
@@ -270,7 +270,7 @@ class CandidateNormalizerTest {
 
     @Test
     fun anAdSignSeenOnceStaysWithTheFile() {
-        // P43: the tracker marked the file inside an ad break; a later sight of it says nothing.
+        // The tracker marked the file inside an ad break; a later sight of it says nothing.
         val marked = candidate("https://cdn.test/pre.mp4").copy(adSign = AdSign.AD_BREAK)
         val later = candidate("https://cdn.test/pre.mp4", observedAt = 9)
         val plain = candidate("https://cdn.test/main.mp4")

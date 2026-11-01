@@ -6,7 +6,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * One page the in-app browser opened (P31). The address is already cleaned (HTTPS, no fragment,
+ * One page the in-app browser opened. The address is already cleaned (HTTPS, no fragment,
  * no tracking parameters) and is the key, so a page opened again raises its count and time.
  */
 @Entity(
