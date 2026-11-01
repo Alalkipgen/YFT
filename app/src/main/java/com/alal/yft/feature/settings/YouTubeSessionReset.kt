@@ -10,13 +10,13 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 
 /**
- * Item 7 Track B3: "Reset YouTube session", offered on a download YouTube refused while its link
- * still had time left (`YOUTUBE_REFUSED`, B1). In D7 runs 13 / 13b only the app's Clear browsing
- * data fixed such a refusal, and that signs the user out of every site. This forgets YouTube's
- * session in YFT's browser and nothing of any other site: YouTube's cookies (the visitor ID and a
- * YouTube sign-in with them), YouTube's site storage and the YouTube lookups YFT remembers (P17).
- * Other sites, Google's accounts page included, keep their cookies and sign-ins. The HTTP cache
- * is shared by every site and stays (Clear browsing data clears it).
+ * "Reset YouTube session", offered on a download YouTube refused while its link still had time left
+ * (`YOUTUBE_REFUSED`). In two phone runs only the app's Clear browsing data fixed such a refusal,
+ * and that signs the user out of every site. This forgets YouTube's session in YFT's browser and
+ * nothing of any other site: YouTube's cookies (the visitor ID and a YouTube sign-in with them),
+ * YouTube's site storage and the YouTube lookups YFT remembers (Lookup reuse). Other sites,
+ * Google's accounts page included, keep their cookies and sign-ins. The HTTP cache is shared by
+ * every site and stays (Clear browsing data clears it).
  */
 fun interface YouTubeSessionReset {
     suspend fun reset(): YouTubeSessionResetResult

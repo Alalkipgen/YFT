@@ -283,7 +283,7 @@ internal fun NavHostController.goHome() {
 
 /**
  * Home looks [link] up as a pasted link (its download sheet opens): the browser's Download of
- * the link you copied and, v1.0.2 (item 4), a link another app shared. Home, the start
+ * the link you copied and a link another app shared. Home, the start
  * destination, is always in the back stack; its entry takes the link, then Home comes to the
  * front ([goHome]).
  */

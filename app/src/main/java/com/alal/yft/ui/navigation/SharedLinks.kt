@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * v1.0.2 (item 4): text another app shared to YFT (Android's Share, `ACTION_SEND` text/plain).
+ * Text another app shared to YFT (Android's Share, `ACTION_SEND` text/plain).
  * Apps send "title + link", so only its first http(s) link counts, as on Home's Paste.
  * `MainActivity` hands its intents to [take]; [LookUpSharedLink] gives the link to Home's lookup,
  * so the download sheet opens as for a pasted link (nothing downloads by itself), or says that

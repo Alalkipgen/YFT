@@ -64,9 +64,9 @@ class CompositeBrowsingDataCleaner(
 
 /**
  * Drops media found while browsing; its URLs can carry signed tokens of the cleared session.
- * P17: the remembered lookups go too, as they may have been read with that session. Track E:
- * so do the downloads' sources (their pages and how they were looked up): a link that dies
- * afterwards is not renewed.
+ * Lookup reuse: the remembered lookups go too, as they may have been read with that session.
+ * Fresh link renewal: so do the downloads' sources (their pages and how they were looked up): a
+ * link that dies afterwards is not renewed.
  */
 class SessionMediaCleaner(
     private val detectedMedia: DetectedMediaStore,
@@ -82,7 +82,7 @@ class SessionMediaCleaner(
     }
 }
 
-/** P31: the browser's history goes with the rest of the browsing data. */
+/** The browser's history goes with the rest of the browsing data. */
 class BrowserHistoryCleaner(
     private val history: BrowserHistoryRepository,
 ) : BrowsingDataCleaner {

@@ -493,7 +493,7 @@ class YftNavigationSmokeTest {
         assertNull(requests.requested.value)
     }
 
-    /** v1.0.2 (item 4): a link shared at a cold start opens its download sheet over Home. */
+    /** A link shared at a cold start opens its download sheet over Home. */
     @Test
     fun aSharedLinkIsLookedUpOnHomeAndOpensItsDownloadSheet() {
         val shared = SharedLinks().apply {

@@ -35,10 +35,10 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * v1.0.2 fix batch after #149 (the owner's phone: Xiaomi HyperOS, large text): the texts that
+ * Large text on the owner's phone (Xiaomi HyperOS): the texts that
  * were cut at 130 % and 150 % text fit there now, on a 360 dp wide screen, one test per fix
- * (N1 Home's site names, N3 Downloads' select-mode buttons, N4 the bottom bar's tab names, N7
- * the sheet's length, N11 the sheet's selected row, …). A text fits when its layout neither
+ * (Home's site names, Downloads' select-mode buttons, the bottom bar's tab names,
+ * the sheet's length, the sheet's selected row, …). A text fits when its layout neither
  * overflows nor ends in an ellipsis. With `YFT_RENDER_DIR` set, each case is also saved as
  * `fit<percent>-<name>.png`.
  */

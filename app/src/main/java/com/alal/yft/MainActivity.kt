@@ -37,10 +37,10 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var updateController: UpdateController
 
-    /** A download notification's tap asks for the Downloads tab (v1.0.2). */
+    /** A download notification's tap asks for the Downloads tab. */
     private val tabRequests = TabRequests()
 
-    /** A link shared from another app, for Home's lookup (v1.0.2, item 4). */
+    /** A link shared from another app, for Home's lookup. */
     private val sharedLinks = SharedLinks()
 
     override fun onCreate(savedInstanceState: Bundle?) {

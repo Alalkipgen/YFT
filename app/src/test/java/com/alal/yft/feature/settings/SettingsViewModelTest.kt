@@ -200,7 +200,7 @@ class SettingsViewModelTest {
 
     @Test
     fun theBackupFinderSwitchIsShownAndSetOnlyInABuildWithMaster() = runTest {
-        // Decision 30 (i): on by default; off, no lookup asks Master.
+        // Backup finder: on by default; off, no lookup asks Master.
         val finder = BackupFinder.inMemory(on = true, available = true)
         val viewModel = SettingsViewModel(
             preferences, cleaner, history, settings, browser, browserHistory, finder,
@@ -226,7 +226,7 @@ class SettingsViewModelTest {
 
     @Test
     fun theVkValueBreakRowIsShownAndChangedOnlyInTheTrial() = runTest {
-        // VK-Master wave 2 (item 7): the trial's VK value break; a tap keeps the next choice,
+        // VK trial break: the trial's VK value break; a tap keeps the next choice,
         // which this run does not use (main keeps its token for a day): a restart applies it.
         val vkBreak = VkTrialBreak.inMemory(VkTrialBreak.Break.OFF, available = true)
         val viewModel = SettingsViewModel(
@@ -347,7 +347,7 @@ class SettingsViewModelTest {
         return viewModel
     }
 
-    /** v1.0.2 item 28: the folder picker's folders, without Android. */
+    /** Save folder: the folder picker's folders, without Android. */
     private class FakeFolders : SaveFolders {
         val taken = mutableListOf<String>()
         var refuse = false

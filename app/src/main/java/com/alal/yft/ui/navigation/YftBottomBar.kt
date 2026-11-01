@@ -55,7 +55,7 @@ fun YftBottomBar(
                         }
                     },
                     label = {
-                        // N4 (v1.0.2): drawn smaller in large text instead of cut ("Downlo…").
+                        // Drawn smaller in large text instead of cut ("Downlo…").
                         YftFitText(
                             text = destination.title,
                             style = MaterialTheme.typography.labelMedium.copy(

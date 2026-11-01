@@ -35,18 +35,18 @@ import com.alal.yft.ui.theme.YftShapes
 import com.alal.yft.ui.theme.YftTheme
 
 /** White (Night card) surface with a 1dp border and no shadow, the YFT card. */
-@OptIn(ExperimentalFoundationApi::class) // combinedClickable, for onLongClick (item 5)
+@OptIn(ExperimentalFoundationApi::class) // combinedClickable, for onLongClick
 @Composable
 fun YftCard(
     modifier: Modifier = Modifier,
     shape: Shape = YftShapes.card,
     onClick: (() -> Unit)? = null,
     contentPadding: PaddingValues = PaddingValues(16.dp),
-    /** Item 5 (v1.0.2): a long press, for example to start selecting; needs [onClick]. */
+    /** A long press, for example to start selecting; needs [onClick]. */
     onLongClick: (() -> Unit)? = null,
     /** What the long press does, for accessibility services ("Select"). */
     onLongClickLabel: String? = null,
-    /** Item 5 (v1.0.2): a selected card has a 2dp border in the link colour. */
+    /** A selected card has a 2dp border in the link colour. */
     selected: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {

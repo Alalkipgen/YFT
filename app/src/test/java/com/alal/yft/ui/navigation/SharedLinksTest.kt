@@ -14,7 +14,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** v1.0.2 (item 4): text shared to YFT from another app; made-up share texts of each site. */
+/** Text shared to YFT from another app; made-up share texts of each site. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class SharedLinksTest {

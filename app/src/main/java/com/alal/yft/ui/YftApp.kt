@@ -56,9 +56,9 @@ import com.alal.yft.update.UpdateAutoOpen
 /**
  * The whole app. [playback] is the Library's player, whose mini player sits above the bottom bar
  * on every tab while audio plays; [mediaDetails] gives saved files their real thumbnails,
- * [remoteThumbnails] videos on the web their pictures and [downloadThumbnails] downloads theirs
- * (P19). [tabRequests] holds a tab asked for from outside, such as Downloads from a download
- * notification (v1.0.2); [sharedLinks] a link another app shared, for Home's lookup (item 4).
+ * [remoteThumbnails] videos on the web their pictures and [downloadThumbnails] downloads theirs.
+ * [tabRequests] holds a tab asked for from outside, such as Downloads from a download
+ * notification; [sharedLinks] a link another app shared, for Home's lookup.
  */
 @Composable
 fun YftApp(
@@ -76,7 +76,7 @@ fun YftApp(
     PauseWhenStopped(playback)
     ReportPlaybackFailures(playback)
 
-    // Decision 30 (v): a quiet build stays quiet until About's hidden Show details is on.
+    // Quiet details: a quiet build stays quiet until About's hidden Show details is on.
     val context = LocalContext.current
     val showDetails by remember(context) { ShowDetails.get(context) }.on.collectAsState()
 

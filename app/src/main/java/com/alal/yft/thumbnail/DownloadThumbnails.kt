@@ -30,7 +30,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Small pictures of downloads (P19). When a download starts its video's picture is saved as
+ * Small pictures of downloads. When a download starts its video's picture is saved as
  * `filesDir/thumbnails/<downloadId>.jpg`; Downloads and the Library show it until the file's own
  * frame exists, and it goes with the download's record.
  */

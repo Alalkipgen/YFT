@@ -99,13 +99,13 @@ fun SettingsRoute(
     val context = LocalContext.current
     val systemStatus = remember(context) { AndroidBackgroundSystemStatus(context) }
     var background by remember { mutableStateOf(systemStatus.read()) }
-    // Back from Android's battery settings: the row shows what changed. v1.0.2 item 28: and
+    // Back from Android's battery settings: the row shows what changed, and
     // whether the chosen folder can still be used.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         background = systemStatus.read()
         viewModel.onAction(SettingsAction.CheckFolder)
     }
-    // v1.0.2 item 28: a cancelled picker gives null, which keeps the old choice.
+    // Save folder: a cancelled picker gives null, which keeps the old choice.
     val folderPicker = rememberLauncherForActivityResult(SaveFolderPicker()) { tree ->
         if (tree != null) viewModel.onAction(SettingsAction.SetFolder(tree.toString()))
     }
@@ -156,7 +156,7 @@ fun SettingsScreen(
     onOpenAppSettings: () -> Unit = {},
     updates: UpdatesRow? = null,
     onOpenUpdates: () -> Unit = {},
-    /** v1.0.2 item 28: opens Android's folder picker for "Choose a folder…". */
+    /** Save folder: opens Android's folder picker for "Choose a folder…". */
     onChooseFolder: () -> Unit = {},
 ) {
     val colors = YftTheme.colors
@@ -168,7 +168,7 @@ fun SettingsScreen(
         onAction(SettingsAction.MessageShown)
     }
     // Android 9 and older cannot add files to the shared Downloads folder without a permission
-    // YFT does not ask for, so they save to app storage, or to a chosen folder (item 28).
+    // YFT does not ask for, so they save to app storage, or to a chosen folder.
     val location = if (
         sharedDownloadsSupported || state.download.location != DownloadLocation.SHARED_DOWNLOADS
     ) {
@@ -266,7 +266,7 @@ fun SettingsScreen(
             tag = { "location-${it.name}" },
             onSelect = {
                 picker = null
-                // Item 28: the picker decides; a cancel keeps the old choice.
+                // Save folder: the picker decides; a cancel keeps the old choice.
                 if (it == DownloadLocation.CHOSEN_FOLDER) {
                     onChooseFolder()
                 } else {
@@ -449,7 +449,7 @@ private fun DownloadRows(
     )
     if (background != null) {
         RowDivider()
-        // P34: whether Android limits YFT's battery, which can stop downloads in the background.
+        // Download queue: whether Android limits YFT's battery; that can stop background downloads.
         ValueRow(
             icon = YftIcons.Schedule,
             title = "Background downloads",
@@ -461,8 +461,8 @@ private fun DownloadRows(
 }
 
 /**
- * Settings › Browser: the engine typed words search with (P30), the history (P31), the
- * pop-up blocking (P32) and, in a build with Master, the Backup finder (decision 30 (i)).
+ * Settings › Browser: the engine typed words search with, the history, the
+ * pop-up blocking and, in a build with Master, the Backup finder.
  */
 @Composable
 private fun BrowserRows(
@@ -503,7 +503,7 @@ private fun BrowserRows(
         supporting = "Pages can't open new windows or send you to another site you didn't tap.",
         onToggle = { onAction(SettingsAction.SetBlockPopups(it)) },
     )
-    // Decision 30 (i): only in a build with Master; on by default.
+    // Backup finder: only in a build with Master; on by default.
     state.backupFinder?.let { on ->
         RowDivider()
         SwitchRow(
@@ -515,8 +515,8 @@ private fun BrowserRows(
             onToggle = { onAction(SettingsAction.SetBackupFinder(it)) },
         )
     }
-    // VK-Master wave 2 (agent D, item 7): the trial's VK value break, #12 trial only (every other
-    // build drops it: BuildConfig.SOCIAL_TRIAL is false there). A tap keeps the next choice.
+    // VK trial break: only in the Trial preview (every other build drops it:
+    // BuildConfig.SOCIAL_TRIAL is false there). A tap keeps the next choice.
     if (BuildConfig.SOCIAL_TRIAL && !LocalQuietRelease.current) {
         state.vkBreak?.let { row ->
             RowDivider()
@@ -534,7 +534,7 @@ private fun BrowserRows(
     }
 }
 
-/** Decision 30 (i): what the Backup finder does, and that it reads from GitHub. */
+/** What the Backup finder does, and that it reads from GitHub. */
 internal const val BACKUP_FINDER_SUPPORTING =
     "When a site's usual lookup finds no video, YFT tries other ways and may read its site " +
         "data from GitHub."
@@ -1004,7 +1004,7 @@ private fun DownloadLocation.summary(
 
     DownloadLocation.APP_STORAGE -> "Only YFT can open these files. They are removed with the app."
     DownloadLocation.CHOSEN_FOLDER -> if (folderName != null) {
-        // N12 (v1.0.2): the owner's words.
+        // Save folder: the owner's words.
         "Saving to $folderName. Tap to change."
     } else {
         "A folder you pick, on the phone or a memory card."
@@ -1012,7 +1012,7 @@ private fun DownloadLocation.summary(
 }
 
 /**
- * v1.0.2 item 28: the Save files to row's note while the chosen folder [folderName] cannot be
+ * Save folder: the Save files to row's note while the chosen folder [folderName] cannot be
  * used ([usable] false): new downloads go to the default place then.
  */
 private fun folderNote(

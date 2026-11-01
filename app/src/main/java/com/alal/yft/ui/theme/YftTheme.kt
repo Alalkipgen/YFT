@@ -10,7 +10,7 @@ import com.alal.yft.core.model.ThemeMode
 /**
  * YFT's theme: Mint Teal on cool neutrals, Night for dark, Plus Jakarta Sans and bordered,
  * rounded shapes. Dynamic color is deliberately not used so the app looks the same on every
- * device. See `docs/design/DESIGN-NOTES.md`.
+ * device. See `docs/DESIGN.md`.
  */
 @Composable
 fun YftTheme(

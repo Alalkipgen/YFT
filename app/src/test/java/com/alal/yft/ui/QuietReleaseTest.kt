@@ -13,7 +13,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** Decision 30 (v): the quiet release's one line, its hidden Show details and the 7 taps. */
+/** Quiet details: the quiet release's one line, its hidden Show details and the 7 taps. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class QuietReleaseTest {

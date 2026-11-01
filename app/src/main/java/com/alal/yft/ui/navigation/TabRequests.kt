@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * A tab YFT was asked to show from outside the app (v1.0.2): a download notification's tap opens
+ * A tab YFT was asked to show from outside the app: a download notification's tap opens
  * Downloads. `MainActivity` hands its intents to [take]; [ShowRequestedTab] shows the tab once.
  */
 class TabRequests {

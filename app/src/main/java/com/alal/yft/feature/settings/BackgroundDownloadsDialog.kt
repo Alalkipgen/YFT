@@ -19,7 +19,7 @@ internal const val BACKGROUND_ALLOWED_TEXT =
     "YFT runs without battery limits, so downloads and merges keep going in the background."
 
 /**
- * Settings › Downloads › Background downloads (P34): whether Android limits YFT's battery,
+ * Settings › Downloads › Background downloads: whether Android limits YFT's battery,
  * Allow while it does, and HyperOS's own steps on Xiaomi, Redmi and POCO phones.
  */
 @Composable

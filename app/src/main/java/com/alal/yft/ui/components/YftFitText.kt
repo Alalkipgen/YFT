@@ -14,7 +14,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 
 /**
- * v1.0.2 fix batch after #149: one line of text that is drawn smaller when it does not fit its
+ * One line of text that is drawn smaller when it does not fit its
  * room in large text (the phone's font size), down to [minScale] of [style]'s size; only below
  * that does it end in an ellipsis. Compose's own auto-size text comes with a later Compose than
  * the app's, so the size is measured here once per text, style and room.

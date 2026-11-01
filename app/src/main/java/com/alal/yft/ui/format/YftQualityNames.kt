@@ -6,7 +6,7 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
- * P25: the names and one-line descriptions a quality has wherever YFT lists it — the Download
+ * The names and one-line descriptions a quality has wherever YFT lists it — the Download
  * sheet on every site and the found list — so they read the same: "1080p · Full HD",
  * "720p · HD", "480p"; "M4A"; "MP3 · 128 kbps". Pure, so the table is unit-tested.
  */
@@ -38,7 +38,7 @@ object YftQualityNames {
 
     /**
      * "2160p · 4K", "1440p · 2K", "1080p · Full HD", "720p · HD", "480p", "360p", "144p";
-     * v1.0.2 item 26: an AV1 merge ([av1]) is named with "AV1": "1080p · Full HD · AV1".
+     * AV1 merge switch: an AV1 merge ([av1]) is named with "AV1": "1080p · Full HD · AV1".
      */
     fun videoName(standardHeight: Int, framesPerSecond: Double? = null, av1: Boolean = false): String =
         listOfNotNull(
@@ -48,7 +48,7 @@ object YftQualityNames {
         ).joinToString(" · ")
 
     /**
-     * v1.0.2 item 26: whether a row is named with "AV1": AV1 video merged with its separate sound
+     * AV1 merge switch: whether a row is named with "AV1": AV1 video merged with its separate sound
      * ([merged]) while AV1 merges are on ([mergesOn]: a debug build's test switch). The release's
      * are off, so its rows are named as before.
      */
@@ -59,7 +59,7 @@ object YftQualityNames {
     ): Boolean = mergesOn && merged &&
         codecs.any { it.trim().lowercase(Locale.US).startsWith(AV1_CODEC_PREFIX) }
 
-    /** The word an AV1 merge's row is named with (item 26). */
+    /** The word an AV1 merge's row is named with. */
     const val AV1 = "AV1"
 
     /** The line under a video row, by the height it is named (HD as 720, SD as 480) after. */

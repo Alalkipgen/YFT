@@ -4,7 +4,7 @@ import com.alal.yft.core.model.media.MediaCandidate
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
- * Which picture shows a video (P19). A YouTube video's picture follows from its ID, so it may
+ * Which picture shows a video. A YouTube video's picture follows from its ID, so it may
  * load before the lookup ends; other sites use the `thumbnailUrl` the lookup found. Only HTTPS
  * addresses are used.
  */

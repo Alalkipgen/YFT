@@ -36,7 +36,7 @@ enum class SettingsConfirmation {
     CLEAR_BROWSING_DATA,
     CLEAR_DOWNLOAD_HISTORY,
 
-    /** Settings › Browser › Clear browser history (P31). */
+    /** Settings › Browser › Clear browser history. */
     CLEAR_BROWSER_HISTORY,
 }
 
@@ -46,22 +46,22 @@ data class SettingsUiState(
     val confirmation: SettingsConfirmation? = null,
     val working: Boolean = false,
     val message: String? = null,
-    /** "Check copied links when YFT opens" (decision D1, on by default). */
+    /** "Check copied links when YFT opens" (on by default). */
     val checkCopiedLinks: Boolean = true,
-    /** Settings › Browser (P30). */
+    /** Settings › Browser. */
     val browser: BrowserPreferences = BrowserPreferences(),
     /**
-     * Settings › Browser › Backup finder (decision 30 (i), on by default); null in a build
+     * Settings › Browser › Backup finder (on by default); null in a build
      * without Master, which has no such row.
      */
     val backupFinder: Boolean? = null,
     /**
-     * VK-Master wave 2 (agent D, item 7): Settings › Browser › VK value break, the choice kept and
-     * the one this run uses; null but in #12 trial, which alone has the row.
+     * VK trial break: Settings › Browser › VK value break, the choice kept and
+     * the one this run uses; null but in the Trial preview, which alone has the row.
      */
     val vkBreak: VkTrialBreak.Row? = null,
     /**
-     * v1.0.2 item 28: whether the chosen folder ([DownloadPreferences.folder]) can still be
+     * Save folder: whether the chosen folder ([DownloadPreferences.folder]) can still be
      * used, checked when it changes and each time Settings shows again; null until known.
      */
     val folderUsable: Boolean? = null,
@@ -80,18 +80,18 @@ sealed interface SettingsAction {
     data class SetBackupFinder(val enabled: Boolean) : SettingsAction
 
     /**
-     * v1.0.2 item 28: the folder Android's folder picker gave ([treeUri]). A cancelled picker
+     * Save folder: the folder Android's folder picker gave ([treeUri]). A cancelled picker
      * sends nothing, so the old choice stays.
      */
     data class SetFolder(val treeUri: String) : SettingsAction
 
-    /** v1.0.2 item 28: the phone has no folder picker. */
+    /** Save folder: the phone has no folder picker. */
     data object NoFolderPicker : SettingsAction
 
-    /** v1.0.2 item 28: Settings shows again; the chosen folder is checked once more. */
+    /** Save folder: Settings shows again; the chosen folder is checked once more. */
     data object CheckFolder : SettingsAction
 
-    /** VK-Master wave 2 (item 7): the trial's VK value break, its next choice (after a restart). */
+    /** VK trial break: the trial's VK value break, its next choice (after a restart). */
     data object NextVkBreak : SettingsAction
     data class Request(val confirmation: SettingsConfirmation) : SettingsAction
     data object Confirm : SettingsAction
@@ -105,7 +105,7 @@ private data class Transient(
     val message: String? = null,
 )
 
-/** v1.0.2 item 28: whether [folder] could be used when it was last checked. */
+/** Save folder: whether [folder] could be used when it was last checked. */
 private data class FolderCheck(val folder: SaveFolder, val usable: Boolean)
 
 @HiltViewModel
@@ -116,18 +116,18 @@ class SettingsViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val browser: BrowserPreferencesRepository,
     private val browserHistory: BrowserHistoryRepository,
-    // Decision 30 (i): the Backup finder switch; shown only when the build has Master.
+    // The Backup finder switch; shown only when the build has Master.
     backupFinder: BackupFinder? = null,
-    // VK-Master wave 2 (item 7): the trial's VK value break; shown only when the build has it.
+    // VK trial break: the trial's VK value break; shown only when the build has it.
     vkBreak: VkTrialBreak? = null,
-    // v1.0.2 item 28: the folder picked in Android's folder picker, and YFT's access to it.
+    // Save folder: the folder picked in Android's folder picker, and YFT's access to it.
     private val saveFolders: SaveFolders = SaveFolders.None,
 ) : ViewModel() {
     private val transient = MutableStateFlow(Transient())
     private val backupFinder = backupFinder?.takeIf { it.available }
     private val vkBreak = vkBreak?.takeIf { it.available }
 
-    /** v1.0.2 item 28: the last check of the chosen folder. */
+    /** Save folder: the last check of the chosen folder. */
     private val folderCheck = MutableStateFlow<FolderCheck?>(null)
     private var folderCheckJob: Job? = null
 
@@ -219,7 +219,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
-     * v1.0.2 item 28: keeps YFT's access to the picked folder and saves new downloads there. A
+     * Save folder: keeps YFT's access to the picked folder and saves new downloads there. A
      * folder YFT cannot save files in leaves the old choice and says so. The old folder's
      * access is never given back, so the files saved there earlier still open.
      */

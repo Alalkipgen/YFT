@@ -16,7 +16,7 @@ import java.io.FileNotFoundException
 import org.robolectric.Robolectric
 
 /**
- * v1.0.2 item 28: a folder picked in Android's folder picker, for Robolectric tests. Its
+ * Save folder: a folder picked in Android's folder picker, for Robolectric tests. Its
  * documents are files under [FakeTree.root]: "primary:<folder>" is a folder and
  * "primary:<folder>/<name>" an entry in it. It answers the calls [DocumentsContract] makes
  * (create, rename, delete) and opens files read-write, like the phone's own storage. A folder

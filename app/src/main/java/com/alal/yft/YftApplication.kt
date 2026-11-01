@@ -11,7 +11,7 @@ class YftApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         CrashReportHandler.install(CrashReportStore(this))
-        // v1.0.2 item 26: a debug build's AV1 merge switch, read at each sheet and download.
+        // A debug build's AV1 merge switch, read at each sheet and download.
         Av1MergeSwitch.install(this)
     }
 }

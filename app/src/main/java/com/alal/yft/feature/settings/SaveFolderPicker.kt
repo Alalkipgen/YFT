@@ -6,7 +6,7 @@ import android.net.Uri
 import androidx.activity.result.contract.ActivityResultContracts
 
 /**
- * v1.0.2 item 28: Android's folder picker (ACTION_OPEN_DOCUMENT_TREE) for Settings › Save files
+ * Save folder: Android's folder picker (ACTION_OPEN_DOCUMENT_TREE) for Settings › Save files
  * to. On Android 7-9 it also offers the phone's own storage, which the picker hides there unless
  * asked. A cancelled picker gives null.
  */
