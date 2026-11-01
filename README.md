@@ -1,119 +1,92 @@
 # YFT — Video Downloader
 
-YFT is an ad-free Android application for detecting, previewing and downloading authorized non-DRM media from direct links, HTML5 players, HLS and DASH streams.
+YFT ("Video Downloader") is an ad-free Android app. It finds, previews and downloads the videos and
+audio a user can watch: direct files, HTML5 players, HLS and DASH streams, and videos on YouTube,
+Facebook, Instagram, TikTok, X, Vimeo and VK. It never breaks DRM.
 
 ## Status
 
-- `1.0.0-beta.1` is published (2026-10-02). `1.0.0-beta.2`, the first build with the redesigned
-  interface, is a signed draft pre-release (2026-10-03).
-- `1.0.0-beta.3` (2026-10-04, versionCode 3) completes Phases 8–10: the fixes from the owner's
-  beta.2 phone test (browser crash, start page, Facebook, TikTok, YouTube messages), the
-  copied-link flow ("Video you copied", Search to download, the floating Download button) and
-  YouTube 480p–1080p with sound plus MP3. Notes and the phone checklist:
-  [`docs/release/1.0.0-beta.3.md`](docs/release/1.0.0-beta.3.md); signed draft pre-release
-  2026-10-04.
-- `1.0.0` (versionCode 1000000), the first stable release, not yet released: the release commit
-  (2026-10-25, `work/phase-release-v1`) on top of PR #2's branch — everything since beta.3, the
-  backup finder (Master; Settings → Backup finder, on by default), VK videos, the download fixes
-  and the in-app update (Settings → About → Updates). Next: the owner's test of the two #12
-  preview APKs, PR #2's merge, then the signed release. Notes:
-  [`docs/release/1.0.0.md`](docs/release/1.0.0.md).
-- Phase 15 (in 1.0.0): TikTok downloads in the browser and on Home taken from TikTok's own page
-  (like YouTube's proof-of-origin token); YouTube % and speed within seconds of Download; Delete
-  file in Downloads; the page's own video, never the pre-roll ad, on other sites. Plan:
-  [`docs/FIX_ADD_PLAN.md`](docs/FIX_ADD_PLAN.md).
-- Phases 11–14 (in 1.0.0) — download flow like Snaptube (one short download
-  sheet, all Facebook qualities, 2K/4K, real thumbnails, test-key preview APKs), video files that
-  save again, Retry with failure details, every YouTube quality (144p–4K), other sites' main
-  video instead of pre-roll ads, merge progress, Google search, browser history and pop-up
-  blocking, downloads and merges that keep going in the background with speed in the
-  notification, a stream-copy merge, TikTok's For You feed, and fresh links instead of HTTP 410.
-- Complete: Phases 0–10, 5E (YouTube by owner decision,
-  [ADR-005](docs/decisions/ADR-005-youtube-owner-override.md)) and the UI redesign
-  ([`docs/design/DESIGN-NOTES.md`](docs/design/DESIGN-NOTES.md)); see
-  [`docs/PHASE_STATUS.md`](docs/PHASE_STATUS.md). YouTube risks and limits:
-  [`docs/YOUTUBE_RISK_REVIEW.md`](docs/YOUTUBE_RISK_REVIEW.md). YFT is distributed through GitHub
-  only.
+- 1.0.1 is the newest release (2026-10-29). 1.0.0 (2026-10-26) was the first stable release.
+- 1.0.2 is in work on `work/phase-v102-easy`. Its changes are in [CHANGELOG.md](CHANGELOG.md). The
+  steps to release it are in [docs/PLAN.md](docs/PLAN.md).
+- YFT is shared through GitHub Releases only.
 
 ## Install
 
-Requires Android 7.0 (API 24) or newer; the app targets Android 15 (API 35). Once the owner publishes a release, download `video-downloader-<version>.apk` and `SHA256SUMS` from the repository's GitHub Releases page, check the file with `sha256sum -c SHA256SUMS` (or `Get-FileHash` on Windows), open the APK on the phone and allow your browser or file manager to install unknown apps when Android asks. Later releases signed with the same key update in place. Details and known issues: [`docs/release/1.0.0.md`](docs/release/1.0.0.md) and [`CHANGELOG.md`](CHANGELOG.md).
+YFT needs Android 7.0 (API 24) or newer. It targets Android 15 (API 35).
 
-Test builds: the **Preview APK (test key)** workflow uploads `yft-preview-apk` — the release build as "YFT Preview" (`com.alal.yft.preview`; #12 normal) — and `yft-preview-trial-apk` — "YFT Trial" (`com.alal.yft.trial`; #12 trial: the backup finder answers every lookup, every detail shown). Both install next to the release app and each other. They are signed with a throwaway test key, so uninstall an older preview before installing a newer one ([`docs/RELEASE.md`](docs/RELEASE.md#preview-builds-for-the-owners-phone-test-p7)).
+1. Download `video-downloader-<version>.apk` and `SHA256SUMS` from the repository's Releases page.
+2. Check the file with `sha256sum -c SHA256SUMS` (on Windows, `Get-FileHash`).
+3. Open the APK on the phone. Allow your browser or file manager to install apps when Android asks.
 
-## Current state
+Later releases signed with the same key install over it. YFT can also update itself in Settings →
+About → Updates. Release notes are in [docs/release/](docs/release/).
 
-Verified with JVM, Robolectric and fixture tests; on-device checks that the agent environment cannot run are listed in [`docs/TEST_MATRIX.md`](docs/TEST_MATRIX.md). The beta.2 field problems are fixed in `1.0.0-beta.3`; its phone checks are still open.
+Test builds: the "Preview APK (test key)" workflow makes "YFT Preview" (`com.alal.yft.preview`) and
+"YFT Trial" (`com.alal.yft.trial`). They install beside the release app. Each run signs with a new
+test key, so uninstall an older preview first. See [docs/RELEASE.md](docs/RELEASE.md).
 
-- A production Android app with application ID `com.alal.yft` and a `.debug` debug suffix.
-- A hardened HTTPS WebView with address, back/forward, reload/stop, progress and safe error states.
-- Generic detection from `DownloadListener`, read-only DOM inspection and observed HTTP(S) request URLs/headers.
-- Direct media, HLS and DASH classification plus bounded, cancellable header probes with credential-safe redirect handling.
-- Page-scoped candidate normalization, signed-URL deduplication, limits, debounce and immediate navigation cleanup.
-- A media-found bottom sheet whose Preview action passes sensitive candidate context through memory only, never through a route or database.
-- Bounded direct metadata validation plus HLS/DASH parsing for real video/audio variants, separate tracks, resolution, FPS, codec, bitrate, duration and exact/estimated/unknown size.
-- Explicit expired-link, DRM, unsupported-codec, malformed-manifest, unsafe-redirect and network failures without inventing metadata.
-- HTTPS-only Media3 progressive/HLS/DASH sources with same-origin browser context and cross-origin credential stripping.
-- A lifecycle-safe "Download as" preview sheet over the page with video/audio tabs, a quality list with sizes, a small player with play/pause and seek, Wi-Fi only, retry states and explicit unknown/estimated labels.
-- Committed MP4/WebM/audio/HLS/DASH/blob fixtures and MockWebServer/Robolectric/Compose coverage.
-- Site adapters for TikTok, Facebook and Vimeo, each isolated behind `:extractor-api`, selected by host, and failing with their own reason for private, login-required, region-blocked, DRM, expired, media-free or changed pages. Supported link patterns and limits are listed in [`docs/SUPPORT_MATRIX.md`](docs/SUPPORT_MATRIX.md).
-- A YouTube adapter for single videos: YouTube's embedded-player client is asked first, then the page's own client with the user's session; signature and `n` transforms are solved by the bundled yt-dlp ejs solver in a sandboxed offscreen WebView. Private, age-gated, region-blocked and DRM videos fail with their own reason. Third-party code and licenses are listed in [`docs/THIRD_PARTY_NOTICES.md`](docs/THIRD_PARTY_NOTICES.md).
-- Any other site stays on the generic detection path; no adapter signs in, stores credentials or bypasses an access control.
-- Direct, HLS and DASH downloads with pause, resume, retry, a foreground service, Room recovery and verified publication to `Download/YFT` (Android 10+) or app storage.
-- Settings for default quality, download location, Wi-Fi only, mobile-data confirmation, concurrent downloads (1–4), theme, clearing browsing data and clearing download history.
-- A Library that plays finished files in the app and opens, shares or deletes them (deletion asks first); a Detected Media screen for the last page's candidates; a Home link field whose Paste button reads the clipboard only when tapped.
-- Privacy hardening: no cloud backup or device transfer of app data, no cleartext traffic, private download notifications, memory-only candidate URLs and redacted logs.
-- A free-space check before downloads of known size, a "Waiting for Wi-Fi"/"No connection" banner, and one cleanup pass per launch for leftover partial files and finished-record growth.
-- An About screen with version, scope, privacy and the third-party license texts, and an original light/dark palette that meets WCAG AA contrast.
-- An original adaptive launcher icon with a themed monochrome layer and Android 7.x PNGs, plus a launch screen (system splash on Android 12+).
-- Release tooling: versioning in `gradle.properties`, signing that never falls back to the debug key, `scripts/release-prep.sh`, `scripts/verify-release-apk.sh` (signature, certificate fingerprint, alignment, upgrade compatibility, SHA-256), `scripts/device-smoke-test.sh` and a draft-only `release-draft` workflow gated by `ALLOW_RELEASE`.
-- The Phase 1 Compose, Hilt, Room, DataStore, OkHttp, Media3, redaction, CI and release-build foundations.
-- The Phase 0 feasibility harness remains under [`spikes/phase0-media`](spikes/phase0-media/).
+## What YFT does
 
-## For agents
+- An in-app browser with a Download button for the page's video, or the video on screen in a feed.
+- Home: paste a link, or share one from another app, and its Download sheet opens.
+- Site adapters for YouTube, Facebook, Instagram, TikTok, X, Vimeo and VK. The Page video finder
+  covers other sites.
+- The Download sheet lists real qualities with sizes, plus Audio (M4A and MP3).
+- Downloads run in the background with pause, resume, Retry and Fresh link renewal. Separate video
+  and sound tracks are merged on the phone.
+- The Backup finder (Master) looks again when a site's own lookup finds no video.
+- A Library that plays, shares and deletes saved files, a save folder you choose, and in-app update.
 
-Read [`AGENTS.md`](AGENTS.md) first. Work is planned task by task in
-[`docs/FIX_ADD_PLAN.md`](docs/FIX_ADD_PLAN.md) (Phase 15: three agents in parallel, each with its
-own branch and files); ready-to-paste prompts are in [`docs/prompts/`](docs/prompts/README.md)
-(one per agent: `A-tiktok.md`, `B-downloads.md`, `C-ads.md`, then `M-merge-preview7.md`). Development happens on `work/phase-*` branches with a remote checkpoint
-(`scripts/checkpoint.sh`) after every task; local commits and stashes are not handoffs.
+What works on each site: [docs/SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md).
 
-Docs: [`PROJECT_CONTEXT`](docs/PROJECT_CONTEXT.md) (goals, privacy) ·
-[`ARCHITECTURE`](docs/ARCHITECTURE.md) · [`PHASE_STATUS`](docs/PHASE_STATUS.md) ·
-[`HANDOFF`](docs/HANDOFF.md) · [`SESSION_STATE`](docs/SESSION_STATE.md) ·
-[`SUPPORT_MATRIX`](docs/SUPPORT_MATRIX.md) · [`TEST_MATRIX`](docs/TEST_MATRIX.md) ·
-[`RISKS`](docs/RISKS.md) · [`RELEASE`](docs/RELEASE.md) · [`decisions/`](docs/decisions/) ·
-[`design/`](docs/design/DESIGN-NOTES.md) · [`THIRD_PARTY_NOTICES`](docs/THIRD_PARTY_NOTICES.md).
+## Boundaries
 
-## Product boundaries
+YFT does not bypass DRM, payment, private access, age checks or account sign-in. For public videos
+the owner allows any method that works: app or device client identities, proof-of-origin tokens,
+bot-check workarounds and the user's own browser session ([docs/DECISIONS.md](docs/DECISIONS.md)).
+Site support is claimed only when tests back it. A `blob:` address is never a file: YFT finds the
+real request, source or manifest behind it.
 
-YFT will not attempt to bypass DRM, payment protection, private access controls, age checks or account sign-in. For public videos the owner allows any technique that works ([ADR-006](docs/decisions/ADR-006-owner-override-any-working-method.md)): app or device client identities, proof-of-origin tokens, bot-check workarounds and the user's own browser session. Website-specific support remains isolated behind adapters and may only be claimed when backed by tests.
+## Documents
 
-A literal `blob:` URL is never treated as a downloadable file. Detection must find its underlying HTTP(S) request, source or manifest.
+| Document | What it holds |
+| --- | --- |
+| [AGENTS.md](AGENTS.md) | Rules for agents who work in this repository |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Modules, data flow, main and Master, build flags, security |
+| [docs/DESIGN.md](docs/DESIGN.md) | The design system and the rules the screens follow |
+| [docs/DECISIONS.md](docs/DECISIONS.md) | Decisions already made |
+| [docs/PLAN.md](docs/PLAN.md) | What is open: release steps, owner decisions, known issues, backlog, risks |
+| [docs/TESTING.md](docs/TESTING.md) | Test commands, CI workflows, phone tools, runbooks |
+| [docs/RELEASE.md](docs/RELEASE.md) | Release identity, signing, preview builds, publishing |
+| [docs/SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md) | What each site and feature supports |
+| [docs/GLOSSARY.md](docs/GLOSSARY.md) | Feature names, and old work labels mapped to them |
+| [docs/SESSION_STATE.md](docs/SESSION_STATE.md) | Where the current work stands |
+| [docs/THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md) | Third-party code and licenses |
+| [CHANGELOG.md](CHANGELOG.md) | Changes per version |
+| [extractor-master](extractor-master/README.md), [extractor-master-android](extractor-master-android/README.md) | Master's two modules |
 
-## Reference implementation
+## Build and test
 
-The existing [AlalDownloader](https://github.com/Alalkipgen/AlalDownloader) project is an MIT-licensed reference for browser request context, segmented direct downloads, queueing, pause/resume and recovery. YFT remains independently buildable and does not depend on that repository at runtime.
-
-## Validation
-
-Use JDK 17 and Android SDK 35:
+You need JDK 17 and Android SDK 35.
 
 ```bash
-./gradlew --no-daemon \
-  lintDebug \
-  testDebugUnitTest \
-  :core-model:test \
-  :extractor-api:test \
-  :extractor-generic:test \
-  :extractor-sites:test \
-  :app:assembleDebug
+./gradlew lintDebug testDebugUnitTest :core-model:test :extractor-api:test \
+  :extractor-generic:test :extractor-sites:test :extractor-master:test :app:assembleDebug
 ```
 
-A local release check can additionally run `:app:assembleRelease`; the output is `app-release-unsigned.apk` unless release signing is configured as described in [`docs/RELEASE.md`](docs/RELEASE.md). CI builds that unsigned release APK on every work-branch push and checks it with `scripts/verify-release-apk.sh --allow-unsigned`.
+`./gradlew :app:assembleRelease` builds `app-release-unsigned.apk` unless release signing is set up
+([docs/RELEASE.md](docs/RELEASE.md)). More commands and the CI workflows are in
+[docs/TESTING.md](docs/TESTING.md). On a machine with about 4 GiB of RAM and no swap, run the tests
+and `:app:assembleRelease` as separate Gradle runs. `spikes/phase0-media/` holds the early
+feasibility harness.
 
-The Phase 7 release-preparation run (`scripts/release-prep.sh` with a throwaway key, without the build cache) passed 459 tests, Android lint with no errors, the signed minified release build and APK signature, certificate and checksum verification; the Phase 6 completion matrix had passed 454 tests. `lintDebug` needs network access the first time, because `lint-gradle` is not in the offline cache; every other task in the matrix runs with `--offline`. No device/emulator was available, so real Android WebView rendering, Media3 playback, `MediaExtractor`/`MediaMuxer` behavior, foreground-service lifecycle, `MediaStore` publication, Library sharing and Wi-Fi switching remain explicit runtime verification items. Browser policy, bounded network behavior, manifests, transfer/recovery logic, state and Compose surfaces are covered locally. The YouTube path still needs a device check on a residential or mobile network; the owner test steps are in [`docs/HANDOFF.md`](docs/HANDOFF.md), and each work-branch CI run uploads the debug APK as the `yft-debug-apk` artifact.
+## Reference
 
-See [`docs/PHASE_STATUS.md`](docs/PHASE_STATUS.md), [`docs/TEST_MATRIX.md`](docs/TEST_MATRIX.md) and [`docs/HANDOFF.md`](docs/HANDOFF.md) before continuing.
+[AlalDownloader](https://github.com/Alalkipgen/AlalDownloader) (MIT) is a reference for browser
+request context, segmented downloads, queueing, pause, resume and recovery. YFT does not depend on
+it at run time.
 
-On machines with about 4 GiB RAM and no swap, run the fresh lint/test/debug matrix and `:app:assembleRelease` as separate Gradle invocations to avoid R8 competing with test/compiler workers.
+## License
+
+MIT. See [LICENSE](LICENSE).
