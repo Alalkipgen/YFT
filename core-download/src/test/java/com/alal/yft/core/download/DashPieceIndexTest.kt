@@ -27,13 +27,13 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * v1.0.2 fix R7: a video-only or a sound-only DASH track in a manifest's pieces (a
+ * A video-only or a sound-only DASH track in a manifest's pieces (a
  * `SegmentTemplate` with a `SegmentTimeline` and `$Time$`, as tears-of-steel-av1's 240p and its
  * M4A) is saved with one index (`sidx`) for the whole track, though its initialization piece
  * states no length: right before the first piece's first `moof`, a reference for each piece that
  * lands on its `moof` (counted from the end of the index, as Media3 does, which is where the
  * first `moof` starts, as Android's reader counts), their durations adding up to the whole
- * track. The pieces' own indexes are `free` boxes; every sample is kept. Before R7 the pieces
+ * track. The pieces' own indexes are `free` boxes; every sample is kept. Before the fix the pieces
  * were joined as they are: the video with an index of 4 s in each piece, the sound with none.
  */
 class DashPieceIndexTest {

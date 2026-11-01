@@ -21,7 +21,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * v1.0.2 fix R6: ElephantsDream's DASH video (10 MHz ticks, 15,691 samples to 10:54.445, its
+ * ElephantsDream's DASH video (10 MHz ticks, 15,691 samples to 10:54.445, its
  * headers stating 10:52.652) merged in full only up to 7:11. Android 16 states a fragmented
  * input's duration from its `tkhd`, so the stream copy's check took the merged file's longer,
  * right length for a fault; today's MediaMuxer way then took the times from Android's fragment
@@ -72,7 +72,7 @@ class MergedLengthCheckTest {
                 val attempt = file.use {
                     StreamCopyAudioVideoMuxer(
                         fallback = LengthCheckedAudioVideoMuxer(phone),
-                        // What Android 16 said of the merged file before R6.
+                        // What Android 16 said of the merged file before the fix.
                         check = { _, _, _, _ -> "video duration" },
                     ).mux(videoFile, audioFile, target, "video/mp4") { _, _ -> }
                 }
@@ -122,7 +122,7 @@ class MergedLengthCheckTest {
         // ElephantsDream on Android 16: the merged file states its samples' 10:54.445, the
         // input's tkhd 10:52.652; a frame is 41.7 ms (+ 1 ms).
         assertFalse(streamCopyDurationMismatch(654_445_000, 654_445_458, 652_652_000, 42_708))
-        // Before R6 the distance counted either way: 1.793 s, more than a frame.
+        // Before the fix the distance counted either way: 1.793 s, more than a frame.
         assertTrue(abs(654_445_000L - 652_652_000L) > 42_708)
         // Still a fault: a merged track shorter than its input states, or off its samples.
         assertTrue(streamCopyDurationMismatch(652_652_000, 652_652_000, 654_445_000, 42_708))
@@ -182,7 +182,7 @@ class MergedLengthCheckTest {
         val length = MergedLength.ofInput(BytesSource(bytes), StreamCopyTrackKind.VIDEO)!!
         assertEquals(90 to 3_000_000L, length.samples to length.durationUs)
 
-        // A codec the stream copy does not copy (HEVC; AV1 is copied since R8) is still read.
+        // A codec the stream copy does not copy (HEVC; AV1 is copied now) is still read.
         val hevc = Track(
             video = true,
             timescale = 15_360,

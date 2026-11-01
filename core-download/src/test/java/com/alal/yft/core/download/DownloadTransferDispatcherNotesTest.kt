@@ -24,7 +24,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * Task 3 (phase-v102-easy): a finished DASH file's or merge's Details lines (a live video saved
+ * A finished DASH file's or merge's Details lines (a live video saved
  * a little short, or whose newest piece moved while it came) go to the task's Details.
  */
 class DownloadTransferDispatcherNotesTest {

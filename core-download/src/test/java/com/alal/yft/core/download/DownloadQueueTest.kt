@@ -215,7 +215,7 @@ class DownloadQueueTest {
     }
 
     /**
-     * P21: a Retry after the file itself failed starts over at byte 0 in a new destination of
+     * A Retry after the file itself failed starts over at byte 0 in a new destination of
      * the same name. The old queue resumed the checkpoint in the broken one and failed again.
      */
     @Test
@@ -258,7 +258,7 @@ class DownloadQueueTest {
             assertEquals("content://media/pending/2", store.snapshot().single().destinationUri)
         }
 
-    /** P21: a dropped connection keeps its partial file, so the Retry resumes it. */
+    /** A dropped connection keeps its partial file, so the Retry resumes it. */
     @Test
     fun `retry after a network failure resumes its checkpoint in the same destination`() =
         runTest {
@@ -287,7 +287,7 @@ class DownloadQueueTest {
             assertEquals(0, destination.renewals.get())
         }
 
-    /** P21: when the partial file is gone, resuming its checkpoint cannot work; start over. */
+    /** When the partial file is gone, resuming its checkpoint cannot work; start over. */
     @Test
     fun `retry when the partial file is gone starts over at byte 0`() = runTest {
         val replacement = TestDestination(length = 0)
@@ -305,7 +305,7 @@ class DownloadQueueTest {
         assertEquals(listOf(0L, 0L), runner.resumedFrom)
     }
 
-    /** P21: a Retry that cannot make a new file stays failed, with the new error's details. */
+    /** A Retry that cannot make a new file stays failed, with the new error's details. */
     @Test
     fun `retry that cannot make a new destination stays failed with the new details`() =
         runTest {
@@ -328,7 +328,7 @@ class DownloadQueueTest {
         }
 
     /**
-     * F6: a refused YouTube media link needs a fresh link, and its details start with the
+     * A refused YouTube media link needs a fresh link, and its details start with the
      * link's facts, then the engine's own detail; never the link itself.
      */
     @Test
@@ -368,7 +368,7 @@ class DownloadQueueTest {
     }
 
     /**
-     * Task 3 (phase-v102-easy): a YouTube live video not ready yet leads its details with how
+     * A YouTube live video not ready yet leads its details with how
      * much is missing and where; the link's facts follow, cut at the end if they must be.
      */
     @Test
@@ -403,9 +403,10 @@ class DownloadQueueTest {
     }
 
     /**
-     * Item 7 Track B1: YouTube refusing a link with time left on it (403 while connecting) is
+     * YouTube refusing a link with time left on it (403 while connecting) is
      * not an expired link: the task still needs a fresh link, its reason is YOUTUBE_REFUSED and
-     * its details are F6's. The same refusal of a link past its end stays ACCESS_DENIED.
+     * its details are the link's facts ([GoogleVideoLinkFacts]). The same refusal of a link past
+     * its end stays ACCESS_DENIED.
      */
     @Test
     fun `youtube refusing a link with time left is not an expired link`() = runTest {

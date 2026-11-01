@@ -175,7 +175,7 @@ class PublicDownloadDestinationTest {
         )
     }
 
-    /** P21: a Retry that starts over writes into a new pending row of the same name. */
+    /** A Retry that starts over writes into a new pending row of the same name. */
     @Test
     fun `renew replaces the MediaStore row with a new empty one of the same name`() {
         val store = FakePublicContentStore()
@@ -252,7 +252,7 @@ class PublicDownloadDestinationTest {
 
     @Test
     fun `an app storage file gives an emptied descriptor and a store without one gives none`() {
-        // P27: a merge writes straight into the descriptor, then the length check and commit.
+        // A merge writes straight into the descriptor, then the length check and commit.
         val folder = Files.createTempDirectory("descriptor").toFile()
         try {
             val partial = File(folder, "clip.mp4.part").apply { writeBytes(ByteArray(8) { 1 }) }
@@ -416,7 +416,7 @@ class PublicDownloadDestinationTest {
     }
 
     /**
-     * P20 (R1): the JVM twin of MediaStoreDownloadInstrumentedTest. A direct video download into
+     * The JVM twin of MediaStoreDownloadInstrumentedTest. A direct video download into
      * a new pending MediaStore row completes and is published; the old engine read the row's
      * length before prepare() and failed at 0 B with STORAGE_UNAVAILABLE.
      */
@@ -514,7 +514,7 @@ class PublicDownloadDestinationTest {
     /**
      * Behaves like Android's MediaStore and SAF providers: a new pending MediaStore row has no
      * file until its first "rw" open, so reading its length throws [FileNotFoundException], like
-     * `openFileDescriptor(uri, "r")` does (P20, default on). A SAF document has its file at once.
+     * `openFileDescriptor(uri, "r")` does. A SAF document has its file at once.
      */
     private class FakePublicContentStore(
         private val failPreallocation: Boolean = false,

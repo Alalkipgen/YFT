@@ -283,7 +283,7 @@ class DashTransferEngineTest {
         assertArrayEquals(bytes, files.completed.readBytes())
         assertTrue(workspaceRoot.listFiles().orEmpty().isEmpty())
         val ranges = List(server.requestCount) { server.takeRequest().getHeader("Range") }
-        // FAST_START (P41): the first range states the length, so there is no bytes=0-0 probe.
+        // FAST_START: the first range states the length, so there is no bytes=0-0 probe.
         assertEquals(
             listOf("bytes=0-999", "bytes=1000-1999", "bytes=2000-2499"),
             ranges,
@@ -435,7 +435,7 @@ class DashTransferEngineTest {
             destination = files.destination,
         ) as DashTransferResult.Failure
 
-        // Task 3: 9m59s short is more than the 2 minutes a stopped stream may be short.
+        // 9m59s short is more than the 2 minutes a stopped stream may be short.
         assertEquals(DownloadFailureReason.LIVE_NOT_READY, result.failure.reason)
         assertEquals(
             "live: 9m59s missing at the end, newest sq 3 stopped · 0h00m00s of 0h10m00s · " +
@@ -545,7 +545,7 @@ class DashTransferEngineTest {
             destination = files.destination,
         ) as DashTransferResult.Failure
 
-        // Task 3: asked again after each wait, then not ready, with where and how much.
+        // Asked again after each wait, then not ready, with where and how much.
         assertEquals(DownloadFailureReason.LIVE_NOT_READY, result.failure.reason)
         assertEquals(
             "live: sq 1 missing in the middle (1 piece, about 0 s), asked 4 times · newest sq 3",
@@ -885,7 +885,7 @@ class DashTransferEngineTest {
     }
 
     /**
-     * Task 3: the owner's live of 2026-10-31 as [count] pieces of 5 s (1000 ticks a second), one
+     * The owner's live of 2026-10-31 as [count] pieces of 5 s (1000 ticks a second), one
      * sample each, but sq 1555 of 4.5 s: its first 1,556 pieces last 2h09m39s (7,779.5 s).
      */
     private fun ownersPieces(count: Int): List<ByteArray> {
@@ -1007,7 +1007,7 @@ class DashTransferEngineTest {
         private val asks = java.util.concurrent.ConcurrentHashMap<Int, AtomicInteger>()
         private val headAsks = AtomicInteger()
 
-        // Task 3: with [heads], the HEADs name them in turn (the last one stays), and a piece
+        // With [heads], the HEADs name them in turn (the last one stays), and a piece
         // is served only once a HEAD named it.
         @Volatile
         private var newest: Int? = heads?.first() ?: head
@@ -1113,7 +1113,7 @@ class DashTransferEngineTest {
     )
 
     /**
-     * Task 3: a live file's waits are 0 here; [liveSettleWaitsMillis] empty: none, as before.
+     * A live file's waits are 0 here; [liveSettleWaitsMillis] empty: none, as before.
      * [progressIntervalMillis] 0 reports every step of the progress.
      */
     private fun engine(
@@ -1200,7 +1200,7 @@ class DashTransferEngineTest {
     private companion object {
         val RANGE = Regex("""bytes=(\d+)-(\d+)""")
 
-        /** Task 3: the owner's live's length on YouTube, 2h10m33s. */
+        /** The owner's live's length on YouTube, 2h10m33s. */
         const val OWNERS_LENGTH_MILLIS = 7_833_000L
     }
 }

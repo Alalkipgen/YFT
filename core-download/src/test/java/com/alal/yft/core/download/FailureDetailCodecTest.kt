@@ -90,7 +90,7 @@ class FailureDetailCodecTest {
             payload,
         )
         assertEquals(failure, FailureDetailCodec.decode(DownloadFailureReason.NETWORK, payload))
-        // Start times alone are kept; a payload saved before P41 has none.
+        // Start times alone are kept; an older payload has none.
         val timesOnly = DownloadFailure(
             reason = DownloadFailureReason.NETWORK,
             startTimeline = "start: plan 0.1 s",

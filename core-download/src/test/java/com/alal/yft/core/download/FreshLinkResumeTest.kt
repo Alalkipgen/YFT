@@ -42,11 +42,11 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * v1.0.2 R10: a download whose link dies in the middle (a 403 or 410 after an hour; VK's 400,
- * E-D1, after a Wi-Fi ↔ mobile switch) goes on by itself on the fresh link of the same quality
- * that Track E's lookup finds, from the bytes it kept, once per failure. Through the real
+ * A download whose link dies in the middle (a 403 or 410 after an hour; VK's 400
+ * after a Wi-Fi ↔ mobile switch) goes on by itself on the fresh link of the same quality
+ * that the renewal's lookup finds, from the bytes it kept, once per failure. Through the real
  * engines and a local media host whose files state no ETag or Last-Modified, as VK's and
- * Facebook's media hosts answer: before R10 such a file started again at byte 0 on its fresh
+ * Facebook's media hosts answer: before the fix such a file started again at byte 0 on its fresh
  * link and on every run of the same link, and a run after a lost network that its link refused
  * at once counted as a link that gave nothing.
  */
@@ -101,7 +101,7 @@ class FreshLinkResumeTest {
             listOf("bytes=0-65535", "bytes=65536-131071", "bytes=131072-196607"),
             site.asked("/$name.bin", "old"),
         )
-        // Before R10 the fresh link asked "bytes=0-65535" first: it started again at byte 0.
+        // Before the fix the fresh link asked "bytes=0-65535" first: it started again at byte 0.
         assertEquals(
             listOf("bytes=131072-196607", "bytes=196608-204799"),
             site.asked("/$name.bin", "new"),
@@ -116,7 +116,7 @@ class FreshLinkResumeTest {
     /**
      * A second 403, from the fresh link at its first request: the row stops as "Link expired"
      * (NEEDS_REFRESH) after one lookup, no loop, with the bytes the first link gave; a Retry's
-     * fresh link goes on from them. Before R10 the fresh link's run started again at byte 0, so
+     * fresh link goes on from them. Before the fix the fresh link's run started again at byte 0, so
      * the row kept nothing and the Retry downloaded the file from the start.
      */
     @Test
@@ -162,7 +162,7 @@ class FreshLinkResumeTest {
     /**
      * VK's srcIp case: the network goes in the middle (the queue stops the run, the checkpoint
      * stays); when it is back the same link runs again from the checkpoint and VK, whose link is
-     * bound to the network it was found on, answers 400 at that run's first request. Before R10
+     * bound to the network it was found on, answers 400 at that run's first request. Before the fix
      * the run started again at byte 0 and its 400 came with no bytes from this link, so the row
      * failed with "HTTP 400" and Retry used the same dead link.
      */
@@ -202,9 +202,9 @@ class FreshLinkResumeTest {
 
     /**
      * A merge where one track gets the 403: both tracks get the fresh plan's links, the
-     * finished video is kept and the sound goes on from its bytes. Track E (PR #13) did this
-     * before R10 too, since a DASH whole file is known by its length; it stays here as the
-     * owner's list names it. The merges below fail before R10.
+     * finished video is kept and the sound goes on from its bytes. Fresh link renewal did this
+     * before the fix too, since a DASH whole file is known by its length; it stays here as the
+     * owner's list names it. The merges below fail before the fix.
      */
     @Test
     fun `a merge whose track gets a 403 goes on from the bytes kept on both fresh links`() =
@@ -276,7 +276,7 @@ class FreshLinkResumeTest {
      * A merge's track gets a 403, its fresh link gives bytes, then the network goes and the
      * fresh link refuses the run after it at its first request (a link bound to the network it
      * was found on). That link gave bytes, so this new failure gets its one fresh link. Before
-     * R10 only the bytes of the run counted: a fresh link that "gave nothing" stopped as "Link
+     * the fix only the bytes of the run counted: a fresh link that "gave nothing" stopped as "Link
      * expired" without a lookup.
      */
     @Test

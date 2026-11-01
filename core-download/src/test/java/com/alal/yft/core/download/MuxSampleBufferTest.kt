@@ -6,7 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Phase 1.4 item 1 — the merge's sample buffer grows to a sample larger than it (a 2K/4K VP9
+ * The merge's sample buffer grows to a sample larger than it (a 2K/4K VP9
  * keyframe in a WebM track, owner's phone 2026-10-16), never above 32 MiB, never below today's
  * size; a failure's Detail names the call that threw and the sizes.
  */

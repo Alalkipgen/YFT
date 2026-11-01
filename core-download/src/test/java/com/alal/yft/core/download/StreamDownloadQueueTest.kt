@@ -444,13 +444,13 @@ class StreamDownloadQueueTest {
 
     private class ControlledDispatcher(
         private val progressTotal: Long? = null,
-        /** Bytes the transfer reports as written after its first checkpoint (P41). */
+        /** Bytes the transfer reports as written after its first checkpoint. */
         private val progressBytes: Long? = null,
         /** The estimated total reported with [progressBytes] (an ended live stream). */
         private val progressEstimate: Long? = null,
-        /** D1: the name and type a completed transfer reports it was published as. */
+        /** The name and type a completed transfer reports it was published as. */
         private val publishedAs: PublishedFile? = null,
-        /** D1 follow-ups 3 and 4: the bytes of the file a completed transfer published. */
+        /** The bytes of the file a completed transfer published. */
         private val bytesWritten: Long = 10,
     ) : DownloadTransferDispatcher {
         val active = AtomicInteger()

@@ -38,7 +38,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * F8 (D7 run 12): a whole file on YouTube's media hosts whose ranges are refused with 403 asks
+ * A whole file on YouTube's media hosts whose ranges are refused with 403 asks
  * them one at a time and again, for a while; other hosts and the switched-off policy fail at
  * once, as before.
  */
@@ -146,8 +146,8 @@ class DashMediaHostRefusalTest {
             val detail = result.failure.detail.orEmpty()
             assertTrue(detail, DETAIL.matches(detail))
             assertTrue(detail, detail.endsWith(", 3 s"))
-            // F8 trim: the ranges asked at once are refused (3), one is asked again alone 3 s
-            // later and refused too, so the file fails, before a second ask would start (9 s).
+            // The trimmed wait: the ranges asked at once are refused (3), one is asked again alone
+            // 3 s later and refused too, so the file fails, before a second ask would start (9 s).
             assertEquals(4, refusing.refused.get())
             val firstRefusal = refusing.refusedAt.first()
             assertEquals(1, refusing.refusedAt.count { it - firstRefusal >= 2_500 })
@@ -295,7 +295,7 @@ class DashMediaHostRefusalTest {
             ),
             mimeType = "video/mp4",
             codecs = listOf("avc1.4d401f"),
-            // A stated length, as YouTube's clen: the ranges start at once, as on D7 run 12.
+            // A stated length, as YouTube's clen: the ranges start at once, as on a phone run.
             wholeFile = WholeFileTrack(totalBytes = totalBytes, maxRequestBytes = 1_000),
         )
 

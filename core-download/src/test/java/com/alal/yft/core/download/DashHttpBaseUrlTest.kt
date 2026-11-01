@@ -28,7 +28,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * v1.0.2 fix F1 (phone test 59): DASH-IF's Netflix test vector is an https manifest whose
+ * DASH-IF's Netflix test vector is an https manifest whose
  * `BaseURL` is at http (an https copy of that host has a certificate for another name; the same
  * files are under the manifest's own https address). No request is ever sent in cleartext: the
  * same address at https first, then the part below the `BaseURL` under the manifest's address,

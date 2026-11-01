@@ -20,8 +20,8 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * P41: a merged download shows the bytes its tracks write inside a range, before the range's
- * checkpoint, at most 4 times a second. Before P41 the merge moved only on checkpoints, so a
+ * A merged download shows the bytes its tracks write inside a range, before the range's
+ * checkpoint, at most 4 times a second. Earlier the merge moved only on checkpoints, so a
  * long first range of a live recording showed 0 B for minutes.
  */
 class AudioVideoMuxProgressTest {

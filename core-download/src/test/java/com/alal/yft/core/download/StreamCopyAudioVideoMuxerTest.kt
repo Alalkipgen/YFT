@@ -21,9 +21,9 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * P35's stream copy in plain Kotlin: MP4 and M4A tracks built in the test are copied into one
- * MP4 whose tables are read back independently ([Mp4Dump]); what it does not support, and a
- * failed check, go to today's way once.
+ * The fast merge's stream copy in plain Kotlin: MP4 and M4A tracks built in the test are copied
+ * into one MP4 whose tables are read back independently ([Mp4Dump]); what it does not support, and
+ * a failed check, go to today's way once.
  */
 class StreamCopyAudioVideoMuxerTest {
     @get:Rule
@@ -114,12 +114,12 @@ class StreamCopyAudioVideoMuxerTest {
     }
 
     /**
-     * v1.0.2 fix R8, as tears-of-steel-av1's 240p: AV1 video at 16,000 ticks a second in pieces
+     * As tears-of-steel-av1's 240p: AV1 video at 16,000 ticks a second in pieces
      * of 4 s, and AAC at 48 kHz whose edit list starts at 2,048 ticks (audio_eng=128002), so its
      * first two samples are presented before 0. Both tracks are copied with every sample, the
      * sound's edit list kept: each sound sample is presented where its input presented it,
-     * beside the picture. Before R8 the stream copy took no AV1 and today's way merged instead,
-     * which ended the sound at its first sample.
+     * beside the picture. Before the fix the stream copy took no AV1 and today's way merged
+     * instead, which ended the sound at its first sample.
      */
     @Test
     fun `an AV1 video and a sound that starts before 0 keep every sample in time (R8)`() {

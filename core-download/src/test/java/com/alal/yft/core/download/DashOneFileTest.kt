@@ -31,7 +31,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * v1.0.2 item 59: a DASH representation that is one file (`SegmentBase`: its own `BaseURL`, an
+ * A DASH representation that is one file (`SegmentBase`: its own `BaseURL`, an
  * `Initialization` range and an `indexRange`, the `sidx`) is downloaded as one file in ranges,
  * resumed as a whole file is, and merged with its manifest's sound.
  */

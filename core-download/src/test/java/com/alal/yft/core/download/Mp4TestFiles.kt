@@ -5,7 +5,7 @@ import java.nio.ByteBuffer
 import kotlin.random.Random
 
 /**
- * Small MP4 tracks built in the test (P35): fragmented (`moov` with `mvex`, then `moof` +
+ * Small MP4 tracks built in the test: fragmented (`moov` with `mvex`, then `moof` +
  * `mdat` pairs, as YouTube's and Facebook's DASH files) or plain (`mdat`, then `moov` with
  * `stbl` tables). Every sample has its own random bytes, so a misplaced one shows.
  */
@@ -23,7 +23,7 @@ internal object Mp4TestFiles {
     class Edit(val duration: Long, val mediaTime: Long)
 
     /**
-     * v1.0.2 fix R6: the durations a server states in the headers (64-bit `mvhd`, `tkhd` and
+     * The durations a server states in the headers (64-bit `mvhd`, `tkhd` and
      * `mdhd`), as ElephantsDream's DASH files state 10:52.652 for samples to 10:54.445.
      */
     class Stated(
@@ -47,7 +47,7 @@ internal object Mp4TestFiles {
         val tracks: Int = 1,
         /** Each fragment's tfdt, when it does not simply follow on. */
         val decodeTimes: List<Long>? = null,
-        /** R6: the headers' durations; by default version 0 headers that state none. */
+        /** The headers' durations; by default version 0 headers that state none. */
         val stated: Stated? = null,
     ) {
         val samples: List<Sample> get() = fragments.flatten()
@@ -88,7 +88,7 @@ internal object Mp4TestFiles {
     )
 
     /**
-     * Item 5: [track]'s samples as joined ADTS, as an HLS sound is kept (AAC LC, stereo, the
+     * [track]'s samples as joined ADTS, as an HLS sound is kept (AAC LC, stereo, the
      * track's rate); [crcEvery] gives every so many frames a CRC (a 9-byte header).
      */
     fun adts(track: Track, crcEvery: Int = 0): ByteArray {
@@ -352,9 +352,9 @@ internal object Mp4TestFiles {
                 short(3),
                 byteArrayOf(0x68, 0xce.toByte(), 0x3c),
             )
-            // Item 5: a VP9 entry holds a vpcC (profile 0, level 5.1, 8 bits, 4:2:0) instead.
+            // A VP9 entry holds a vpcC (profile 0, level 5.1, 8 bits, 4:2:0) instead.
             val vpcC = fullBox("vpcC", 1, 0, byteArrayOf(0, 51, 0x82.toByte(), 1, 1, 1, 0, 0))
-            // R8: an AV1 entry holds an av1C (main profile, level 4.0, 8 bits, 4:2:0).
+            // An AV1 entry holds an av1C (main profile, level 4.0, 8 bits, 4:2:0).
             val av1C = box("av1C", byteArrayOf(0x81.toByte(), 0x08, 0x0c, 0))
             val config = when (track.sampleEntry) {
                 "vp09" -> vpcC

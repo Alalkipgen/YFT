@@ -22,7 +22,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
-/** P50: the tracks of a merge that are HLS playlists are fetched as HLS. */
+/** The tracks of a merge that are HLS playlists are fetched as HLS. */
 class PlaylistTrackTransferRunnerTest {
     @get:Rule
     val temporary = TemporaryFolder()

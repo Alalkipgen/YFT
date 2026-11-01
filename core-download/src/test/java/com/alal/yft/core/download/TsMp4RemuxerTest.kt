@@ -12,7 +12,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * D1: the HLS remux on FFmpeg-made pieces ([HlsFixtures]). Its files were checked with FFmpeg
+ * The HLS remux on FFmpeg-made pieces ([HlsFixtures]). Its files were checked with FFmpeg
  * 7.0.2: they decode to the same pictures and sound as the pieces (MD5 of every decoded frame),
  * hold the very AAC frames of FFmpeg's own remux (`-c copy`) and its H.264 frames less their
  * access unit delimiters, and present the picture 46 ms after the sound, as the pieces do. The

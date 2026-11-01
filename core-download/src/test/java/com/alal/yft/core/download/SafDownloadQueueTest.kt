@@ -32,7 +32,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * v1.0.2 item 28: a download into a folder picked through Android's folder picker (SAF) keeps
+ * A download into a folder picked through Android's folder picker (SAF) keeps
  * its place. A Retry resumes into the same temporary document, a Retry after the file itself
  * failed starts over in a new one in the same folder, and a folder that goes away while the
  * download runs fails it as storage unavailable, as other destination failures do.

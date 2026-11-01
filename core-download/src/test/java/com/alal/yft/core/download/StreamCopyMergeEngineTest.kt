@@ -20,8 +20,8 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * P35 through the whole merge step: the engine merges two finished MP4 tracks by the stream
- * copy straight into the destination's file, and its one log line says how (path, sample
+ * The fast merge through the whole merge step: the engine merges two finished MP4 tracks by the
+ * stream copy straight into the destination's file, and its one log line says how (path, sample
  * counts, the time of each phase, the merge thread's CPU time beside the wall time).
  */
 class StreamCopyMergeEngineTest {

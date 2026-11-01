@@ -12,7 +12,7 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** R5 (v1.0.2): the hand-off between the MP3 decoder's thread and LAME's. */
+/** The hand-off between the MP3 decoder's thread and LAME's. */
 class PcmHandoffTest {
     @Test
     fun everySoundComesOutInOrderBeforeTheEndThroughASmallHandoff() {

@@ -67,7 +67,7 @@ class Id3v2TagTest {
 
     @Test
     fun aLongMyanmarTitleIsCutWithoutSplittingALetterFromItsMark() {
-        // D3: ကျ (a letter and its spacing mark) is one grapheme, kept whole or not at all.
+        // ကျ (a letter and its spacing mark) is one grapheme, kept whole or not at all.
         val title = "a".repeat(Id3v2Tag.MAX_TITLE_CHARS - 1) + "\u1000\u103B" + "tail"
 
         val tag = Id3v2Tag.title(title)

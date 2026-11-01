@@ -3,7 +3,7 @@ package com.alal.yft.core.download
 import java.nio.ByteBuffer
 
 /**
- * Reads a merged MP4 back in the test (P35), independently of the stream copy's own reader:
+ * Reads a merged MP4 back in the test, independently of the stream copy's own reader:
  * the top-level boxes, and per track its headers, edit list and every sample from the tables.
  */
 internal class Mp4Dump(private val bytes: ByteArray) {
@@ -130,7 +130,7 @@ internal class Mp4Dump(private val bytes: ByteArray) {
         }
         check(sample == count) { "stsc covers $sample of $count samples" }
         val stsd = stbl.single { it.type == "stsd" }
-        // Version 1 headers (R6) hold 64-bit times: their fields after them move on.
+        // Version 1 headers hold 64-bit times: their fields after them move on.
         val wideTkhd = wide(tkhd)
         val wideMdhd = wide(mdhd)
         return DumpedTrack(

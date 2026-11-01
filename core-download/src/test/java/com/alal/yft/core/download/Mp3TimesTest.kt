@@ -6,7 +6,7 @@ import org.junit.Test
 class Mp3TimesTest {
     @Test
     fun theDetailsLineNamesTheSoundsLengthAndTheDecodeAndEncodeTimes() {
-        // G2 (v1.0.2): the owner's example line.
+        // The owner's example line.
         assertEquals(
             "MP3: 4:12 of sound, decode 1.2 s, encode 6.8 s",
             Mp3Times.line(soundMillis = 252_400, decodeMillis = 1_200, encodeMillis = 6_800),

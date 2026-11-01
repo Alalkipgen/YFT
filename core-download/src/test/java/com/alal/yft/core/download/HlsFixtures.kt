@@ -3,7 +3,7 @@ package com.alal.yft.core.download
 import java.util.Base64
 
 /**
- * D1: small HLS pieces made with FFmpeg 7.0.2, kept as Base64 text in `src/test/resources/hls`:
+ * Small HLS pieces made with FFmpeg 7.0.2, kept as Base64 text in `src/test/resources/hls`:
  *
  * - `av-0.ts`, `av-1.ts`: 2 s of H.264 High 160×90 at 10 fps (B frames, a keyframe a second)
  *   with AAC LC mono at 22.05 kHz, the picture starting 46 ms after the sound: `ffmpeg -f lavfi

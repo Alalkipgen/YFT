@@ -62,7 +62,7 @@ class Mp3ConvertingTransferDispatcherTest {
 
     @Test
     fun aFinishedMp3GivesItsDetailsLineToItsTask() = runBlocking {
-        // G2 (v1.0.2): the sound's length and the decode and encode times, in the row's Details.
+        // The sound's length and the decode and encode times, in the row's Details.
         transcoder.detail = "MP3: 3:19 of sound, decode 1.2 s, encode 6.8 s"
         val mp3Plan = plan()
 
@@ -243,7 +243,7 @@ class Mp3ConvertingTransferDispatcherTest {
         assertEquals(1, delegate.discards)
     }
 
-    /** D1 follow-up 4: an MP3 made from a direct download shows the MP3's size, not the AAC's. */
+    /** An MP3 made from a direct download shows the MP3's size, not the AAC's. */
     @Test
     fun aQueuedMp3ShowsTheMp3sSizeAndKeepsTheAacCheckpoint() = runBlocking {
         val store = MemoryStore()
@@ -256,7 +256,7 @@ class Mp3ConvertingTransferDispatcherTest {
         assertEquals(completed, store.loadAll().single())
     }
 
-    /** D1 follow-up 4: the M4A kept from a video's sound shows its own size, not the video's. */
+    /** The M4A kept from a video's sound shows its own size, not the video's. */
     @Test
     fun aQueuedAudioOnlyDownloadShowsTheM4asSize() = runBlocking {
         val video = plan(mp3 = null).copy(audioOnly = true, mimeType = "audio/mp4")
@@ -270,7 +270,7 @@ class Mp3ConvertingTransferDispatcherTest {
         assertEquals(completed, store.loadAll().single())
     }
 
-    /** D1 follow-up 4: a plain direct download still shows the bytes it downloaded. */
+    /** A plain direct download still shows the bytes it downloaded. */
     @Test
     fun aQueuedPlainDownloadStillShowsTheBytesItDownloaded() = runBlocking {
         val completed = completeInQueue(plan(mp3 = null), MemoryStore())
