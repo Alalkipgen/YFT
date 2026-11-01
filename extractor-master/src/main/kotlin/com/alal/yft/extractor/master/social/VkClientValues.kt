@@ -4,11 +4,11 @@ import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.master.solver.OwnSolverTextFile
 
 /**
- * VK-Master plan §4 (V2), §8: where V2's web-client values come from. [bundled] — main's values,
- * and in a debug build the owner's mutate hook — lists sets for V2 to ask with; [healing] (agent
- * D's wiring) heals the value VK refused from vkvideo.ru's public script (`VkClientSource`).
+ * Where the heal step's (`vk V2` in Lookup details) web-client values come from. [bundled] — main's values,
+ * and in a debug build the owner's mutate hook — lists sets for the heal step to ask with; [healing]
+ * heals the value VK refused from vkvideo.ru's public script (`VkClientSource`).
  *
- * [values] lists the sets best first; with [bundled], V2 asks with the first that is not main's own
+ * [values] lists the sets best first; with [bundled], the heal step asks with the first that is not main's own
  * ([VkClient.BUNDLED]: main asked with it in this lookup and it was refused), and with none when
  * every set is main's. A source that cannot answer lists main's only; it never throws for a value.
  */
@@ -23,15 +23,15 @@ interface VkClientValues {
          *
          * The values VK checks are the client id and the API version: login.vk.ru answers
          * `invalid_client` (a 401) for another client id and mints a usable token for any client
-         * secret (agent A's census §3.2a), `video.get` answers error 8 for a version it no longer
+         * secret (VK census), `video.get` answers error 8 for a version it no longer
          * takes. So a hook that forces the value-rejected path breaks the client id or the version,
          * never the secret alone: a changed secret still gets a token.
          */
         fun bundled(mutate: ((VkClient.Values) -> VkClient.Values)? = null): VkClientValues = Bundled(mutate)
 
         /**
-         * Agent D's wiring (plan §8, items 3 and 5): V2 heals the value VK refused main — the client
-         * id, else the API version; never the client secret — with S5's order ([ValueSource]: healed
+         * The heal step heals the value VK refused main — the client
+         * id, else the API version; never the client secret — in the proven-source order ([ValueSource]: healed
          * today, learned, else one read of vkvideo.ru's page and its common script over [http], at
          * most once a day per value, then nothing). A healed value is kept only after an OK answer
          * whose rows passed V, in [file] (the app's `files/master/site-health.json`; memory only
@@ -78,7 +78,7 @@ private class Bundled(private val mutate: ((VkClient.Values) -> VkClient.Values)
 }
 
 /**
- * [VkClientValues.healing]: main's values as main sent them ([main]) and the heal's [source]; V2
+ * [VkClientValues.healing]: main's values as main sent them ([main]) and the heal's [source]; the heal step
  * ([VkLadder]) marks main's refused value rejected and asks [source] for the next. [values] is
  * main's set only (nothing else to ask with before a heal).
  */

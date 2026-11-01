@@ -1,5 +1,5 @@
 /*
- * Provenance (social plan S0a, copied, not moved; main 34a41890; listed in toolkit-provenance.tsv):
+ * Provenance (Lookup record, copied, not moved; main 34a41890; listed in toolkit-provenance.tsv):
  *   extractor-sites/.../facebook/FacebookPageParser.kt  MEDIA_KEYS, ACCESS_MARKERS (in their
  *                                        order: region, sign-in, then removed; any case)
  *   extractor-sites/.../facebook/FacebookUrls.kt  isAccessWall, WALL_PATHS
@@ -9,7 +9,7 @@
  *   extractor-sites/.../instagram/InstagramUrls.kt  isLoginWall
  *   extractor-sites/.../x/XSyndication.kt  parse, TOMBSTONE (a tombstone or an empty answer is
  *                                        no post)
- * Reviewed (social plan 0.1, main's X card fix on this branch): main's parse now also reads the
+ * Reviewed (main's X card fix on this branch): main's parse now also reads the
  *   post's own card (`card.binding_values.unified_card`, JSON in a string) after its own media and
  *   before the quoted post, never the quoted post's card; tweetResult reads the same three as
  *   data. The table's row keeps its base hash (34a41890): the drift check against main reports
@@ -40,7 +40,7 @@ import java.net.URI
 import java.security.MessageDigest
 
 /**
- * S0a: what a 2xx answer of each way held, as a mark ([AnswerMark]) and a shape fingerprint. A
+ * Lookup record: what a 2xx answer of each way held, as a mark ([AnswerMark]) and a shape fingerprint. A
  * reading is a quick look at the answer's text, not main's parse: "data" is media data of the kind
  * main reads (an HTTPS file address, an inline manifest), whatever main then does with it (a DRM
  * flag, an unreadable payload). A page's shape is `h` + 8 hex of the markers it holds (key names
@@ -121,7 +121,7 @@ internal object SiteReadings {
     }
 
     /**
-     * S2d part 1: the tab-fetch probe's answer (yt-dlp's signed-out query): a login or checkpoint
+     * Instagram ladder: the tab-fetch probe's answer (yt-dlp's signed-out query): a login or checkpoint
      * address or a login-required answer is a login page; no post where the query shows it signed
      * out ([InstagramProbeQuery.ANSWER_PATH]) is no post; a video's file or manifest is data.
      */

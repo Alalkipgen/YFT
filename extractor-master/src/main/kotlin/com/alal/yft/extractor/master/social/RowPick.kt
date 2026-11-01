@@ -5,10 +5,10 @@ import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.extractor.master.toolkit.QualityLadder
 
 /**
- * L2 (`MASTER_KEY_SOCIAL_PLAN.md` §7.4's backlog, for S6): of a rung's rows that V passed, each
+ * Instagram tab-fetch step (best first per height; the Weak-answer fill uses it too): of a rung's rows that the Row check passed, each
  * picture height's best first. On the owner's retest (2026-10-23, Instagram slot 5) the tab-fetch
  * rung's answer held three versions of the post's video (`rows 3 (DIRECT)`), each named 720 × 1280
- * (task 15's F1 gives a version that states no size its video's own) and none with a bitrate
+ * (a version that states no size takes its video's own) and none with a bitrate
  * (Instagram's recipe reads none; main's rows take theirs from the address). The sheet offers one
  * row per height — at one height the higher bitrate first, else the rows' own order — so it
  * offered the answer's first: 897 KB, where the tab's own playback of that height was 1.9 MB. V

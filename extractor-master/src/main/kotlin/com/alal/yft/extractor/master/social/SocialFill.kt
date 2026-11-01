@@ -19,11 +19,11 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * Social plan S6 (`MASTER_KEY_SOCIAL_PLAN.md` §4 S6, decision 7, routing decision #7): **B+**. Route B
- * runs Master only after main fails; B+ also runs it when main's answer for a page is weak by an
+ * Weak-answer fill (`B+` in Lookup details). Route B
+ * runs Master only after main fails; the fill also runs it when main's answer for a page is weak by an
  * objective signal ([weakness]: no HD row, no sound row), and Master then adds only the formats
  * main's rows lack ([added]). Main's rows stay exactly as main gave them, first, as ClientLadder's
- * merge rule (guardrail 9: the chain's rows stay, the ladder adds only a format they lack); A
+ * merge rule (the chain's rows stay, the ladder adds only a format they lack); route A
  * (Master in main's place) is not done.
  *
  * - **Weak** ([weakness]): main's rows name one video (no item of a post with several) and
@@ -43,8 +43,8 @@ import java.util.concurrent.atomic.AtomicReference
  *   off) and only rows that may fill the need going to V ([Need.admits]; another row is never
  *   read). Its time is [POLICY]'s.
  * - **Added** ([added]): of Master's rows, only those proven main's video ([TrialCompare]'s MATCH:
- *   the video main's rows name; Instagram's the same item, which B+ reads as decision 19 (iv)'s
- *   set does: the rung's answer offered one of main's files, [Need.sharesMainsFile], as B+ never
+ *   the video main's rows name; Instagram's the same item, which the fill reads as the Instagram tab-fetch step's
+ *   set does: the rung's answer offered one of main's files, [Need.sharesMainsFile], as the fill never
  *   reads main's own files again; a duration more than 1 s off stays WRONG), none of main's files (the file's
  *   address or path, a row's sound file included), and each filling the need: an HD row (720 or
  *   taller) not proven silent (with [Weak.NO_SOUND] too: one that states its sound), a picture row
@@ -57,25 +57,25 @@ import java.util.concurrent.atomic.AtomicReference
  * logged; lines name counts, heights and words only, never a link or an ID.
  */
 object SocialFill {
-    /** The sites B+ runs for (decision 26's S5 sites of R9): Facebook, Instagram and VK. */
+    /** The sites the fill runs for (the sites promoted after three phone runs): Facebook, Instagram and VK. */
     val SITES: Set<String> = setOf(FacebookLadder.SITE_ID, InstagramLadder.SITE_ID, VkClient.SITE_ID)
 
     /** An HD row's least height (the sheet's "HD"). */
     const val HD_HEIGHT = 720
 
-    /** The most rows B+ adds to one answer. */
+    /** The most rows the fill adds to one answer. */
     const val MAX_ADDED = 4
 
     /**
-     * B+'s engine time: the ladder's ask within its own share ([MasterPolicy.contractTimeoutMillis]),
-     * V's reads after it, no capture (the wait a weak answer may add to its lookup).
+     * The fill's engine time: the ladder's ask within its own share ([MasterPolicy.contractTimeoutMillis]),
+     * the Row check's reads after it, no capture (the wait a weak answer may add to its lookup).
      */
     val POLICY = MasterPolicy(enabled = true, timeoutMillis = 10_000, contractTimeoutMillis = 6_000, capture = false)
 
     /** An objective weakness of main's answer. */
     enum class Weak(val label: String) { NO_HD("no HD"), NO_SOUND("no sound") }
 
-    /** [site]'s ID of a video key (`facebook:123`), when B+ runs for it, else null. */
+    /** [site]'s ID of a video key (`facebook:123`), when the fill runs for it, else null. */
     fun siteOf(videoKey: String?): String? = videoKey?.substringBefore(':')?.takeIf { it in SITES }
 
     /** Main's [mains]' weaknesses; empty when it is strong or not known to be weak. */
@@ -100,20 +100,20 @@ object SocialFill {
 
     /**
      * One weak answer's need: main's [mains] (as main gave them) and their [weak]nesses. [admits]
-     * is B+'s V rule; [unread] counts the rows it kept from V (never read).
+     * is the fill's Row check rule; [unread] counts the rows it kept from the Row check (never read).
      */
     class Need(val mains: List<MediaCandidate>, val weak: Set<Weak>) {
         private val files = filesOf(mains)
         private val unreadCount = AtomicInteger()
         private val answer = AtomicReference(AtomicBoolean(false))
 
-        /** Master's rows B+ kept from V. */
+        /** Master's rows the fill kept from the Row check. */
         val unread: Int get() = unreadCount.get()
 
         /**
          * Whether the rung's answer Master's rows came from (the last one staged) offered one of
-         * main's files: Instagram's proof that its rows are main's item (decision 19 (iv), the trial
-         * line's "the same item"), as B+ never reads main's own files again.
+         * main's files: Instagram's proof that its rows are main's item (the Instagram tab-fetch step's rule, the trial
+         * line's "the same item"), as the fill never reads main's own files again.
          */
         val sharesMainsFile: Boolean get() = answer.get().get()
 
@@ -140,7 +140,7 @@ object SocialFill {
     }
 
     /**
-     * B+'s answer: the [rows] to add (none: [why], a few words), of Master's [offered] rows (after
+     * The fill's answer: the [rows] to add (none: [why], a few words), of Master's [offered] rows (after
      * the app's own focus and merge checks).
      */
     class Fill(val rows: List<MediaCandidate>, val why: String?, val offered: Int)
@@ -160,8 +160,8 @@ object SocialFill {
         if (masters.isEmpty()) return Fill(emptyList(), "Master found no row", 0)
         val verdicts = TrialCompare.compare(masters, mains, video).verdicts
         val mainVideo = mains.map { video(it.videoId) }.distinct().singleOrNull()
-        // Instagram (decision 19 (iv)): its rows are main's item when their answer offered one of
-        // main's files (B+ never reads that file again, so no row of its own shares one).
+        // Instagram (the Instagram tab-fetch step's rule): its rows are main's item when their answer offered one of
+        // main's files (the fill never reads that file again, so no row of its own shares one).
         val sameItem = sharesMainsFile && mainVideo != null && siteOf(mains.first().videoId) == InstagramLadder.SITE_ID
         val proven = masters.filterIndexed { index, row ->
             verdicts[index] == TrialCompare.Verdict.MATCH ||
@@ -185,7 +185,7 @@ object SocialFill {
     }
 
     /**
-     * B+'s run for [request] (main's page, its lookup's context: the record and main's pages) with
+     * The fill's run for [request] (main's page, its lookup's context: the record and main's pages) with
      * [need]: the lookup's ladder ([social]) when it claims the lookup, else nothing is asked
      * ([MasterResult.Skipped]).
      */
@@ -227,16 +227,16 @@ object SocialFill {
         override fun toString(): String = "SocialFill.Admitting($stage)"
     }
 
-    /** B+'s Details line: `master: facebook B+ (main's rows: no HD): Master added 1: 720p`. */
+    /** The fill's Details line: `master: facebook B+ (main's rows: no HD): Master added 1: 720p`. */
     fun line(site: String, weak: Set<Weak>, added: List<MediaCandidate>): String =
         "${prefix(site, weak)}Master added ${added.size}: " + added.joinToString(", ") { row ->
             if (QualityLadder.isAudio(row)) "sound" else "${heightOf(row)}p"
         }
 
-    /** B+'s Details line when it adds none: `…: Master added none (Master found no row)`. */
+    /** The fill's Details line when it adds none: `…: Master added none (Master found no row)`. */
     fun none(site: String, weak: Set<Weak>, why: String): String = "${prefix(site, weak)}Master added none ($why)"
 
-    /** The start of B+'s lines, `master: <site> B+`. */
+    /** The start of the fill's lines, `master: <site> B+`. */
     fun label(site: String): String = "master: $site $B_PLUS"
 
     private fun prefix(site: String, weak: Set<Weak>): String =

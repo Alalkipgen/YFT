@@ -1,5 +1,5 @@
 /*
- * Provenance (social plan S2d part 1, copied, not moved; main 34a41890; listed in toolkit-provenance.tsv):
+ * Provenance (copied, not moved; main 34a41890; listed in toolkit-provenance.tsv):
  *   extractor-sites/.../instagram/InstagramUrls.kt  mediaIdOf, ALPHABET, MEDIA_ID_CHARS (the
  *                                        post's numeric media ID: its code read as base 64),
  *                                        embedUrl (main's embed ask's address)
@@ -7,7 +7,7 @@
  *                                        main's order: the app API signed in, GraphQL, the post's
  *                                        page, the embed page), graphQlUrl (its variables name the
  *                                        post's code)
- * The tab-fetch rung's query is data from yt-dlp ([InstagramProbeQuery]: S9, no row).
+ * The Instagram tab-fetch step's query is data from yt-dlp ([InstagramProbeQuery]: data, no row).
  */
 package com.alal.yft.extractor.master.social
 
@@ -45,50 +45,50 @@ import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * Social plan S2d part 1 (`MASTER_KEY_SOCIAL_PLAN.md` §6.4, §7.3, decision 19): Instagram's ladder
- * after main failed, in place of R8's unjudged ask (no repeat of main's embed ask), inside the
+ * The Instagram ladder (`instagram I2`, `I3` in Lookup details): Instagram's steps
+ * after main failed, in place of the site contract reader's unjudged ask (no repeat of main's embed ask), inside the
  * same rules as X's ([XLadder]). **I2, main's answers judged:** the answers main's adapter got in
  * this lookup ([MainPages]: the app API when signed in, GraphQL, the post's page, the embed page;
  * each way's last page, else its last refused GET), each read with no new ask by Instagram's
  * recipe and judged ([InstagramAnswerJudge]), then one answer for the lookup (main's order).
  *
- * - **Rows, the link's item only** (decision 11): the post's own node (its code), its item the
+ * - **Rows, the link's item only:** the post's own node (its code), its item the
  *   link names (`img_index`), else its first item with files, as main; bound to the post and
- *   checked by V and the init check (S6) as main's answer for that item. A renamed key: the
+ *   checked by the row check and the init check as main's answer for that item. A renamed key: the
  *   recipe's open read, anchored to the post, only for a post with one item.
  * - **Final:** a photo post by the post's own marks (`NO_MEDIA_FOUND`, main's words), only when
  *   no answer shows a video.
  * - **Nothing to read** (null: the visible tab's own playback, then the user's browser; main's
- *   reason stays): a login wall (the checkpoint too: main's rule and §6.3's), a rate limit (the
- *   host cools, S7), no post in an answer, the embed's `EmbedIsBroken`, a changed shape. Never
- *   REMOVED (decision 19 (vi): no answer read tells a removed post apart).
+ *   reason stays): a login wall (the checkpoint too: main's rule), a rate limit (the
+ *   host cools), no post in an answer, the embed's `EmbedIsBroken`, a changed shape. Never
+ *   REMOVED (no answer read tells a removed post apart).
  *
- * **The tab-fetch rung** (S2d part 2, decision 24, task 13; its switch off by default): with an
+ * **The Instagram tab-fetch step** (its switch off by default): with an
  * [InstagramTabProbe] in the lookup's context and its switch on, after I2 gave no rows (not after
  * a final answer or a stop), once, the last request rung: the visible tab's own fetch of yt-dlp's
  * signed-out query ([InstagramProbeQuery]), recorded in the lookup's record (Master's ask: the
  * budget, a 429 stops the site and cools the host, a checkpoint cools it: signed out, Instagram's
- * challenge of Master's own ask is a bot check for S7; no second ask), read by the same recipe and
+ * challenge of Master's own ask is a bot check for the social limits; no second ask), read by the same recipe and
  * judge as I2 (rows bound to the post by its code or its pk, the link's item only; its 400 or
  * `errors` is VALUE_REJECTED: no other value is tried) and said in one line (its status and size,
  * whether its answer holds the post's video, whether the tab shows a wall, its rows). Its rows go
- * to V and the init check (S6) as the tab's own answer; a page with a wall is never read. Signed
+ * to the row check and the init check as the tab's own answer; a page with a wall is never read. Signed
  * in (main's session), it is not asked: it is the signed-out query. With I2's rows it is not asked
  * either, but when its debug proof is on ([InstagramTabProbe.proof]: I2's rows set aside). In a
- * census or W there is no tab: it is never asked there (as I3).
+ * census or the Weekly site check there is no tab: it is never asked there (as I3).
  *
- * S4: a rung the signed recipe config turns off ([RungsOff]: I2, the tab-fetch rung `probe`, I3)
+ * A rung the signed recipe config turns off ([RungsOff]: I2, the tab-fetch rung `probe`, I3)
  * is not run, its line says so: I2 off, the tab-fetch rung next; the rung off wins over its
  * switch (its line wherever a probe is in the lookup's context). The config is asked for (when
  * due, on its own) as the stage starts.
  *
- * S7: Instagram's own budget ([SocialBudget.INSTAGRAM]). Main's Instagram code and reasons stay
- * (decision 10). Claims only an Instagram lookup with its own record ([LookupRecord]: the
- * social-ladder build's, `-Pyft.socialLadder`); every other lookup keeps R8's path. [contractsOf]
+ * Social limits: Instagram's own budget ([SocialBudget.INSTAGRAM]). Main's Instagram code and reasons stay.
+ * Claims only an Instagram lookup with its own record ([LookupRecord]: the
+ * social-ladder build's, `-Pyft.socialLadder`); every other lookup keeps the site contract reader's path. [contractsOf]
  * gives the recipe the engine reads with, around [http] (never asked here). Lines: short labels
  * and counts, never a link, an ID or the post's words; nothing is logged.
  *
- * L2 (S6, [bestFirst]: the app's `yft.socialFill`, a social-ladder debug build's; off, today's
+ * Best first per height ([bestFirst]: the app's `yft.socialFill`, a social-ladder debug build's; off, today's
  * order): of the rows V passes from I2's or the tab-fetch rung's answer, each height's best first
  * ([RowPick.bestFirst]: the answer states no bitrate, so the rate of each file V read; the owner's
  * retest of slot 5 offered the answer's first 720p, 897 KB, where the tab's own was 1.9 MB).
@@ -100,7 +100,7 @@ class InstagramLadder(
     private val budget: SocialBudget = SocialBudget.INSTAGRAM,
     private val bestFirst: Boolean = false,
 ) : SocialStage {
-    /** L2: the order of the rows V passed from a request rung's answer (null: as the answer gives them). */
+    /** The order of the rows V passed from a request rung's answer (null: as the answer gives them). */
     private val pick: ((List<MediaCandidate>) -> List<MediaCandidate>)? = if (bestFirst) RowPick::bestFirst else null
 
     private val contracts = contractsOf(http)
@@ -114,9 +114,9 @@ class InstagramLadder(
         details: MutableList<String>,
     ): SocialStage.Staged? {
         val record = coroutineContext[LookupRecord] ?: return null
-        // S4: the signed config's ask when due (outside the lookup), so its rungs off apply here.
+        // The signed config's ask when due (outside the lookup), so its rungs off apply here.
         contracts.refresh()
-        // S7: a host that answered a 429 (main's or the rung's) cools from the stage's end.
+        // A host that answered a 429 (main's or the rung's) cools from the stage's end.
         return try {
             climb(record, request, policy, details)
         } finally {
@@ -124,14 +124,14 @@ class InstagramLadder(
         }
     }
 
-    /** S4: I3, the visible tab's own playback, when the signed config turns it off. */
+    /** I3, the visible tab's own playback, when the signed config turns it off. */
     override suspend fun captureOff(request: MasterRequest): String? =
         RungsOff.line(I3).takeIf { "I3" in contracts.rungsOff() }
 
-    /** S4: whether the signed config turns the tab-fetch rung off (over its switch). */
+    /** Whether the signed config turns the tab-fetch rung off (over its switch). */
     private fun probeOff(): Boolean = PROBE_RUNG in contracts.rungsOff()
 
-    /** S4: the tab-fetch rung's line when a probe is in the lookup's context: off by the config, else [line]. */
+    /** The tab-fetch step's line when a probe is in the lookup's context: off by the config, else [line]. */
     private fun probeLine(line: String): String = if (probeOff()) RungsOff.line(PROBE) else line
 
     /** I2 for [request]'s lookup ([record]), then the tab-fetch rung when I2 gave no rows. */
@@ -152,7 +152,7 @@ class InstagramLadder(
         val mediaId = mediaIdOf(code)
         val read = request.copy(identity = identity, expectedContentId = code)
         val recipe = contracts.recipeOf(SITE_ID)
-        // S4: I2 off in the signed config: not run; the tab-fetch rung next.
+        // I2 off in the signed config: not run; the tab-fetch rung next.
         if ("I2" in contracts.rungsOff()) {
             details += RungsOff.line(I2)
             return rung(record, request, policy, code, mediaId, read, recipe, details)
@@ -188,7 +188,7 @@ class InstagramLadder(
                 val why = answer?.let { over(record, it.body.length.toLong()) }
                 why?.let { details += "$I2: $it; not checked" }
                 if (answer == null || why != null) return rung(record, request, policy, code, mediaId, read, recipe, details)
-                // Decision 24: I2's rows; the rung is not asked, but when its proof (debug) sets them aside.
+                // I2's rows; the tab-fetch rung is not asked, but when its proof (debug) sets them aside.
                 val probe = coroutineContext[InstagramTabProbe]
                 when {
                     probe == null -> Unit
@@ -197,14 +197,14 @@ class InstagramLadder(
                     !probe.proof() -> details += "$PROBE: not asked (I2's rows)"
                     else -> {
                         details += PROOF
-                        // Task 15 (F4): the proof tests the rung alone — when it gives no rows the
+                        // The proof tests the rung alone — when it gives no rows the
                         // lookup ends without one (no capture of the tab: signed in, its playback's
                         // file is none of main's, so its row said "the same item: no").
                         return rung(record, request, policy, code, mediaId, read, recipe, details)
                             ?: proofStop(request, read, details)
                     }
                 }
-                // L2: of the rows V passes, each height's best first (the answer states no bitrate).
+                // Of the rows V passes, each height's best first (the answer states no bitrate).
                 SocialStage.Staged(
                     MasterStage.PAGE_DATA,
                     PageSnapshot(request.pageUrl, request.generation, contract = answer),
@@ -219,7 +219,7 @@ class InstagramLadder(
                 judged(verdict, request, read)
             }
             Next.STOP_SITE -> {
-                // S7: the site stops; its host cools (main's 429 is in the record too).
+                // The site stops; its host cools (main's 429 is in the record too).
                 cooldown.note(listOf(WEB_HOST))
                 if (coroutineContext[InstagramTabProbe] != null) {
                     details += probeLine("$PROBE: not asked (the site stopped in this lookup)")
@@ -235,7 +235,7 @@ class InstagramLadder(
         verdict.reason?.let { final(request, read, it) }
 
     /**
-     * S7: why the rows may not go to V in [record]'s lookup, or null: main's and Master's asks so
+     * Why the rows may not go to V in [record]'s lookup, or null: main's and Master's asks so
      * far, the lookup's time or the answer's [chars] over Instagram's budget.
      */
     private fun over(record: LookupRecord, chars: Long): String? = when {
@@ -246,15 +246,15 @@ class InstagramLadder(
     }
 
     /**
-     * Decision 24 (S2d part 2): the tab-fetch rung for the post [code] ([mediaId]) in [record]'s
+     * The Instagram tab-fetch step for the post [code] ([mediaId]) in [record]'s
      * lookup, the last request rung, once, after I2 gave no rows (or its proof set them aside): the
      * visible tab's own fetch of the signed-out query ([InstagramProbeQuery]), recorded as Master's
      * ask (the budget; a 429 stops the site and cools the host, a checkpoint cools it; no second
      * ask), read by Instagram's recipe for [read] ([recipe]: rows bound to the post, by its code or
      * its pk, and to the link's item) and said in one line: its status and size, whether its answer
      * holds the post's video, whether the tab shows a wall, and its rows. An answer whose page shows
-     * a wall is never read (decision 19 (iv)); its 400 or `errors` is VALUE_REJECTED: no other value
-     * is tried. Its rows go to V and the init check (S6) as the tab's own answer
+     * a wall is never read; its 400 or `errors` is VALUE_REJECTED: no other value
+     * is tried. Its rows go to the row check and the init check as the tab's own answer
      * ([PageSnapshot.authorizedPlayback]: the user's own tab, signed out, its page without a wall),
      * so main's signed-out LOGIN_REQUIRED does not set them aside; none → null (the tab's own
      * playback, I3; main's reason stays). Nothing without a probe in the lookup's context.
@@ -270,7 +270,7 @@ class InstagramLadder(
         details: MutableList<String>,
     ): SocialStage.Staged? {
         val probe = coroutineContext[InstagramTabProbe] ?: return null
-        // S4: the signed config's rung off wins over the switch.
+        // The signed config's rung off wins over the switch.
         if (probeOff() || !probe.on()) {
             details += probeLine("$PROBE: off")
             return null
@@ -319,11 +319,11 @@ class InstagramLadder(
                 val result = resultOf(reply)
                 record.record(ask, result, startedAt, LookupRecord.Asker.MASTER)
                 val checkpoint = checkpoint(reply)
-                // S7: a checkpoint is a bot check: the host cools (a 429 cools by the record).
+                // A checkpoint is a bot check: the host cools (a 429 cools by the record).
                 if (checkpoint) cooldown.note(listOf(WEB_HOST))
                 val body = reply.body
                 val video = body != null && InstagramProbeQuery.videoInAnswer(body, code, mediaId)
-                // Decision 19 (iv): the answer of a post whose page shows a wall is never read.
+                // The answer of a post whose page shows a wall is never read.
                 val reading = (result as? ExtractorHttpResult.Success)?.takeUnless { checkpoint || reply.wall }
                     ?.let { readAnswer(SiteWays.TAB_FETCH, it, code, mediaId, read, recipe) } ?: Read()
                 val verdict = when {
@@ -342,7 +342,7 @@ class InstagramLadder(
                     ", ${reply.bytes.coerceAtLeast(0)} bytes; the post's video in the answer: ${yes(video)}; " +
                     "a wall on the page: ${yes(reply.wall)}; $rows"
                 if (answer == null || over != null) return null
-                // L2: of the rows V passes, each height's best first (slot 5's three 720 × 1280 versions).
+                // Of the rows V passes, each height's best first (slot 5's three 720 × 1280 versions).
                 return SocialStage.Staged(
                     MasterStage.PAGE_DATA,
                     PageSnapshot(request.pageUrl, request.generation, authorizedPlayback = true, contract = answer),
@@ -376,12 +376,12 @@ class InstagramLadder(
 
     /**
      * Main's 2xx answer [main] from [way] for the post [code] ([mediaId]), read for [read] by
-     * [recipe]: the post's node (a JSON answer's post; a page's post by main's rule, task 15 (F2),
+     * [recipe]: the post's node (a JSON answer's post; a page's post by main's rule,
      * else its node with the post's code), whether it is a video by type and a carousel, main's
-     * rule's counts (a page's documents, the post's files; task 15), and the recipe's rows of the
+     * rule's counts (a page's documents, the post's files), and the recipe's rows of the
      * link's item (by shape when the key table read none). Another host and another post are the
      * judge's alone.
-     * Task 13: the tab-fetch rung's answer ([SiteWays.TAB_FETCH]) so too; its post may name only
+     * The tab-fetch rung's answer ([SiteWays.TAB_FETCH]) so too; its post may name only
      * its pk ([namedPost]).
      */
     private fun readAnswer(
@@ -395,7 +395,7 @@ class InstagramLadder(
         val uri = runCatching { URI(main.finalUrl.trim()) }.getOrNull()
         if (uri == null || !InstagramAnswerJudge.instagramHost(uri)) return Read()
         val json = way in InstagramAnswerJudge.JSON_WAYS
-        // Task 15 (F2): a page's post is main's (a Master copy of main's rule), else, when main's
+        // A page's post is main's (a Master copy of main's rule), else, when main's
         // rule finds none, the page's first node naming the code (a renamed media key: a shape
         // change); a JSON answer's post node is read by main's rule too (its items' files and marks).
         val page = if (json) null else InstagramPageRule.page(main.body, code)
@@ -472,7 +472,7 @@ class InstagramLadder(
 
     /**
      * A page's first node naming the post [code] (`shortcode` or `code`), in its data scripts and
-     * texts. Task 15 (F2): only where main's rule ([InstagramPageRule]) finds no post — on the real
+     * texts. Only where main's rule ([InstagramPageRule]) finds no post — on the real
      * embed page this node was the embed's own context (a camelCase video mark), not the post.
      */
     private fun pagePost(body: String, code: String): Found {
@@ -502,7 +502,7 @@ class InstagramLadder(
     }
 
     /**
-     * Task 15 (F4): the rung's proof's stop for [request]'s page, read for [read]: I2's rows were set
+     * The rung's proof's stop for [request]'s page, read for [read]: I2's rows were set
      * aside and the rung gave none, so the lookup ends with no row ([SocialStage.Staged.last]: no
      * page data, no capture of the tab after it) and [PROOF_STOP] says why.
      */
@@ -528,18 +528,18 @@ class InstagramLadder(
         internal const val LINE = "master: instagram ladder"
         internal const val I2 = "master: instagram I2"
 
-        /** S4: I3, the visible tab's own playback (its line only when the config turns it off). */
+        /** I3, the visible tab's own playback (its line only when the config turns it off). */
         internal const val I3 = "master: instagram I3"
 
-        /** S4: the tab-fetch rung's name in the signed config's `rungsOff`. */
+        /** The tab-fetch step's name in the signed config's `rungsOff`. */
         internal const val PROBE_RUNG = "probe"
-        /** The tab-fetch rung's line (S2d part 1's probe's label, decision 24's rung: its Details line). */
+        /** The tab-fetch step's line (the probe's label: its Details line). */
         const val PROBE = "master: instagram probe"
 
-        /** Decision 24: the rung's proof's line (debug): I2's rows set aside for the rung. */
+        /** The tab-fetch rung's proof's line (debug): I2's rows set aside for the rung. */
         const val PROOF = "$PROBE: I2's rows set aside (the rung's proof)"
 
-        /** Task 15 (F4): the proof's stop: I2's rows set aside, the rung gave none, so no row. */
+        /** The proof's stop: I2's rows set aside, the rung gave none, so no row. */
         const val PROOF_STOP = "$PROBE: no row (the proof set I2's rows aside and the rung gave none)"
         private const val WEB_HOST = "www.instagram.com"
         private const val BY_SHAPE = "by shape (key table changed)"

@@ -1,11 +1,11 @@
 package com.alal.yft.extractor.master.social
 
 /**
- * Social plan S4 (`MASTER_KEY_SOCIAL_PLAN.md` §7.3; R9's signed, data-only recipe config): a
+ * Signed recipe config (signed, data only): a
  * ladder rung the config in use turns off (`rungsOff`: the names of
  * [com.alal.yft.extractor.master.recipes.RemoteRecipeConfig.RUNGS]) is not run. Its line says so
  * ([line]: `<the rung's label>: off (config); not run`) and the ladder goes on as when the rung
- * gives nothing. The capture rungs — F3, T3, X3, I3 and VK's V3, the visible tab's own playback — have
+ * gives nothing. The Social ladders' capture rungs — F3, T3, X3, I3 and VK's V3 (`vk V3` in Lookup details), the visible tab's own playback — have
  * their own labels ([CAPTURES]); with one off the engine asks no capture, and the lookup's
  * answer is the ladder's lines only ([captureOff]). A build without the config's key: nothing is
  * ever off, as before.

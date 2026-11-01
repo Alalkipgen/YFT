@@ -3,25 +3,25 @@ package com.alal.yft.extractor.master.social
 import com.alal.yft.extractor.master.MasterResult
 
 /**
- * Task 6b (`MASTER_KEY_SOCIAL_PLAN.md` §7.3): the site census's reading of a ladder's rungs from
+ * The Site census's reading of a ladder's rungs from
  * Master's answer lines — which rung ran, which gave rows, which was not asked and why. The
- * rungs: Facebook's F1 (the plugin player), F2 (main's pages) and F3 (the visible tab's own
- * playback); TikTok's T1 (the embed player), T2 (main's pages) and T3; X's X1 (main's answer) and
- * X3; Instagram's I2 (main's answers) and I3. The census has no tab, so F3, T3, X3 and I3 never run:
- * "not run (no tab)" when the engine got that far. Instagram's tab-fetch rung (decision 24, task 13)
+ * rungs: the Facebook ladder's F1 (the plugin player; `facebook F1` in Lookup details), F2 (main's pages) and F3 (the visible tab's own
+ * playback); the TikTok ladder's T1 (the embed player), T2 (main's pages) and T3; the X ladder's X1 (main's answer) and
+ * X3; the Instagram ladder's I2 (main's answers) and I3. The census has no tab, so F3, T3, X3 and I3 never run:
+ * "not run (no tab)" when the engine got that far. The Instagram tab-fetch step
  * needs the tab too: it is never asked in a census (no probe in its context) and is not listed.
  *
  * A rung's state, from its own lines (its label's, [FacebookLadder.F1] …):
  *
- * - **rows** — judged `next: CHECK_ROWS`: its rows went to the engine's file check (S6);
- * - **rows not checked (why)** — judged so, but over a budget (S7), not checked;
+ * - **rows** — judged `next: CHECK_ROWS`: its rows went to the engine's file check (Row check);
+ * - **rows not checked (why)** — judged so, but over a budget (Social limits), not checked;
  * - **run (CLASS)** — judged otherwise (the answer's class; or `next: NEXT` when the line names
  *   no class), or **run (no answer in time)**, or **run** (lines without a judgment);
  * - **not run (why)** — not asked: `stop` (a host stopped in this lookup), `cooldown` (a host
  *   still cooling after a 429 or a bot check), `request budget`, `time budget`, `byte budget`;
  *   `nothing to read` (main read nothing for it); `no video` (a link main resolves first, and
  *   main's answer named no video); `final` (TikTok's photo post on main's pages); `no tab`;
- *   `config` (S4: the signed recipe config turns the rung off, [RungsOff]; a capture rung too);
+ * `config` (the Signed recipe config turns the rung off, [RungsOff]; a capture rung too);
  * - **not reached** — no line: an earlier rung answered, or the ladder did not claim the lookup;
  * - **unknown (time limit | error)** — the engine's bounded lookup timed out (its lines are
  *   gone) or the part threw.
@@ -48,7 +48,7 @@ internal object LadderRungs {
     private const val TIMED_OUT = "master: bounded lookup timed out"
     private const val NOT_ASKED = "; not asked"
 
-    /** S4: an off rung's own words (its label and ":" taken off), and its state's why. */
+    /** An off rung's own words (its label and ":" taken off), and its state's why. */
     private val OFF = RungsOff.SUFFIX.removePrefix(":").trim()
     private const val CONFIG = "config"
     private const val NOT_CHECKED_LINE = "; not checked"
@@ -60,8 +60,8 @@ internal object LadderRungs {
     /**
      * A judged line: the answer's class, its evidence and the next step. Before the class a line
      * may name the answer it judged ([WHAT]: VK's `embed: `, `video.get: `); after the next step it
-     * may carry a note ([NOTE]: VK's `; 2 answers, the deciding one shown`, V2's `; refused by the
-     * lookup's rules (…)`). Until v1.0.2 a noted line read as plain `run` (S5's run 3, VK's slot 4)
+     * may carry a note ([NOTE]: VK's `; 2 answers, the deciding one shown`, the VK ladder's heal step's (`vk V2` in Lookup details) `; refused by the
+     * lookup's rules (…)`). Until v1.0.2 a noted line read as plain `run` (seen on VK's slot 4 in a phone run)
      * and a named one by its next step, not its class.
      */
     private const val WHAT = """(?:[a-z][^:;]*: )?"""
@@ -93,7 +93,7 @@ internal object LadderRungs {
         return ladder.rungs.mapIndexed { index, (name, label) ->
             when {
                 label == null -> when {
-                    // S4: the capture rung off in the signed config (its own label's line).
+                    // The capture rung off in the Signed recipe config (its own label's line).
                     RungsOff.CAPTURES[site]?.let { RungsOff.line(it) in lines } == true -> Rung(name, NOT_RUN, CONFIG)
                     CAPTURE in lines -> Rung(name, NOT_RUN, "no tab")
                     else -> Rung(name, NOT_REACHED)
@@ -132,7 +132,7 @@ internal object LadderRungs {
                 else -> Rung(name, NOT_RUN, "no video")
             }
         }
-        // S4: the rung off in the signed config.
+        // The rung off in the signed config.
         if (OFF in own) return Rung(name, NOT_RUN, CONFIG)
         own.firstOrNull { it.endsWith(NOT_ASKED) }?.let { return Rung(name, NOT_RUN, whyOf(it.removeSuffix(NOT_ASKED))) }
         own.firstOrNull { it.endsWith(NOT_CHECKED_LINE) }?.let { return Rung(name, NOT_CHECKED, whyOf(it.removeSuffix(NOT_CHECKED_LINE))) }

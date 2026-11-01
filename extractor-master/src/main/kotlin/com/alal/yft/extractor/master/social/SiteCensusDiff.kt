@@ -12,7 +12,7 @@ import com.alal.yft.extractor.master.lookup.AnswerMark
 import java.util.Locale
 
 /**
- * Social plan 0.4 (b) (`MASTER_KEY_SOCIAL_PLAN.md` §7.3): the site census diff. Two exports of
+ * Site census: the census diff. Two exports of
  * "YFT site census" (the earlier and the later run) → one line per slot that changed, per site:
  *
  * - **BREAKING** — a worsening: main's rows gone (rows → anything else), a row as expected that is
@@ -27,7 +27,7 @@ import java.util.Locale
  * 0.4) is not compared. Times and request counts move from run to run and are not compared. The
  * lines hold sites, slots, kinds, labels, reasons and numbers only, as the exports do.
  *
- * 0.4 (c) (§7.4 step 2): exports of format 1 and 2 are read. A change of the Master phase's stop
+ * Exports of format 1 and 2 are read. A change of the Master phase's stop
  * (`masterStop`) alone is a note, never CHANGED or BREAKING, and the headline adds "· trials
  * incomplete (why)" when the later run has one. A Master part that did not run because of that
  * stop (or its cooldown), or whose own ask, check or V got the 429 or the bot check, is not
@@ -35,7 +35,7 @@ import java.util.Locale
  * "NOT COMPARED", never "NO CHANGE". The census's own diff ([compare] with baselines): each site
  * against its own baseline, a slot whose link changed reads "new link" (a note).
  *
- * Task 6b: a site whose Master parts were its ladder's in one run only (`ladder`: a social-ladder
+ * A site whose Master parts were its ladder's in one run only (`ladder`: a social-ladder
  * build's census against another build's) has its Master parts not compared (a note); main's
  * are. Both runs the ladder's: Master's part also compares the ladder's comparison (the same
  * video or item, the duration, the wrong and the unknown rows), and a ladder part with no wrong
@@ -43,15 +43,15 @@ import java.util.Locale
  * host moves them from run to run). An export without these fields (an older one) reads as
  * before.
  *
- * Task 8 (S3, the weekly check W; `compare(..., weekly = true)`): the same rules, but one line per
+ * Weekly site check (`compare(..., weekly = true)`): the same rules, but one line per
  * change (a slot's main, judge, V, item or length, Master's part, kind or session; a site's
  * stop), each naming its W runbook step ([Line.step], [SiteWeekly.Step]: `→ W runbook step N
- * (…)`, §7.5). The census's lines (W off) are as before, byte for byte.
+ * (…)`). The census's lines (weekly check off) are as before, byte for byte.
  */
 internal object SiteCensusDiff {
     enum class Level { CHANGED, BREAKING }
 
-    /** Task 8: [step], W's runbook step for the line (W's lines only; the census's have none). */
+    /** [step], the weekly check's runbook step for the line (its lines only; the census's have none). */
     data class Line(val level: Level, val text: String, val step: SiteWeekly.Step? = null) {
         fun render(): String = "${level.name} $text" + (step?.let { " → ${it.label}" } ?: "")
     }
@@ -64,7 +64,7 @@ internal object SiteCensusDiff {
     }
 
     /**
-     * 0.4 (c): one site's baseline as the census's state keeps it: [site], the site's part of that
+     * One site's baseline as the census's state keeps it: [site], the site's part of that
      * run's export (format 2), [date], that run's; [newLinks], the slots whose link changed since.
      */
     class Baseline(val site: JsonValue, val date: String?, val newLinks: Set<Int> = emptySet())
@@ -77,7 +77,7 @@ internal object SiteCensusDiff {
     private val SITE_STOPS = setOf(SiteCensus.STOP_429, SiteCensus.STOP_BOT_CHECK, SiteCensus.STOP_RATE_LIMIT)
     private const val FIRST_RUN = "FIRST RUN — nothing to compare yet"
 
-    /** The export formats the diff reads: 1 (before 0.4 (c): no Master-phase stop) and today's. */
+    /** The export formats the diff reads: 1 (older: no Master-phase stop) and today's. */
     private const val FORMAT_1 = 1L
 
     /** [before] and [after] as export texts (two files); [before] null: no earlier run. */
@@ -111,10 +111,10 @@ internal object SiteCensusDiff {
     }
 
     /**
-     * 0.4 (c): the census's own diff: [after] (the run's export) site by site against [baselines]
+     * The census's own diff: [after] (the run's export) site by site against [baselines]
      * (site ID → its baseline for the run's VPN and the site's session; a site without one is not
      * compared, the caller's [notes] say why). [firstRun]: the state holds no baseline at all.
-     * Task 8: [weekly], W's diff (a line per change, each with its runbook step).
+     * [weekly]: the weekly check's diff (a line per change, each with its runbook step).
      */
     fun compare(
         after: JsonValue?,
@@ -149,7 +149,7 @@ internal object SiteCensusDiff {
         return Result(headline(lines, compared, against) + trials, lines, siteNotes)
     }
 
-    /** The headline's verdict; 0.4 (c): no slot compared → NOT COMPARED, never NO CHANGE. */
+    /** The headline's verdict; no slot compared → NOT COMPARED, never NO CHANGE. */
     private fun headline(lines: List<Line>, compared: Int, against: String): String = when {
         lines.any { it.level == Level.BREAKING } -> "BREAKING (${lines.size}) — $against"
         lines.isNotEmpty() -> "CHANGED (${lines.size}) — $against"
@@ -157,7 +157,7 @@ internal object SiteCensusDiff {
         else -> "NOT COMPARED — no slot looked up in both runs, $against"
     }
 
-    /** One site both runs hold; returns how many of its slots both runs looked up (0.4 (c)). */
+    /** One site both runs hold; returns how many of its slots both runs looked up. */
     private fun compareSite(
         before: SiteView,
         after: SiteView,
@@ -181,7 +181,7 @@ internal object SiteCensusDiff {
                 else -> lines += Line(Level.CHANGED, "$name: stopped (${after.stop})" + (before.stop?.let { "; the earlier run: $it" } ?: ""), step)
             }
         }
-        // 0.4 (c): the Master phase's stop alone is a note; an export without it (format 1) is not compared.
+        // The Master phase's stop alone is a note; an export without it (format 1) is not compared.
         if (before.format != FORMAT_1 && after.format != FORMAT_1 && before.masterStop != after.masterStop) {
             notes += "$name: " + when {
                 before.masterStop == null -> "trials incomplete in the later run (${after.masterStop})"
@@ -189,7 +189,7 @@ internal object SiteCensusDiff {
                 else -> "trials incomplete (${before.masterStop} → ${after.masterStop})"
             }
         }
-        // Task 6b: the ladder's Master parts against another build's are not compared.
+        // The ladder's Master parts against another build's are not compared.
         val masters = before.ladder == after.ladder
         if (!masters) {
             notes += "$name: Master's parts not compared (the ladder in the ${if (after.ladder) "later" else "earlier"} run only)"
@@ -218,7 +218,7 @@ internal object SiteCensusDiff {
     }
 
     /**
-     * The line for a slot both runs looked up (none when nothing compared changed); task 8: in W
+     * The line for a slot both runs looked up (none when nothing compared changed); in the Weekly site check
      * ([weekly]), a line per change, each with its runbook step.
      */
     private fun compareRow(
@@ -265,9 +265,9 @@ internal object SiteCensusDiff {
         if (before.bestS != null && after.bestS != null && before.bestS != after.bestS) {
             changes += Change("best ${seconds(before.bestS)} → ${seconds(after.bestS)}", SiteWeekly.Step.POST)
         }
-        // 0.4 (c): a Master part the Master phase's stop kept from running (or its cooldown),
+        // A Master part the Master phase's stop kept from running (or its cooldown),
         // or whose own ask, check or V met it, is not compared; route B's lost recovery too.
-        // Task 6b: nor one of the ladder's against another build's (the site's note says so).
+        // Nor one of the ladder's against another build's (the site's note says so).
         if (masters && (before.masterStopped != null || after.masterStopped != null)) {
             notes += "$label: Master not compared (" + listOfNotNull(
                 before.masterStopped?.let { "the earlier run: $it" },
@@ -277,7 +277,7 @@ internal object SiteCensusDiff {
             val masterBefore = before.masterText()
             val masterAfter = after.masterText()
             if (masterBefore != masterAfter) {
-                // Task 6b: the ladder's rows proven another post's, where it had none.
+                // The ladder's rows proven another post's, where it had none.
                 val wrong = before.wrong == 0L && after.wrong > 0
                 changes += Change(
                     "Master $masterBefore → $masterAfter",
@@ -292,7 +292,7 @@ internal object SiteCensusDiff {
         return listOf(Line(level, "$label: ${changes.joinToString("; ") { it.text }}"))
     }
 
-    /** Task 8: one change of a slot, its W runbook step and whether it is a worsening. */
+    /** One change of a slot, its weekly check runbook step and whether it is a worsening. */
     private class Change(val text: String, val step: SiteWeekly.Step, val breaking: Boolean = false)
 
     /** An export's text, parsed (bounded); null when it is not JSON. */
@@ -307,7 +307,7 @@ internal object SiteCensusDiff {
         root is JsonValue.Object && root["tool"].asStringOrNull == SiteCensus.TOOL_LABEL &&
             formatOf(root).let { it == FORMAT_1 || it == SiteCensusState.FORMAT.toLong() }
 
-    /** 0.4 (c): " · trials incomplete (why)" when a site of [after] has a Master-phase stop, else "". */
+    /** " · trials incomplete (why)" when a site of [after] has a Master-phase stop, else "". */
     private fun incomplete(after: JsonValue): String {
         val words = sitesOf(after).values.mapNotNull(SiteView::masterStop).distinct()
         return if (words.isEmpty()) "" else " · trials incomplete (${words.joinToString(", ")})"
@@ -343,7 +343,7 @@ internal object SiteCensusDiff {
 
     private const val ROWS = "rows"
 
-    /** 0.4 (c): [format], the export's; [masterStop], the Master phase's stop (or its cooldown). */
+    /** [format], the export's; [masterStop], the Master phase's stop (or its cooldown). */
     private class SiteView(
         val name: String,
         val skipped: String?,
@@ -382,17 +382,17 @@ internal object SiteCensusDiff {
         private val masterRows = master["rows"].asLongOrNull
         private val masterV = master["v"]["verdict"].asStringOrNull
 
-        /** Task 6b: the ladder's comparison (an older export, or a part without rows: none). */
+        /** The ladder's comparison (an older export, or a part without rows: none). */
         private val same = master["same"].asStringOrNull
         private val duration = master["duration"].asStringOrNull
         private val unknown = master["unknown"].asLongOrNull
 
-        /** Task 6b: the ladder's rows proven another post's (0 without the field). */
+        /** The ladder's rows proven another post's (0 without the field). */
         val wrong: Long = master["wrong"].asLongOrNull ?: 0
         private val ladderWrong = master["wrong"].asLongOrNull
 
         /**
-         * 0.4 (c): the Master phase's stop this row's Master part met, or null: it did not run by
+         * The Master phase's stop this row's Master part met, or null: it did not run by
          * that stop or its cooldown (`stopped`), or its own ask or V got the 429 or the bot check.
          */
         val masterStopped: String? = master["stopped"].asStringOrNull
@@ -433,7 +433,7 @@ internal object SiteCensusDiff {
             } + (masterV?.let { ", V $it" } ?: "") + ladderText()
         }
 
-        /** Task 6b: `, same yes, duration yes, wrong 0 (unknown 0)`, the fields the part has; "" without. */
+        /** `, same yes, duration yes, wrong 0 (unknown 0)`, the fields the part has; "" without. */
         private fun ladderText(): String = listOfNotNull(
             same?.let { "same $it" },
             duration?.let { "duration $it" },

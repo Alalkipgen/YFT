@@ -8,9 +8,10 @@ import com.alal.yft.extractor.master.toolkit.MediaKeyTable
 import com.alal.yft.extractor.master.toolkit.PageScripts
 
 /**
- * Social plan S1a (7) (`MASTER_KEY_SOCIAL_PLAN.md` §7.3): whether the documents a Facebook
+ * Whether the documents a Facebook
  * answer's rows came from hold one video under the video ID, so a row bound to the ID is that
- * video's own file. [FacebookLadder] reads it for F1's answer and for each of F2's pages, only
+ * video's own file. The Facebook ladder ([FacebookLadder]) reads it for F1's answer (the plugin player) and
+ * for each of F2's pages (main's pages), only
  * when the readers gave rows; anything but [Reading.ONE_VIDEO] drops that answer's rows.
  *
  * Its own bounded walk over the documents the readers read (F1: the plugin player's JSON scripts

@@ -1,5 +1,5 @@
 /*
- * Provenance (social plan S0a, copied, not moved; main 34a41890; listed in toolkit-provenance.tsv):
+ * Provenance (Lookup record, copied, not moved; main 34a41890; listed in toolkit-provenance.tsv):
  *   extractor-sites/.../facebook/FacebookPageIdentity.kt  AVC_LADDER_USER_AGENT (desktop Safari,
  *                                        the public page and the AVC ladder, never with a cookie)
  *   extractor-sites/.../facebook/FacebookUrls.kt  LONG_HOSTS, SHORT_HOSTS (Facebook's hosts)
@@ -19,7 +19,7 @@ import com.alal.yft.extractor.master.lookup.LookupAsk
 import java.net.URI
 
 /**
- * S0a: Facebook's ways. The plugin player is Master's; desktop Safari without a cookie is main's
+ * Facebook's ways. The plugin player is Master's; desktop Safari without a cookie is main's
  * public page before main's page with the browser's identity and its AVC ladder after it (main asks
  * them in that order, one at a time); any other Facebook ask is main's page.
  */
@@ -54,7 +54,7 @@ internal class FacebookLabels : AskLabels {
 }
 
 /**
- * S0a: TikTok's ways: the download service on its own host; on TikTok, the embed player (Master's)
+ * TikTok's ways: the download service on its own host; on TikTok, the embed player (Master's)
  * by its path, the desktop page by its Windows agent, else the phone page.
  */
 internal class TikTokLabels : AskLabels {
@@ -83,7 +83,7 @@ internal class TikTokLabels : AskLabels {
     }
 }
 
-/** S0a: Instagram's ways by path: the app API, GraphQL, the embed page, else the post's page. */
+/** Instagram's ways by path: the app API, GraphQL, the embed page, else the post's page. */
 internal class InstagramLabels : AskLabels {
     override fun way(ask: LookupAsk): String? {
         if (ask.method == LookupAsk.PROBE) return SiteWays.FILE_CHECK
@@ -109,7 +109,7 @@ internal class InstagramLabels : AskLabels {
 
     private companion object {
         const val INSTAGRAM_HOST = "instagram.com"
-        /** S2d part 1: the tab-fetch probe's query (`InstagramProbeQuery.ENDPOINT`). */
+        /** Instagram ladder: the tab-fetch probe's query (`InstagramProbeQuery.ENDPOINT`). */
         const val TAB_FETCH_PATH = "/api/graphql"
         const val API_PATH = "/api/v1/"
         const val GRAPHQL_PATH = "/graphql/"
@@ -117,7 +117,7 @@ internal class InstagramLabels : AskLabels {
     }
 }
 
-/** S0a: X's one way, the widget's `tweet-result` (main's and Master's). */
+/** X's one way, the widget's `tweet-result` (main's and Master's). */
 internal class XLabels : AskLabels {
     override fun way(ask: LookupAsk): String? {
         if (ask.method == LookupAsk.PROBE) return SiteWays.FILE_CHECK
@@ -144,7 +144,7 @@ internal val FACEBOOK_HOSTS = listOf(
 private const val USER_AGENT = "User-Agent"
 private const val COOKIE = "Cookie"
 
-/** S0a: the parts of an ask the labels read: its address's host and path, a header by name. */
+/** The parts of an ask the labels read: its address's host and path, a header by name. */
 internal object AskParts {
     fun uri(url: String): URI? = runCatching { URI(url.trim()) }.getOrNull()
         ?.takeIf { it.scheme.equals("https", ignoreCase = true) && it.rawUserInfo == null && it.host != null }

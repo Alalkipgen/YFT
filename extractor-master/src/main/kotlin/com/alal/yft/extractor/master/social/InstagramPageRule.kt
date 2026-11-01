@@ -1,5 +1,5 @@
 /*
- * Provenance (social plan task 15, F2; copied, not moved; main 34a41890):
+ * Provenance (copied, not moved; main 34a41890):
  *   extractor-sites/.../instagram/InstagramMedia.kt      InstagramPageDocuments.posts, documents,
  *                                                        mentions; InstagramMedia.find, isPost,
  *                                                        codeOf, postOf, itemOf, isHttps
@@ -22,10 +22,10 @@ import com.alal.yft.extractor.api.json.path
 import com.alal.yft.extractor.master.toolkit.BalancedJson
 
 /**
- * Social plan task 15 (F2, the phone session of 2026-10-23: slot 5's real embed page, about 227k
+ * From the phone session of 2026-10-23 (slot 5's real embed page, about 227k
  * characters, was "video without files" in main's Details but `SHAPE_CHANGED (no video read)` in
  * I2's): main's own rule for the post in an Instagram page, copied so I2 reads a page as main
- * does (main unchanged, S1) — the page's JSON documents that name the post's code or a video (its
+ * does (main unchanged) — the page's JSON documents that name the post's code or a video (its
  * `application/json` scripts, the embed page's `contextJSON` texts and `__additionalDataLoaded`
  * objects, at most 40), in each the post by its code (a node with a media key and a name key),
  * else the only post naming no code; of the posts, the first with a file, else the first. Each

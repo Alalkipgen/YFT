@@ -23,12 +23,13 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * VK-Master plan §4 (V1–V3), §5, §6: VK's ladder after main failed, in place of R8's unjudged ask,
+ * The VK ladder (`vk V1`–`vk V3` in Lookup details): VK's steps after main failed, in place of
+ * the site contract reader's unjudged ask,
  * inside the same rules as the four sites' ([XLadder], [InstagramLadder]; [RouteBLookup]: never
  * the user's credentials, nothing new after a 429, no endpoint twice).
  *
  * - **V1, main's answers re-read (no request):** the answers main's VK adapter got in this lookup —
- *   its embed pages (B, B again, B2) and its `video.get` answers ([MainPages]: the page, or the
+ *   its embed pages (record asks `B`, `B again`, `B2`) and its `video.get` answers ([MainPages]: the page, or the
  *   refused GET), and its token asks by their status and mark ([LookupRecord]; in a record
  *   labelled with [VkLabels], any ask of the token's way, main's other values too) — read by
  *   Master's own reader ([VkReader]: VK's key table, then the shape scan, bound to the link's
@@ -38,23 +39,23 @@ import kotlinx.coroutines.withTimeoutOrNull
  *   13300), is the lookup's final answer; a 429 or a bot check stops the site (its host cools);
  *   anything else leaves nothing to read.
  * - **V2, the heal (at most two requests):** only after main's adult answer (the embed's, or main's
- *   path D asked at all) **and** a refused value (the token endpoint refused the web client's values,
+ *   web-client path asked at all) **and** a refused value (the token endpoint refused the web client's values,
  *   or `video.get` answered one of VK's errors for them): the first of [values]' values that is not
- *   main's ([VkClientValues]: the bundled values with a debug hook until agent C's live source)
+ *   main's ([VkClientValues]: the bundled values with a debug hook until the live source)
  *   asks one token (login.vk.ru; kept in memory for this stage only, never written anywhere) and one
  *   `video.get` (api.vkvideo.ru), each with the lookup's own user agent and no cookie, each within
  *   the lookup's time. Not after a 429 or a bot check in the lookup, not while a VK host cools, not
  *   over VK's budget ([budget]); an endpoint asked in the lookup (main's included) is not asked again
  *   (route B's rule: main's identical answer is replayed, else the ask is refused), so values that
  *   differ from main's only on the token's side ask nothing once main asked `video.get`. Its rows
- *   go to V; its own 429 or bot check cools the host. With [VkClientValues.healing] (agent D's
- *   wiring, the app's): the value VK refused main is healed instead ([Heal]: healed today, learned,
+ *   go to V; its own 429 or bot check cools the host. With [VkClientValues.healing] (the
+ *   app's): the value VK refused main is healed instead ([Heal]: healed today, learned,
  *   else one read of vkvideo.ru's page and its common script; on error 8 the API version too, for
- *   a second `video.get`), kept only after V passed the rows.
+ *   a second `video.get`), kept only after the Row check passed the rows.
  * - **V3, the capture:** the visible tab's own playback, as the four sites' (the engine's next
  *   stage); [captureOff] when the config turns it off ([RungsOff]).
  *
- * A rung the config turns off ([rungsOff]: V1, V2, V3 — agent C's schema 2 names them) is not run,
+ * A rung the config turns off ([rungsOff]: V1, V2, V3 — the signed config's schema 2 names them) is not run,
  * its line says so: V1 off stages none of main's rows and no final answer (V2 still reads the
  * classes of main's answers for its trigger). Claims only a VK lookup with its own record
  * ([LookupRecord]); [contractsOf] gives the recipe source the engine reads with, around [http]
@@ -103,7 +104,7 @@ class VkLadder(
         details: MutableList<String>,
     ): SocialStage.Staged? {
         val asked = request.identity?.takeIf { it.siteId == SITE_ID } ?: return null
-        // As R8: a sign-in or bot-check failure is the user's own playback's; another video's page
+        // As with the site contract reader: a sign-in or bot-check failure is the user's own playback's; another video's page
         // is not read for.
         if (TerminalRules.needsAuthorizedPlayback(request.primaryFailure) ||
             request.expectedContentId?.let { it != asked.contentId } == true
@@ -281,7 +282,7 @@ class VkLadder(
 
     /**
      * V2: one token and one `video.get` with the first of [values]' values that is not main's, for
-     * [link]'s video; its rows staged for V, VK's final answer (the deleted icon, the region limit)
+     * [link]'s video; its rows staged for the Row check, VK's final answer (the deleted icon, the region limit)
      * final, anything else null.
      */
     private suspend fun heal(
@@ -359,15 +360,15 @@ class VkLadder(
     }
 
     /**
-     * D's wiring (VK-Master plan §8, items 3 and 4): one V2 pass with the heal, for one lookup. The
+     * One V2 pass with the heal, for one lookup. The
      * value VK refused main ([run]'s first: the client id, else the API version — never the client
      * secret) is marked rejected for the day, and the next comes from [healing]'s source: healed
      * today, learned, else one read of vkvideo.ru's page and its common script in this [pass] (by
      * the lookup's rules, counted for the line), at most once a day per value. Then one token and
      * one `video.get`; on error 8 the API version comes from the same script (no new read) for a
-     * second `video.get`. Each ask only while VK's budget holds — the requests with V's reads kept
+     * second `video.get`. Each ask only while VK's budget holds — the requests with the Row check's reads kept
      * for the rows, the bytes at each ask's bound, the lookup's time — else V2 stops and V3
-     * answers. Rows go to V; a healed or learned value is kept only after V passed them
+     * answers. Rows go to the Row check; a healed or learned value is kept only after it passed them
      * ([SocialStage.Staged.checked]); one VK refuses again is dropped for the day. Lines name the
      * value (client_id, v) and where it came from, never the value.
      */
@@ -694,10 +695,10 @@ class VkLadder(
     override fun toString(): String = "VkLadder"
 
     companion object {
-        /** Main's VK adapter's site ID (the video key's prefix; agent C's schema 2 names VK `vk`). */
+        /** Main's VK adapter's site ID (the video key's prefix; the signed config's schema 2 names VK `vk`). */
         const val SITE_ID = VkClient.SITE_ID
 
-        /** The rungs' names in the signed config (agent C's schema 2: `V1`, `V2`, `V3`; [RungsOff]). */
+        /** The rungs' names in the signed config (schema 2: `V1`, `V2`, `V3`; [RungsOff]). */
         const val RUNG_V1 = "V1"
         const val RUNG_V2 = "V2"
         const val RUNG_V3 = "V3"
@@ -720,7 +721,7 @@ class VkLadder(
         /** D: a heal read's most time, its two GETs at main's per-ask bound. */
         private const val HEAL_READ_MS = VkClientSource.REQUESTS_PER_READ * VkClient.REQUEST_MS
 
-        /** D: a value's name in V2's lines, VK's own parameter names (never the value). */
+        /** A value's name in V2's lines, VK's own parameter names (never the value). */
         private fun nameOf(kind: ValueKind): String = if (kind === VkClientSource.API_VERSION) "v" else "client_id"
 
         /** D: [kind]'s value in [values]. */

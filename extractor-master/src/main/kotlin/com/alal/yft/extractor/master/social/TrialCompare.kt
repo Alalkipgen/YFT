@@ -5,7 +5,7 @@ import java.net.URI
 import kotlin.math.abs
 
 /**
- * Social plan S1a (9) and task 6b (`MASTER_KEY_SOCIAL_PLAN.md` §7.3): Master's rows against main's
+ * Social backup trial: Master's rows against main's
  * for one link — the app's trial line (`; trial: Master's rows M, main's N; the same video|item:
  * yes|no; duration within 1 s: yes|no|unknown`, the app's `SocialLadder.trialSegment`, word for
  * word) and the site census's ladder part (each of Master's rows judged on its own).
@@ -13,19 +13,19 @@ import kotlin.math.abs
  * The set, as the trial line says it: **the same video** when every one of Master's rows names
  * the one video main's rows name ([compare]'s `video`: the video a row's key names in the lookup;
  * a row without a key does not). X's rows (main's rows' key is X's) compare **the item** too
- * (decision 11): every row's file names the one item main's files name ([XLadder.itemOf]).
- * Instagram's (decision 19 (iv)): at least one of Master's rows shares a file (its file's path or
+ * (rows of the link's item only): every row's file names the one item main's files name ([XLadder.itemOf]).
+ * Instagram's (the Instagram tab-fetch step's rule): at least one of Master's rows shares a file (its file's path or
  * its audio's) with main's rows — Master's rows add the 360p files main drops, so not every row is
  * one of main's. **The duration**: every duration Master's rows state within 1 s of every one
- * main's rows state; unknown when either side states none. **The heights** (task 16, F6):
+ * main's rows state; unknown when either side states none. **The heights**:
  * Facebook's line adds the heights each side's rows state (`; heights 720,360 vs 720,360`:
  * Master's, then main's; each side's distinct heights, tallest first, `not stated` when its rows
- * state none — L1, the retest of 2026-10-23: main's Facebook rows state no height when the line is
- * made, the sheet measuring them later, P25), so the retest checks each of Master's against main's
+ * state none — seen in the retest of 2026-10-23: main's Facebook rows state no height when the line is
+ * made, the Download sheet measuring them later), so the retest checks each of Master's against main's
  * when both sides state theirs; Instagram's adds each side's tallest (`; tallest: Master's H,
  * main's H`).
  *
- * Task 6b, each row ([Verdict]), stricter than the set and never kinder:
+ * Each row ([Verdict]), stricter than the set and never kinder:
  *
  * - **WRONG** — proven another post's: its key names a video none of main's rows name (main's
  *   one video, or each of several); on X its file names an item none of main's files name; or the
@@ -44,15 +44,15 @@ object TrialCompare {
     /** The most two durations may differ and still count as the same, in milliseconds. */
     const val DURATION_SLACK_MILLIS: Long = 1_000L
 
-    /** Task 6b: one of Master's rows against main's rows. */
+    /** One of Master's rows against main's rows. */
     enum class Verdict { MATCH, WRONG, UNKNOWN }
 
     /**
      * Master's [masterRows] rows against main's [mainRows]: [item] for X's and Instagram's rows
      * ("the same item"), [same] and [duration] as the trial line says them, each side's tallest
-     * height ([masterTallest], [mainTallest]: `unknown` when its rows state none), task 16's
+     * height ([masterTallest], [mainTallest]: `unknown` when its rows state none), the
      * heights for Facebook's line ([facebook]: [masterHeights], [mainHeights], `720,360` or
-     * `not stated`, L1) and one [verdicts] entry per row of Master's, in order.
+     * `not stated`) and one [verdicts] entry per row of Master's, in order.
      */
     class Compared(
         val masterRows: Int,
@@ -166,7 +166,7 @@ object TrialCompare {
         rows.mapNotNull { row -> row.height?.takeIf { it > 0 } }.maxOrNull()?.toString() ?: UNKNOWN
 
     /**
-     * Task 16: the heights [rows] state, each once, tallest first (`720,360`); L1: `not stated` when
+     * The heights [rows] state, each once, tallest first (`720,360`); `not stated` when
      * none states one (the rows name no height: nothing to check, not a fault).
      */
     private fun heightsOf(rows: List<MediaCandidate>): String =
@@ -174,6 +174,6 @@ object TrialCompare {
 
     private const val UNKNOWN = "unknown"
 
-    /** L1: a side whose rows state no height (Facebook's heights). */
+    /** A side whose rows state no height (Facebook's heights). */
     private const val NOT_STATED = "not stated"
 }

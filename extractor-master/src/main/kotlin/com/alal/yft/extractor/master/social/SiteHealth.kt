@@ -5,12 +5,12 @@ import com.alal.yft.extractor.api.json.JsonValue
 import com.alal.yft.extractor.master.solver.OwnSolverTextFile
 
 /**
- * VK Master plan §8 (`docs/VK_MASTER_PLAN.md`; `MASTER_KEY_SOCIAL_PLAN.md` §3.2, guardrail S5):
+ * VK ladder (self-healed values only from a proven source):
  * the social sites' health — YouTube's `ClientHealth` design (that file stays YouTube's) for the
  * site packs, data only.
  *
- * Per site and rung ([RUNGS]: the rung names R9's `rungsOff` uses, and VK's V1–V3): the last
- * class and its time, the last pass (rows that passed V), the cooldown end and the asked and
+ * Per site and rung ([RUNGS]: the rung names the Signed recipe config's `rungsOff` uses, and VK's V1–V3, `vk V1` in Lookup details): the last
+ * class and its time, the last pass (rows that passed the Row check), the cooldown end and the asked and
  * passed counts. Per site: the last good rung, the stop window after a bot check or HTTP 429
  * ([SocialCooldown.COOLDOWN_MILLIS], 30 min; it quiets only the rungs that send a request, a
  * value read included — [mayAsk]), the value-read clock ([claimRead]: at most one read a day per
@@ -21,9 +21,9 @@ import com.alal.yft.extractor.master.solver.OwnSolverTextFile
  * each by its own strict pattern, so a value healed and passed survives a restart).
  *
  * Cooldowns: `VALUE_REJECTED` 1 h, `SHAPE_CHANGED` 24 h ([cooldownOf]); a pass ends a rung's
- * cooldown, and so does [clearCooldowns] (a new R9 config, agent D's wiring).
+ * cooldown, and so does [clearCooldowns] (a new Signed recipe config).
  *
- * Kept in memory and, when [file] is given, as one JSON text (agent D's wiring:
+ * Kept in memory and, when [file] is given, as one JSON text (the app's wiring:
  * `files/master/site-health.json` through an `AtomicTextFile`, read on first use off the lookup
  * thread). It records never a token, a cookie, an address, a post or user ID or a secret value
  * (VK's client secret is never read, healed or kept): every stored string is checked against a
@@ -135,7 +135,7 @@ internal class SiteHealth(
     @Synchronized
     fun goodRung(site: String): String? = load().sites[site]?.goodRung
 
-    /** Ends every cooldown of [site] (all sites when null): a new R9 config may have fixed them. */
+    /** Ends every cooldown of [site] (all sites when null): a new Signed recipe config may have fixed them. */
     @Synchronized
     fun clearCooldowns(site: String? = null) {
         load()
@@ -155,7 +155,7 @@ internal class SiteHealth(
         load().sites[site]?.reads?.get(name)?.let { clock() - it !in 0 until DAY_MILLIS } ?: true
 
     /**
-     * A self-heal read of [site]'s value [name] (S5): true — and the day's read spent — when it may
+     * A self-heal read of [site]'s value [name]: true — and the day's read spent — when it may
      * read now; false when it read in the last day, the site is stopped, or the name is not a name.
      * [giveBackRead] returns it after a read cut short before its answer ([ValueSource]).
      */
@@ -324,10 +324,10 @@ internal class SiteHealth(
         const val HOUR_MILLIS = 60 * MINUTE_MILLIS
         const val DAY_MILLIS = 24 * HOUR_MILLIS
 
-        /** VK's site ID (agent B's `VkLadder.SITE_ID` must say the same). */
+        /** VK's site ID (`VkLadder.SITE_ID` must say the same). */
         const val VK = "vk"
 
-        /** The sites and their rungs, by the names R9's `rungsOff` uses (schema 2 adds V1–V3). */
+        /** The sites and their rungs, by the names the Signed recipe config's `rungsOff` uses (schema 2 adds V1–V3). */
         val RUNGS: Map<String, List<String>> = linkedMapOf(
             FacebookLadder.SITE_ID to listOf("F1", "F2", "F3"),
             TikTokLadder.SITE_ID to listOf("T1", "T2", "T3"),
@@ -340,7 +340,7 @@ internal class SiteHealth(
         val VERSION = Regex("^[0-9]{1,4}(\\.[0-9]{1,8}){1,3}$")
 
         /**
-         * Agent D's wiring (VK-Master plan §8, item 5): the only other values kept, per site and
+         * The only other values kept, per site and
          * name, each by its own strict pattern, checked on [learn] and again on load: VK's two
          * healed values — the web client's client id (VK's public app ID, digits) and the API
          * version. Never the client secret, a token or a cookie.

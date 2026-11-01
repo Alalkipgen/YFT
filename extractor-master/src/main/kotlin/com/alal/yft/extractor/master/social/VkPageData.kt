@@ -21,7 +21,7 @@ import com.alal.yft.extractor.master.toolkit.CandidateFactory
  * left out, VK's video servers only) and gives its MP4 files as rows, one per height, the tallest
  * first: each with the data's title and length, its height and its address's expiry. The
  * selection checks them as any row (V and the init check, [SocialRowCheck]) and admits the
- * tallest that passes, before the pieces' fallback ([VkPieceFiles]); v1.0.2 (item 11): then each
+ * tallest that passes, before the pieces' fallback ([VkPieceFiles]); then each
  * other height V passes as another quality of the same video (one video's qualities, never "More"
  * videos), within the lookup's V reads ([MAX_ROWS]). The link is the request's identity
  * ([MasterRequest.expectedContentId], VK's `{owner}_{id}`), else the page address's
@@ -37,7 +37,7 @@ object VkPageData {
     const val MAX_FILES = 3
 
     /**
-     * v1.0.2 (item 11): the rows the selection checks at most, one per height, once one is
+     * The rows the selection checks at most, one per height, once one is
      * admitted (the pieces' fallback no longer runs then): as many as the lookup's V reads
      * ([SocialRowCheck.MAX_READS], counted in VK's budget, `VkSite.BUDGET`); VK's data names six
      * today (144p to 1080p).
@@ -45,7 +45,7 @@ object VkPageData {
     const val MAX_ROWS = SocialRowCheck.MAX_READS
 
     /**
-     * The page data's rows for [request]'s video in [snapshot], one per height (v1.0.2 item 11: the
+     * The page data's rows for [request]'s video in [snapshot], one per height (the
      * first file VK names for it), the tallest first; empty without such data.
      */
     fun of(request: MasterRequest, snapshot: PageSnapshot): List<MediaCandidate> {

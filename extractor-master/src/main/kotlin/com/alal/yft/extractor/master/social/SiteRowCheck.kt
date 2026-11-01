@@ -11,7 +11,7 @@ import com.alal.yft.extractor.master.toolkit.InlineDashReader
 import java.net.URI
 
 /**
- * Social plan S0b (`MASTER_KEY_SOCIAL_PLAN.md` §7.1, V): the census's one-row check. One row of an
+ * Site census: the census's one-row check (Row check). One row of an
  * answer (main's best, Master's best: [best]) gets a one-byte file check
  * ([ExtractorHttpClient.probe]) with the headers the download sends for that row
  * ([com.alal.yft.core.model.media.BrowserRequestContext.replayHeaders]), and only on the site's
