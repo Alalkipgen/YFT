@@ -4,37 +4,34 @@ Overwrite this file at each checkpoint (40 lines at most). Never append. History
 
 ## Now
 
-- Branch `work/phase-v102-easy`. Version 1.0.2 is not released yet. Its steps are in `docs/PLAN.md`.
-- The docs were cleaned up on 2026-11-01. The current docs are `README.md`, `AGENTS.md`,
-  `CHANGELOG.md`, this file, `extractor-master/README.md`, `extractor-master-android/README.md`
-  and, in `docs/`: `ARCHITECTURE.md`, `DECISIONS.md`, `DESIGN.md`, `GLOSSARY.md`, `PLAN.md`,
-  `RELEASE.md`, `SUPPORT_MATRIX.md`, `TESTING.md` and `THIRD_PARTY_NOTICES.md`.
-- 51 old Markdown files were deleted. `docs/GLOSSARY.md` (Old documents) says where each one's
-  facts are now. Their old text is in git, at commit `631d05d4`.
-- The weekly site check's notes now point to `docs/TESTING.md` (Weekly site check runbook).
-  `SiteWeeklyTest` reads that section, so keep its step lines as they are.
-- Other agents were still removing old names from code comments on this branch.
+- Branch `work/phase-v102-easy`, last code commit `811d86e2`. Version 1.0.2 is not released yet.
+  Its steps are in `docs/PLAN.md`.
+- The cleanup of 2026-11-01 is finished. The docs were rewritten and 51 old Markdown files were
+  deleted (`docs/GLOSSARY.md`, Old documents, says where their facts are now; their old text is at
+  commit `631d05d4`). Code comments in every module now use the feature names in the glossary.
+- Code did not change. Since `854bee67` the only code changes are two strings of the weekly site
+  check (they point to its runbook in `docs/TESTING.md`) and two printed lines of the own-solver
+  canary scripts. The check in `docs/PLAN.md` (step 3) ends "867 code files changed only in
+  comments; 0 failed."
+- So the census APK `yft-vk-census-854bee67.apk` runs the final code. Only its weekly check prints
+  the old walled note text.
 
 ## Tests
 
-- Passed on `6c486060` (the docs before this file): `SiteWeeklyTest` (9 tests),
-  `ReleaseNotesTest` (13) and `OpenSourceNoticesTest` (3). No failures.
-- No CI ran for the docs commits: they were docs-only or marked `[skip ci]`.
+- CI on `811d86e2`: Work-branch checkpoint validation, Minified build check, Preview APK and
+  Android emulator smoke all passed. Checkpoint validation ran the tests that read the docs.
+- Toolkit drift check: "256 copied symbols checked against HEAD: 2 drifted" (TikTok `check`,
+  X `extract`), the same as before the cleanup.
 
-## Open items
+## Left as they are
 
-- Run "Work-branch checkpoint validation" by hand (Actions → Run workflow). Tests read
-  `docs/TESTING.md`, and no workflow started for these pushes.
-- Some code comments point engine features (YouTube ladder, Weak-answer fill, YouTube backup route,
-  Client version source, Row check) to `docs/DESIGN.md`. That file is the UI design doc. They
-  should point to `docs/ARCHITECTURE.md` or `docs/GLOSSARY.md`.
-- Printed text still names deleted docs: `scripts/own-solver-canary.mjs` and `.sh` (the runbook is
-  now `docs/TESTING.md`, Own-solver canary) and the `source` field of
-  `app/src/androidTest/assets/parity/parity-urls.json`.
-- The `CHANGELOG.md` header and `gradle.properties` still name the deleted
-  `docs/IN_APP_UPDATE_PLAN.md`. The version code rule is now in `docs/RELEASE.md`.
+- Old work labels in comments of the `.mjs` and `.js` files, of the five executable scripts in
+  `scripts/` (a push through the GitHub connection would drop their mode) and of the ten YouTube
+  files the drift check compares (main's five and Master's copies).
+- Step names in `.github/workflows/master-optin-debug-apk.yml`; a script test reads one of them.
+- The `source` field of `app/src/androidTest/assets/parity/parity-urls.json` names an old doc.
 
 ## Next steps
 
-1. Run checkpoint validation and check that it passes.
-2. Follow `docs/PLAN.md` (Steps to release 1.0.2).
+1. The census and promotion runs with `yft-vk-census-854bee67.apk` (`docs/PLAN.md`, steps 3-4).
+2. Then the rest of `docs/PLAN.md`, "Steps to release 1.0.2".

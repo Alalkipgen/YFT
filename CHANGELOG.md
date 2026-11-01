@@ -3,7 +3,7 @@
 All notable changes to Video Downloader (YFT) are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow
 [Semantic Versioning](https://semver.org/). `yft.versionCode` in `gradle.properties` follows the
-version code rule (`docs/IN_APP_UPDATE_PLAN.md` §4.2), which the in-app update computes from a
+version code rule (`docs/RELEASE.md`), which the in-app update computes from a
 release's tag: a stable X.Y.Z is X·1000000 + Y·10000 + Z·100 (1.0.0 = 1000000, 1.0.1 = 1000100),
 a prerelease just below its version's (1.0.0-rc.1 = 999901). Android refuses to install a lower
 one.

@@ -19,7 +19,7 @@ risks. Decisions already made are in [DECISIONS.md](DECISIONS.md). Tests and run
 2. Get the owner's answers to the open decisions below.
 3. Build the census APK from the final head ([TESTING.md](TESTING.md), "Build the census APK"). The
    owner may reuse `yft-vk-census-854bee67.apk` if this passes:
-   `python3 scripts/check-comment-only.py 854bee67 HEAD --allow scripts/check-comment-only.py --allow extractor-master/src/main/kotlin/com/alal/yft/extractor/master/social/SiteWeekly.kt --allow extractor-master/src/test/kotlin/com/alal/yft/extractor/master/social/SiteWeeklyTest.kt`.
+   `python3 scripts/check-comment-only.py 854bee67 HEAD --allow scripts/check-comment-only.py --allow extractor-master/src/main/kotlin/com/alal/yft/extractor/master/social/SiteWeekly.kt --allow extractor-master/src/test/kotlin/com/alal/yft/extractor/master/social/SiteWeeklyTest.kt --allow scripts/own-solver-canary.sh --allow scripts/own-solver-canary.mjs`.
    That APK still prints the weekly check's old walled note text.
 4. Promotion runs for Facebook, Instagram and VK (and X and TikTok if the owner says so).
 5. The phone checklist on the two preview APKs ([TESTING.md](TESTING.md)).
