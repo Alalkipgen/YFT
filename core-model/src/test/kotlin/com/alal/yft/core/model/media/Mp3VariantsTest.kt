@@ -85,7 +85,7 @@ class Mp3VariantsTest {
         assertEquals(MediaSizeAccuracy.ESTIMATED, mp3.sizeAccuracy)
         assertEquals(Mp3Conversion(192, "m4a"), mp3.mp3)
         assertNull(Mp3Variants.of(audio(), 160))
-        // 320 kbps is offered too (P3): 60 s is 2.4 MB.
+        // 320 kbps is offered too: 60 s is 2.4 MB.
         assertEquals(2_400_000L, Mp3Variants.of(audio(), 320)!!.sizeBytes)
         assertNull(Mp3Variants.of(audio(durationMillis = null), 128)!!.sizeBytes)
         val fromAsset = Mp3Variants.of(audio(durationMillis = null), 128, 60_000)
@@ -94,7 +94,7 @@ class Mp3VariantsTest {
 
     @Test
     fun youTubeOffersEveryBitrateAndEverySiteThatIsNotYouTubeOnly192() {
-        // D2 (the owner): the rule is "not YouTube", so VK gets it with no VK code.
+        // The owner's rule is "not YouTube", so VK gets it with no VK code.
         YOUTUBE_PAGES.forEach { page ->
             assertEquals(page, listOf(320, 192, 128), Mp3Variants.bitratesFor(page))
         }

@@ -10,7 +10,7 @@ enum class CandidateSource {
     MANIFEST,
     REDIRECT,
 
-    /** P37: the sheet read the browser tab's page again, quietly, for its fresh links. */
+    /** The sheet read the browser tab's page again, quietly, for its fresh links. */
     PAGE_REREAD,
 }
 
@@ -28,7 +28,7 @@ enum class CandidateConfidence {
 }
 
 /**
- * P24: what a page itself says a file is, on a site without an adapter. Null when it says
+ * What a page itself says a file is, on a site without an adapter. Null when it says
  * nothing; the file then counts as a video like before.
  */
 enum class PageMediaRole {
@@ -40,7 +40,7 @@ enum class PageMediaRole {
 }
 
 /**
- * P43: what showed that a file is an ad, where it was found: its address or its frame's names an
+ * What showed that a file is an ad, where it was found: its address or its frame's names an
  * ad network ([AD_HOST]) or ad words ([AD_ADDRESS]), or the page's player fetched it right after
  * asking for an ad break ([AD_BREAK]).
  */
@@ -79,16 +79,16 @@ data class MediaCandidate(
     val height: Int? = null,
     val framesPerSecond: Double? = null,
     val bitrateBitsPerSecond: Long? = null,
-    /** P24: the page's own word on this file ([PageMediaRole]); null when it says nothing. */
+    /** The page's own word on this file ([PageMediaRole]); null when it says nothing. */
     val pageRole: PageMediaRole? = null,
     /**
-     * P28: the page's own name for the video [mediaUrl] belongs to when the page's player setup
+     * The page's own name for the video [mediaUrl] belongs to when the page's player setup
      * lists it as one of its qualities (`720p`, `480p`), without a site adapter. Candidates with
      * the same value on one page share one download sheet, like [videoId].
      */
     val pageVideoKey: String? = null,
     /**
-     * P43: what showed where it was found that [mediaUrl] is an ad ([AdSign]); null when
+     * What showed where it was found that [mediaUrl] is an ad ([AdSign]); null when
      * nothing did. Set with [PageMediaRole.PREVIEW].
      */
     val adSign: AdSign? = null,
@@ -100,7 +100,7 @@ data class MediaCandidate(
      */
     val fileChecked: Boolean = false,
     /**
-     * v1.0.2 item 51: which video item of a post [mediaUrl] is, when the post has several
+     * Which video item of a post [mediaUrl] is, when the post has several
      * ([PostVideoItem]); null for a video of its own. The rows of the item the link names carry
      * the post's other video items' rows.
      */

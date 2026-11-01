@@ -6,7 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * P43 (R34): on a site without an adapter one rule tells the page's own video from an ad: the
+ * On a site without an adapter one rule tells the page's own video from an ad: the
  * page's player names it, or its length matches the page's (or the failed video's); an ad
  * network's file, a file fetched inside an ad break, a file marked as an ad or a short file on a
  * long page is an ad. STRICT offers only what is proven or measured; LENIENT is today's rule.

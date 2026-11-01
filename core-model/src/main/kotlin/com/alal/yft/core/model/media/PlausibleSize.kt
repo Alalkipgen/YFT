@@ -1,7 +1,7 @@
 package com.alal.yft.core.model.media
 
 /**
- * v1.0.2 fix G1: a size read over a bad connection can be absurd; a YouTube M4A of 1:47:11
+ * A size read over a bad connection can be absurd; a YouTube M4A of 1:47:11
  * once read "1 B". A size under 1 KB for each second of the media's length is treated as
  * unknown everywhere: the sheet's row, its Download button and the download's total. A clip of
  * a few seconds keeps its real small size, and a size whose media has no known length stays.

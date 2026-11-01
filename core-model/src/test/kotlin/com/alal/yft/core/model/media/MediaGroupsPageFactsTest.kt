@@ -8,8 +8,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * P28: the page's stated length tells its video from the ad its player shows first. Without a
- * stated length P24's rules stay as they were; a site adapter's video is never touched.
+ * The page's stated length tells its video from the ad its player shows first. Without a
+ * stated length the usual rules stay as they were; a site adapter's video is never touched.
  */
 class MediaGroupsPageFactsTest {
     private val page = "https://tube.example.test/watch/77"
@@ -62,7 +62,7 @@ class MediaGroupsPageFactsTest {
 
     @Test
     fun withoutAStatedLengthThePlayingElementStillWins() {
-        // P24 guard: no page facts, no change.
+        // Guard: no page facts, no change.
         val videos = MediaGroups.pageVideos(listOf(adFile, stream))
         val playing = PlayingVideo(url = ad, durationMillis = 30_000, height = 1080)
 

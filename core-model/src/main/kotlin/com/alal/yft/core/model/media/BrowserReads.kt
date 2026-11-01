@@ -1,7 +1,7 @@
 package com.alal.yft.core.model.media
 
 /**
- * P45: a small answer (a list of qualities, the start of a file, a page) asked through the
+ * A small answer (a list of qualities, the start of a file, a page) asked through the
  * browser's own engine: Android's WebView, so Chromium's network stack with its TLS handshake,
  * the browser's cookie store and the tab's agent, from a blank page of the link's page origin.
  *

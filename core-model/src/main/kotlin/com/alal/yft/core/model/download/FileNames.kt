@@ -3,32 +3,32 @@ package com.alal.yft.core.model.download
 import java.text.Normalizer
 
 /**
- * D3: file names that keep every script's marks (Myanmar, Thai, Hindi…) and fit the file system.
+ * File names that keep every script's marks (Myanmar, Thai, Hindi…) and fit the file system.
  * [keepWords] cleans a title, [cut] shortens text at a grapheme boundary within a UTF-16 and a
  * UTF-8 budget, [fit] shortens a whole name and keeps its extension.
  */
 object FileNames {
-    /** D3: the longest name Android's file systems take, in UTF-8 bytes. */
+    /** The longest name Android's file systems take, in UTF-8 bytes. */
     const val FILE_SYSTEM_NAME_BYTES = 255
 
     /**
-     * D3: room for what is added to a saved name: app storage's partial file
+     * Room for what is added to a saved name: app storage's partial file
      * `<name>.<id ≤16>.part` and " (n)"; MediaStore's pending `.pending-<10 digits>-<name>`
      * (Android 11+), which MediaProvider would otherwise shorten in the middle with "...".
      */
     const val RESERVED_NAME_BYTES = 32
 
-    /** D3: the longest name, extension included, in UTF-8 bytes. */
+    /** The longest name, extension included, in UTF-8 bytes. */
     const val MAX_NAME_BYTES = FILE_SYSTEM_NAME_BYTES - RESERVED_NAME_BYTES
 
-    /** D3: the longest extension [fit] keeps whole: ASCII letters and digits only. */
+    /** The longest extension [fit] keeps whole: ASCII letters and digits only. */
     const val MAX_EXTENSION_CHARS = 10
 
-    /** N9: how far back [cutAtWord] looks for the end of a word, in UTF-16 units. */
+    /** How far back [cutAtWord] looks for the end of a word, in UTF-16 units. */
     const val WORD_REACH = 20
 
     /**
-     * D3: [text] in NFC with its letters, digits, [allowed] characters and the marks that follow
+     * [text] in NFC with its letters, digits, [allowed] characters and the marks that follow
      * a kept letter or digit. A mark with no kept base is dropped (at the very start, or the
      * U+FE0F left behind by a removed emoji), but a spacing mark is kept: Zawgyi types ေ and ျ
      * before their consonant. Myanmar's word signs ၌ ၍ ၎ ၏ count as letters. Everything else
@@ -65,7 +65,7 @@ object FileNames {
     }
 
     /**
-     * D3: the longest start of [text] that ends at a grapheme boundary and has at most
+     * The longest start of [text] that ends at a grapheme boundary and has at most
      * [maxChars] UTF-16 units and [maxBytes] UTF-8 bytes. Never before a mark, ZWJ, ZWNJ, an
      * emoji modifier or a tag character; never after ZWJ, or after a stacking virama (Myanmar
      * ္, Khmer, Tai Tham, the Indic linkers) when a letter follows; regional-indicator pairs and
@@ -95,7 +95,7 @@ object FileNames {
     }
 
     /**
-     * N9 (v1.0.2): [text] whole when it fits [maxChars] UTF-16 units and [maxBytes] UTF-8 bytes;
+     * [text] whole when it fits [maxChars] UTF-16 units and [maxBytes] UTF-8 bytes;
      * else cut by [cut] and, when that falls inside a word, back at the last space within [reach]
      * units of it, so a title ends with a whole word when one ends near; the end's spaces, dots,
      * dashes and underscores are trimmed. Without such a space it stays [cut]'s grapheme.
@@ -114,7 +114,7 @@ object FileNames {
     }
 
     /**
-     * D3: [name] within [maxChars] UTF-16 units and [maxBytes] UTF-8 bytes, cut by [cut]. A short
+     * [name] within [maxChars] UTF-16 units and [maxBytes] UTF-8 bytes, cut by [cut]. A short
      * extension (up to [MAX_EXTENSION_CHARS] ASCII letters and digits after the last dot) is
      * kept and only the part before it is shortened.
      */
@@ -131,7 +131,7 @@ object FileNames {
         return if (base.isEmpty()) cut(name, maxChars, maxBytes) else base + suffix
     }
 
-    /** D3: [text]'s length in UTF-8 bytes; an unpaired surrogate counts 3, U+FFFD's length. */
+    /** [text]'s length in UTF-8 bytes; an unpaired surrogate counts 3, U+FFFD's length. */
     fun utf8Bytes(text: String): Int {
         var bytes = 0
         var index = 0

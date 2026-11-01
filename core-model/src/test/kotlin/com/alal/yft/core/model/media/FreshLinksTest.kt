@@ -7,7 +7,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * P37 (R17, R18): on a site without an adapter the address the page's player asked for comes
+ * On a site without an adapter the address the page's player asked for comes
  * before the link the page's script names; a dead script link has the player's video to try
  * before the page's next one; the Details tell where a link came from and whether it expired.
  */

@@ -2,7 +2,7 @@ package com.alal.yft.core.model.download
 
 /**
  * The short detail of a download failure that is stored with the task, shown under Details and
- * copied into a bug report (P21): the exception's class and message, with links, IP addresses,
+ * copied into a bug report: the exception's class and message, with links, IP addresses,
  * host names, secrets and token-like values removed, on one line of at most [MAX_CHARS]
  * characters.
  */

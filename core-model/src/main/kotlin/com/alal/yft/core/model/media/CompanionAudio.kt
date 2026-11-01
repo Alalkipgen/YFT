@@ -17,7 +17,7 @@ data class CompanionAudio(
     val bitrateBitsPerSecond: Long? = null,
     val expiresAtEpochMs: Long? = null,
     /**
-     * v1.0.2 item 59: the sound's representation in the DASH manifest [mediaUrl] (a page's
+     * The sound's representation in the DASH manifest [mediaUrl] (a page's
      * `SegmentBase` sound, one file); null for a sound file or an HLS playlist.
      */
     val representationId: String? = null,

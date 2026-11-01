@@ -9,7 +9,7 @@ class PlausibleSizeTest {
 
     @Test
     fun aSizeUnder1KbForEachSecondOfTheLengthIsUnknown() {
-        // G1 (v1.0.2): the 1:47:11 YouTube M4A that once read "1 B"; its re-lookup read ~110 MB.
+        // The 1:47:11 YouTube M4A that once read "1 B"; its re-lookup read ~110 MB.
         assertNull(PlausibleSize.of(1, replay))
         assertNull(PlausibleSize.of(6_430_999, replay))
         assertEquals(6_431_000L, PlausibleSize.of(6_431_000, replay))

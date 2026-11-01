@@ -1,7 +1,7 @@
 package com.alal.yft.core.model.media
 
 /**
- * P24: the video element a page is playing (or has started) when the Download button is tapped,
+ * The video element a page is playing (or has started) when the Download button is tapped,
  * as the page reports it. [url] is its HTTPS address; null when the page builds the stream itself
  * (a `blob:` source through Media Source Extensions), so [durationMillis] and
  * [startedAtEpochMs] are what tell its candidates apart ([MediaGroups.mainVideo]).

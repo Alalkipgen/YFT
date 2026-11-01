@@ -3,7 +3,7 @@ package com.alal.yft.core.model.media
 import com.alal.yft.core.model.download.FileNames
 
 /**
- * v1.0.2 item 51: one video item of a post that has several (an Instagram carousel, an X post
+ * One video item of a post that has several (an Instagram carousel, an X post
  * with more than one video): [number] of the post's [count] video items, in the post's order;
  * photos are not counted. The rows of the item the link names stay the lookup's answer, as
  * before, and carry the rows of the post's other video items in [others], each item under its

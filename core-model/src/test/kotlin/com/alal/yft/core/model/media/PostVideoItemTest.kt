@@ -7,7 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** v1.0.2 item 51: a post's video items, their names, and the sheet's groups of them. */
+/** A post's video items, their names, and the sheet's groups of them. */
 class PostVideoItemTest {
     private val page = "https://www.instagram.com/p/C9fixtSIDE1/?img_index=3"
     private val canonical = "https://www.instagram.com/p/C9fixtSIDE1/"

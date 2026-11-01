@@ -61,13 +61,13 @@ data class MediaVariant(
     /** The bitrate of the sound inside a video file, when the file states it. */
     val audioBitrateBitsPerSecond: Long? = null,
     /**
-     * v1.0.2 item 59: a DASH representation that is one file — a `SegmentBase` with its own
+     * A DASH representation that is one file — a `SegmentBase` with its own
      * `BaseURL` —, downloaded as one file in ranges. A page's video quality of this kind can be
      * offered with its manifest's sound ([CompanionAudio.representationId]).
      */
     val dashOneFile: Boolean = false,
     /**
-     * v1.0.2 fix R3: a DASH representation in pieces — a `SegmentTemplate` or `SegmentList`, no
+     * A DASH representation in pieces — a `SegmentTemplate` or `SegmentList`, no
      * `SegmentBase` — of a manifest that is not live, downloaded piece by piece. A page's video
      * quality of this kind is offered with its manifest's sound too, as a one-file one is.
      */
@@ -180,7 +180,7 @@ enum class VariantResolutionFailure {
     NO_VARIANTS,
 }
 
-/** P24: which request a [VariantResolutionResult.Failure] stopped at, for the sheet's Details. */
+/** Which request a [VariantResolutionResult.Failure] stopped at, for the sheet's Details. */
 enum class ResolutionStep {
     /** The address itself, before any request. */
     ADDRESS,
@@ -204,16 +204,16 @@ sealed interface VariantResolutionResult {
     data class Failure(
         val reason: VariantResolutionFailure,
         val httpStatusCode: Int? = null,
-        /** P24: the request the failure came from; null when unknown. */
+        /** The request the failure came from; null when unknown. */
         val step: ResolutionStep? = null,
-        /** P24: the host that request went to, never its path or query; null when unknown. */
+        /** The host that request went to, never its path or query; null when unknown. */
         val host: String? = null,
-        /** P39: the exception's simple class name (e.g. SocketTimeoutException), never its
+        /** The exception's simple class name (e.g. SocketTimeoutException), never its
          *  message; null when unknown. */
         val error: String? = null,
-        /** P45: that request's kind ("HEAD", "range GET", "GET"); null when unknown. */
+        /** That request's kind ("HEAD", "range GET", "GET"); null when unknown. */
         val request: String? = null,
-        /** P45: the browser's own answer to the same link ([BrowserReads]): its HTTP status, 0
+        /** The browser's own answer to the same link ([BrowserReads]): its HTTP status, 0
          *  when it could not ask; null when it was not asked. */
         val browserStatus: Int? = null,
     ) : VariantResolutionResult

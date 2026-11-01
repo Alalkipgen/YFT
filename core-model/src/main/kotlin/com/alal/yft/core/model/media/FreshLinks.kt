@@ -3,7 +3,7 @@ package com.alal.yft.core.model.media
 import java.net.URI
 import kotlin.math.abs
 
-/** P37: who gave the sheet a file's address, for its Details ("Link from: …"). */
+/** Who gave the sheet a file's address, for its Details ("Link from: …"). */
 enum class LinkOrigin(val label: String) {
     /** The page's own markup or player script named it ([CandidateSource.DOM]). */
     PAGE_SCRIPT("page script"),
@@ -18,7 +18,7 @@ enum class LinkOrigin(val label: String) {
     PASTED_LINK("pasted link"),
 }
 
-/** P37: whether a link's own expiry time (a query value) has passed by the phone's clock. */
+/** Whether a link's own expiry time (a query value) has passed by the phone's clock. */
 enum class LinkExpiry(val label: String) {
     PASSED("passed"),
     NOT_PASSED("not passed"),
@@ -28,7 +28,7 @@ enum class LinkExpiry(val label: String) {
 }
 
 /**
- * P37 (FIX_ADD_PLAN R17, R18): on a site without an adapter the links the page's script names
+ * On a site without an adapter the links the page's script names
  * can be dead for YFT while the page's player plays: the addresses the player itself asked for
  * are the freshest proof of a working link, so they come first. Pure, so the rules are
  * unit-tested; nothing here returns an address's query.
@@ -114,8 +114,8 @@ object FreshLinks {
     }
 
     /**
-     * The video the page's player asked for, to try when [failed]'s script links are gone,
-     * before P29's next video: a group of [videos] with a player request that shares no
+     * The video the page's player asked for, to try when [failed]'s script links are gone:
+     * a group of [videos] with a player request that shares no
      * address with [tried], is not marked or shaped like an ad or a preview, and has
      * [failed]'s length (or the length the page states, [facts]) when both are known; the
      * matching length first, then the newest request. Null when the player asked for none.

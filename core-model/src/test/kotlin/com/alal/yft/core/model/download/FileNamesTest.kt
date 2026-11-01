@@ -8,7 +8,7 @@ import org.junit.Test
 class FileNamesTest {
     @Test
     fun myanmarThaiAndHindiTitlesKeepTheirMarks() {
-        // D3 (the owner): these come back exactly; the marks were spaces before.
+        // The owner's titles: these come back exactly; the marks were spaces before.
         listOf(
             "အချစ်ရူး",
             "ထွဏ်းထွဏ်း",
@@ -21,7 +21,7 @@ class FileNamesTest {
 
     @Test
     fun myanmarWordSignsAreKeptAndItsSentenceMarksBecomeSpaces() {
-        // D3: ၌ ၍ ၎ ၏ (U+104C–104F) are kept like letters; ၊ and ။ are punctuation.
+        // ၌ ၍ ၎ ၏ (U+104C–104F) are kept like letters; ၊ and ။ are punctuation.
         assertEquals("သူ၏ အိမ်", FileNames.keepWords("သူ၏ အိမ်", ALLOWED))
         assertEquals("၎င်း", FileNames.keepWords("၎င်း", ALLOWED))
         assertEquals("ဟုတ်ကဲ့ ဟုတ်", FileNames.keepWords("ဟုတ်ကဲ့။ဟုတ်၊", ALLOWED))
@@ -39,7 +39,7 @@ class FileNamesTest {
 
     @Test
     fun zawgyiKeepsTheSpacingMarksItTypesBeforeTheirConsonant() {
-        // D3: Zawgyi writes ေ (U+1031) before its consonant, so it has no base before it.
+        // Zawgyi writes ေ (U+1031) before its consonant, so it has no base before it.
         val zawgyi = "\u1031\u1019\u102C\u1004\u1039"
         assertEquals(zawgyi, FileNames.keepWords(zawgyi, ALLOWED))
         assertEquals("ကို $zawgyi", FileNames.keepWords("ကို $zawgyi", ALLOWED))
@@ -60,7 +60,7 @@ class FileNamesTest {
 
     @Test
     fun aStackedConsonantIsNeverSplitAfterItsVirama() {
-        // D3: သတ္တဝါ cuts only after သ, after သတ္တ or whole: never after ္, never before ါ.
+        // သတ္တဝါ cuts only after သ, after သတ္တ or whole: never after ္, never before ါ.
         val expected = listOf("", SA, SA, SA, WORD.take(4), WORD.take(4), WORD)
         assertEquals(expected, (0..6).map { FileNames.cut(WORD, it) })
         assertEquals(SA, FileNames.cut(WORD, 100, maxBytes = 11))
@@ -107,7 +107,7 @@ class FileNamesTest {
 
     @Test
     fun cutAtWordEndsWithAWholeWordWhenOneEndsNear() {
-        // N9 (v1.0.2): a title that fits is kept whole, its end's dots and all.
+        // A title that fits is kept whole, its end's dots and all.
         assertEquals("Mr. Bean.", FileNames.cutAtWord("Mr. Bean.", 20))
         // Cut inside "Video": back to the space before it; at a space already: kept there.
         assertEquals("Song [Lyric", FileNames.cutAtWord("Song [Lyric Video]", 14))

@@ -13,7 +13,7 @@ class HomeSitesMigrationTest {
 
     @Test
     fun defaultsAreYouTubeFacebookTikTokInstagramAndX() {
-        // D4: Instagram and X join the first three, as defaults version 3.
+        // Instagram and X join the first three, as defaults version 3.
         assertEquals(listOf(youtube, facebook, tiktok, instagram, x), HomeSites.DEFAULTS)
         assertEquals(3, HomeSites.DEFAULTS_VERSION)
         assertEquals(listOf(instagram, x), HomeSites.ADDED_IN_VERSION_3)
@@ -92,7 +92,7 @@ class HomeSitesMigrationTest {
 
     @Test
     fun aVersion2ListGetsInstagramAndXAtItsEnd() {
-        // D4: the owner's list, VK a site he added himself (no VK code), gets the two after it.
+        // The owner's list, VK a site he added himself (no VK code), gets the two after it.
         val vk = HomeSite("VK", "https://vk.com")
         val stored = listOf(youtube, facebook, tiktok, vk)
 

@@ -87,7 +87,7 @@ class MediaAssetTest {
 
     @Test
     fun `only a DASH representation that is not one file is in pieces`() {
-        // v1.0.2 fix R3: a SegmentTemplate or SegmentList representation.
+        // A SegmentTemplate or SegmentList representation.
         val pieces = MediaVariant(
             id = "dash:bbb_a64k",
             playbackUrl = "https://cdn.example.test/stream.mpd?token=secret",

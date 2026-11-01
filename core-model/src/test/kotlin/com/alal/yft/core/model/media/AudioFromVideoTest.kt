@@ -62,7 +62,7 @@ class AudioFromVideoTest {
 
     @Test
     fun onlyAnMp4WithAacSoundOrSoundOfAnUnstatedCodecQualifies() {
-        // P25: other sites' MP4s and Facebook's HD/SD state no codecs; their sound is offered
+        // Other sites' MP4s and Facebook's HD/SD state no codecs; their sound is offered
         // and the phone checks that it is AAC when it copies it.
         listOf(emptyList(), listOf("avc1.4d401f")).forEach { codecs ->
             assertTrue("$codecs", AudioFromVideo.canExtract(video(codecs = codecs)))
