@@ -3238,6 +3238,19 @@ Keep at least the heading and one blank line between sections, so Git merges the
   R8: R9 and R10") and §7 (docs only). Next: the owner's phone run of that checklist with the
   census APK and Preview #172; S5's runs 1–3 again for Facebook, Instagram and VK on the census
   APK.
+- The four tasks after R10 (the owner's overnight task, 2026-11-01; the owner asleep, his choices
+  left open in FIX_ADD_PLAN §7): task 1, CHANGELOG `[1.0.2]`'s R9 example (`e58e1097`, docs
+  only); task 2, P4's AV1 probe on a file with `av1C` (`38f1c103`, test only; the API 34
+  emulator merges AV1: `result=Completed step=none`); task 3, a YouTube live that ended a short
+  while ago (`68948ef5`: a stale head; the head asked again before the length check, the newer
+  pieces fetched, spaced retries, the save-shorter rule); task 4, B+ (S6) and Instagram's L2
+  behind `yft.socialFill` (`5e1ae143`, its CI fix `cc06a26f`). CI: #618 / #206 / #173 / #64,
+  #619 / #207 / #174 / #65, `5e1ae143` #620 failed / #208 / #175 / #66, `cc06a26f` #621 / #209 /
+  #176 / #67: green but #620. The census APK `yft-vk-census-cc06a26f.apk` (22,905,816 bytes; the
+  census flags; the shared test key), sent to the owner as a chat attachment; Preview #176.
+  Results, causes, CI and checklist: FIX_ADD_PLAN §6 ("The four tasks after R10") and §7. Next:
+  the owner's run of that checklist; S5's runs 1–3 for Facebook, Instagram and VK on the census
+  APK.
 
 ## Track E agent — `work/phase-track-e-403` (v1.0.2: a file's 403 → a fresh lookup)
 
