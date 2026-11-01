@@ -671,8 +671,10 @@ class AndroidBrowserMasterFallback(
         val record = currentCoroutineContext()[LookupRecord] ?: return emptyList()
         val hosts = SiteWays.site(site) ?: return emptyList()
         val passed = mutableListOf<MediaCandidate>()
-        withTimeoutOrNull(checkNotNull(fillRun).checkMillis) {
-            withContext(Dispatchers.Default + RouteBLookup(record)) {
+        // The time limit runs on the checks' own dispatcher, so it is real time whatever the
+        // caller's clock is (a test's virtual clock would end it before the first check).
+        withContext(Dispatchers.Default + RouteBLookup(record)) {
+            withTimeoutOrNull(checkNotNull(fillRun).checkMillis) {
                 for (row in rows) {
                     val checked = rowCheck.check(hosts, SocialFillRun.withoutSession(row), nowEpochMs)
                     if (checked.verdict == SiteRowCheck.Verdict.PASS) passed += row
