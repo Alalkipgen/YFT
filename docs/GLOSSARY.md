@@ -71,6 +71,7 @@ download sheet's list of lines from the lookup that found the rows; "—" means 
 | VK trial break | Test switch in the trial preview: main asks VK with a broken value so the heal runs | `VkTrialBreak` | trial preview only | — |
 | Site census | Debug screen "YFT site census": asks each site's slots and ladder steps and saves a report | `SiteCensusActivity`, `SiteCensus`, `SiteCensusReport` | debug builds | — |
 | Weekly site check | The census's weekly run: compares each site with its baseline and lists CHANGED or BREAKING | `SiteWeekly`, `SiteCensusDiff` | debug builds | report mode `weekly` |
+| Promotion runs | Three passing census runs per site before a release counts that site's backup steps | `SiteCensus` (census APK); rules in `docs/TESTING.md` | debug builds | — |
 | Download queue | Runs downloads and merges in the background with a notification | `DownloadQueue`, `DownloadForegroundService` | — | — |
 | Direct download | Downloads one file with resume | `DirectTransferEngine` | — | — |
 | DASH download | Downloads a DASH quality's pieces and joins them | `DashTransferEngine`, `DashPieceIndex` | — | — |
@@ -326,7 +327,7 @@ only" means the label names past work, a test round or a person and needs no fea
 | S2d | Instagram's steps; part 1: the ladder, I2 and the tab-fetch probe; part 2: the tab-fetch step | Instagram ladder; Instagram tab-fetch step |
 | S3 | Weekly check W for all sites and its runbook | Weekly site check |
 | S4 | The signed config hosted (R9 live) | Signed recipe config |
-| S5 | Promote a site after three phone runs (decision 26) | history only |
+| S5 | Promote a site after three phone runs (decision 26) | Promotion runs |
 | S6 | B+: fill a weak main answer with the ladder's missing rows | Weak-answer fill |
 | S7 | Budgets and stop rules | Social limits |
 | S1 (guardrail) | Flag and parity: flag off is today; main's adapters not copied or changed | Social ladders |
@@ -418,6 +419,7 @@ only" means the label names past work, a test round or a person and needs no fea
 | VK5 | Path D for public 18+ videos (the web client) | VK adapter |
 | path B | Ask `video_ext.php` on the embed host | VK adapter |
 | path D | The web client for 18+ videos | VK adapter |
+| B, B again, B2 | Ask names in the lookup record for VK's embed: the page's own host (B), the same host once more after VK's app shell (B again), the other host without a cookie (B2) | VK adapter |
 | V1 (VK) | VK: main's answers re-read, no request | VK ladder |
 | V2 (VK) | VK: the heal (new values, at most two requests) | VK ladder |
 | V3 (VK) | VK: the tab's own playback | VK ladder |
@@ -614,4 +616,35 @@ only" means the label names past work, a test round or a person and needs no fea
 
 ## Old documents
 
-Filled by the docs cleanup.
+The docs cleanup deleted these files; git history keeps them. "History only" means the file held
+no current facts.
+
+| Old document | Where its current facts are now |
+|---|---|
+| `MASTER_KEY_PLAN.md` | History only (the first Master analysis). Master today: `docs/ARCHITECTURE.md`, `extractor-master/README.md` |
+| `MASTER_KEY_ARCHITECTURE.md` | `docs/ARCHITECTURE.md` (Main and Master), `extractor-master/README.md`, `extractor-master-android/README.md` |
+| `MASTER_KEY_NOTES.md` | History only (solution options). The options chosen: `docs/DECISIONS.md` |
+| `MASTER_KEY_PHASE1_PLAN.md` | `docs/ARCHITECTURE.md` (Master's layers, signed recipe config), `docs/DECISIONS.md` |
+| `MASTER_KEY_PHASE1_1_PLAN.md` | `docs/TESTING.md` (Own-solver canary), `extractor-master-android/README.md` (YouTube own solver) |
+| `MASTER_KEY_PHASE1_2_PLAN.md` | `docs/TESTING.md` (Own-solver canary), `extractor-master/README.md`, `extractor-master-android/README.md` |
+| `MASTER_KEY_PHASE1_3_PLAN.md` | `docs/ARCHITECTURE.md`, `docs/TESTING.md` (Debug screens), this glossary (YouTube ladder, Client census) |
+| `MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` | `docs/ARCHITECTURE.md` (YouTube backup route), `docs/DECISIONS.md` |
+| `MASTER_KEY_SOCIAL_PLAN.md` | `docs/TESTING.md` (Site census, Weekly site check runbook, Promotion runs), `docs/PLAN.md` (open decisions), `docs/DECISIONS.md` |
+| `MASTER_KEY_PHASE1_PROMPT.md`, `MASTER_KEY_PHASE1_1_PROMPT.md`, `MASTER_KEY_PHASE1_2_PROMPT.md`, `MASTER_KEY_PHASE1_3_PROMPT.md`, `MASTER_KEY_PHASE1_4_ROUTING_PROMPT.md` | History only (agent prompts) |
+| `MASTER_KEY_PHASE1_2_CONTINUE.md`, `MASTER_KEY_PHASE1_2_CONTINUE_N3.md`, `MASTER_KEY_PHASE1_2_CONTINUE_N4.md`, `MASTER_KEY_PHASE1_2_CONTINUE_N4B.md`, `MASTER_KEY_PHASE1_2_CONTINUE_N5.md`, `MASTER_KEY_PHASE1_2_CONTINUE_N5B.md`, `MASTER_KEY_PHASE1_2_CONTINUE_N5B_A4.md`, `MASTER_KEY_SOCIAL_S0_CONTINUE.md` | History only (continuation prompts) |
+| `PROGRESS.md`, `PROGRESS_PARALLEL.md` | History only (work logs). Where the work stands: `docs/SESSION_STATE.md` |
+| `docs/PROJECT_CONTEXT.md` | `README.md`, `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (Product rule) |
+| `docs/PHASE_STATUS.md` | History only. Status now: `README.md` (Status), `docs/PLAN.md` |
+| `docs/HANDOFF.md` | `docs/SESSION_STATE.md`, `docs/TESTING.md` |
+| `docs/HANDOFF_WEBM_HONLY_104.md` | History only. The WebM merge and HLS facts: `docs/SUPPORT_MATRIX.md` |
+| `docs/FIX_ADD_PLAN.md` | `docs/TESTING.md` (Phone checklist for a release), `docs/PLAN.md` (open decisions, backlog), `docs/DECISIONS.md` |
+| `docs/TRACK_E_PLAN.md` | `docs/ARCHITECTURE.md` (Downloads), `docs/SUPPORT_MATRIX.md` (Signed or expiring links), `CHANGELOG.md` (1.0.2) |
+| `docs/IN_APP_UPDATE_PLAN.md` | `docs/RELEASE.md` (Version code rule), `docs/ARCHITECTURE.md` (In-app update), `docs/DECISIONS.md` |
+| `docs/RISKS.md`, `docs/YOUTUBE_RISK_REVIEW.md` | `docs/PLAN.md` (Risks), `docs/SUPPORT_MATRIX.md` (YouTube adapter), `docs/DECISIONS.md` (YouTube) |
+| `docs/TEST_MATRIX.md`, `docs/PHONE_TEST_NOTES.md` | History only (test results). How to test now: `docs/TESTING.md` |
+| `docs/VK_PLAN.md` | `docs/SUPPORT_MATRIX.md` (VK adapter), `docs/DECISIONS.md` (VK) |
+| `docs/VK_MASTER_PLAN.md` | `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (VK), this glossary (VK ladder) |
+| `docs/VK_MASTER_CENSUS.md` | `docs/TESTING.md` (VK census rules) |
+| `docs/decisions/` (`ADR-001-project-architecture.md`, `ADR-002-media-detection.md`, `ADR-003-download-engines.md`, `ADR-004-youtube-adapter.md`, `ADR-005-youtube-owner-override.md`, `ADR-006-owner-override-any-working-method.md`) | `docs/DECISIONS.md` |
+| `docs/prompts/` (`README.md`, `A-tiktok.md`, `B-downloads.md`, `C-ads.md`, `M-merge-preview7.md`, `P8-signed-beta4.md`) | History only (agent prompts) |
+| `docs/design/DESIGN-NOTES.md` | `docs/DESIGN.md` |
