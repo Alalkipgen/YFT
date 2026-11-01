@@ -33,7 +33,7 @@ fun AboutRoute(onNavigateBack: () -> Unit, onOpenLicenses: () -> Unit = {}) {
     LaunchedEffect(store) {
         report = withContext(Dispatchers.IO) { store.read() }
     }
-    // Decision 30 (v): the quiet build's hidden Show details (the version line tapped 7 times).
+    // Quiet details: the quiet build's hidden Show details (the version line tapped 7 times).
     val details = remember(context) { ShowDetails.get(context) }
     val showDetails by details.on.collectAsState()
     AboutScreen(

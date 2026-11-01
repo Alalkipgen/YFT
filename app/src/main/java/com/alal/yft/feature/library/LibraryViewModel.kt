@@ -28,12 +28,12 @@ sealed interface LibraryUiState {
         val items: List<LibraryItem>,
         /**
          * The files whose deletion waits for the user's confirmation: one from its ⋯ menu, or
-         * (v1.0.2 item 5b) those picked in select mode, for one "Delete 3 files?" question.
+         * those picked in select mode, for one "Delete 3 files?" question.
          */
         val pendingDelete: List<LibraryItem> = emptyList(),
         /** A one-line outcome of the user's last action. */
         val message: String? = null,
-        /** N5 (v1.0.2): the chosen folder's name while new downloads go there, else null. */
+        /** Save folder: the chosen folder's name while new downloads go there, else null. */
         val chosenFolder: String? = null,
     ) : LibraryUiState
 
@@ -73,7 +73,7 @@ class LibraryViewModel internal constructor(
     private val consentRequests = Channel<IntentSender>(Channel.BUFFERED)
 
     /**
-     * v1.0.2 item 5b: Android's own "Allow YFT to delete?" requests, for the screen to launch;
+     * Delete file: Android's own "Allow YFT to delete?" requests, for the screen to launch;
      * one covers all the confirmed files that need it (one at a time on Android 10).
      */
     val deleteConsentRequests: Flow<IntentSender> = consentRequests.receiveAsFlow()
@@ -124,7 +124,7 @@ class LibraryViewModel internal constructor(
 
     fun requestDelete(item: LibraryItem) = requestDeletePicked(listOf(item))
 
-    /** v1.0.2 item 5b: one question ("Delete 3 files?") for the files picked in select mode. */
+    /** Delete file: one question ("Delete 3 files?") for the files picked in select mode. */
     fun requestDeletePicked(items: List<LibraryItem>) {
         val picked = items.distinctBy(LibraryItem::id)
         if (picked.isEmpty()) return
@@ -240,7 +240,7 @@ class LibraryViewModel internal constructor(
     }
 }
 
-/** v1.0.2 item 5b: the confirmed files a delete is still working through. */
+/** Delete file: the confirmed files a delete is still working through. */
 private class DeleteRun(items: List<LibraryItem>) {
     /** Not tried yet, or waiting for Android's answer about another file (Android 10). */
     val left = items.toMutableList()
@@ -255,7 +255,7 @@ private class DeleteRun(items: List<LibraryItem>) {
 }
 
 /**
- * The line after a delete: "Deleted 1 file.", "Deleted 3 files." (N5: counted, as on Downloads),
+ * The line after a delete: "Deleted 1 file.", "Deleted 3 files." (counted, as on Downloads),
  * "a.mp4 could not be deleted.", "Deleted 2 files; b.mp4 could not be deleted."; null when
  * nothing was deleted or tried (the user declined Android's request).
  */

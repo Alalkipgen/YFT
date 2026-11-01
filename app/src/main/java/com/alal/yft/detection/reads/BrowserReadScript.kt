@@ -12,8 +12,8 @@ import java.net.URI
 import java.util.Locale
 
 /**
- * P45: the script [WebViewBrowserReads] runs in its blank page, and how its answer is read.
- * Pure, so both are unit-tested.
+ * Download sheet: the script [WebViewBrowserReads] runs in its blank page, and how its answer is
+ * read. Pure, so both are unit-tested.
  *
  * The page's own `fetch` asks [BrowserReadRequest.url] the way a page's player asks a file of
  * another origin: CORS, the page's cookies only for its own origin, nothing from the cache. When

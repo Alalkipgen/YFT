@@ -108,7 +108,7 @@ fun LibraryRoute(
     val context = LocalContext.current
     // Files can change while YFT is in the background, so the list is re-read on every resume.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refresh() }
-    // v1.0.2 item 5b: Android's "Allow YFT to delete?", one for all the files that need it.
+    // Delete file: Android's "Allow YFT to delete?", one for all the files that need it.
     val consent = rememberLauncherForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult(),
     ) { result -> viewModel.onDeleteConsentResult(result.resultCode == Activity.RESULT_OK) }
@@ -159,7 +159,7 @@ fun LibraryRoute(
  * of saved files with their real thumbnail, length, "720p · 96 MB" and a ⋯ menu. Tapping a
  * tile plays it: audio in the mini player, video full screen.
  *
- * v1.0.2 item 5b: a long press on a tile starts select mode. The bar in place of the title
+ * Delete file: a long press on a tile starts select mode. The bar in place of the title
  * shows how many are picked, with Cancel, Select all and Delete (one question for them all);
  * taps pick and drop tiles, and Back, Cancel or another filter or search end it.
  */
@@ -173,7 +173,7 @@ fun LibraryScreen(
     onOpen: (LibraryItem) -> Unit = {},
     onShare: (LibraryItem) -> Unit = {},
     onRequestDelete: (LibraryItem) -> Unit = {},
-    /** v1.0.2 item 5b: Delete in select mode, with the picked files in the order picked. */
+    /** Delete file: Delete in select mode, with the picked files in the order picked. */
     onRequestDeletePicked: (List<LibraryItem>) -> Unit = {},
     onConfirmDelete: () -> Unit = {},
     onDismissDelete: () -> Unit = {},
@@ -188,7 +188,7 @@ fun LibraryScreen(
     val shown = remember(ready?.items, filter, sort, query) {
         ready?.items?.let { arrange(it, filter, sort, query) }.orEmpty()
     }
-    // v1.0.2 item 5b: the files picked in select mode, in the order picked; files that went
+    // Delete file: the files picked in select mode, in the order picked; files that went
     // drop out, and select mode ends with the last one.
     var picked by rememberSaveable { mutableStateOf(emptyList<String>()) }
     val selection = remember(picked, shown) {
@@ -379,7 +379,7 @@ private fun ReadyLibrary(
 }
 
 /**
- * v1.0.2 item 5b: the files picked in select mode ([picked], in the order picked) and how a
+ * Delete file: the files picked in select mode ([picked], in the order picked) and how a
  * tile picks or drops itself.
  */
 private class TileSelection(
@@ -399,7 +399,7 @@ private class TileAction(
     val run: () -> Unit,
 )
 
-@OptIn(ExperimentalFoundationApi::class) // combinedClickable, for the long press (item 5b)
+@OptIn(ExperimentalFoundationApi::class) // combinedClickable, for the long press (select mode)
 @Composable
 private fun LibraryTile(
     item: LibraryItem,
@@ -414,7 +414,7 @@ private fun LibraryTile(
     val selecting = selection.active
     val picked = selecting && item.id in selection.picked
     val details = rememberMediaDetails(item.uri, item.isAudio)
-    // P19: the picture saved when it was downloaded, until the file's own frame is read.
+    // The picture saved when it was downloaded, until the file's own frame is read.
     val saved = rememberFileThumbnail(item.uri)
     val title = YftFormat.title(item.displayName)
     var menuOpen by remember { mutableStateOf(false) }
@@ -446,7 +446,7 @@ private fun LibraryTile(
                         else -> "Open with another app"
                     },
                     role = Role.Button,
-                    // Item 5b: a long press starts select mode; in it a tap picks or drops.
+                    // Delete file: a long press starts select mode; in it a tap picks or drops.
                     onLongClickLabel = SELECT_LABEL.takeIf { !selecting },
                     onLongClick = { selection.onToggle(item.id) },
                 ) {
@@ -559,7 +559,7 @@ private fun LibraryTile(
 }
 
 /**
- * v1.0.2 item 5b: the check mark on a picked tile's picture. Screen readers hear the tile's
+ * Delete file: the check mark on a picked tile's picture. Screen readers hear the tile's
  * selected state instead.
  */
 @Composable
@@ -582,7 +582,7 @@ private fun PickMark(modifier: Modifier = Modifier) {
 }
 
 /**
- * v1.0.2 item 5b: the bar in place of the title in select mode: Cancel, how many are picked,
+ * Delete file: the bar in place of the title in select mode: Cancel, how many are picked,
  * Select all, then Delete (one question for them all).
  */
 @Composable
@@ -871,8 +871,8 @@ private fun CenteredStatus(modifier: Modifier, content: @Composable () -> Unit) 
 }
 
 /**
- * N5 (v1.0.2): where the empty library's files would come from; a folder picked in Android's
- * folder picker is named too while new downloads go there.
+ * Where the empty library's files would come from; a folder picked in Android's
+ * folder picker is named too while new downloads go there (Save folder).
  */
 internal fun emptyLibraryText(chosenFolder: String?): String = if (chosenFolder == null) {
     "Completed downloads saved to Download/YFT or to app storage appear here."
@@ -881,8 +881,8 @@ internal fun emptyLibraryText(chosenFolder: String?): String = if (chosenFolder 
 }
 
 /**
- * "a.mp4 will be removed from Download/YFT. …", or (v1.0.2 item 5b) for several files "These 3
- * files will be removed from Download/YFT and App storage. This can't be undone." (N5: the
+ * "a.mp4 will be removed from Download/YFT. …", or for several files "These 3
+ * files will be removed from Download/YFT and App storage. This can't be undone." (the
  * Downloads screen's words).
  */
 internal fun deleteQuestionText(items: List<LibraryItem>): String {

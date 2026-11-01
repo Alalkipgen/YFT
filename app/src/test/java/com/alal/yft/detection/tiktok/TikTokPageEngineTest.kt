@@ -19,8 +19,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * P40 step 4: the hidden page. It loads the link with the store script, polls the item script
- * until the post's data appears or 15 s pass, and is always destroyed; one page at a time.
+ * TikTok page reader: the hidden page. It loads the link with the store script, polls the item
+ * script until the post's data appears or 15 s pass, and is always destroyed; one page at a time.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class TikTokPageEngineTest {

@@ -25,7 +25,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * v1.0.2 item 5b: what deleting several library files at once came to. Android asks the user
+ * Delete file: what deleting several library files at once came to. Android asks the user
  * first about [asking]: the screen launches [request], then they are deleted again; on Android
  * 10 the files [waiting] are tried after that answer.
  */
@@ -46,19 +46,19 @@ interface LibraryRepository {
     suspend fun items(): List<LibraryItem>
 
     /**
-     * N5 (v1.0.2): the name of the folder picked in Android's folder picker while new downloads
+     * Save folder: the name of the folder picked in Android's folder picker while new downloads
      * go there, for the empty library's text; null otherwise.
      */
     suspend fun chosenFolderName(): String? = null
 
     /**
-     * Deletes the file behind [item]; true when it is gone (also when it was gone already, P42),
+     * Deletes the file behind [item]; true when it is gone (also when it was gone already),
      * false when it could not be removed.
      */
     suspend fun delete(item: LibraryItem): Boolean
 
     /**
-     * v1.0.2 item 5b: deletes the files behind [items] together, with one Android request for
+     * Delete file: deletes the files behind [items] together, with one Android request for
      * those that need the user's consent. This default deletes them one at a time and asks
      * nothing.
      */
@@ -82,7 +82,7 @@ interface LibraryRepository {
  * Without storage permissions MediaStore returns only items YFT created itself, which is exactly
  * the library's scope. Pending items (transfers still being written) are never listed.
  *
- * v1.0.2 item 28: while new downloads go to a folder picked in Android's folder picker
+ * Save folder: while new downloads go to a folder picked in Android's folder picker
  * ([chosenFolder]), the video and audio files at its top level are listed too, with the
  * folder's name as their place; hidden entries (a download's temporary document) are not. A
  * folder that can no longer be used lists nothing, and the rest of the list still shows.
@@ -90,10 +90,10 @@ interface LibraryRepository {
 class AndroidLibraryRepository(
     private val context: Context,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    /** The same deleter as the Downloads screen's "Delete file" (P42). */
+    /** The same deleter as the Downloads screen's "Delete file". */
     private val fileDeleter: DownloadedFileDeleter =
         AndroidDownloadedFileDeleter(AndroidFileDeleteSystem(context), ioDispatcher = ioDispatcher),
-    /** v1.0.2 item 28: the chosen folder while it is where new downloads go, else null. */
+    /** Save folder: the chosen folder while it is where new downloads go, else null. */
     private val chosenFolder: suspend () -> SaveFolder? = { null },
     private val folders: SaveFolders = SaveFolders.None,
 ) : LibraryRepository {
@@ -102,7 +102,7 @@ class AndroidLibraryRepository(
         return withContext(ioDispatcher) { listed(folder) }
     }
 
-    /** M1 (v1.0.2): by its path, as on Downloads; Download/YFT, named already, not twice. */
+    /** Save folder: by its path, as on Downloads; Download/YFT, named already, not twice. */
     override suspend fun chosenFolderName(): String? = chosenFolder()
         ?.let(SaveFolderPaths::label)
         ?.takeUnless { it == LibraryLocation.SHARED_DOWNLOADS.label }
@@ -124,7 +124,7 @@ class AndroidLibraryRepository(
         fileDeleter.delete(item.savedFile()) == FileDeletion.Deleted
 
     /**
-     * v1.0.2 item 5b: the picked files go to the deleter together, so Android asks once for all
+     * Delete file: the picked files go to the deleter together, so Android asks once for all
      * that need the user's consent.
      */
     override suspend fun deleteAll(items: List<LibraryItem>): LibraryDeletion {
@@ -140,7 +140,7 @@ class AndroidLibraryRepository(
         )
     }
 
-    /** Where the file is, as the deleter knows it (P42). */
+    /** Where the file is, as the deleter knows it. */
     private fun LibraryItem.savedFile(): SavedDownloadFile = when (location) {
         LibraryLocation.SHARED_DOWNLOADS -> SavedDownloadFile(
             kind = DownloadDestinationKind.MEDIA_STORE,

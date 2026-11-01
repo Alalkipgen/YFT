@@ -14,7 +14,7 @@ import org.junit.Test
 class PreviewLabelsTest {
     @Test
     fun aPhoneVideoIsNamedAfterItsShortSideLikeTheSheet() {
-        // P47: the owner's TikTok video, 720 × 1280, read "1280p · Full HD" on Download as.
+        // TikTok adapter: the owner's video, 720 × 1280, read "1280p · Full HD" on Download as.
         assertEquals("720p · HD", video(width = 720, height = 1_280).qualityLabel())
         assertEquals("1080p · Full HD", video(width = 1_080, height = 1_920).qualityLabel())
         assertEquals("480p", video(width = 576, height = 1_024).qualityLabel())
@@ -64,7 +64,7 @@ class PreviewLabelsTest {
 
     @Test
     fun aSizeTooSmallForTheLengthIsLeftOut() {
-        // G1 (v1.0.2): a 1:47:11 YouTube M4A once read "1 B" over a bad connection.
+        // A 1:47:11 YouTube M4A once read "1 B" over a bad connection.
         val replay = audio().copy(
             durationMillis = 6_431_000,
             sizeBytes = 1,

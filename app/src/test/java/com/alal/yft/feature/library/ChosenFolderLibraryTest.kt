@@ -27,7 +27,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * v1.0.2 item 28: while new downloads go to a folder picked in Android's folder picker, the
+ * Save folder: while new downloads go to a folder picked in Android's folder picker, the
  * library lists its top-level video and audio files with the folder's name as their place.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -102,7 +102,7 @@ class ChosenFolderLibraryTest {
         val drop = repository.items().single { it.displayName == "Drop.mp4" }
 
         assertTrue(repository.delete(drop))
-        // P42: a file that is already gone counts as deleted.
+        // Delete file: a file that is already gone counts as deleted.
         assertTrue(repository.delete(drop))
         assertEquals(listOf("Keep.mp4"), directory.list()!!.toList())
         assertEquals(listOf("Keep.mp4"), repository.items().map(LibraryItem::displayName))
@@ -145,7 +145,7 @@ class ChosenFolderLibraryTest {
         )
 
         assertEquals(listOf("Clip.mp4"), repository.items().map(LibraryItem::displayName))
-        // N5 (v1.0.2): and named in the empty library's text.
+        // And named in the empty library's text.
         assertEquals("Movies", repository.chosenFolderName())
 
         preferences.state.value = preferences.state.value.copy(

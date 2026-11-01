@@ -120,7 +120,7 @@ class AboutScreenTest {
 
     @Test
     fun privacyNamesGitHubFirst() {
-        // Decision 30 (ii): the Backup finder's GitHub raw; the update check's api.github.com.
+        // The Backup finder's GitHub raw; the update check's api.github.com.
         setContent()
 
         composeRule.onNodeWithText(PRIVACY_CONTACTS).performScrollTo().assertIsDisplayed()
@@ -133,7 +133,7 @@ class AboutScreenTest {
 
     @Test
     fun aQuietBuildsVersionLineTappedSevenTimesTurnsShowDetailsOnAndOff() {
-        // Decision 30 (v): hidden, off by default, not in Settings.
+        // Quiet details: hidden, off by default, not in Settings.
         var on by mutableStateOf(false)
         var toggles = 0
         composeRule.setContent {

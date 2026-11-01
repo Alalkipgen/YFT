@@ -21,7 +21,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * v1.0.2 item 5b: the files picked in the Library's select mode are deleted after one question
+ * Delete file: the files picked in the Library's select mode are deleted after one question
  * ("Delete 3 files?"), together, with one Android request for those that need the user's
  * consent (one at a time on Android 10).
  */

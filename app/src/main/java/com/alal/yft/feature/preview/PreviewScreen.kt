@@ -728,8 +728,8 @@ internal fun MediaVariant.qualityLabel(): String {
     if (trackType == MediaTrackType.AUDIO) return audioLabel()
     val stated = height ?: return label?.trim()?.take(MAX_LABEL)?.takeIf(String::isNotEmpty)
         ?: "Quality unknown"
-    // P47: named after the short side like the Download sheet: a 720 × 1280 phone video is
-    // "720p · HD", not "1280p · Full HD".
+    // TikTok adapter: named after the short side like the Download sheet: a 720 × 1280 phone video
+    // is "720p · HD", not "1280p · Full HD".
     val tall = YftQualityNames.standardHeight(width, stated)
     val rate = framesPerSecond?.takeIf { it > HIGH_FRAME_RATE }?.roundToInt()?.toString().orEmpty()
     return listOfNotNull("${tall}p$rate", resolutionName(tall)).joinToString(" · ")
@@ -754,7 +754,7 @@ private fun resolutionName(height: Int): String? = when {
 }
 
 /**
- * "96 MB" when the size is exact, "~96 MB" when estimated, nothing when unknown. G1 (v1.0.2): a
+ * "96 MB" when the size is exact, "~96 MB" when estimated, nothing when unknown. A
  * size too small for the file's length, or else [length], is unknown ([PlausibleSize]).
  */
 internal fun MediaVariant.sizeText(length: Long? = null): String? {

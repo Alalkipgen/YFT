@@ -32,11 +32,11 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * P45: [BrowserReads] by Android's WebView, the engine of YFT's browser: one offscreen WebView,
- * never attached to the screen, that opens a blank page of the link's page origin and asks the
- * link with the page's own `fetch` ([BrowserReadScript]). So the request goes out through
- * Chromium's network stack, with its TLS handshake, the tab's agent and the browser's cookie
- * store, as the page's player would send it.
+ * Download sheet: [BrowserReads] by Android's WebView, the engine of YFT's browser: one offscreen
+ * WebView, never attached to the screen, that opens a blank page of the link's page origin and asks
+ * the link with the page's own `fetch` ([BrowserReadScript]). So the request goes out through
+ * Chromium's network stack, with its TLS handshake, the tab's agent and the browser's cookie store,
+ * as the page's player would send it.
  *
  * One read at a time, at most [READ_TIMEOUT_MILLIS] each; the WebView is destroyed after
  * [IDLE_MILLIS] without reads. Nothing loads in it but the blank page: no navigation, no
@@ -201,7 +201,7 @@ class WebViewBrowserReads @Inject constructor(
     }
 }
 
-/** P45: YFT's resolver and stream downloads ask the browser's engine through this. */
+/** Download sheet: YFT's resolver and stream downloads ask the browser's engine through this. */
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class BrowserReadsModule {

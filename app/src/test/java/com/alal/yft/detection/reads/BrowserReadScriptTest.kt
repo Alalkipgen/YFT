@@ -7,7 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** P45: the browser read's script and how its answer is read. */
+/** Download sheet: the browser read's script and how its answer is read. */
 class BrowserReadScriptTest {
     @Test
     fun theLinkIsPutInTheScriptAsOneEscapedStringOnly() {

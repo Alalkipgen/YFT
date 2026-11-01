@@ -110,7 +110,7 @@ class RetrieverMediaDetailsSource internal constructor(
 }
 
 /**
- * v1.0.2: a file's quality by the name its row had on the Download sheet (P25: the standard
+ * A file's quality by the name its row had on the Download sheet (the standard
  * height nearest to the picture's short side), not the short side itself, so a finished download
  * keeps the name the user picked: YouTube's 1080p of a 2:1 video is 1920 × 960, "1080p", not
  * "960p". "4K" and "8K" for 2160 and 4320.
@@ -126,7 +126,7 @@ internal fun qualityLabel(width: Int?, height: Int?): String? {
 }
 
 /**
- * v1.0.2 (item 50): the quality a download was picked as, for its row while it runs: the name
+ * The quality a download was picked as, for its row while it runs: the name
  * [qualityLabel] gives the finished file, so both rows say the same ("1080p", "4K"). A variant
  * whose width is not known is named by its height.
  */

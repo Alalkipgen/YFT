@@ -25,7 +25,7 @@ import org.robolectric.annotation.GraphicsMode
 import org.robolectric.shadows.ShadowDialog
 
 /**
- * N5 (v1.0.2): the delete question's **Delete** is drawn in the same red (`coralText`) on the
+ * The delete question's **Delete** is drawn in the same red (`coralText`) on the
  * Downloads screen as in the Library; it was the link's teal on Downloads.
  */
 @RunWith(RobolectricTestRunner::class)

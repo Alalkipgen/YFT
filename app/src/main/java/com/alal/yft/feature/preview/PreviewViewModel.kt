@@ -56,7 +56,7 @@ class PreviewViewModel @Inject constructor(
     private val downloadStarter: PreviewDownloadStarter,
     private val downloadPreferences: DownloadPreferencesRepository,
     private val network: NetworkStatusSource,
-    /** v1.0.2 item 28: whether the chosen folder can still be used. */
+    /** Save folder: whether the chosen folder can still be used. */
     private val saveFolders: SaveFolders = SaveFolders.None,
 ) : ViewModel() {
     private val mutableUiState = MutableStateFlow<PreviewUiState>(PreviewUiState.Empty)
@@ -70,7 +70,7 @@ class PreviewViewModel @Inject constructor(
 
     /**
      * Wi-Fi only and the save location, shown next to the Download button. A chosen folder that
-     * can no longer be used shows the default place, where the file goes then (item 28).
+     * can no longer be used shows the default place, where the file goes then.
      */
     val downloadOptions: StateFlow<PreviewDownloadOptions> = downloadPreferences.preferences
         .map { preferences ->
@@ -221,7 +221,7 @@ class PreviewViewModel @Inject constructor(
     }
 
     /**
-     * Track E: the selected page file [asset] came from and [variant]'s file before its
+     * Fresh link renewal: the selected page file [asset] came from and [variant]'s file before its
      * conversion, so a link that dies after the download started can be renewed. Who looked
      * it up is not known here: the browser's rule. Null without a selection.
      */
@@ -278,7 +278,7 @@ class PreviewViewModel @Inject constructor(
         mutableUiState.value = PreviewUiState.Loading
         quality = currentPreferences().defaultQuality
         val result = try {
-            // v1.0.2 item 59: a page's one-file DASH video qualities with their manifest's sound.
+            // Sound pairing: a page's one-file DASH video qualities with their manifest's sound.
             DashSoundPairing.pair(resolver.resolve(candidate), candidate)
         } catch (cancellation: CancellationException) {
             throw cancellation

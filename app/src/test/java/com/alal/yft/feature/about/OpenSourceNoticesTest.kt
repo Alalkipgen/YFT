@@ -51,7 +51,7 @@ class OpenSourceNoticesTest {
 
     @Test
     fun myanmarToolsIsListedAtTheVersionYftIsBuiltWith() {
-        // v1.0.2 item 25: the Zawgyi detector's library, at gradle/libs.versions.toml's version.
+        // Zawgyi titles: the Zawgyi detector's library, at gradle/libs.versions.toml's version.
         val catalog = listOf("../gradle/libs.versions.toml", "gradle/libs.versions.toml")
             .map(::File)
             .first(File::isFile)

@@ -20,7 +20,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * v1.0.2 item 5b: the Library's select mode deletes the picked files together, through the
+ * Delete file: the Library's select mode deletes the picked files together, through the
  * same deleter as Downloads' "Delete file", so Android asks once for all that need it.
  */
 @OptIn(ExperimentalCoroutinesApi::class)

@@ -21,7 +21,7 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class MediaDetailsTest {
     /**
-     * v1.0.2: a file is named as the Download sheet named its row, by the standard height nearest
+     * A file is named as the Download sheet named its row, by the standard height nearest
      * to its short side: YouTube's 1080p (itag 299) of a 2:1 video, 1920 × 960, stays "1080p".
      */
     @Test
@@ -46,7 +46,7 @@ class MediaDetailsTest {
         assertNull(MediaDetails.Unknown.qualityLabel)
     }
 
-    /** v1.0.2 (item 50): a running row's quality, by the name its finished file will have. */
+    /** A running row's quality, by the name its finished file will have. */
     @Test
     fun aPickedQualityHasTheNameItsFinishedFileWillHave() {
         assertEquals("1080p", pickedQualityLabel(1920, 960))

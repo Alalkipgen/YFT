@@ -92,7 +92,7 @@ class PreviewViewModelTest {
 
         val ready = viewModel.uiState.value as PreviewUiState.Ready
         assertEquals(
-            // P3: 320 kbps joins 192 and 128 (D2: on YouTube only).
+            // Download sheet: 320 kbps joins 192 and 128 (on YouTube only).
             listOf("m4a", "m4a-mp3-320", "m4a-mp3-192", "m4a-mp3-128"),
             ready.asset.variants.map(MediaVariant::id),
         )
@@ -106,7 +106,9 @@ class PreviewViewModelTest {
         assertEquals(listOf("m4a-mp3-128"), starter.requested)
     }
 
-    /** Track E: an MP3 tells the selected file and its M4A; who looked it up is not known. */
+    /**
+     * Fresh link renewal: an MP3 tells the selected file and its M4A; who looked it up is unknown.
+     */
     @Test
     fun anMp3TellsTheSelectedFileAndItsM4aAsWhereItCameFrom() = runTest {
         val store = PreviewSelectionStore().apply { select(candidate()) }
@@ -128,7 +130,7 @@ class PreviewViewModelTest {
 
     @Test
     fun onASiteThatIsNotYouTubeTheM4aIsOfferedAsMp3At192Only() = runTest {
-        // D2: Facebook, Instagram, X, TikTok, VK and the web: M4A and MP3 192.
+        // Facebook, Instagram, X, TikTok, VK and the web: M4A and MP3 192.
         val store = PreviewSelectionStore().apply { select(candidate()) }
         val starter = FakeDownloadStarter()
         val resolver = FakeResolver(VariantResolutionResult.Success(asset(listOf(m4a()))))

@@ -9,7 +9,7 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** P40: the page script's answers as the browser tab and the hidden page hand them over. */
+/** TikTok page reader: the page script's answers, as the tab and the hidden page hand them over. */
 class TikTokPageScriptTest {
     @Test
     fun `an item from the page's own script is read with its id`() {

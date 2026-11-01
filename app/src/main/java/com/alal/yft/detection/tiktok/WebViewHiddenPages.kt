@@ -26,8 +26,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * P40 step 3: puts the page script's store into a WebView for TikTok's pages at document start
- * (androidx.webkit `addDocumentStartJavaScript`, for [origins] only). Returns false when this
+ * TikTok page reader: puts the page script's store into a WebView for TikTok's pages at document
+ * start (androidx.webkit `addDocumentStartJavaScript`, for [origins] only). Returns false when this
  * WebView cannot run document-start scripts: the caller then runs the store when a page of
  * [origins] starts (`onPageStarted`), and answers TikTok's code got before that are missed.
  */
@@ -45,7 +45,7 @@ object TikTokApiCapture {
 }
 
 /**
- * P40 step 4: the hidden pages of [TikTokPageEngine], offscreen WebViews on the main thread that
+ * The hidden pages of [TikTokPageEngine], offscreen WebViews on the main thread that
  * are never attached to the screen. Only `https` pages of [allowedHosts] (and their
  * subdomains) load in them; [isMedia] requests (TikTok's video and audio files) and media file
  * types get an empty answer. [scriptOrigins], [fixtures] and [onDestroyed] are for the
@@ -96,7 +96,7 @@ class WebViewHiddenPages(
         @SuppressLint("SetJavaScriptEnabled")
         fun start(storeScript: String) {
             val own = runCatching { WebSettings.getDefaultUserAgent(appContext) }.getOrNull()
-            // TikTok sends every quality to desktop Chrome (P39), with the WebView's version.
+            // TikTok sends every quality to desktop Chrome, with the WebView's version.
             val agent = TikTokAgents().desktop(own)
             webView.settings.apply {
                 javaScriptEnabled = true

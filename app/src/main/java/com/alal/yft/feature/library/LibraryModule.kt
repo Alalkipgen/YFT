@@ -26,7 +26,7 @@ object LibraryModule {
     ): LibraryRepository = AndroidLibraryRepository(
         context = context,
         fileDeleter = fileDeleter,
-        // v1.0.2 item 28: the chosen folder is listed while new downloads go there.
+        // Save folder: the chosen folder is listed while new downloads go there.
         chosenFolder = {
             preferences.preferences.first()
                 .takeIf { it.location == DownloadLocation.CHOSEN_FOLDER }

@@ -85,7 +85,7 @@ object OpenSourceNotices {
         apache("okhttp", "OkHttp", "HTTPS client for probes and downloads."),
         apache("hilt", "Dagger Hilt", "Dependency injection."),
         apache("kotlin", "Kotlin and kotlinx.coroutines", "Language runtime and coroutines."),
-        // v1.0.2 item 25.
+        // Zawgyi titles.
         apache(
             "myanmar-tools",
             "Myanmar Tools",

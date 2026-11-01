@@ -40,7 +40,7 @@ data class PreviewDownloadOptions(
     val wifiOnly: Boolean = false,
     /** False when files go to app storage: chosen in Settings, or Android 9 and older. */
     val savesToSharedDownloads: Boolean = true,
-    /** v1.0.2 item 28: the chosen folder's name while files go there, else null. */
+    /** Save folder: the chosen folder's name while files go there, else null. */
     val folderName: String? = null,
 )
 

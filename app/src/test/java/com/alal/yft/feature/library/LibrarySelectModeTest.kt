@@ -32,7 +32,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * v1.0.2 item 5b: a long press on a Library tile starts select mode; taps pick and drop tiles,
+ * Delete file: a long press on a Library tile starts select mode; taps pick and drop tiles,
  * and Delete asks once ("Delete 3 files?") for all of them. Before 5b the Library deleted one
  * file at a time from its ⋯ menu.
  */
@@ -50,7 +50,7 @@ class LibrarySelectModeTest {
         location = LibraryLocation.SHARED_DOWNLOADS,
     )
 
-    /** Item 28: a file in the folder picked in Android's folder picker. */
+    /** Save folder: a file in the folder picked in Android's folder picker. */
     private val clip = libraryItem(
         id = "clip",
         name = "Gamma clip.mp4",

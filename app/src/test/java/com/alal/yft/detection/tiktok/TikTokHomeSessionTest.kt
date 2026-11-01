@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** P40 (G3): Home's TikTok lookups carry the browser's TikTok cookies, to TikTok only. */
+/** TikTok page reader: Home's TikTok lookups carry the browser's TikTok cookies, to TikTok only. */
 class TikTokHomeSessionTest {
     private val cookies = object : TikTokCookies {
         val asked = mutableListOf<String>()

@@ -10,11 +10,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S2d part 1 (decision 19 (v)): Instagram's tab-fetch probe as the browser runs it —
+ * Instagram tab-fetch step: Instagram's tab-fetch probe as the browser runs it —
  * only on the post's own page on Instagram's web host; the page's own POST of yt-dlp's signed-out
  * query (same origin, the page's cookies; the form in yt-dlp's order with the page's LSD value; the
  * query's headers, `X-FB-LSD`, `X-CSRFToken` from the tab's cookie); its answer read back bounded
- * and forgotten; no LSD, no script, no answer in time each said. Task 13 (the rung): a tab whose
+ * and forgotten; no LSD, no script, no answer in time each said. A tab whose
  * own cookies name a session asks nothing. A fake tab; no live calls.
  */
 class InstagramProbeScriptTest {
@@ -162,7 +162,7 @@ class InstagramProbeScriptTest {
 
     @Test
     fun aSignedInTabAsksNothing() = runTest {
-        // Task 13: the tab's own cookies for Instagram's web host name a session: nothing runs.
+        // The tab's own cookies for Instagram's web host name a session: nothing runs.
         val tab = FakeTab()
         val signedIn = InstagramProbeScript.run(
             REQUEST, PAGE, tab::evaluate, tabCookie = { "csrftoken=fixture; sessionid=1%3Afixture; ds_user_id=1" },

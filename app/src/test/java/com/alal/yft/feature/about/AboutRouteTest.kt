@@ -78,7 +78,7 @@ class AboutRouteTest {
         assertEquals(1, clip.itemCount)
         assertNull(clip.getItemAt(0).uri)
         assertEquals("page https://a.test", clip.getItemAt(0).text)
-        // v1.0.2 (item 4): YFT takes shared text now, but its own report never goes to itself.
+        // YFT takes shared text now, but its own report never goes to itself.
         @Suppress("DEPRECATION")
         val left = chooser.getParcelableArrayExtra(Intent.EXTRA_EXCLUDE_COMPONENTS)!!.toList()
         assertEquals(listOf(ComponentName(context, MainActivity::class.java)), left)
