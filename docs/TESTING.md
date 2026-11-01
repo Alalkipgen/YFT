@@ -327,8 +327,7 @@ Before a release counts a site's backup steps, the site needs three passing cens
 - One session may run all sites.
 - Pass: wrong rows 0, and nothing worse than main's baseline census run.
 - TikTok runs through the VPN's New York exit.
-- For 1.0.2: Facebook, Instagram, VK, X and TikTok start again at run 1. TikTok gets one more run
-  after a 403 or 429; a second one skips TikTok ([DECISIONS.md](DECISIONS.md)).
+- For 1.0.2: Facebook, Instagram, VK and X start again at run 1.
 
 ## Phone checklist for a release
 
