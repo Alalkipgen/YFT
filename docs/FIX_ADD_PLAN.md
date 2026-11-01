@@ -1681,6 +1681,177 @@ the owner's Redmi Note 13 Pro, Android 16 (API 36), large system font):
       "Fresh link on Retry (403 at …): resumed at …".
   12. Anything that fails: send its Details (**Copy details**).
 
+**The four tasks after R10** (2026-11-01; branch `work/phase-v102-easy`; the agent alone overnight,
+the owner's choices left open below; the owner's phone: Android 16 (API 36), mobile data only):
+
+- **The tasks**, one commit each: task 1, CHANGELOG `[1.0.2]`'s R9 example (docs only, §7's
+  hand-off "After R9–R10"); task 2, P4's AV1 probe on a file with `av1C` (test only); task 3, a
+  YouTube live that ended recently (`LIVE_NOT_READY` on the owner's phone); task 4, B+ (S6) and
+  Instagram's L2 (`MASTER_KEY_SOCIAL_PLAN.md` §4 S6, decision 7, §7.4's L2), behind the new
+  `yft.socialFill` (on in the census APK, off in the release and Preview).
+- **The commits** (CI: checkpoint / emulator smoke / Preview APK / minified): task 1 `e58e1097`
+  (docs only: the workflows skip it), task 2 `38f1c103` (#618 / #206 / #173 / #64), task 3
+  `68948ef5` (#619 / #207 / #174 / #65), task 4 `5e1ae143` (#620 failed / #208 / #175 / #66) and
+  its CI fix `cc06a26f` (#621 / #209 / #176 / #67). All green but #620 (task 4's CI fix below).
+  **Preview #176** (`cc06a26f`, run 41266128772): `yft-preview-apk` and `yft-preview-trial-apk`
+  (B+ and L2 off in both).
+- **Causes and fixes**:
+  - Task 1: R9's line named "Facebook's 1080p AV1"; AV1 merges stay off in the release
+    (`AV1_MP4_ENABLED`), so the release never offers it. Now "such as a Facebook video's AVC 1080p
+    or an Instagram reel's merged sizes", sizes the release offers (R9's phone test 2 and 3).
+  - Task 2: `av1MergesStayOffWhileThisPhoneCannotMakeThem` merged P4's `mux/video-av1.mp4`, whose
+    `av1C` box is empty; Android reads no AV1 track without one, so its `result=Failure
+    step=samples` (#203 too) never showed whether the emulator's MediaMuxer writes AV1. It now
+    merges R8's `mux/video-av1-with-av1c.mp4.b64` (`8fec3139`'s file) today's way (MediaMuxer,
+    `fastMerge = false`). **The API 34 emulator** (#206, again #207): `av1-mux probe sdk=34
+    decoder=true kinds=software result=Completed step=none` — its MediaMuxer merges AV1 into an
+    MP4 (a software AV1 decoder only). The probe reports and never fails the run;
+    `AV1_MP4_ENABLED` stays false (open decision).
+  - Task 3, the owner's failure "live 2h09m39s of 2h10m33s · 1556/…" (`LIVE_NOT_READY`, 99 s,
+    1556 pieces, about 240 MB): `X-Head-Seqnum` was read once, before the 99 s download, so the
+    head was stale. The 1556 pieces were contiguous from sq 0 (1556 × 5 s is the joined length),
+    so the 54 s (about 11 pieces) were missing **at the end**. Unchanged since `2026d8c` (run 4f):
+    the expected length (`videoDetails.lengthSeconds`), `LivePieces`, `LivePieceJoin` and the
+    length check (file contents compared; the history of `LivePieces.kt` starts at `2dab4186`);
+    the client (VISIONOS) is not the cause. Measured after two lives ended (2026-10-31): the head
+    stood still from seconds after the end, and `lengthSeconds` minus the media's end at the head
+    was +0.17 to +0.97 s on 5 s pieces, so a whole download passes the old check. **Fix**
+    (`DashTransferEngine`, the YouTube live path only): a piece the server does not serve (204,
+    404, 416, no bytes) is noted, not fatal, and sq 0 gets two spaced retries; when a piece is
+    missing or the file is short, `settleLive` waits 5, 10, 15, 20, 30 and 40 s (at most 2 min),
+    asks the head again each round, fetches the new pieces, retries the missing ones and measures
+    again. Whole → saved as before; a gap in the middle → `LIVE_NOT_READY` "live: sq N missing in
+    the middle …"; the head stopped (two answers alike), every piece 0..head, no gap, at most 2 min
+    short → saved, its Details "Live video saved 54 s short of 2h10m33s, at the end: YouTube's
+    newest piece (sq 1555) stopped; no piece is missing"; otherwise `LIVE_NOT_READY` with how
+    much is missing and where ("live: 54 s missing at the end, newest sq 1555 still moving ·
+    2h09m39s of 2h10m33s · 1556/1556 pieces"). The engine's notes reach the download's Details
+    (`DashTransferResult`/`AudioVideoMuxResult.Completed`, the dispatcher), and a
+    `LIVE_NOT_READY` detail leads with the engine's line (the link facts had cut it at 120
+    characters). Every other download path is unchanged; run 4f's two cases pass as before.
+  - Task 4, **B+** (`SocialFill`, `AndroidBrowserMasterFallback.fills`/`fill`,
+    `BrowserViewModel.lookUp`): in a B+ build, main's answer for a Facebook, Instagram or VK page
+    in the browser that is **weak** — its rows name one video (no item of a post with several),
+    and every picture row's height is known (the stated picture, else the sheet's own quality
+    word: `HD` 720, `SD` 480, `720p`) and under 720 (**no HD**), or there is no sound-only row and
+    every picture row is proven silent (**no sound**) — keeps its rows, their order and its
+    details exactly as main gave them, first, and gets only the rows Master's ladder finds that it
+    lacks. A manifest main did not read into rows, an unknown height or several videos: not weak,
+    no run (a found page returns at once, as before). The run is the lookup's own ladder in the
+    lookup's own record (main's asks in it): its budgets and stops (nothing new after a 429 in the
+    lookup; a host that answered a bot check, or still cools, is not asked), no capture of the tab
+    (`MasterPolicy.capture` off), and only rows that may fill the need go to V
+    (`SocialStage.Staged.admit`: main's own files, a manifest and a silent picture are never read);
+    at most 10 s. Added: only rows proven main's video (`TrialCompare`'s MATCH; Instagram's "the
+    same item" as decision 19 (iv)'s set reads it — the rung's answer offered one of main's files,
+    as B+ never reads that file again), none of main's files, each filling the need (an HD row not
+    proven silent; with no sound, a row that states its sound, or a sound-only row), the best per
+    height, the tallest first, at most 4. Each added row's file then passes `SiteRowCheck` (the
+    census's one-row check, on the site's media hosts) under route B's rules, without the user's
+    session (at most 6 s); the rows carry main's video key and base title, so the sheet lists them
+    with main's. B+'s line follows main's details and leads the banner: `master: facebook B+
+    (main's rows: no HD): Master added 1: 720p`, or `… Master added none (why)` (no page to ask,
+    the ladder did not run, Master found no row, no row proven main's video, Master's rows are
+    main's files, no row has what main's lack, the file check passed none, the page changed during
+    the lookup, Master's run failed). Not for X (its X1 replays main's own answer: nothing to add)
+    or TikTok (its rows state only the video codec though the file has sound, so "no sound" would
+    misread them). A weak answer in the trial APK goes to B+, not the trial. A is not done.
+  - Task 4, **L2** (`RowPick`, `InstagramLadder(bestFirst)`, `SocialStage.Staged.pick`, the
+    engine's `picked`): the retest's slot 5 (2026-10-23) — the tab-fetch rung's answer held three
+    versions of the post's video (`rows 3 (DIRECT)`), each named 720 × 1280 (task 15's F1 gives a
+    version without a size its post's) and none with a bitrate (Instagram's recipe reads none;
+    main's rows take theirs from the address); the sheet shows one row per height, the higher
+    bitrate first, else the rows' own order, so it showed the answer's first, 897 KB, where the
+    tab's own 720p was 1.9 MB. Now, of the rows V passed from I2's or the rung's answer, each
+    height's versions (same sound, same video family) come best first by rate — the stated
+    bitrate, else the file's total over its length, which V reads from each file's start — and
+    every row is kept (no row is dropped; the engine refuses a pick that adds, repeats or loses
+    every row). Line: `master: each height's best first`. Whether slot 5's 1.9 MB file was among
+    the three rows needs the phone (test 7 below). Behind `yft.socialFill` too: the release's I2
+    and rung order are today's.
+  - Task 4's CI fix: checkpoint #620 failed in `SocialLadderFillTest` (2 of its 4 tests). Its log
+    needs a sign-in, so it was reproduced here: with both CPUs busy, 3 of 3 runs failed with
+    `Master added none (the file check passed none of Master's 1)`, the file check never asked.
+    B+'s file check had its 6 s limit in the caller's coroutine; under `runTest` that is the test's
+    virtual clock, which jumps to the limit while the checks run on another dispatcher, so it
+    ended them before the first one (on a phone the caller's clock is real). The limit now runs on
+    the checks' own dispatcher, real time whatever the caller's clock: 3 of 3 pass with both CPUs
+    busy. No change on a phone.
+  - The flag: `-Pyft.socialFill` (`true` by default; acts only with `yft.masterCapture` and
+    `yft.socialLadder`, debug builds only); `BuildConfig.SOCIAL_FILL` is false in
+    `defaultConfig` and `releaseMaster()` (release, preview, preview trial). The census APK's
+    command needs no new property.
+- **Tests**: task 2 — the emulator's `AudioVideoMuxerInstrumentedTest` (the probe). Task 3 —
+  `DashTransferEngineTest` (a fake live server with `X-Head-Seqnum`: the head moves after the
+  first read; a tail never served; a gap in the middle; a missing first piece served late or
+  never; the owner's numbers, 1556 pieces and 2h09m39s of 2h10m33s, three ways),
+  `AudioVideoMuxEngineTest`, `DownloadQueueTest`, `DownloadTransferDispatcherNotesTest`;
+  core-download 370, 0 failures. Task 4 — `SocialFillTest` 7 (made-up posts and files: a weak
+  answer, no HD and no sound, gets only the missing rows; a strong answer is never weak; V's rule;
+  the run: the ladder only when it claims the lookup, only admitted rows read, no capture;
+  Instagram's same item; the engine's pick only orders and chooses among V's rows), `RowPickTest`
+  3, `InstagramLadderTest` +1 (L2: three versions without size or bitrate, the best rate first
+  with the flag, the answer's order without it), the app's `SocialLadderFillTest` 4 (main's real
+  Facebook adapter over synthetic pages: main's rows first and unchanged, only the HD row added;
+  a strong answer, a build without B+, Master off: nothing asked; a 429 earlier in the lookup:
+  nothing asked; the file check refused, no files, nothing taller, the page moved on: main's
+  answer with B+'s line; the file check never sends the session). Local: extractor-master 1134
+  (2 skipped), app 1593 (66 skipped, again after the CI fix), 0 failures; `:app:lintDebug`.
+- **UI text**: task 3's Details lines (above), English as before, and one CHANGELOG line under
+  Fixed. Task 4: B+'s line in the banner and the Lookup details, debug builds only; no CHANGELOG
+  line (off in the release and Preview).
+- **S5** (decision 26): B+ runs on weak Facebook, Instagram and VK answers in the census APK, and
+  L2 orders Instagram's rung rows there, so **Facebook, Instagram and VK start runs 1–3 again** on
+  the census APK below (R9 had restarted them; runs 1–3 had not started). X and TikTok: the
+  engine's code changed (the pick, the admit rule, the capture switch), but their ladders give no
+  pick or admit rule and keep the capture, and B+ never runs for them, so their lookups and
+  census answers are as before — by R9's rule (a restart where a site's lookups change) no
+  restart; by decision 26's letter (an engine change) a restart: open decision.
+- **The census APK**: `yft-vk-census-cc06a26f.apk` (22,905,816 bytes, SHA-256
+  `594b04fa…8bdc6a36`): `:app:assembleDebug` of `cc06a26f` with masterCapture, ownSolver,
+  ownSolverNext, clientLadder, socialLadder and socialTrial on (ladderSkip and ladderMutate blank,
+  routeBTrial off; `yft.socialFill` by default, so B+ and L2 on), signed with the shared test key
+  (certificate SHA-256 `a2696dff…bbbe`), so it installs over the old census APK; sent as a chat
+  attachment.
+- **Checklist** (the census APK; Preview #176's `yft-preview-apk`, quiet, and
+  `yft-preview-trial-apk`). One test at a time; anything that fails: its **Details** → **Copy
+  details**. A census (debug) build is never quiet; in `yft-preview-apk` Details need Settings →
+  About → tap the version line 7 times → Show details. No link for 3–5 is in the docs: open
+  the video in `yft-preview-apk` first and use one whose sheet lists no row of 720p or taller.
+  1. Install the census APK over the old one; uninstall the older YFT Preview and YFT Trial, then
+     install #176's two (each run has a new test key).
+  2. Task 3 (`yft-preview-apk`, Show details on; mobile data): a YouTube live that ended a short
+     while ago (an hour or two; a long one, as the owner's 2h10m33s), pasted on Home → its lowest
+     MP4 quality (144p) → Download. At the end it may wait up to 2 minutes. → One file that plays
+     to its end: its length YouTube's, or its **Details** "Live video saved N s short of …, at the
+     end: YouTube's newest piece (sq …) stopped; no piece is missing". Before: **YouTube still
+     preparing this live video, try later**. If it still stops so: **Copy details** (its first
+     line says how much is missing and where: "live: … missing …").
+  3. Task 4, B+, Facebook (the census APK, YFT's browser, signed out): a video whose sheet lists
+     only rows under 720p (such as only "SD", 360p or 480p; an old or small upload) → Download →
+     the sheet lists main's rows first, as `yft-preview-apk` does, and the banner's and the
+     Lookup details' B+ line is one of: `master: facebook B+ (main's rows: no HD): Master added
+     N: 720p` (a 720p · HD row after main's: download it → it plays with sound to its end) or
+     `master: facebook B+ (main's rows: no HD): Master added none (…)` (main's rows only; the
+     words in brackets say why). Note how long the sheet took against `yft-preview-apk` (B+ adds
+     at most about 16 s on such a video).
+  4. The same with a VK video under 720p (`master: vk B+ …`) and an Instagram reel or post whose
+     rows are all under 720p, signed in or out (`master: instagram B+ …`). A VK answer with a
+     stream row (HLS or DASH) that states no height, as most VK answers have, gets no `B+` line:
+     not known to be weak (§7).
+  5. Strong answers, unchanged (the census APK): a Facebook, VK or Instagram video with a 720p or
+     taller row → no `B+` line, the rows as in `yft-preview-apk`; an X post and a TikTok video
+     (the VPN for TikTok) → no `B+` line.
+  6. Preview #176: 3's video in `yft-preview-apk` and in `yft-preview-trial-apk` → no `B+`
+     line, main's rows only (B+ and L2 are off in both).
+  7. L2 (the census APK; signed out of Instagram; the census screen's "Instagram's tab-fetch
+     rung (signed out)" ticked): the retest's slot 5 in YFT's browser → Download → a 720p · HD
+     row; note its size (the retest: 897 KB, the tab's own 720p 1.9 MB). Where the answer's first
+     720p version was not its best, the Lookup details have `master: each height's best first`
+     and the row is the larger file. Then untick the box.
+  8. S5 (decision 26): Facebook's, Instagram's and VK's runs 1–3 start again on the census APK
+     (each run at least 6 h after the previous one, the first and the last at least 24 h apart).
+
 **Preview #11 (after P48–P50)** — X, Instagram and HLS sound:
 
 1. **An X post with a video**, pasted on Home: the sheet lists its MP4 qualities (e.g. 720p
@@ -1887,7 +2058,9 @@ Other items:
     cannot read (`selectTrack`), so it does not show that the API 34 emulator's MediaMuxer writes no
     AV1 (the owner's phone wrote AV1 with it in `c3522f95`); `AV1_MP4_ENABLED`'s KDoc (P4: emulator
     smoke #27 and #28) rests on the same file. Giving the probe `8fec3139`'s file would tell, a test
-    change of its own. Owner decision: —
+    change of its own. *Done* in the four tasks after R10, task 2 (`38f1c103`, §6): with that file
+    the API 34 emulator merges AV1 (`result=Completed step=none`); `AV1_MP4_ENABLED` stays false.
+    Owner decision: —
   - CI: R6's emulator smoke #200 failed for the older `prepareWorkspace` race, fixed in R7; R8's
     #202 for its test's AV1 file, fixed in `8fec3139`; the later runs passed (§6).
 
@@ -1903,7 +2076,50 @@ Other items:
     three counts. Owner decision: —
   - R9's CHANGELOG line names "Facebook's 1080p AV1" as an example; AV1 merges stay off in the
     release (`AV1_MP4_ENABLED`, R6–R8's hand-off), so the release offers Facebook's AVC sizes and
-    the sound, and AV1 sizes only once AV1 merges are on. Owner decision: —
+    the sound, and AV1 sizes only once AV1 merges are on. *Done* in the four tasks after R10, task 1
+    (`e58e1097`): the line's example is now a Facebook video's AVC 1080p or an Instagram reel's
+    merged sizes. Owner decision: —
+
+- **After the four tasks after R10** (2026-11-01): the agent's hand-offs. The owner was asleep;
+  where a task needed his choice the agent took the option closest to today's release (behind
+  `yft.socialFill` for task 4) and left the choice here.
+  - Task 3: the save-shorter rule. A live whose newest piece no longer moves, with every piece
+    from 0 to it and no gap, is saved when it is at most 2 min shorter than YouTube's length, its
+    Details saying how much and why (the task's example limit); YFT waits at most 2 min for the
+    pieces first. Owner decision: —
+  - Task 2: the API 34 emulator's MediaMuxer now merges AV1 (`result=Completed step=none`, #206
+    and #207, a software AV1 decoder only); `AV1_MP4_ENABLED` stays false, and its KDoc's P4
+    reading (#27, #28) rested on the file without `av1C`. Owner decision: —
+  - Task 4: B+ and L2 in the release and the previews (`releaseMaster()`'s `SOCIAL_FILL` false)
+    after S5's runs. Owner decision: —
+  - Task 4: B+'s sites are Facebook, Instagram and VK; not X (X1 replays main's own answer, so it
+    has nothing to add) or TikTok (its rows state only the video codec though the file has sound,
+    so "no sound" would misread them). Owner decision: —
+  - Task 4: B+'s requests against B0 (§9: a lookup main answered asks no more than B0): on a weak
+    answer B+ adds the ladder's asks, V's reads of the rows it admits and at most 4 file checks;
+    a strong answer asks nothing new. Its time on a weak answer: at most 10 s for the run and 6 s
+    for the checks, in YFT's browser only (Home's lookups do not run B+). Owner decision: —
+  - Task 4: what counts as weak. A manifest main did not read into rows (VK's HLS and DASH rows
+    state no height and no codecs) leaves the answer unknown, so B+ does not run: most VK answers
+    carry one, so B+ seldom runs for VK. "No sound" needs every picture row proven silent, so it
+    seldom triggers (Facebook's and Instagram's whole files state no codecs). Owner decision: —
+  - Task 4: in a trial build a weak answer goes to B+, not to the trial's comparison. Owner
+    decision: —
+  - Task 4: Instagram's "the same item" for B+'s rows is decision 19 (iv)'s set rule (the rung's
+    answer offered one of main's files), not a proof per row. Owner decision: —
+  - Task 4: L2 comes with `yft.socialFill` (the release's I2 and rung order are today's) and
+    orders the rows, never drops one. Owner decision: —
+  - Task 4: B+'s run shows the ladder's own line "master: <site> ladder after NO_MEDIA_FOUND"
+    (the ladder's request names a failure; main did not fail). Cosmetic. Owner decision: —
+  - Task 4: X and TikTok and S5: the engine's code changed (the pick, the admit rule, the capture
+    switch) but not their lookups; decision 26's letter restarts them, R9's rule does not (§6).
+    Owner decision: —
+  - Task 4: the opt-in debug APKs with `yft.socialLadder` and `yft.masterCapture` (`yft-d7-*`)
+    get B+ and L2 too, as `yft.socialFill` is true by default. Owner decision: —
+  - Real links (S8: none in the docs): one Facebook video whose own embed answer has no HD (SD
+    only, a 2014 upload) went to the owner in chat; main's rows for it were not seen, as Facebook
+    asks the agent's network to sign in. §6's checklist says how to find more.
+  - CI: task 4's checkpoint #620 failed on its new test's clock (§6), fixed in `cc06a26f`.
 
 ## 8. Done before Phase 15
 

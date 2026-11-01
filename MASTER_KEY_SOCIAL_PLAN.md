@@ -68,7 +68,10 @@ phone.
 Decision 30 (the owner, 2026-10-23; §8): the signed release carries Master on and shows no lookup
 details (a hidden Show details), for 5–10 friends; after S5's gate, one release commit, Preview #12
 (normal and trial), PR #2's merge, R9's first Run workflow, then P8; after the merge, R9 publishes
-by the owner's Run workflow on `main` (decision 30 (vi), 2026-10-24).**
+by the owner's Run workflow on `main` (decision 30 (vi), 2026-10-24). S6 (B+) with §7.4's L2
+(v1.0.2, the owner's overnight task, 2026-11-01): built behind `yft.socialFill` (`5e1ae143`, its
+CI fix `cc06a26f`; on in the census APK, off in the release and the previews); next: the owner's
+checklist and S5's runs 1–3 for Facebook, Instagram and VK (`docs/FIX_ADD_PLAN.md` §6, §7).**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -111,7 +114,9 @@ by the owner's Run workflow on `main` (decision 30 (vi), 2026-10-24).**
   Instagram → S3 weekly check → S4 remote recipe live → S5 site တစ်ခုစီ phone run ၃ ခါ (#26) →
   release commit → Preview #12 (normal နဲ့ trial; #30) → PR #2 merge → R9 Run workflow စစ်
   (#30 (vi)) → P8 (beta.4၊ Master ON)။
-  release ပြီးမှ: S1b၊ X2၊ "item အားလုံး" feature၊ B+ (S6)၊ A။
+  release ပြီးမှ: S1b၊ X2၊ "item အားလုံး" feature၊ B+ (S6)၊ A။ (B+ (S6) နဲ့ L2 ကို v1.0.2 မှာ
+  `yft.socialFill` flag နောက်မှာ ဆောက်ပြီး (2026-11-01၊ `cc06a26f`) — census APK မှာ ဖွင့်၊ release နဲ့
+  Preview မှာ ပိတ်; ဖွင့်မဖွင့်က S5 run တွေ ပြီးမှ ပိုင်ရှင် ဆုံးဖြတ်ပါမယ်။)
 - **ဆုံးဖြတ်ပြီး:** §8 #1–#30 (#5: 2026-10-22 — R9 ရဲ့ key နဲ့ hosting ကို agent က လုပ်၊ #30:
   2026-10-23 — signed release မှာ Master ON၊ #30 (vi): 2026-10-24 — merge ပြီးရင် R9
   ကို Run workflow နဲ့ publish)။ **ကျန်:** မရှိ။
@@ -148,7 +153,7 @@ by the owner's Run workflow on `main` (decision 30 (vi), 2026-10-24).**
   ပြီးမှ)။ X ရဲ့ age-limited / removed reason (`NO_MEDIA_FOUND`) မပြောင်းပါ။ link တစ်ခုကို item
   တစ်ခုပဲ ပြပါမယ် (IG `img_index`၊ X `/video/N`၊ မပါရင် ပထမ item; #11)၊ "item အားလုံး" feature
   က release ပြီးမှ။ Release gate (#12): site ၄ ခုလုံး S0–S5 ပြီးမှ PR #2 merge → P8 (beta.4) →
-  တခြားသူတွေ။ S1b နဲ့ B+ (S6) က release ပြီးမှ။ Baseline B0 (§9) ထက် main အောင်မြင်တဲ့ lookup
+  တခြားသူတွေ။ S1b နဲ့ B+ (S6) က release ပြီးမှ (B+ ကို flag နောက်မှာ ဆောက်ပြီး၊ release မှာ ပိတ်)။ Baseline B0 (§9) ထက် main အောင်မြင်တဲ့ lookup
   ရဲ့ request/အချိန် မများရပါ။
 - **S1a (8) ပြီးနောက် Plan (ပိုင်ရှင်၊ 2026-10-21၊ §7.4၊ §8 #13–#17):** census fix 0.4 (c) (debug
   only) ကို အရင်လုပ်ပြီး Facebook access fix A1 ("0.3 fix"၊ main၊ commit တစ်ခု) ကို နောက်မှ
@@ -728,7 +733,7 @@ With no adapter copies (B), the build is also about 4,700 lines smaller than the
 | **S4** | S | R9 live: the signed config hosted (§8 item 5, decided 2026-10-22: the agent makes the key and the hosting); kill switch per rung; one repair drill (a key changed by config on the phone, no APK) | drill passed — built (task 17, 2026-10-23, `2dcd0d1`; debug only, a social-ladder build: the key in the secret `YFT_RECIPE_KEY`, the config on the branch `recipes` by the `master-recipes-publish` workflow, `rungsOff`; §7.3); the drill: S4's phone session PASS (2026-10-23, steps 1–5; §7.4), its O1 fixed by task 18 (`ac0dd2c`); the re-drill PASS (2026-10-23, `ac0dd2c`'s APK, versions 6 and 7; §7.4) |
 | **S5** | — | Promote per site after 3 phone runs by decision 26's rule (each at least 6 h after the previous one, the first and the last at least 24 h apart, on an APK of the final code, only where Master ran) with 0 wrong rows and no regression against B0; then the release gate (§7.3): all four sites, the first W run and the R9 drill passed, the intended differences in `docs/SUPPORT_MATRIX.md` → PR #2 merged → R9's first Run workflow (decision 30 (vi)) → P8 (1.0.0) | done — runs 1, 2 and 3 of 3 PASS on every site (2026-10-23 17:27–17:31 UTC, 2026-10-24 01:14–01:18 UTC and 17:49–17:55 UTC, `ac0dd2c`'s APK: wrong rows 0; §7.4); the gate passed; the release commit built (2026-10-25, `work/phase-release-v1`); #12 next |
 | **S1b** | M | After the release, on the owner's go: the rest of the kit — several request rungs per site with `SiteHealth` (the last good rung first) and self-healed values (L6). Needed only if X2 is allowed or Instagram's `doc_id` needs self-healing: Facebook, TikTok and Instagram each have one request rung in S1a–S2d | JVM tests; phone proof per site |
-| **S6** | M | **B+** (the owner's go, after the release and B's phone proof): when main's answer is weak by an objective signal (no HD row, no sound row), Master adds only the missing formats; main's rows stay (merge rule); budgeted | phone proof; **A** only if B+ is measured insufficient (decision 7) |
+| **S6** | M | **B+** (the owner's go, after the release and B's phone proof): when main's answer is weak by an objective signal (no HD row, no sound row), Master adds only the missing formats; main's rows stay (merge rule); budgeted | phone proof; **A** only if B+ is measured insufficient (decision 7) — built behind `yft.socialFill` (v1.0.2, the owner's overnight task, 2026-11-01: `5e1ae143`, its CI fix `cc06a26f`; ahead of "after the release" on the owner's go), with §7.4's L2: on in the census APK (a social-ladder debug build), off in the release and the previews (`releaseMaster()`); Facebook, Instagram and VK in YFT's browser (not X: X1 replays main's answer; not TikTok: its rows state only the video codec); a weak answer keeps main's rows first and unchanged and gets only Master's rows of the same video that it lacks, each through V and `SiteRowCheck`, inside the lookup's record (budgets, 429 and bot-check stops), no capture of the tab; the phone proof and S5's runs 1–3 for the three sites next (`docs/FIX_ADD_PLAN.md` §6; open decisions §7) |
 
 
 ### 7.1 S0 — as built (started 2026-10-20, the owner's go)
@@ -1513,7 +1518,8 @@ task 18's code commit (`ac0dd2c`), from its run 1 after the re-drill (2026-10-23
 to a site's pack, the engine or main restarts that site's count (decision 26).
 
 **After the release** (each on the owner's go): S1b, X2, the "all items" feature — done in v1.0.2
-(`bf515f01`) —, B+ (S6), A.
+(`bf515f01`) —, B+ (S6) — built in v1.0.2 behind `yft.socialFill` (`5e1ae143`, `cc06a26f`), off in the
+release and the previews —, A.
 
 **Not done:** X's reason for the age-limited and removed posts changed; `LookupAsk.endpoint` or a
 YouTube file edited; a shape hash in a judge; yt-dlp on public CI; IDs, links or names in docs,
@@ -1985,7 +1991,13 @@ boxes off and the owner signed out of Instagram.
   (S4's session, step 5).
 - **L2:** on the same Instagram post the rung's 720p row was 897 KB against the tab capture's 720p
   at 1.9 MB (both 720 × 1280): the rung may pick a lower-bitrate version of one height. For S6
-  (B+), and before the rung's default turns on (decision 28).
+  (B+), and before the rung's default turns on (decision 28). *Built with S6* (v1.0.2, `5e1ae143`,
+  behind `yft.socialFill`): the rung's answer held three versions, each named 720 × 1280 and none
+  with a bitrate, and the sheet keeps the first per height; now, of the rows V passed from I2's
+  or the rung's answer, each height's versions (same sound, same video family) come best first
+  by rate (the stated bitrate, else the file's total over its length, read by V), no row
+  dropped; the line `master: each height's best first`. The phone retest: `docs/FIX_ADD_PLAN.md`
+  §6 (the four tasks after R10, step 7).
 - **L3 (cosmetic):** I2's page line says `SHAPE_CHANGED` where main's Details say "no post" for
   the same page (the post page, not the embed page). *Fixed in task 17:* where main's rule finds no
   post in a page (a node names the post's code with no data), I2's line is `NEEDS_PLAYBACK (no post
@@ -2348,7 +2360,8 @@ Decided (the owner, 2026-10-20; §7.3):
 - **11 — One item per link:** Instagram's `img_index`, X's `/video/N`, else the first item; an "all
   items" feature after the release.
 - **12 — The release gate:** S0–S5 for all four sites before PR #2's merge and P8 (beta.4); S1b and
-  B+ (S6) after the release.
+  B+ (S6) after the release. (B+ built in v1.0.2 behind `yft.socialFill`, off in the release: §4
+  S6.)
 
 Decided (the owner, 2026-10-21; §7.4):
 
@@ -2643,7 +2656,8 @@ Still open (the owner's answer is needed before the step that uses it): none.
 - More rungs means more requests: budgets, cooldowns, the recorder and the memo are required, not
   optional.
 - Under B, Master never improves a lookup main answered, even a weak one (no HD, no sound); B+ is the
-  planned answer, measured first. Main's own habits (e.g. Instagram asking on after a 429) stay
+  planned answer, measured first (built in v1.0.2 behind `yft.socialFill`, off in the release: §4
+  S6). Main's own habits (e.g. Instagram asking on after a 429) stay
   main's until the owner decides otherwise.
 - The recorder sees only requests through the shared HTTP client, not what a page loads in the
   browser (hidden pages, the visible tab); the census export says so.
