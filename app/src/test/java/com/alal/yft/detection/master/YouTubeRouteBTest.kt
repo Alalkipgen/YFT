@@ -38,13 +38,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * YouTube backup route: the app's wiring of the Lookup record's recorder and of the route's Master
- * wrappers.
+ * YouTube backup route: the app's wiring of the Lookup record's recorder and of
+ * the route's Master wrappers.
  */
 class YouTubeRouteBTest {
     /**
      * YouTube backup trial: the trial acts only with the route on (debug, `-Pyft.routeBTrial`); the
-     * browser's notice is route B's line of rows Master found, nothing for any other answer.
+     * browser's notice is the route's line of rows Master found, nothing for any other answer.
      */
     @Test
     fun theTrialNeedsRouteBAndTheNoticeIsRouteBsLine() {
@@ -63,7 +63,7 @@ class YouTubeRouteBTest {
 
     /**
      * YouTube backup route: the route goes with Master capture. The CI runs this in its two builds:
-     * the Master build (`-Pyft.masterCapture=true`, route B's default) has it on; the plain
+     * the Master build (`-Pyft.masterCapture=true`, the route's default) has it on; the plain
      * validation build (no Master capture) has it off, as do release and preview. Only a build made
      * with `-Pyft.youtubeRouteB=false` (one lookup per page, as before) differs.
      */
@@ -78,7 +78,7 @@ class YouTubeRouteBTest {
         // Every other build: today's client, exactly.
         val plain = YouTubeRouteB.mainClient(client, routeB = false)
         assertTrue(plain.toString(), plain is OkHttpExtractorClient)
-        // A route-B build: the same client inside the recorder (it passes through without a record).
+        // With the route: the same client inside the recorder (it passes through without a record).
         val recording = YouTubeRouteB.mainClient(client, routeB = true)
         assertTrue(recording.toString(), recording is LookupRecorder)
     }
@@ -100,7 +100,8 @@ class YouTubeRouteBTest {
         assertSame(runner, YouTubeRouteB.masterScripts(runner, routeB = false))
         assertSame(ownSolver, YouTubeRouteB.masterScripts(ownSolver, routeB = false))
         assertSame(reader, YouTubeRouteB.masterReader(reader, routeB = false))
-        // A route-B build: route B's wrappers; the own solver keeps handing V its checks; no runner stays none.
+        // With the route: its wrappers; the own solver keeps handing V its checks;
+        // no runner stays none.
         assertTrue(YouTubeRouteB.masterClient(http, routeB = true) is RouteBHttpClient)
         assertTrue(YouTubeRouteB.masterReader(reader, routeB = true) is RouteBMediaStartReader)
         val wrapped = YouTubeRouteB.masterScripts(ownSolver, routeB = true)
@@ -114,7 +115,7 @@ class YouTubeRouteBTest {
         val http = CountingHttp()
         // Every other build: the runners' client is the very same object as before.
         assertSame(http, YouTubeRouteB.scriptClient(http, routeB = false))
-        // A route-B build: route B's script client (it passes through outside a lookup).
+        // With the route: its script client (it passes through outside a lookup).
         assertTrue(YouTubeRouteB.scriptClient(http, routeB = true) is RouteBScriptClient)
     }
 
@@ -139,12 +140,13 @@ class YouTubeRouteBTest {
 
     @Test
     fun aRouteBModuleOnlyPassesThroughOutsideARouteBRun() = runTest {
-        // Without route B's lookup in the context (the census, every other run) its requests go out.
+        // Without the route's lookup in the context (the census, any other run)
+        // its requests go out.
         val http = CountingHttp()
         val module = MasterLadderSwitch.youTube(http, OkHttpClient(), null, enabled = false, ownSolver = false, routeB = true)
         module.extract(request(module.identify(WATCH_URL)!!))
         assertTrue(http.sent.get() >= 1)
-        // Flag off: today's module, even inside a route-B run's context.
+        // Flag off: today's module, even inside the route's lookup context.
         val record = LookupRecord()
         record.record(
             LookupAsk(LookupAsk.POST, PLAYER_URL, "{}"),

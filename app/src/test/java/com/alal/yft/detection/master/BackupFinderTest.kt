@@ -36,7 +36,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Decision 30 (i): Settings' "Backup finder", on by default; off, no lookup asks Master and
+ * Settings' "Backup finder", on by default; off, no lookup asks Master and
  * nothing goes to GitHub raw (each of Master's own requests fails before it is sent).
  */
 @RunWith(RobolectricTestRunner::class)

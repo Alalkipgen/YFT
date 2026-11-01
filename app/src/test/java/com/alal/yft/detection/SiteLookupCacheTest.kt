@@ -75,7 +75,7 @@ class SiteLookupCacheTest {
     }
 
     /**
-     * YouTube backup route: a route-B lookup's record notes when main's answer reached it without
+     * YouTube backup route: its lookup's record notes when main's answer reached it without
      * main asking in it — the remembered answer, or another caller's running lookup (that caller's
      * record gets main's requests). The lookup that asks notes nothing; the answers are the same.
      */

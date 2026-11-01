@@ -177,7 +177,7 @@ class ClientCensusActivity : ComponentActivity() {
         }
     }
 
-    /** A run belongs to this screen (guardrail 11): leaving it ends the run; turning the phone does not. */
+    /** A run belongs to this screen: leaving it ends the run; turning the phone does not. */
     override fun onStop() {
         super.onStop()
         if (running && !isChangingConfigurations) {

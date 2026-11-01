@@ -58,7 +58,7 @@ import okhttp3.OkHttpClient
 @InstallIn(SingletonComponent::class)
 object SiteAdapterModule {
     /**
-     * The client the site adapters share. Lookup record: in a route-B
+     * The client the site adapters share. Lookup record: in a YouTube backup route
      * build (`-Pyft.youtubeRouteB`, debug only) it records each lookup's requests; otherwise it is
      * the plain client. Social ladders: in a social-ladder build (`-Pyft.socialLadder`, debug
      * only) it records them and keeps main's pages too ([SocialLadder.mainClient]); flag off: as
@@ -100,8 +100,8 @@ object SiteAdapterModule {
      * call timeout; every other transport rule is the same. YouTube own solver: with both
      * opt-in flags on (`-Pyft.ownSolver`, `-Pyft.masterCapture`) Master's own solver runs instead
      * of the bundled ejs solver; otherwise this is main's runner, built exactly as on main.
-     * YouTube backup route: in a route-B build (`-Pyft.youtubeRouteB`, debug only) the
-     * player client follows route B's rules in a route-B run and marks a 429 in the lookup's record
+     * YouTube backup route: in its build (`-Pyft.youtubeRouteB`, debug only) the player client
+     * follows the route's rules in the route's runs and marks a 429 in the lookup's record
      * (`YouTubeRouteB.scriptClient`); otherwise it is the plain client. Release build: with the
      * own solver, Settings' Backup finder chooses at each request — on, the own solver; off,
      * main's runner exactly as on main ([BackupFinderPlayerScripts]).

@@ -29,8 +29,8 @@ sealed interface SiteAdapterOutcome {
         val candidates: List<MediaCandidate>,
         /**
          * YouTube backup route: the backup's details of rows it found — only
-         * route B's (its line first: `master: route B after <reason>; replayed N; new M`), so a
-         * route-B build can show them. Every other answer: none.
+         * the route's (its line first: `master: route B after <reason>; replayed N; new M`), so a
+         * build with the route can show them. Every other answer: none.
          */
         val details: List<String> = emptyList(),
     ) : SiteAdapterOutcome
@@ -124,8 +124,9 @@ class SiteAdapterCoordinator @Inject constructor(
             lookups.forget(key)
         } else {
             remembered(key, nowEpochMs)?.let {
-                // YouTube backup route: a route-B lookup's record notes that main did not ask in it
-                // (only a route-B build's YouTube lookup has a record; elsewhere nothing happens).
+                // YouTube backup route: its lookup's record notes that main did not ask in it
+                // (only a YouTube lookup in a build with the route has a record;
+                // elsewhere nothing happens).
                 currentCoroutineContext()[LookupRecord]?.noteReuse(LookupRecord.Reuse.REMEMBERED)
                 return it.anchoredTo(pageUrl)
             }

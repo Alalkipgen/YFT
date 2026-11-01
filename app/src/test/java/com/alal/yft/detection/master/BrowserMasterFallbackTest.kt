@@ -149,8 +149,8 @@ class BrowserMasterFallbackTest {
 
     /**
      * Ladder test switches: the trial's found page is answered by the site's own module (YouTube:
-     * the ladder, so H's row), not by capture. Run 4 showed the adapter's rows: the engine skips a
-     * claimed page unless no adapter answered, so a found page must reach it as unanswered.
+     * the ladder, so H's row), not by capture. A phone run showed the adapter's rows: the engine
+     * skips a claimed page unless no adapter answered, so a found page must reach it as unanswered.
      */
     @Test
     fun aFoundPageOfTheMasterFirstSiteIsAnsweredByItsModule() = runTest {
@@ -200,7 +200,7 @@ class BrowserMasterFallbackTest {
         assertTrue(gone.details.toString(), gone.details.any { "h-only: the page changed" in it })
     }
 
-    /** Item 2: every other build (no master-first site) and every other site return at once. */
+    /** Every other build (no master-first site) and every other site return at once. */
     @Test
     fun aFoundPageReturnsAtOnceWithoutTheTrialOrOnAnotherSite() = runTest {
         val primary = SiteAdapterOutcome.Detected("tiktok", listOf(candidate()))
@@ -286,7 +286,7 @@ class BrowserMasterFallbackTest {
 
     /**
      * YouTube backup route: in its build a YouTube page main failed with a recoverable reason is
-     * answered by Master's module inside a route-B run over the lookup's record (main's identical
+     * answered by Master's module inside the route's run over the lookup's record (main's identical
      * answer replayed, not asked again); the rows keep main's adapter.
      */
     @Test
@@ -319,9 +319,9 @@ class BrowserMasterFallbackTest {
 
     /**
      * YouTube backup trial: its trial APK answers a YouTube page main found as main's failure —
-     * RESPONSE_CHANGED (recoverable, so route B answers), main's adapter, Try again, no page files,
-     * main's row count in Details. Main's failures (a bot check stays final), nothing found,
-     * another site's page and every build without the trial keep main's answer itself.
+     * RESPONSE_CHANGED (recoverable, so the backup route answers), main's adapter, Try again, no
+     * page files, main's row count in Details. Main's failures (a bot check stays final), nothing
+     * found, another site's page and every build without the trial keep main's answer itself.
      */
     @Test
     fun theRouteBTrialAnswersMainsFoundYouTubePageAsMainsFailure() {
@@ -342,7 +342,7 @@ class BrowserMasterFallbackTest {
         assertSame(SiteAdapterOutcome.NotHandled, trial.trialPrimary(YOUTUBE_PAGE, SiteAdapterOutcome.NotHandled))
         val tiktokFound = SiteAdapterOutcome.Detected("tiktok", listOf(candidate()))
         assertSame(tiktokFound, Fixture(tiktok, youtubeRouteB = true, routeBTrial = true).bridge.trialPrimary(tiktok, tiktokFound))
-        // Every build without the trial (route B alone, the trial without route B, Master off): as is.
+        // Every other build (the route alone, the trial without the route, Master off): as is.
         assertSame(found, Fixture(YOUTUBE_PAGE, extractor = youTubeExtractor(), youtubeRouteB = true).bridge.trialPrimary(YOUTUBE_PAGE, found))
         assertSame(found, Fixture(YOUTUBE_PAGE, extractor = youTubeExtractor(), routeBTrial = true).bridge.trialPrimary(YOUTUBE_PAGE, found))
         assertSame(
@@ -526,7 +526,7 @@ class BrowserMasterFallbackTest {
     /**
      * YouTube backup route: its lookup that never reached Master keeps main's failure — its reason,
      * message and retry — with a Details line saying why: no page to ask, or the page to ask shows
-     * another video. Route B off: main's answer itself, as before.
+     * another video. With the route off: main's answer itself, as before.
      */
     @Test
     fun routeBSaysWhyItNeverAskedMaster() = runTest {
@@ -561,8 +561,8 @@ class BrowserMasterFallbackTest {
 
     /**
      * YouTube backup route: when Master's module gives no rows the lookup's answer stays main's
-     * failure — its reason, message and retry — and Master's details follow main's, route B named
-     * first.
+     * failure — its reason, message and retry — and Master's details follow main's,
+     * the route named first.
      */
     @Test
     fun routeBWithoutRowsKeepsMainsFailureAndAddsMastersDetails() = runTest {
@@ -656,7 +656,8 @@ class BrowserMasterFallbackTest {
         assertEquals("master: 1 checked candidates via PLAYBACK_CAPTURE", result.details.last())
         assertEquals(DiagnosticTextSanitizer.details(result.details), result.details)
 
-        // A site's failure the backup answered, outside the social ladder and route B: no lines.
+        // A site's failure the backup answered, outside the social ladder and
+        // the YouTube backup route: no lines.
         val site = Fixture(tiktok)
         val rows = site.bridge.recover(
             tiktok, failed(SiteExtractionFailure.BOT_CHECK), 100,
@@ -826,8 +827,8 @@ class BrowserMasterFallbackTest {
                     ),
                 )
             },
-            // YouTube backup route: the engine's route rule follows the build's switch, as in
-            // create().
+            // YouTube backup route: the engine's route rule follows the build's switch,
+            // as in create().
             policy = MasterPolicy(enabled = true, youtubeRouteB = youtubeRouteB),
             modules = modules,
             contracts = contracts,
@@ -895,8 +896,8 @@ class BrowserMasterFallbackTest {
 
     /**
      * YouTube backup route: Master's YouTube module stand-in. It asks main's player request again
-     * through route B's client and answers one HLS row (or [answer]); it notes the route-B run it
-     * saw.
+     * through the route's client and answers one HLS row (or [answer]); it notes
+     * the route's run it saw.
      */
     private class YouTubeModule(
         http: ExtractorHttpClient,

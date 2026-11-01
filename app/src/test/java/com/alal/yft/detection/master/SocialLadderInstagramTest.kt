@@ -196,7 +196,7 @@ class SocialLadderInstagramTest {
         val none = SiteAdapterOutcome.Detected("instagram", listOf(row(FILE_720, KEY, 9_000, 720)), listOf(ladder))
         assertEquals(ladder, SocialLadder.trialNotice(none))
 
-        // Task 13 (observation f): the tab-fetch rung's line too, on its own line, with rows.
+        // The tab-fetch rung's line too, on its own line, with rows.
         val rung = "master: instagram probe: HTTP 200, 2048 bytes; the post's video in the answer: yes; " +
             "a wall on the page: no; rows 1 (DIRECT)"
         val both = SiteAdapterOutcome.Detected("instagram", listOf(row(FILE_720, KEY, 9_000, 720)), listOf(ladder + segment, rung))
@@ -263,7 +263,7 @@ class SocialLadderInstagramTest {
         val proof = checkNotNull(InstagramProbeSwitch.proofReader(context, social = true))
         assertFalse(reader()) // off by default
         assertFalse(proof())
-        // Task 13: part 1's probe setting is not carried over (a new key).
+        // The earlier probe's setting is not carried over (a new key).
         preferences.edit().putBoolean("tab_fetch_probe", true).commit()
         assertFalse(reader())
         assertEquals("tab_fetch_rung", InstagramProbeSwitch.KEY)

@@ -49,14 +49,14 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Weak-answer fill (`B+` in Lookup details; docs/DESIGN.md) in the app's lookup: a Facebook page
- * main found with weak rows (no HD row) keeps main's rows exactly as main gave them, first, and
- * gets only the HD row Master's ladder finds that they lack, after V read its file and the census's
- * one-row check passed it (never with the user's session); a strong answer, a build without the
- * fill and every other case return main's answer at once, nothing asked; whatever stops the fill (a
- * 429 in the lookup, a failed file check, the page moving on) leaves main's answer with the fill's
- * line saying why. Main's real Facebook adapter over synthetic pages with made-up IDs, fake files
- * and file checks; each case passes the switches explicitly. No live calls.
+ * Weak-answer fill (`B+` in Lookup details; docs/ARCHITECTURE.md) in the app's lookup: a Facebook
+ * page main found with weak rows (no HD row) keeps main's rows exactly as main gave them, first,
+ * and gets only the HD row Master's ladder finds that they lack, after V read its file and the
+ * census's one-row check passed it (never with the user's session); a strong answer, a build
+ * without the fill and every other case return main's answer at once, nothing asked; whatever stops
+ * the fill (a 429 in the lookup, a failed file check, the page moving on) leaves main's answer with
+ * the fill's line saying why. Main's real Facebook adapter over synthetic pages with made-up IDs,
+ * fake files and file checks; each case passes the switches explicitly. No live calls.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])

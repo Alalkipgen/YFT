@@ -14,10 +14,10 @@ import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStartReader
 import okhttp3.OkHttpClient
 
 /**
- * YouTube backup route (docs/DESIGN.md): the build's switch and its app wiring. On in every debug
- * build made with `-Pyft.masterCapture=true` (`-Pyft.youtubeRouteB` is on by default; `=false`
- * turns it off); release, preview and every build without Master capture: off, and each piece here
- * is exactly today's.
+ * YouTube backup route (docs/ARCHITECTURE.md): the build's switch and its app wiring. On in every
+ * debug build made with `-Pyft.masterCapture=true` (`-Pyft.youtubeRouteB` is on by default;
+ * `=false` turns it off); release, preview and every build without Master capture: off, and each
+ * piece here is exactly today's.
  */
 internal object YouTubeRouteB {
     val enabled: Boolean get() = BuildConfig.YOUTUBE_ROUTE_B

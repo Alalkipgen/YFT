@@ -68,8 +68,8 @@ import org.robolectric.annotation.Config
  * Social ladders: the plugin player's answer names no length (as here now), so Master's rows state
  * their files' own (the row check's read of each file's start, made in code here) and the line
  * compares them; the ladder's rows stay while the same video stays open (the page's address changed
- * or it started again during the lookup), and when Master's answer is not used the Details say
- * which step.
+ * or it started again during the lookup), and when Master's answer is not used
+ * the Details say which step.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -182,7 +182,7 @@ class SocialTrialTest {
             listOf("master: tiktok trial: main's 1 rows set aside"),
         )
         assertEquals(tiktokTrial, fixture.bridge.trialPrimary(TIKTOK_PAGE, tiktokFound))
-        // The route-B trial with the Facebook trial: YouTube's answer exactly as routeb's.
+        // The YouTube backup trial with the Facebook trial: YouTube's answer exactly as routeb's.
         val both = Fixture(WATCH, youtubeRouteB = true, routeBTrial = true)
         val routeB = both.bridge.trialPrimary(YOUTUBE_PAGE, youtubeFound) as SiteAdapterOutcome.Failed
         assertEquals(
@@ -233,8 +233,8 @@ class SocialTrialTest {
 
     @Test
     fun theLineSaysWhenTheDurationsDifferOrAreNotKnown() = runTest {
-        // Social ladders: Master's length is its files' (their starts'), as the plugin player names
-        // none.
+        // Social ladders: Master's length is its files' (their starts'),
+        // as the plugin player names none.
         val later = Fixture(WATCH, fileMillis = MAIN_MILLIS + 1_001).lookup() as SiteAdapterOutcome.Detected
         val within = Fixture(WATCH, fileMillis = MAIN_MILLIS - 1_000).lookup() as SiteAdapterOutcome.Detected
         val masterNone = Fixture(WATCH, fileMillis = null).lookup() as SiteAdapterOutcome.Detected
@@ -248,7 +248,7 @@ class SocialTrialTest {
 
     @Test
     fun mastersRowsStateTheirFilesOwnLengthsAsThePluginPlayerNamesNone() = runTest {
-        // Step 6's first run: every trial line said "unknown" — the plugin player's answer has no
+        // In a phone run every trial line said "unknown" — the plugin player's answer has no
         // length (nor has this one), and Master's rows stated none.
         assertFalse(embed(VIDEO).contains("duration"))
         val fixture = Fixture(WATCH)
@@ -257,8 +257,8 @@ class SocialTrialTest {
 
         assertEquals(listOf(hd(VIDEO), sd(VIDEO)), found.candidates.map { it.mediaUrl })
         found.candidates.forEach { assertEquals(MASTER_MILLIS, it.durationMillis) }
-        // Each file's start read once (the row check's own read, nothing more asked for the
-        // length).
+        // Each file's start read once (the row check's own read,
+        // nothing more asked for the length).
         assertEquals(listOf(hd(VIDEO), sd(VIDEO)), fixture.reads.toList())
         assertTrue(SocialLadder.trialNotice(found)!!.endsWith("duration within 1 s: yes$NO_HEIGHTS"))
         // The ladder alone without the trial: the same rows and lengths, no comparison — the
@@ -307,8 +307,8 @@ class SocialTrialTest {
     @Test
     fun theLaddersRowsStayWhileTheSameVideoStaysOpenDuringTheLookup() = runTest {
         // The page starts again at its address, or its address changes to the same video's, while
-        // Master asks (a phone run's first lookups of a watch link, VPN, most likely): the rows
-        // stay.
+        // Master asks (a phone run's first lookups of a watch link, VPN, most likely):
+        // the rows stay.
         for (change in listOf(WATCH, VIDEO_PAGE)) {
             val fixture = Fixture(WATCH)
             fixture.duringAsk = { fixture.capture.session.navigate(change) }
@@ -611,8 +611,8 @@ class SocialTrialTest {
         var fileMillis: Long? = MASTER_MILLIS,
     ) {
         /**
-         * Social backup trial: each file's picture size its start states, by address (none: no
-         * track header).
+         * Social backup trial: each file's picture size its start states, by address
+         * (none: no track header).
          */
         var picture: (String) -> Pair<Int, Int>? = { null }
         var duringAsk: () -> Unit = {}
@@ -621,8 +621,8 @@ class SocialTrialTest {
             when (url) {
                 WATCH, REEL -> ok(mainPage, url)
                 SHORT -> ok(mainPage, WATCH)
-                // Facebook adapter: a Page post's page (its desktop address), its one video, no
-                // redirect.
+                // Facebook adapter: a Page post's page (its desktop address),
+                // its one video, no redirect.
                 POSTS, "$POSTS/" -> ok(mainPage, url)
                 else -> null
             }
@@ -720,9 +720,9 @@ class SocialTrialTest {
         const val REEL = "https://www.facebook.com/reel/$VIDEO"
 
         /**
-         * Task 7: link 9's form — a Page post's desktop link as the app's browser opens it
-         * (Facebook's mobile `story.php` naming the Page, a made-up one) and the address main reads
-         * for it (the Page's posts path).
+         * Facebook adapter: a test link's form — a Page post's desktop link as the app's browser
+         * opens it (Facebook's mobile `story.php` naming the Page, a made-up one) and the address
+         * main reads for it (the Page's posts path).
          */
         const val POST_ID = "1000000000000077"
         const val PAGE_NAME = "YftTrialPage"

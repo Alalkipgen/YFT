@@ -71,7 +71,8 @@ class SocialLadderTest {
         val client = OkHttpClient()
         val today = YouTubeRouteB.mainClient(client)
         val off = SocialLadder.mainClient(client, social = false)
-        assertEquals(today.javaClass, off.javaClass) // flag off: route B's client as before
+        // Flag off: the YouTube backup route's client as before.
+        assertEquals(today.javaClass, off.javaClass)
         val on = SocialLadder.mainClient(client, social = true)
         assertTrue(on.toString(), on is MainPageRecorder)
 
@@ -91,8 +92,8 @@ class SocialLadderTest {
             assertNotSame(first[LookupRecord], second[LookupRecord])
             assertNotSame(first[MainPages], second[MainPages])
         }
-        // A TikTok lookup its own record and pages, which name TikTok (the row check asks TikTok's
-        // hosts).
+        // A TikTok lookup its own record and pages, which name TikTok
+        // (the row check asks TikTok's hosts).
         val tiktok = social.lookupContext(TIKTOK)
         assertNotNull(tiktok[LookupRecord])
         assertEquals("tiktok", tiktok[MainPages]?.site)

@@ -27,7 +27,7 @@ import okhttp3.Request
 import okio.BufferedSource
 
 /**
- * YouTube ladder (docs/DESIGN.md): Master's client ladder, only in a debug build made with
+ * YouTube ladder (docs/ARCHITECTURE.md): Master's client ladder, only in a debug build made with
  * `-Pyft.clientLadder=true` and `-Pyft.masterCapture=true`; otherwise Master's YouTube module runs
  * its normal path exactly as before. One ladder per process, its health in the app's
  * `files/master/client-health.json` (data only; the file is found on first use, off this thread),

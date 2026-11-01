@@ -15,8 +15,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Client version source — the alternate-version rung's version source reader (docs/DESIGN.md): the
- * user's User-Agent only, no cookie, no redirect followed, at most the limit read, HTTPS on
+ * Client version source — the alternate-version rung's version source reader (docs/GLOSSARY.md):
+ * the user's User-Agent only, no cookie, no redirect followed, at most the limit read, HTTPS on
  * `raw.githubusercontent.com` only by default. The local TLS server stands in for the host.
  */
 class OkHttpVersionSourceReaderTest {

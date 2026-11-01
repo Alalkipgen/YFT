@@ -51,7 +51,7 @@ data class UpdateState(
     val lastGoodAt: Long? = null,
     val checking: Boolean = false,
     val line: CheckLine? = null,
-    /** A found version the Updates screen should open for by itself (§4.5); null when none. */
+    /** A found version the Updates screen should open for by itself; null when none. */
     val autoOpen: FoundUpdate? = null,
 ) {
     val testMode: Boolean

@@ -37,9 +37,8 @@ fun UpdateAutoOpen(
         // frame (a download notification's tap, ShowRequestedTab) may have left Home already.
         when (navController.currentDestination?.route) {
             null -> Unit
-            // A link Home is about to look up (v1.0.2, item 4: a share at a cold start; the
-            // browser's Download) comes first, as its sheet opens: the screen waits for the next
-            // open.
+            // A link Home is about to look up (a share at a cold start; the browser's Download)
+            // comes first, as its sheet opens: the screen waits for the next open.
             YftDestination.HOME.route -> if (homeHasALinkToLookUp(navController)) {
                 viewModel.deferAutoOpen()
             } else {

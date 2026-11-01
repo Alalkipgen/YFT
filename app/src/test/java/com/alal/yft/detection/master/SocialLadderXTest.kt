@@ -152,9 +152,8 @@ class SocialLadderXTest {
         val failed = recovered as SiteAdapterOutcome.Failed
         assertEquals(main.reason, failed.reason)
         assertTrue(failed.canRetry)
-        // Task 14 (observation e): no video in the tab (X's "post not found" page), so main's own
-        // words (with Try again), not the playback words; its line says which, before the
-        // main's-answer step's.
+        // No video in the tab (X's "post not found" page), so main's own words (with Try again),
+        // not the playback words; its line says which, before the main's-answer step's.
         assertEquals(XExtractor.HIDDEN_MESSAGE, failed.message)
         assertEquals(main.message, failed.message)
         val words = failed.details.indexOf("master: x words: main's (no video in the tab)")
@@ -162,8 +161,8 @@ class SocialLadderXTest {
         assertTrue(failed.details.toString(), failed.details.any { it.startsWith(NOT_FOUND_LINE) })
         assertTrue(words < failed.details.indexOfFirst { it.startsWith(NOT_FOUND_LINE) })
         assertTrue(failed.details.toString(), failed.details.none { "REMOVED" in it || "next: FINAL" in it })
-        // No new widget request (no widget token re-ask, no token check): Master asks nothing; main
-        // asked once.
+        // No new widget request (no widget token re-ask, no token check): Master asks nothing;
+        // main asked once.
         assertEquals(0, fixture.master.asked.get())
         assertEquals(1, fixture.main.asked.get())
         assertEquals(1, fixture.captures.get())
@@ -357,8 +356,8 @@ class SocialLadderXTest {
         const val WIDGET_HOST = "cdn.syndication.twimg.com"
 
         /**
-         * X ladder: the main's-answer step's line for the widget's 404 (never final; the tab's own
-         * playback next).
+         * X ladder: the main's-answer step's line for the widget's 404 (never final;
+         * the tab's own playback next).
          */
         const val NOT_FOUND_LINE =
             "master: x X1 main's answer: NEEDS_PLAYBACK (status 404: no post in the widget's answer, not proof of removal); next: PLAYBACK"
