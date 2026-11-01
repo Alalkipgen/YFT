@@ -399,7 +399,7 @@ visionOS rows still work. No remote code is ever used.
    `node --test scripts/own-solver/tests/*.test.mjs`.
 8. Push, build the census or owner test APK, run the phone check, then ship.
 
-## Raw phone-run data
+## Raw own-solver test data
 
 `docs/n5b-raw/` holds the raw result files (JSON) of one own-solver ladder test cycle on four
 computers: corpus, faults and change tests. It is kept as it is.
