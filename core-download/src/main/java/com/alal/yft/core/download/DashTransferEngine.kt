@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.math.roundToLong
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -261,6 +262,7 @@ class DashTransferEngine(
                 } else {
                     null
                 },
+                estimatesFromPieces = live,
                 progressIntervalMillis = policy.progressIntervalMillis,
                 elapsedMillis = elapsedMillis,
                 onProgress = onProgress,
@@ -2157,10 +2159,17 @@ class DashTransferEngine(
      * chunks still downloading (P41), never goes back (a failed attempt's bytes are taken back
      * without lowering what was shown), never passes the total, and comes at most every
      * [progressIntervalMillis]; the first bytes and the end are reported at once.
+     *
+     * With [estimatesFromPieces] (a live stream's pieces, whose total is not known), progress
+     * also carries an estimated total once [MIN_ESTIMATE_PIECES] pieces are in: the average size
+     * of the pieces downloaded so far times the number of pieces, which grows when the newest
+     * piece moves ([extend]). A piece its server did not serve (0 bytes) is left out of the
+     * average but still counted among the pieces.
      */
     private class DashCheckpointTracker(
         initial: DashTransferCheckpoint,
         private val totalBytes: Long?,
+        private val estimatesFromPieces: Boolean,
         private val progressIntervalMillis: Long,
         private val elapsedMillis: () -> Long,
         private val onProgress: suspend (DownloadProgress) -> Unit,
@@ -2173,6 +2182,7 @@ class DashTransferEngine(
         private val lastProgressAt = AtomicLong(NEVER)
         private var shownBytes = initial.downloadedBytes
         private var reportedBytes = -1L
+        private var reportedEstimate: Long? = null
 
         /** Counts [bytes] of a chunk still downloading; reports them when it is time. */
         suspend fun advance(bytes: Long) {
@@ -2240,20 +2250,35 @@ class DashTransferEngine(
             val capped = totalBytes?.let { counted.coerceAtMost(it) } ?: counted
             val moved = capped > shownBytes
             shownBytes = maxOf(shownBytes, capped)
-            if (!force && shownBytes == reportedBytes) return
+            val estimate = estimateLocked()?.coerceAtLeast(shownBytes)
+            if (!force && shownBytes == reportedBytes && estimate == reportedEstimate) return
             reportedBytes = shownBytes
+            reportedEstimate = estimate
             onProgress(
                 DownloadProgress(
                     downloadedBytes = shownBytes,
                     totalBytes = totalBytes?.takeIf { it >= shownBytes },
                     activeSegmentCount = checkpoint.chunks.count { !it.completed },
+                    estimatedTotalBytes = estimate,
                 ),
             )
             if (moved) onFirstProgress()
         }
 
+        /** The average size of the pieces downloaded so far times the number of pieces. */
+        private fun estimateLocked(): Long? {
+            if (!estimatesFromPieces || totalBytes != null) return null
+            val downloaded = checkpoint.chunks.filter { it.completed && it.downloadedBytes > 0 }
+            if (downloaded.size < MIN_ESTIMATE_PIECES) return null
+            val average = downloaded.sumOf { it.downloadedBytes }.toDouble() / downloaded.size
+            return (average * checkpoint.chunks.size).roundToLong()
+        }
+
         private companion object {
             const val NEVER = Long.MIN_VALUE
+
+            /** Fewer pieces than this give no estimate: the row shows only the bytes so far. */
+            const val MIN_ESTIMATE_PIECES = 10
         }
     }
 

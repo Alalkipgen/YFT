@@ -1490,7 +1490,9 @@ class AudioVideoMuxEngine(
      * Progress has a total only once both track lengths are known: a finished track's length is
      * what it downloaded, and a track still downloading reports its length when it knows one.
      * The bytes count what each track reported as written (P41), at most every
-     * [progressIntervalMillis] while the tracks download.
+     * [progressIntervalMillis] while the tracks download. Until then, when each track has a
+     * length or an estimate of it (a live stream's pieces), progress carries their sum as the
+     * estimated total.
      */
     private class MuxCheckpointTracker(
         initial: AudioVideoMuxCheckpoint,
@@ -1507,13 +1509,16 @@ class AudioVideoMuxEngine(
             if (initial.audioReady) initial.audio?.let { put(TrackKind.AUDIO, it.downloadedBytes) }
         }
         private val trackBytes = mutableMapOf<TrackKind, Long>()
+        private val trackEstimates = mutableMapOf<TrackKind, Long>()
         private var lastProgressAt: Long? = null
 
-        /** Notes a track's progress: its length and the bytes it wrote (P41). */
+        /** Notes a track's progress: its length or estimate and the bytes it wrote (P41). */
         suspend fun recordProgress(kind: TrackKind, progress: DownloadProgress) =
             gate.withLock {
                 progress.totalBytes?.takeIf { it > 0 }?.let { trackTotals[kind] = it }
                 trackBytes[kind] = progress.downloadedBytes
+                val estimate = progress.estimatedTotalBytes
+                if (estimate != null) trackEstimates[kind] = estimate else trackEstimates -= kind
                 if (isDue()) emitProgressLocked()
             }
 
@@ -1602,8 +1607,18 @@ class AudioVideoMuxEngine(
                     downloadedBytes = downloaded,
                     totalBytes = total,
                     activeSegmentCount = activeChunks,
+                    estimatedTotalBytes = if (total == null) estimateLocked(downloaded) else null,
                 ),
             )
+        }
+
+        /** Both tracks' lengths, an estimate standing in for one not known yet; else null. */
+        private fun estimateLocked(downloaded: Long): Long? {
+            if (trackTotals.size == TrackKind.entries.size) return null
+            val sizes = TrackKind.entries.map { kind ->
+                trackTotals[kind] ?: trackEstimates[kind] ?: return null
+            }
+            return sizes.sum().coerceAtLeast(downloaded)
         }
     }
 

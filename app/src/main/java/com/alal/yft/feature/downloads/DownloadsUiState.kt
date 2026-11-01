@@ -191,6 +191,12 @@ data class DownloadRowUiState(
      * place (this session); the row says so.
      */
     val folderUnavailable: Boolean = false,
+    /**
+     * An estimate of the whole size while [totalBytes] is unknown (a live stream that has
+     * ended), shown as "~236 MB"; the bar, the percent and the time left go by it, below 100%
+     * until the file is saved. Null otherwise.
+     */
+    val estimatedTotalBytes: Long? = null,
 ) {
     /** The file name without its extension, as the cards show it. */
     val title: String = YftFormat.title(displayName)
@@ -207,6 +213,11 @@ data class DownloadRowUiState(
      */
     val progressFraction: Float? = if (stage != null) {
         stage.percent?.let { percent -> (percent / 100f).coerceIn(0f, 1f) }
+    } else if (totalBytes == null && estimatedTotalBytes != null) {
+        estimatedTotalBytes
+            .takeIf { it > 0L }
+            ?.let { (downloadedBytes.toDouble() / it.toDouble()).toFloat() }
+            ?.coerceIn(0f, MAX_ESTIMATED_PERCENT / 100f)
     } else {
         totalBytes
             ?.takeIf { it > 0L }
@@ -217,9 +228,12 @@ data class DownloadRowUiState(
 
     val isTerminal: Boolean = status in TERMINAL_STATUSES
 
-    /** Seconds left at the current speed; null unless running with a known size and speed. */
+    /**
+     * Seconds left at the current speed; null unless running with a known (or estimated) size
+     * and a speed.
+     */
     val secondsLeft: Long? = run {
-        val total = totalBytes
+        val total = totalBytes ?: estimatedTotalBytes
         val speed = bytesPerSecond?.takeIf { it > 0L }
         if (status != DownloadTaskStatus.RUNNING || total == null || speed == null ||
             stage != null
@@ -299,6 +313,12 @@ data class DownloadsUiState(
                 .sortedWith(ROW_ORDER)
                 .map { task ->
                     val stage = DownloadStage.of(task)
+                    val estimate = task.estimatedTotalBytes
+                        ?.takeIf {
+                            task.totalBytes == null && stage == null &&
+                                task.status in PROGRESS_STATUSES
+                        }
+                        ?.coerceAtLeast(task.downloadedBytes)
                     DownloadRowUiState(
                         id = task.id,
                         displayName = task.displayName,
@@ -307,7 +327,9 @@ data class DownloadsUiState(
                         destinationKind = task.destinationKind,
                         downloadedBytes = task.downloadedBytes,
                         totalBytes = task.totalBytes,
-                        progressPercent = stage?.percent ?: task.progressPercent,
+                        progressPercent = stage?.percent
+                            ?: estimate?.let { estimatedPercentOf(task.downloadedBytes, it) }
+                            ?: task.progressPercent,
                         requiresLinkRefresh = task.requiresLinkRefresh,
                         failureReason = task.failureReason,
                         mimeType = task.mimeType,
@@ -323,8 +345,22 @@ data class DownloadsUiState(
                         noPlayerOnPage = task.id in renewals.noPlayer,
                         pickedQuality = renewals.qualities[task.id],
                         folderUnavailable = task.id in renewals.folderUnavailable,
+                        estimatedTotalBytes = estimate,
                     )
                 },
         )
     }
 }
+
+/**
+ * Whole percent of [downloaded] in an estimated total, 0..99: a guess never reads 100% before
+ * the file is saved. Null without an estimate above zero.
+ */
+internal fun estimatedPercentOf(downloaded: Long, estimatedTotal: Long): Int? {
+    if (estimatedTotal <= 0L) return null
+    return (downloaded.coerceIn(0L, estimatedTotal) * 100 / estimatedTotal)
+        .toInt()
+        .coerceIn(0, MAX_ESTIMATED_PERCENT)
+}
+
+private const val MAX_ESTIMATED_PERCENT = 99

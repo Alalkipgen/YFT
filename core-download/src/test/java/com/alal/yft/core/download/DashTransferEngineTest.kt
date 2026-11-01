@@ -670,6 +670,79 @@ class DashTransferEngineTest {
     }
 
     @Test
+    fun `an ended live shows an estimated total once 10 of its pieces are in`() = runTest {
+        val pieces = ownersPieces(30)
+        val size = pieces.first().size.toLong()
+        assertTrue(pieces.all { it.size.toLong() == size })
+        server.dispatcher = livePieceDispatcher(pieces)
+        val files = files("estimate.mp4")
+        val progress = mutableListOf<DownloadProgress>()
+
+        engine(maxConcurrentChunks = 1, progressIntervalMillis = 0).transfer(
+            plan = livePlan("estimate"),
+            destination = files.destination,
+            onProgress = { progress += it },
+        ) as DashTransferResult.Completed
+
+        // The total stays unknown; the estimate is the average piece times the 30 pieces.
+        assertTrue(progress.all { it.totalBytes == null })
+        val estimates = progress.mapNotNull { it.estimatedTotalBytes }
+        assertTrue(estimates.isNotEmpty())
+        assertEquals(setOf(30 * size), estimates.toSet())
+        // Fewer than 10 pieces in: no estimate, so the row shows only the bytes so far.
+        val early = progress.filter { it.downloadedBytes < 10 * size }
+        assertTrue(early.isNotEmpty())
+        assertTrue(early.all { it.estimatedTotalBytes == null })
+        assertEquals(30 * size, progress.last().downloadedBytes)
+        assertEquals(30 * size, progress.last().estimatedTotalBytes)
+    }
+
+    @Test
+    fun `a live with fewer than 10 pieces shows no estimated total`() = runTest {
+        server.dispatcher = livePieceDispatcher(ownersPieces(9))
+        val files = files("few.mp4")
+        val progress = mutableListOf<DownloadProgress>()
+
+        engine(progressIntervalMillis = 0).transfer(
+            plan = livePlan("few"),
+            destination = files.destination,
+            onProgress = { progress += it },
+        ) as DashTransferResult.Completed
+
+        assertTrue(progress.isNotEmpty())
+        assertTrue(progress.all { it.totalBytes == null && it.estimatedTotalBytes == null })
+    }
+
+    @Test
+    fun `an ended live's estimated total grows when its newest piece moves`() = runTest {
+        val pieces = ownersPieces(30)
+        val size = pieces.first().size.toLong()
+        server.dispatcher = livePieceDispatcher(pieces, heads = listOf(19, 29))
+        val files = files("estimate-moving.mp4")
+        val progress = mutableListOf<DownloadProgress>()
+
+        val result = engine(progressIntervalMillis = 0).transfer(
+            plan = livePlan("estimate-moving", expectedDurationMillis = 150_000),
+            destination = files.destination,
+            onProgress = { progress += it },
+        ) as DashTransferResult.Completed
+
+        assertEquals(30, result.checkpoint.chunks.size)
+        // 20 pieces at first, 30 once the newest piece moved from sq 19 to sq 29.
+        assertEquals(
+            listOf(20 * size, 30 * size),
+            progress.mapNotNull { it.estimatedTotalBytes }.distinct(),
+        )
+        // All 20 pieces in, then the larger total: the percent drops before it goes on.
+        val before = progress.last { it.estimatedTotalBytes == 20 * size }
+        val after = progress.first { it.estimatedTotalBytes == 30 * size }
+        assertEquals(20 * size, before.downloadedBytes)
+        assertTrue(after.downloadedBytes < 30 * size)
+        assertTrue(progress.all { it.totalBytes == null })
+        assertEquals(30 * size, progress.last().estimatedTotalBytes)
+    }
+
+    @Test
     fun `a live piece refused or rate limited for a while is asked again`() = runTest {
         val (track, pieces) = livePieces()
         server.dispatcher = livePieceDispatcher(pieces) { sq, ask ->
@@ -1039,11 +1112,15 @@ class DashTransferEngineTest {
         wholeFile = WholeFileTrack(totalBytes = totalBytes, maxRequestBytes = 1_000),
     )
 
-    /** Task 3: a live file's waits are 0 here; [liveSettleWaitsMillis] empty: none, as before. */
+    /**
+     * Task 3: a live file's waits are 0 here; [liveSettleWaitsMillis] empty: none, as before.
+     * [progressIntervalMillis] 0 reports every step of the progress.
+     */
     private fun engine(
         maxAttempts: Int = 3,
         maxConcurrentChunks: Int = 2,
         liveSettleWaitsMillis: List<Long> = listOf(0, 0, 0),
+        progressIntervalMillis: Long = 250,
     ): DashTransferEngine = DashTransferEngine(
         client = OkHttpClient(),
         workspaceRoot = workspaceRoot,
@@ -1052,6 +1129,7 @@ class DashTransferEngineTest {
             initialRetryDelayMillis = 0,
             maxConcurrentChunks = maxConcurrentChunks,
             bufferBytes = 1_024,
+            progressIntervalMillis = progressIntervalMillis,
             liveSettleWaitsMillis = liveSettleWaitsMillis,
             liveFirstPieceWaitsMillis = listOf(0, 0),
         ),

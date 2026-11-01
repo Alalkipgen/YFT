@@ -398,6 +398,12 @@ data class DownloadProgress(
     val totalBytes: Long?,
     val bytesPerSecond: Long = 0,
     val activeSegmentCount: Int = 0,
+    /**
+     * A guess at the whole size while [totalBytes] is unknown, shown with a "~" before it. A live
+     * stream that has ended has one: the average size of its pieces so far times the number of
+     * its pieces. Null when there is no honest guess, and whenever [totalBytes] is known.
+     */
+    val estimatedTotalBytes: Long? = null,
 ) {
     init {
         require(downloadedBytes >= 0)
@@ -405,6 +411,7 @@ data class DownloadProgress(
         require(totalBytes == null || downloadedBytes <= totalBytes)
         require(bytesPerSecond >= 0)
         require(activeSegmentCount >= 0)
+        require(estimatedTotalBytes == null || estimatedTotalBytes >= downloadedBytes)
     }
 
     val fraction: Double?

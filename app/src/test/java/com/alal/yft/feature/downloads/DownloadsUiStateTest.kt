@@ -3,6 +3,7 @@ package com.alal.yft.feature.downloads
 import com.alal.yft.core.download.DownloadDestinationKind
 import com.alal.yft.core.download.DownloadPlanType
 import com.alal.yft.core.download.StoredDownloadTask
+import com.alal.yft.core.model.download.AudioVideoMuxCheckpoint
 import com.alal.yft.core.model.download.DirectTransferCheckpoint
 import com.alal.yft.core.model.download.DownloadFailure
 import com.alal.yft.core.model.download.DownloadFailureReason
@@ -400,6 +401,87 @@ class DownloadsUiStateTest {
         assertFalse(singleRow(directTask("v", DownloadTaskStatus.QUEUED, 0, null)).isAudio)
     }
 
+    @Test
+    fun anEndedLiveShowsItsPercentAndItsEstimatedTotal() {
+        val state = DownloadsUiState.from(
+            listOf(liveTask(DownloadTaskStatus.RUNNING, downloaded = MB_205, estimate = MB_236)),
+            bytesPerSecond = mapOf("live" to 2_516_582L),
+        )
+
+        val row = state.rows.single()
+        assertEquals(MB_236, row.estimatedTotalBytes)
+        assertNull(row.totalBytes)
+        assertEquals(86, row.progressPercent)
+        assertEquals(205f / 236f, row.progressFraction!!, 0.0001f)
+        assertEquals("86%", percentLabel(row))
+        assertEquals("205 of ~236 MB · 2.4 MB/s · 13 s left", progressDetail(row))
+        assertEquals("MP4", metaLabel(row))
+    }
+
+    @Test
+    fun anEstimatedTotalThatGrowsLowersThePercent() {
+        val grown = singleRow(
+            liveTask(DownloadTaskStatus.RUNNING, downloaded = MB_205, estimate = MB_260),
+        )
+
+        assertEquals(78, grown.progressPercent)
+        assertEquals("78%", percentLabel(grown))
+        assertEquals("205 of ~260 MB", progressDetail(grown))
+    }
+
+    @Test
+    fun anEstimateNeverReads100PercentBeforeTheFileIsSaved() {
+        val allIn = singleRow(
+            liveTask(DownloadTaskStatus.RUNNING, downloaded = MB_236, estimate = MB_236),
+        )
+        assertEquals(99, allIn.progressPercent)
+        assertEquals(0.99f, allIn.progressFraction!!, 0.0001f)
+        assertEquals("99%", percentLabel(allIn))
+        assertEquals("236 of ~236 MB", progressDetail(allIn))
+
+        // Saved: the real size, as for any finished download, and no estimate.
+        val saved = singleRow(
+            liveTask(
+                DownloadTaskStatus.COMPLETED,
+                downloaded = MB_235,
+                estimate = MB_236,
+                total = MB_235,
+            ),
+        )
+        assertNull(saved.estimatedTotalBytes)
+        assertEquals(100, saved.progressPercent)
+        assertEquals("MP4 · 235 MB", metaLabel(saved))
+    }
+
+    @Test
+    fun aLiveWithoutAnEstimateLooksAsBefore() {
+        val row = singleRow(
+            liveTask(DownloadTaskStatus.RUNNING, downloaded = MB_205, estimate = null),
+        )
+
+        assertNull(row.estimatedTotalBytes)
+        assertNull(row.progressFraction)
+        assertEquals(0, row.progressPercent)
+        assertNull(percentLabel(row))
+        assertEquals("Downloading · 205 MB", progressDetail(row))
+    }
+
+    @Test
+    fun aKnownTotalWinsOverAnEstimate() {
+        val row = singleRow(
+            liveTask(
+                DownloadTaskStatus.RUNNING,
+                downloaded = MB_205,
+                estimate = MB_236,
+                total = MB_260,
+            ),
+        )
+
+        assertNull(row.estimatedTotalBytes)
+        assertEquals(78, row.progressPercent)
+        assertEquals("205 of 260 MB", progressDetail(row))
+    }
+
     private fun singleRow(task: StoredDownloadTask): DownloadRowUiState =
         DownloadsUiState.from(listOf(task)).rows.single()
 
@@ -482,4 +564,40 @@ class DownloadsUiStateTest {
         createdAtEpochMs = 1,
         updatedAtEpochMs = 1_000,
     )
+
+    /**
+     * A live stream's merged task, its tracks still coming, with the estimated total its
+     * progress reported.
+     */
+    private fun liveTask(
+        status: DownloadTaskStatus,
+        downloaded: Long,
+        estimate: Long?,
+        total: Long? = null,
+    ): StoredDownloadTask = StoredDownloadTask(
+        id = "live",
+        displayName = "live.mp4",
+        status = status,
+        planType = DownloadPlanType.AUDIO_VIDEO_MUX,
+        totalBytes = total,
+        downloadedBytes = downloaded,
+        mimeType = "video/mp4",
+        destinationKind = DownloadDestinationKind.MEDIA_STORE,
+        destinationUri = null,
+        preferredSegmentCount = 1,
+        requiresLinkRefresh = false,
+        failureReason = null,
+        checkpoint = AudioVideoMuxCheckpoint(),
+        createdAtEpochMs = 1,
+        updatedAtEpochMs = 1_000,
+        estimatedTotalBytes = estimate,
+    )
+
+    private companion object {
+        const val MB = 1_048_576L
+        const val MB_205 = 205 * MB
+        const val MB_235 = 235 * MB
+        const val MB_236 = 236 * MB
+        const val MB_260 = 260 * MB
+    }
 }

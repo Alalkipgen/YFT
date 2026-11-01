@@ -945,10 +945,22 @@ class DownloadQueue(
         val downloaded = maxOf(current.downloadedBytes, progress.downloadedBytes)
         val total = progress.totalBytes?.takeIf { it >= downloaded }
             ?: current.totalBytes?.takeIf { it >= downloaded }
-        if (downloaded == current.downloadedBytes && total == current.totalBytes) {
+        // Shown only while the total is unknown (a live stream that has ended).
+        val estimate = progress.estimatedTotalBytes
+            ?.takeIf { total == null }
+            ?.coerceAtLeast(downloaded)
+        if (downloaded == current.downloadedBytes && total == current.totalBytes &&
+            estimate == current.estimatedTotalBytes
+        ) {
             return@withLock
         }
-        publishLocked(current.copy(downloadedBytes = downloaded, totalBytes = total))
+        publishLocked(
+            current.copy(
+                downloadedBytes = downloaded,
+                totalBytes = total,
+                estimatedTotalBytes = estimate,
+            ),
+        )
     }
 
     private suspend fun persistCheckpoint(

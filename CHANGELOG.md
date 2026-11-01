@@ -93,6 +93,7 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   sheet when a site's own lookup failed before the page itself gave the video, under the error
   when no format of a found video can be read, with the file TikTok's player plays when TikTok's
   page could not be read, and after the backup finder found a video on any other website.
+- **Downloads**: a recently ended YouTube live shows a percent and "205 of ~236 MB" as it downloads.
 
 ### Fixed
 

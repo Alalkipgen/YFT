@@ -123,6 +123,25 @@ class DownloadLabelsTest {
     }
 
     @Test
+    fun anEstimatedTotalHasATildeAndTheSameRowFormat() {
+        assertEquals("205 of ~236 MB", amountOf(214_958_080, 247_463_936, estimated = true))
+        assertEquals("800 KB of ~1.2 MB", amountOf(819_200, 1_258_291, estimated = true))
+        val running = row(
+            DownloadTaskStatus.RUNNING,
+            downloaded = 214_958_080,
+            bytesPerSecond = 2_516_582,
+        ).copy(estimatedTotalBytes = 247_463_936, progressPercent = 86)
+
+        assertEquals("205 of ~236 MB · 2.4 MB/s · 13 s left", progressDetail(running))
+        assertEquals("205 of ~236 MB · 13 s left", progressDetail(running, withSpeed = false))
+        assertEquals("86%", percentLabel(running))
+        assertEquals(
+            "205 of ~236 MB · Paused",
+            progressDetail(running.copy(status = DownloadTaskStatus.PAUSED)),
+        )
+    }
+
+    @Test
     fun statusChipsSayWhyATaskIsNotMoving() {
         assertEquals(
             DownloadStatusChip("Waiting for Wi-Fi", YftStatusTone.Waiting, YftIcons.Wifi),

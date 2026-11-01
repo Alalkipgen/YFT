@@ -53,6 +53,12 @@ data class StoredDownloadTask(
      * not [failureReason] is out of date and is not shown.
      */
     val failure: DownloadFailure? = null,
+    /**
+     * An estimate of the whole size while [totalBytes] is unknown, from the engine's progress
+     * ([com.alal.yft.core.model.download.DownloadProgress.estimatedTotalBytes]), for a live
+     * stream that has ended. In memory only: it is not saved, and null when there is none.
+     */
+    val estimatedTotalBytes: Long? = null,
 ) {
     init {
         require(id.isNotBlank())
