@@ -1,289 +1,231 @@
-# YFT Architecture
+# Architecture
 
-## Architectural style
+How YFT is built: the modules, the way a link becomes a saved file, main and Master, the build
+flags and the security rules. Feature names are as in [GLOSSARY.md](GLOSSARY.md); the GLOSSARY also
+names each feature's main class.
 
-YFT will use feature-first packages over a small set of Gradle modules, with unidirectional UI state and interface boundaries around detection, extraction and downloading.
+## Technology
 
-```text
-Compose UI
-  -> ViewModel / StateFlow
-  -> Use cases
-  -> Detector and Extractor Registry
-  -> Candidate Normalizer / Variant Resolver
-  -> Download Planner
-  -> Direct / HLS / DASH / Mux engines
-  -> Room, OkHttp, Media3, WebView, MediaStore
-```
-
-The planned production modules are:
-
-```text
-:app
-:core-model
-:core-data
-:core-browser
-:core-media
-:core-download
-:extractor-api
-:extractor-generic
-:extractor-sites
-```
-
-UI features remain packages under `:app` until their size justifies separate modules:
-
-```text
-feature/home
-feature/browser
-feature/detectedmedia
-feature/preview
-feature/downloads
-feature/library
-feature/settings
-feature/about
-```
-
-## Technology decisions
-
-| Area | Decision |
+| Area | Choice |
 | --- | --- |
 | Language | Kotlin |
-| UI | Jetpack Compose + Material 3 |
-| UI state | ViewModel + StateFlow, unidirectional events/state/effects |
-| Dependency injection | Hilt, unless Phase 1 identifies a build blocker |
+| UI | Jetpack Compose + Material 3 ([DESIGN.md](DESIGN.md)) |
+| UI state | ViewModel + StateFlow, one-way events and state |
+| Dependency injection | Hilt |
 | HTTP | OkHttp |
 | Database | Room |
 | Preferences | DataStore |
-| Playback/manifest support | AndroidX Media3 |
-| Active downloads | Foreground service |
-| Maintenance work | WorkManager only where appropriate |
-| Public storage | MediaStore |
-| User-selected storage | Storage Access Framework |
-| CI toolchain | JDK 17, Gradle 8.9, Android SDK 35 |
+| Preview and manifests | AndroidX Media3 |
+| Active downloads | A foreground service |
+| Saving | MediaStore and the Storage Access Framework |
+| Toolchain | JDK 17, Gradle 8.9, Android SDK 35 (minSdk 24) |
 
-## Domain model
+## Modules
 
-### MediaCandidate
+| Module | What it holds |
+| --- | --- |
+| `:app` | Screens, ViewModels, Hilt wiring, site adapter runs, Master's app side, the download service, in-app update; owner tools in `src/debug` |
+| `:core-model` | Shared models: media candidates and qualities, download plans, results and errors, settings, log redaction |
+| `:core-data` | Room database, DataStore preferences, the shared HTTP client |
+| `:core-browser` | WebView policy and clients, page detection (DOM probes, HTML scan, the playing video, metadata probes, ad hosts and VAST tracking), the per-page candidate store and probe budget |
+| `:core-media` | The Media3 preview player, HLS, DASH and MP4 parsing, the quality resolver, HLS sound pairing |
+| `:core-download` | Download queue and engines (direct, DASH, HLS, live), merge and fast merge, MP3 conversion, save destination, link renewal |
+| `:extractor-api` | The site extractor interface and registry, the HTTP client, player script runner and PoToken interfaces, JSON helpers |
+| `:extractor-generic` | The page video finder's boundary, media URL classifier, manifest facts, candidate normalizer |
+| `:extractor-sites` | Main's site adapters: `facebook`, `instagram`, `tiktok`, `vimeo`, `vk`, `x`, `youtube` |
+| `:extractor-master` | Master, the backup engine, in plain Kotlin ([README](../extractor-master/README.md)) |
+| `:extractor-master-android` | Master's Android parts: WebView capture, solver engines, page scripts ([README](../extractor-master-android/README.md)) |
 
-A raw observation from DOM, WebView requests, DownloadListener, manifest discovery or a site adapter.
+Dependencies point one way:
 
-Required fields:
-
-- page URL and candidate URL
-- detector source
-- MIME/manifest hint
-- title, thumbnail and duration when known
-- replayable request context or secure session reference
-- confidence and expiry hints
-- DRM hint
-
-### MediaAsset
-
-A normalized logical media item, grouping candidates from the same page/content identity.
-
-### MediaVariant
-
-A real selectable representation such as 1080p MP4, 720p HLS or audio-only M4A. Unknown metadata stays unknown.
-
-### DownloadPlan
-
-A sealed plan type:
-
-- `Direct`
-- `SegmentedDirect`
-- `Hls`
-- `Dash`
-- `AudioVideoMux`
-
-### DownloadTask
-
-Persisted transfer state including progress, destination, retry information and structured failure reason.
-
-## Core interfaces
-
-```kotlin
-interface MediaDetector {
-    suspend fun detect(context: DetectionContext): List<MediaCandidate>
-}
-
-interface MediaExtractor {
-    fun supports(pageUrl: String): Boolean
-    suspend fun extract(context: ExtractionContext): ExtractionResult
-}
-
-interface VariantResolver {
-    suspend fun resolve(candidate: MediaCandidate): ResolutionResult
-}
-
-interface DownloadPlanner {
-    suspend fun plan(asset: MediaAsset, variant: MediaVariant): DownloadPlan
-}
-
-interface DownloadEngine<P : DownloadPlan> {
-    suspend fun run(plan: P, observer: ProgressObserver): DownloadResult
-}
+```text
+:app -> every module (Master through :extractor-master-android)
+:core-data, :core-media -> :core-model
+:core-download -> :core-data, :core-model
+:core-browser -> :core-model, :extractor-generic
+:extractor-api -> :core-model
+:extractor-generic -> :extractor-api, :core-model
+:extractor-sites -> :extractor-api, :core-model
+:extractor-master -> :extractor-api, :extractor-generic   (:extractor-sites in tests only)
+:extractor-master-android -> :extractor-master, :core-browser, :extractor-generic
 ```
 
-## Detection pipeline
+Master never depends on main's adapters. Code Master shares with main is copied into its toolkit and
+checked by the toolkit drift check.
 
-1. `DownloadListenerDetector` observes browser-declared downloads.
-2. `DomMediaDetector` reads `video`, `audio` and `source` elements without modifying the page.
-3. `RequestUrlDetector` observes HTTP(S) GET URLs and request headers.
-4. `ManifestDetector` recognizes HLS and DASH URLs.
-5. `SiteHintDetector` routes known pages to an isolated adapter.
-6. `CandidateNormalizer` removes stale, duplicate and obvious non-media entries.
+### App packages
 
-A literal `blob:` URL is not a downloadable file. The detector must find the underlying request, manifest or page-provided source.
+`app/src/main/java/com/alal/yft/`:
 
-Android WebView exposes observed request URLs and request headers through `shouldInterceptRequest`, but not a convenient passive response-body/MIME stream. Phase 2 should combine URL/DOM observations with bounded OkHttp probes rather than proxying every WebView response.
+- `detection/`: runs main's adapters (`SiteAdapterCoordinator`), lookup reuse, sound pairing, the
+  AV1 merge switch; `detection/master/` (Master in the app), `potoken/`, `reads/`, `script/`,
+  `tiktok/`.
+- `download/`: the foreground service, save folders, fresh link renewal, delete file.
+- `feature/`: `about`, `browser`, `detectedmedia`, `downloads`, `home`, `library`, `preview`,
+  `quickdownload` (the Download sheet), `settings`.
+- `update/`: in-app update. `diagnostics/`: crash reports. `thumbnail/`. `ui/`: theme, components,
+  quiet details.
+- `app/src/debug/java/com/alal/yft/master/`: the owner tools (client census, site census, solver
+  canary, stream check meter).
 
-The Phase 2 implementation applies those bounds explicitly:
+## From a link to a saved file
 
-- at most 200 raw observations and 50 normalized candidates are retained per page;
-- metadata probing is limited to 20 unique strongly hinted URLs per page and two concurrent calls;
-- each probe has a 10-second call timeout and at most five manual redirects;
-- `HEAD` is preferred, with a one-byte range `GET` fallback only when necessary;
-- navigation cancels in-flight probes and immediately clears stale candidates;
-- browser credentials are replayed only on the original origin; cross-origin redirects retain only non-sensitive negotiation headers.
+1. **The user gives a link.** Paste it on Home, share it to YFT, or open the page in YFT's browser.
+2. **Main looks it up.**
+   - A known site: `SiteAdapterCoordinator` runs main's adapter for it through the site extractor
+     registry. Lookup reuse shares one answer between Home, the browser and a reopened sheet.
+   - Any other page: the page video finder reads the page's own video (tags, scripts, manifests,
+     the playing video) and the ad filter drops ads.
+   - In the browser, `core-browser` watches the page and keeps candidates per page (at most 200 raw
+     observations; metadata probes for at most 20 different addresses per page).
+3. **Master may answer** if main fails (see "Main and Master").
+4. **The Download sheet** shows the qualities. The row check tests a row's first bytes before it is
+   shown. The user picks a row; Lookup details shows how the rows were found.
+5. **The download queue** plans and runs the download in the foreground service: direct, DASH, HLS
+   or live. Separate video and sound tracks are merged (fast merge for long videos). Sound can be
+   turned into MP3. An expired link gets a fresh link and resumes.
+6. **The file is saved** to the save folder (MediaStore or a folder the user chose) and shows in
+   Downloads and the Library.
 
-### Site lookup cache (P17)
+## Main and Master
 
-`SiteLookupCache` (app `detection/`, one per process) remembers what a site adapter answered for
-a video so Home, the browser and a reopened download sheet share one lookup:
+- **Main** is YFT's normal path: the site adapters, the TikTok page reader, the page video finder,
+  the YouTube ejs solver and the YouTube PoToken maker.
+- **Master** is the backup engine. It looks for rows only after main fails with a reason it can
+  recover from, and only while Settings' "Backup finder" is on.
+  - YouTube: the YouTube backup route (the YouTube ladder, the YouTube own solver, the Master
+    YouTube module).
+  - Facebook, Instagram, TikTok, X and VK: the social ladders, within the social limits.
+  - Any page: browser capture, the site contract reader, shape search and the recipe reader.
+- Site data that changes often (keys, paths, headers, a step's off switch) comes from the signed
+  recipe config, so many site fixes need no new APK.
+- Lookup details lines that start with `master:` come from Master.
 
-- the key is the adapter's site ID and content ID plus whether the user's session (cookies) was
-  sent; `SiteAdapterCoordinator.inspect` consults it before running the adapter and re-anchors a
-  remembered answer to the address being shown;
-- at most 20 videos, each kept until the earliest expiry its links state or 10 minutes, whichever
-  comes first; memory only, never written to disk, and keys never name the video in logs;
-- a second lookup of a video while the first runs waits for it (ref-counted); the last caller to
-  stop waiting cancels the adapter call;
-- a lookup with the session may take the answer of one without it (Home's link, then the same
-  video in the browser); an answer read with the session never serves a lookup without it;
-- failures are never kept; Try again (`fresh`) always asks the site and drops the old answer;
-- HTTP 403 or 410 (or an expired link) in the sheet's final check, the engine refusing the link,
-  or a started download that later fails that way drops the video's answer, so its next lookup
-  asks the site again; Settings › Clear browsing data clears the whole cache.
+## Build flags
+
+Debug builds read the feature flags below. The release and both previews ignore them:
+`releaseMaster()` in `app/build.gradle.kts` fixes their values.
+
+| Flag (`-P`) | BuildConfig | Debug default | Release and previews | Feature |
+| --- | --- | --- | --- | --- |
+| `yft.masterCapture` | `MASTER_CAPTURE_ENABLED` | false | true | Backup finder, browser capture |
+| `yft.ownSolver` | `OWN_SOLVER_ENABLED` | false | true | YouTube own solver |
+| `yft.ownSolverNext` | `OWN_SOLVER_NEXT_ENABLED` | false | false | Own-solver ladder |
+| `yft.clientLadder` | `CLIENT_LADDER_ENABLED` | false | true | YouTube ladder (needs `yft.masterCapture`) |
+| `yft.ladderSkip`, `yft.ladderMutate` | `LADDER_SKIP`, `LADDER_MUTATE` | empty | empty | Ladder test switches |
+| `yft.youtubeRouteB` | `YOUTUBE_ROUTE_B` | true | true | YouTube backup route (needs `yft.masterCapture`) |
+| `yft.routeBTrial` | `YOUTUBE_ROUTE_B_TRIAL` | false | trial preview only | YouTube backup trial |
+| `yft.socialLadder` | `SOCIAL_LADDER` | false | true | Social ladders (needs `yft.masterCapture`) |
+| `yft.socialTrial` | `SOCIAL_TRIAL` | false | trial preview only | Social backup trial |
+| `yft.socialFill` | `SOCIAL_FILL` | true | false | Weak-answer fill and best-first order (with the social ladders) |
+| `yft.masterRecipeKey` | `MASTER_RECIPE_KEY` | empty; the committed key in a social-ladder build | the committed key | Signed recipe config |
+| `yft.masterRecipeUrl` | `MASTER_RECIPE_URL` | `https://raw.githubusercontent.com/Alalkipgen/YFT/recipes/master-recipes-2.json` | the same | Signed recipe config |
+
+Two build settings are not features: `yft.previewBuild` (the CI run number in a preview's
+version) and `yft.requireReleaseSigning=true` (release prep: fail a release build without signing).
+
+Other BuildConfig switches:
+
+- `YOUTUBE_ADAPTER_ENABLED` (true): turns main's YouTube adapter off per build.
+- `INSTAGRAM_TAB_RUNG`: the Instagram tab-fetch step; built into social-ladder debug builds (off
+  until its census box is ticked), never in the release or previews.
+- `AV1_MERGE_SWITCH`: the AV1 merge switch; debug builds only (off until its census box is ticked).
+  In the release and previews AV1 merges stay off (`AudioVideoMuxCompatibility.AV1_MP4_ENABLED`).
+- `QUIET_RELEASE`: quiet details in the release and the normal preview; the trial preview shows
+  every detail.
+
+The owner tools' launcher icons show only in a debug build with `yft.masterCapture` and
+`yft.ownSolver` (the solver canary also needs `yft.ownSolverNext`).
+
+## Build variants
+
+| Build type | Application ID | Signing | Notes |
+| --- | --- | --- | --- |
+| `debug` | `com.alal.yft.debug` | The fixed owner debug key if `app/keystore/spike-debug.keystore` exists, else the default debug key | Reads the `-P` flags |
+| `release` | `com.alal.yft` | The release key (or unsigned) | Shrunk; `releaseMaster(trials = false)` |
+| `preview` | `com.alal.yft.preview` | A CI test key | The release code, quiet |
+| `previewTrial` | `com.alal.yft.trial` | A CI test key | The release code with the trials and every detail |
+
+Version, signing and publishing are in [RELEASE.md](RELEASE.md).
+
+## Data and state
+
+- `AppDatabase` (Room, version 6, exported schemas, explicit migrations, no destructive fallback):
+  download records, download segments and browser history. It holds no cookie or signed address.
+- Settings live in Preferences DataStore behind `SettingsRepository`.
+- Lookup reuse is memory only: at most 20 videos, each kept until its links expire or 10 minutes.
+  A failure is never kept; Try again always asks the site.
+- The selected candidate is kept in memory only. Signed addresses, cookies and browser context
+  never go into navigation routes, saved state or Room.
 
 ## Request context
 
-Preview and download must be able to replay only the required values:
+Preview and download replay only the values a site needs: Cookie, Referer, User-Agent, Accept and
+site-required headers that are not hop-by-hop. YFT owns the Range and If-Range headers and strips
+connection headers. Browser credentials are replayed only to their own origin. Cookies, tokens and
+full signed addresses are never logged.
 
-- Cookie
-- Referer
-- User-Agent
-- Accept
-- Site-required non-hop-by-hop headers
+## Preview
 
-The application owns Range and If-Range headers. It must strip connection-specific headers and never log cookies, access tokens or full signed URLs.
+Media3 previews direct files and non-DRM HLS and DASH. The resolver reads real streams, sound
+tracks, resolution, frame rate, codec and bitrate; sizes it cannot know stay unknown or are marked
+as estimates. A video-only stream with a separate sound track plays as a merged pair. The preview
+player is created lazily and released with its screen.
 
-## Preview and stream handling
+## Downloads
 
-Media3 is the production preview engine for direct and non-DRM HLS/DASH media. Phase 3 implements:
+- The download queue runs transfers in a foreground service with a notification. Room keeps task
+  and recovery state, so a restarted process resumes safely and never marks an unfinished file as
+  done.
+- Direct files download in resumable ranges. DASH and HLS download the chosen tracks' pieces. A
+  video-only file with a sound file is planned as a merge of two tracks, each cut into resumable
+  chunks of at most 10 MiB.
+- Requests to `googlevideo.com` are kept small, because larger single requests slow down.
+- Merge uses Android's media APIs; long videos use fast merge (stream copy, no re-encode). There is
+  no FFmpeg.
 
-- a 10-second bounded resolver with at most five manual redirects;
-- direct `HEAD` metadata with a one-byte range fallback that never intentionally reads the full media body;
-- HLS master/media parsing for real streams, audio renditions, resolution, FPS, codec and bitrate;
-- secure, external-entity-disabled DASH parsing for real video/audio representations and duration;
-- exact direct sizes and bitrate/duration estimates explicitly marked as estimated; absent data remains unknown;
-- preflight expiry, DRM, malformed-manifest and unsupported-codec failures;
-- explicit Progressive, HLS and DASH Media3 sources over HTTPS;
-- an origin-aware OkHttp policy that replays browser context to the credential origin and removes credential/custom context headers cross-origin.
+## In-app update
 
-Candidate selection is kept only in a singleton in-memory flow. Signed URLs, cookies and browser context are not placed in navigation routes, saved state or Room. The "Download as" preview sheet (a navigation dialog destination holding a Material modal bottom sheet) owns a lazy player for the selected representation, disables autoplay, releases it with the composition and exposes generic playback errors without upstream diagnostics.
+- Only release-key builds check. They ask
+  `https://api.github.com/repos/Alalkipgen/YFT/releases?per_page=10` at most once a day when YFT
+  opens, or on Check now.
+- The checker talks only to `api.github.com`, `github.com`, `objects.githubusercontent.com` and
+  `release-assets.githubusercontent.com` (at most 5 redirects), over HTTPS, with no token or
+  cookie.
+- Before installing, YFT checks the APK against the release's `SHA256SUMS`, its signature, its
+  package and its version, then hands it to Android's PackageInstaller. Any failed check stops the
+  update.
 
-Offline/export behavior is separate from preview:
+## Security rules
 
-- Direct files use the reusable segmented HTTP design.
-- HLS/DASH initially use selected-track segment download.
-- Separate audio/video tracks require an explicit mux step.
-- A video-only file with a companion audio file (YouTube's adaptive streams, T17) is planned as an
-  `AudioVideoMux` of two whole-file DASH tracks (`DashDownloadPlan.wholeFile`). Each track is cut
-  into byte ranges of at most 10 MiB, kept as resumable chunks whose fingerprint names the track
-  and its length but not the address, so a refreshed address keeps finished chunks. Preview plays
-  the same pair through a `MergingMediaSource`.
-- Direct plans can bound each ranged request (`DirectDownloadPlan.maxRequestBytes`); YFT does so
-  for `googlevideo.com`, which slows down larger single requests.
-- A large FFmpeg dependency is not approved in Phase 0. Phase 4 must evaluate Android `MediaMuxer`, container compatibility and licensing/size before adding a fallback.
+- HTTPS by default; TLS checks are never turned off.
+- WebView file and content access is off unless a feature needs it; mixed content is blocked.
+- JavaScript bridges are avoided, or kept narrow when needed.
+- File names are cleaned against path tricks and reserved names.
+- Sensitive request values are redacted from logs, crash reports and owner reports
+  (`SensitiveValueRedactor`).
+- DRM manifests give a clear "not supported" result.
+- No remote code is ever run. The signed recipe config carries data only.
 
-## Background execution
+## Where to look
 
-- Active transfers run through a foreground service with a persistent notification.
-- Room stores tasks and recovery state.
-- WorkManager is reserved for cleanup, bounded retry or link refresh, not as the only large-transfer engine.
-- Process restart restores tasks safely; it never marks an incomplete file as completed.
+| Area | Where |
+| --- | --- |
+| Main's site adapters | `extractor-sites/src/main/kotlin/com/alal/yft/extractor/sites/<site>/` |
+| YouTube ejs solver, PoToken maker, session reset | `app/…/detection/script/`, `detection/potoken/`, `feature/settings/` |
+| TikTok page reader | `app/…/detection/tiktok/`, `detection/PageDataSources.kt` |
+| Page video finder, ad filter | `extractor-generic`, `core-browser/…/core/browser/detection/`, `core-model/…/core/model/media/PageVideoProof.kt` |
+| Adapter runs, lookup reuse, sound pairing | `app/…/detection/` |
+| Download sheet | `app/…/feature/quickdownload/` |
+| Master in the app (Backup finder, YouTube backup route, social ladders' app side, test switches) | `app/…/detection/master/` |
+| Master engine | `extractor-master/src/main/kotlin/com/alal/yft/extractor/master/`: `layers/`, `recipes/`, `lookup/`, `verify/`, `toolkit/`, `modules/youtube/`, `solver/`, `social/` |
+| Master on Android | `extractor-master-android/…/extractor/master/android/`, `src/main/assets/` |
+| Owner tools | `app/src/debug/java/com/alal/yft/master/` |
+| Downloads, merge, MP3 | `core-download/…/core/download/`, `app/…/download/` |
+| Preview and parsing | `core-media/…/core/media/` |
+| In-app update | `app/…/update/` |
+| Crash reports | `app/…/diagnostics/` |
+| Theme and components | `app/…/ui/` |
 
-## Security boundaries
-
-- HTTPS by default; TLS verification is never disabled.
-- WebView file and content access disabled unless a documented feature requires them.
-- Mixed content blocked in production.
-- JavaScript bridge avoided by default and narrowly scoped if introduced.
-- Filenames sanitized against traversal and reserved names.
-- Sensitive request context redacted from logs and crash reports.
-- DRM manifests produce a structured unsupported result.
-- Site adapters cannot execute unsigned remote code.
-
-## Release build and signing
-
-- `yft.versionName` and `yft.versionCode` in `gradle.properties` are the single version source for Gradle, `scripts/release-prep.sh` and the release workflow; the Git tag is `v<versionName>`.
-- The release build type is minified and resource-shrunk; `app/proguard-rules.pro` keeps `@JavascriptInterface` methods so the solver bridge keeps its `post` name.
-- Release signing is resolved at configuration time from `YFT_RELEASE_*` environment variables, then per key from the untracked `keystore.properties`. A partial configuration or a missing keystore fails the build, `-Pyft.requireReleaseSigning=true` fails when signing is absent, and an unconfigured build stays unsigned: the debug key is never used for release. Signatures are APK Signature Scheme v2 + v3.
-- `scripts/verify-release-apk.sh` is the gate for every distributed APK (package, version, not debuggable, alignment, one non-debug signer, certificate pin, upgrade rules, SHA-256). The `Release draft` workflow only drafts; publishing needs `ALLOW_RELEASE=true` and a manual request. Details: `docs/RELEASE.md`.
-
-## Reuse strategy
-
-AlalDownloader is MIT licensed and owned by the same GitHub account. YFT may adapt its tested download-engine concepts, preserving applicable license notices. The production YFT code should use YFT models/interfaces and remain independently buildable.
-
-## Phase 1 implemented foundation
-
-The production project now implements the planned nine-module graph. Dependency direction is intentionally one-way:
-
-```text
-:app
-  -> Android core modules and extractor implementations
-:core-download
-  -> :core-data -> :core-model
-:core-browser, :core-media
-  -> :core-model
-:extractor-generic, :extractor-sites
-  -> :extractor-api -> :core-model
-```
-
-The current feature packages under `:app` are:
-
-```text
-feature/home
-feature/browser
-feature/detectedmedia
-feature/preview
-feature/downloads
-feature/library
-feature/settings
-feature/about
-```
-
-All eight routes are real Compose destinations. Browser/detection and preview/variant behavior were added in Phases 2 and 3 respectively; download, library export and site-adapter behavior remain phase-scoped.
-
-### State and settings
-
-`AppViewModel` exposes immutable `StateFlow<AppUiState>` and accepts explicit UI actions. The selected system/light/dark theme is persisted through a `SettingsRepository` backed by Preferences DataStore. UI code depends on the repository interface rather than DataStore directly.
-
-### Persistence and migrations
-
-`AppDatabase` is a Room v2 database with exported schemas. Its baseline `download_records` table stores non-sensitive lifecycle metadata. Migration `1→2` adds a nullable structured error code and is validated against the exported schemas. Database construction registers the migration explicitly and does not use destructive fallback.
-
-### Dependency injection and service foundations
-
-Hilt provides the Room database/DAO, singleton Preferences DataStore, default OkHttp client, logger bindings and Media3 player factory. OkHttp retains platform certificate and hostname verification and has no request/response logging interceptor. `MediaPlayerFactory` creates players lazily; it does not keep a process-wide player alive.
-
-### Logging and error boundaries
-
-Shared `AppResult` and `AppError` types provide structured success/failure handling. `SensitiveValueRedactor` removes sensitive headers, bearer credentials, passwords, tokens and signed query values before Android logging. Throwable messages and stack traces are not forwarded by the production logger because they may contain request secrets.
-
-### Build variants and CI
-
-- Debug application ID: `com.alal.yft.debug`
-- Release application ID: `com.alal.yft`
-- Release minification/resource shrinking: enabled
-- Release signing: intentionally absent until Phase 7
-- CI: Android lint, Android/JVM unit tests and debug assembly on `work/**` pushes and pull requests to `main`
+`…` is the module's source root: `src/main/java/com/alal/yft/` in `app`, `core-data`,
+`core-browser`, `core-media` and `core-download`; `src/main/kotlin/com/alal/yft/` in the others.
