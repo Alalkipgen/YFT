@@ -66,7 +66,7 @@ class QuickDownloadScreenTest {
 
     @Test
     fun showsTitleSiteLengthThenAudioAndVideoSectionsAndSelectsOne() {
-        // P3-FIX (owner's phone): two sections only, Audio then Video, one row per resolution.
+        // The owner's phone check: two sections only, Audio then Video, one row per resolution.
         var state by mutableStateOf(SAMPLE_QUICK_DOWNLOAD)
         val selected = mutableListOf<String>()
         composeRule.setContent {
@@ -115,7 +115,7 @@ class QuickDownloadScreenTest {
         listOf("Music", "M4A · Fast").forEach {
             composeRule.onAllNodesWithText(it).assertCountEquals(0)
         }
-        // Expanding preserves the P9 default selection.
+        // Expanding preserves the short view's default selection.
         composeRule.onNodeWithTag("quick-option-${preferred.id}").assertIsSelected()
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
         composeRule.onNodeWithTag("quick-download").assertIsDisplayed()
@@ -201,7 +201,7 @@ class QuickDownloadScreenTest {
 
     @Test
     fun aFourKRowThePhoneMayNotPlayShowsTheWarningOnItsOwnRow() {
-        // P6: a 4K VP9 WebM row on a phone without a VP9 decoder that large.
+        // Merge: a 4K VP9 WebM row on a phone without a VP9 decoder that large.
         val fourK = QuickDownloadFixtures.video(2160, 300 * QuickDownloadFixtures.MIB, true)
             .copy(mimeType = "video/webm", codecs = listOf("vp9"))
         val candidates = listOf(fourK) + QuickDownloadFixtures.youtube()
@@ -273,7 +273,7 @@ class QuickDownloadScreenTest {
 
     @Test
     fun aWaitingSheetShowsTheLinkPlaceholderRowsAndGettingQualitiesThenItsRows() {
-        // P16: opened from a pasted link before the lookup answered.
+        // Opened from a pasted link before the lookup answered.
         var state by mutableStateOf(
             QuickDownloadUiState(
                 header = SheetHeader(
@@ -298,7 +298,7 @@ class QuickDownloadScreenTest {
         composeRule.onNodeWithTag("quick-placeholder-audio").assertIsDisplayed()
         composeRule.onNodeWithTag("quick-placeholder-video").assertIsDisplayed()
         composeRule.onAllNodesWithTag("quick-placeholder-row").assertCountEquals(4)
-        // Plan adapted (P18): Download is ready while the sheet waits; it queues the pick.
+        // Download is ready while the sheet waits; it queues the pick.
         composeRule.onNodeWithTag("quick-download").assertIsDisplayed().assertIsEnabled()
         composeRule.onAllNodesWithTag("quick-rows").assertCountEquals(0)
 
@@ -312,7 +312,7 @@ class QuickDownloadScreenTest {
 
     @Test
     fun aWaitingSheetOffersM4AOrTheDefaultQualityAndDownloadStartsWhenReady() {
-        // P18: the first row of each waiting section is a choice an early Download takes.
+        // The first row of each waiting section is a choice an early Download takes.
         var state by mutableStateOf(
             QuickDownloadUiState(
                 header = SAMPLE_QUICK_DOWNLOAD.header,
@@ -379,7 +379,7 @@ class QuickDownloadScreenTest {
 
         composeRule.onNodeWithTag("quick-header").assertExists()
         composeRule.onNodeWithTag("quick-loading").assertExists()
-        // P16: Download stays in its place; P18: it can be tapped before the rows come.
+        // Download stays in its place; it can be tapped before the rows come.
         composeRule.onNodeWithTag("quick-download").assertIsEnabled()
 
         state = state.copy(loading = false, failure = "The media could not be reached.")
@@ -403,7 +403,7 @@ class QuickDownloadScreenTest {
             }
         }
 
-        // P12: the sheet waits for the page's lookup instead of listing the page.
+        // The sheet waits for the page's lookup instead of listing the page.
         composeRule.onNodeWithTag("quick-loading").assertExists()
         composeRule.onNodeWithText(WAITING_MESSAGE).assertExists()
         composeRule.onAllNodesWithTag("quick-other-videos").assertCountEquals(0)
@@ -413,7 +413,7 @@ class QuickDownloadScreenTest {
         state = state.copy(canRetry = false)
         composeRule.onAllNodesWithTag("quick-retry").assertCountEquals(0)
 
-        // P45: the sheet is the tapped video's only; it never offers the page's other videos.
+        // The sheet is the tapped video's only; it never offers the page's other videos.
         state = SAMPLE_QUICK_DOWNLOAD
         composeRule.onNodeWithTag("quick-download").assertExists()
         composeRule.onAllNodesWithTag("quick-other-videos").assertCountEquals(0)
@@ -422,7 +422,7 @@ class QuickDownloadScreenTest {
 
     @Test
     fun theSheetSaysItFindsThePagesVideoThenThatTheVideoMayBeAnAd() {
-        // P28: the page states a far longer video than the ad its player shows first.
+        // Ad filter: the page states a far longer video than the ad its player shows first.
         var state by mutableStateOf(
             QuickDownloadUiState(
                 header = SAMPLE_QUICK_DOWNLOAD.header,
@@ -450,7 +450,7 @@ class QuickDownloadScreenTest {
 
     @Test
     fun theSheetSaysItUsesAFreshLinkAndItsDetailsListTheAttempts() {
-        // P37: the first link was gone; the same video's fresh link is prepared.
+        // Fresh link renewal: the first link was gone; the same video's fresh link is prepared.
         val details = listOf(
             "First video",
             "Status: HTTP 410",
@@ -481,7 +481,7 @@ class QuickDownloadScreenTest {
 
     @Test
     fun aQuietBuildSaysOneLineAndNothingElse() {
-        // Decision 30 (v): no Details, Copy details, Master lines, Try again or reload.
+        // Quiet details: no Details, Copy details, Master lines, Try again or reload.
         var checks = 0
         var state by mutableStateOf(
             QuickDownloadUiState(
@@ -528,7 +528,8 @@ class QuickDownloadScreenTest {
 
     @Test
     fun aGoneLinkOnTheBrowsersPageOffersReloadPageAndTryAgain() {
-        // P37: nothing fresh came from the page: the error offers the browser's reload.
+        // Fresh link renewal: nothing fresh came from the page: the error offers the browser's
+        // reload.
         var reloads = 0
         var retries = 0
         var state by mutableStateOf(
@@ -564,7 +565,7 @@ class QuickDownloadScreenTest {
 
     @Test
     fun aFailureShowsItsDetailsOnlyWhenAskedFor() {
-        // P24: the sheet's Details name the step, the host and the status.
+        // Page video finder: the sheet's Details name the step, the host and the status.
         val details = listOf(
             "Step: list of qualities (manifest)",
             "Host: stream.example.test",
@@ -610,9 +611,9 @@ class QuickDownloadScreenTest {
 
     @Test
     fun aLongFailureScrollsTryAgainStaysReachableAndCopyDetailsCopiesItsLines() {
-        // Social plan task 15 (F3, the phone session of 2026-10-23): long Details and Try again
-        // under them were cut off; now the message and the Details scroll, Try again stays pinned
-        // under them, and Copy details copies the lines as shown, each link as its bare host.
+        // On a phone run, long Details and Try again under them were cut off; now the message and
+        // the Details scroll, Try again stays pinned under them, and Copy details copies the lines
+        // as shown, each link as its bare host.
         val details = (1..30).map { step ->
             "master: fixture ladder step $step: a made-up answer read and judged, rows 0 " +
                 "(NEEDS_PLAYBACK: no post in the answer; the next rung is the tab's own playback)"
@@ -682,8 +683,8 @@ class QuickDownloadScreenTest {
 
     @Test
     fun aSuccessShowsItsLookupDetailsAndCopyDetailsOnlyWhenAskedFor() {
-        // VK-Master wave 2: after the backup finder's success the rows keep the lookup's own
-        // lines behind "Lookup details", with Copy details, as a failed lookup's Details.
+        // After the Backup finder's success the rows keep the lookup's own lines behind
+        // "Lookup details", with Copy details, as a failed lookup's Details.
         val lines = listOf(
             "master: fixture ladder after NO_MEDIA_FOUND; main's answers re-read, no new ask",
             "master: fixture V2 heal client_id: healed from fixture-script " +
@@ -734,7 +735,7 @@ class QuickDownloadScreenTest {
 
     @Test
     fun aQuietBuildShowsLookupDetailsOnlyWithShowDetailsOn() {
-        // Decision 30 (v): a quiet build without Show details keeps its sheet as it was.
+        // Quiet details: a quiet build without Show details keeps its sheet as it was.
         val lines = listOf("master: fixture ladder after NO_MEDIA_FOUND; main's answers re-read")
         var quiet by mutableStateOf(true)
         composeRule.setContent {
@@ -768,8 +769,8 @@ class QuickDownloadScreenTest {
 
     @Test
     fun aFormatsFailureAfterASuccessKeepsTheLookupDetailsUnderItsOwnDetails() {
-        // v1.0.2 item 13 (b): the lookup found the video, then no format of it could be read: the
-        // failure's own Details stay, and the lookup's lines follow them as Lookup details.
+        // The lookup found the video, then no format of it could be read: the failure's own Details
+        // stay, and the lookup's lines follow them as Lookup details.
         val details = listOf("Step: list of qualities (manifest)", "Host: stream.example.test")
         val lines = listOf(
             "master: fixture ladder after NO_MEDIA_FOUND; main's answers re-read, no new ask",
@@ -887,7 +888,7 @@ class QuickDownloadScreenTest {
                 )
             }
         }
-        // Old P3-FIX already shows all 12 rows and has no toggle: its button is offscreen.
+        // The older sheet shows all 12 rows and has no toggle: its button is offscreen.
         val toggles = composeRule.onAllNodesWithTag("quick-more-formats").fetchSemanticsNodes()
         if (toggles.isNotEmpty()) {
             composeRule.onNodeWithTag("quick-more-formats").performClick()
@@ -904,8 +905,8 @@ class QuickDownloadScreenTest {
     @Test
     @GraphicsMode(GraphicsMode.Mode.NATIVE)
     fun everyRowShowsItsOneLineDescriptionAndDownloadStaysVisible() {
-        // P25: the line under each title says what the quality is for. Real text measuring
-        // (native graphics), so the rows are as tall as on a phone.
+        // The line under each title says what the quality is for. Real text measuring (native
+        // graphics), so the rows are as tall as on a phone.
         composeRule.setContent {
             YftTheme(themeMode = ThemeMode.LIGHT) {
                 QuickDownloadScreen(state = SAMPLE_QUICK_DOWNLOAD, onSelect = {}, onDownload = {})
@@ -937,7 +938,7 @@ class QuickDownloadScreenTest {
     @Config(qualifiers = "w320dp-h568dp")
     @GraphicsMode(GraphicsMode.Mode.NATIVE)
     fun onASmallPhoneDownloadStaysVisibleWithTheDescriptions() {
-        // P25: three lines a row still leave Details and Download pinned on a 568 dp screen.
+        // Three lines a row still leave Details and Download pinned on a 568 dp screen.
         val choices = QuickDownloadFixtures.choices(QuickDownloadFixtures.youtubeLadder())!!
         composeRule.setContent {
             YftTheme(themeMode = ThemeMode.LIGHT) {
@@ -988,7 +989,7 @@ class QuickDownloadScreenTest {
 
     @Test
     fun theHeaderShowsTheVideosPictureOnceItLoads() {
-        // P19: the 16:9 header tile shows the placeholder, then the picture the loader gives.
+        // The 16:9 header tile shows the placeholder, then the picture the loader gives.
         val asked = mutableListOf<String>()
         val loads = CompletableDeferred<ImageBitmap?>()
         val thumbnails = object : RemoteThumbnails {
@@ -1028,7 +1029,7 @@ class QuickDownloadScreenTest {
 
     @Test
     fun aPostsVideoItemsArePickedUnderTheHeaderAndAVideoOfItsOwnHasNone() {
-        // v1.0.2 item 51: the linked item first and selected; a tap shows another item.
+        // The linked item first and selected; a tap shows another item.
         var state by mutableStateOf(
             SAMPLE_QUICK_DOWNLOAD.copy(
                 postItems = listOf(
@@ -1072,8 +1073,8 @@ class QuickDownloadScreenTest {
 
     @Test
     fun aTitleConvertedFromZawgyiOffersUseOriginalTitleAndATapSwitchesTheHeader() {
-        // v1.0.2 item 25: the header shows the Unicode title; "Use original title" under it
-        // shows (and the next Download takes) the title the video gave, and back again.
+        // Zawgyi titles: the header shows the Unicode title; "Use original title" under it shows
+        // (and the next Download takes) the title the video gave, and back again.
         val rows = QuickDownloadFixtures.youtubeTitled(ZAWGYI_TITLE)
         val choices = QuickDownloadFixtures.choices(rows)!!
         var state by mutableStateOf(

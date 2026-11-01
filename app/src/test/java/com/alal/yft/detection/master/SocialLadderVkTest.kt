@@ -33,12 +33,12 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * VK ladder: the app's VK wiring. Flag off: no stage, and the heal's values (`vk V2` in Lookup
- * details) are never asked for. Flag on: Master's social rung has VK's ladder too, claiming only a
- * VK lookup with its record (VK's labels, a MainPages naming VK) and asking nothing to claim it;
- * VK's Details lines and trial words; VK's final answers in main's words (the video removed) and
- * the app's (the region limit); the process's healing values made once. Each case passes the switch
- * explicitly, so it holds whatever the build's flags are. Made-up IDs; no live calls.
+ * VK ladder: the app's VK wiring. Flag off: no stage, and the heal's values (`vk V2` in
+ * Lookup details) are never asked for. Flag on: Master's social rung has VK's ladder too, claiming
+ * only a VK lookup with its record (VK's labels, a MainPages naming VK) and asking nothing to claim
+ * it; VK's Details lines and trial words; VK's final answers in main's words (the video removed)
+ * and the app's (the region limit); the process's healing values made once. Each case passes the
+ * switch explicitly, so it holds whatever the build's flags are. Made-up IDs; no live calls.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])

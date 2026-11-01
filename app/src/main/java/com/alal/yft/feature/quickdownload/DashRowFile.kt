@@ -5,14 +5,14 @@ import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 
 /**
- * v1.0.2 fix R2: the file a DASH row of the sheet downloads. Every quality of a manifest has the
- * manifest's address, so the address found the manifest's first Representation for every row
- * (the owner's Repro A and B on Preview #161: the audio "1" for A's 360p, `audio_eng=64008` for
- * B's 240p and 128 kbps rows). A row is found again, in the manifest read for its download, by
- * its own Representation ([MediaVariant.manifestVariantId]), its kind of track and its sound's
- * Representation ([com.alal.yft.core.model.media.CompanionAudio.representationId]): a merged
- * row, a video-only ("No sound") row and an audio row each keep theirs. A row that is not in the
- * manifest now fails ([missingLine]); it is never another Representation or another track.
+ * The file a DASH row of the sheet downloads. Every quality of a manifest has the manifest's
+ * address, so the address found the manifest's first Representation for every row (the owner's
+ * Repro A and B on a preview build: the audio "1" for A's 360p, `audio_eng=64008` for B's 240p and
+ * 128 kbps rows). A row is found again, in the manifest read for its download, by its own
+ * Representation ([MediaVariant.manifestVariantId]), its kind of track and its sound's
+ * Representation ([com.alal.yft.core.model.media.CompanionAudio.representationId]): a merged row, a
+ * video-only ("No sound") row and an audio row each keep theirs. A row that is not in the manifest
+ * now fails ([missingLine]); it is never another Representation or another track.
  */
 internal object DashRowFile {
     /** The start of [missingLine]. */

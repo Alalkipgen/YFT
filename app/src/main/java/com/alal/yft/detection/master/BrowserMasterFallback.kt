@@ -88,10 +88,10 @@ interface BrowserMasterFallback {
      * (Lookup reuse) remembers main's answer for the video, as Try again does — a Facebook, TikTok,
      * X or Instagram page in the trial APK (`social-trial`: `-Pyft.socialTrial` with
      * `-Pyft.socialLadder`, debug only), so main's answers are in the lookup's own record for the
-     * ladder's steps that read them (`instagram I2`, `x X1`, `facebook F2`, `tiktok T2` in Lookup
-     * details) and the trial compares this lookup's rows. The phone's first lookups found main's
-     * answer remembered (an earlier lookup of the video: Home's or an earlier page's), main asked
-     * nothing in them, and the ladder had nothing to read. Every other build and page: false,
+     * ladder's steps that read them (`instagram I2`, `x X1`, `facebook F2`, `tiktok T2` in
+     * Lookup details) and the trial compares this lookup's rows. The phone's first lookups found
+     * main's answer remembered (an earlier lookup of the video: Home's or an earlier page's), main
+     * asked nothing in them, and the ladder had nothing to read. Every other build and page: false,
      * Lookup reuse as before.
      */
     fun asksMainFresh(lookupUrl: String): Boolean = false
@@ -177,8 +177,8 @@ class AndroidBrowserMasterFallback(
     private val socialTrial: Boolean = false,
     /**
      * Social ladders: whether the lookup's tab showed a video (a frame of the request's page and
-     * generation, `MasterBrowserSession.videoShown`); read only for a social lookup's "needs
-     * playback" answer in a social-ladder build ([SocialLadder.playbackWords]).
+     * generation, `MasterBrowserSession.videoShown`); read only for a social lookup's
+     * "needs playback" answer in a social-ladder build ([SocialLadder.playbackWords]).
      */
     private val tabVideo: (MasterRequest) -> Boolean = { capture.session.videoShown(it.pageUrl, it.generation) },
     /**
@@ -687,10 +687,10 @@ class AndroidBrowserMasterFallback(
     /**
      * Weak-answer fill: of [rows], those whose file passes the census's one-row check
      * ([SiteRowCheck] on [site]'s media hosts, with the download's headers but never the user's
-     * session: no cookie, no credentials, as the Row check reads files) under the YouTube backup
-     * route's rules in the lookup's record (listed as Master's asks; nothing after a 429 in the
-     * lookup, nor after one of these), within [SocialFillRun.checkMillis]. No record: none (nothing
-     * is asked outside a lookup).
+     * session: no cookie, no credentials, as the Row check reads files) under the
+     * YouTube backup route's rules in the lookup's record (listed as Master's asks; nothing after a
+     * 429 in the lookup, nor after one of these), within [SocialFillRun.checkMillis]. No record:
+     * none (nothing is asked outside a lookup).
      */
     private suspend fun checked(
         rows: List<MediaCandidate>,
@@ -891,8 +891,8 @@ class AndroidBrowserMasterFallback(
                 socialTrial = socialTrial,
                 on = on,
                 // Weak-answer fill: the same ladder, row check and recipes as the engine's; each
-                // added row's file checked once more over Master's client under the YouTube backup
-                // route's rules.
+                // added row's file checked once more over Master's client under the
+                // YouTube backup route's rules.
                 fillRun = if (socialLadder && socialFill && social != null) {
                     SocialFillRun(social, validator, contracts, SiteRowCheck(RouteBHttpClient(http), SocialFillRun.CHECK_TIMEOUT_MILLIS))
                 } else {

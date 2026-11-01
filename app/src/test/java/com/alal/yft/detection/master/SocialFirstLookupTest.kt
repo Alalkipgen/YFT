@@ -55,12 +55,13 @@ import org.robolectric.annotation.Config
  * Social backup trial. In the trial APK (`social-trial`) a social page's first lookup in the
  * browser could find main's answer remembered (Lookup reuse's shared lookup: an earlier lookup of
  * the same video, Home's or an earlier page's), so main asked nothing in that lookup and the ladder
- * had none of main's answers to read (Instagram's main's-answers step, `instagram I2` in Lookup
- * details, and X's, `x X1`: "none kept for the post"); Try again asked main afresh and gave rows.
- * Now the trial's social lookups ask main every time (Try again's way), so the ladder reads main's
- * answer on the first lookup too; and the tab's playback's answer keeps the ladder's lines in
- * Details. Every other build (the ladder alone, the trial without the ladder, Master off): Lookup
- * reuse as before. Main's real adapters over synthetic answers with made-up IDs; no live calls.
+ * had none of main's answers to read (Instagram's main's-answers step, `instagram I2` in
+ * Lookup details, and X's, `x X1`: "none kept for the post"); Try again asked main afresh and gave
+ * rows. Now the trial's social lookups ask main every time (Try again's way), so the ladder reads
+ * main's answer on the first lookup too; and the tab's playback's answer keeps the ladder's lines
+ * in Details. Every other build (the ladder alone, the trial without the ladder, Master off):
+ * Lookup reuse as before. Main's real adapters over synthetic answers with made-up IDs; no live
+ * calls.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -355,8 +356,8 @@ class SocialFirstLookupTest {
         )
 
         /**
-         * An earlier lookup of the page's video outside the browser's page (Home's way): Lookup
-         * reuse keeps main's rows.
+         * An earlier lookup of the page's video outside the browser's page (Home's way):
+         * Lookup reuse keeps main's rows.
          */
         suspend fun remember(): SiteAdapterOutcome = sites.inspect(page, BrowserRequestContext(page, "Browser", null), NOW)
 

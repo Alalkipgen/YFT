@@ -6,8 +6,8 @@ import java.util.Locale
 import kotlin.math.floor
 
 /**
- * v1.0.2 item 25: a video title written in Zawgyi ([original]) and its Unicode form ([unicode]),
- * with the detector's [probability] that [original] is Zawgyi.
+ * A video title written in Zawgyi ([original]) and its Unicode form ([unicode]), with the
+ * detector's [probability] that [original] is Zawgyi.
  */
 data class ZawgyiTitle(
     val original: String,
@@ -20,7 +20,7 @@ data class ZawgyiTitle(
 }
 
 /**
- * v1.0.2 item 25: a video title written in Zawgyi becomes Unicode, only when the detector is sure.
+ * A video title written in Zawgyi becomes Unicode, only when the detector is sure.
  *
  * A title is converted only when all of these hold: it has at least [MIN_MYANMAR_CODE_POINTS]
  * Myanmar code points (U+1000..U+109F), Google's `ZawgyiDetector` gives it a Zawgyi probability

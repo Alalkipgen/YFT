@@ -103,9 +103,9 @@ class SocialLadderXTest {
         // Download sheet: that photo answer is final (no Try again); the 404's is not.
         assertTrue(SocialLadder.photosOnly(SiteExtractionFailure.NO_MEDIA_FOUND, KEY, listOf(photo)))
         assertFalse(SocialLadder.photosOnly(SiteExtractionFailure.NO_MEDIA_FOUND, KEY, listOf(NOT_FOUND_LINE)))
-        // X ladder: the widget's 404 is never final (the main's-answer step, `x X1` in Lookup
-        // details, names no reason), and no X line ends a lookup as removed, not even an earlier
-        // build's REMOVED line.
+        // X ladder: the widget's 404 is never final (the main's-answer step, `x X1` in
+        // Lookup details, names no reason), and no X line ends a lookup as removed, not even an
+        // earlier build's REMOVED line.
         val removed = "master: x X1 main's answer: REMOVED (status 404: no such post); next: FINAL"
         for (reason in SiteExtractionFailure.entries) {
             assertNull("$reason", SocialLadder.finalMessage(reason, KEY, listOf(NOT_FOUND_LINE)))

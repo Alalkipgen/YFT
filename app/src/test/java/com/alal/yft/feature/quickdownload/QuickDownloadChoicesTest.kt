@@ -27,13 +27,13 @@ import org.junit.Test
 class QuickDownloadChoicesTest {
     private val mp3Titles = listOf("MP3 · 320 kbps", "MP3 · 192 kbps", "MP3 · 128 kbps")
 
-    /** D2: the audio rows of a site that is not YouTube, and its short view's. */
+    /** The audio rows of a site that is not YouTube, and its short view's. */
     private val otherSiteAudio = listOf("M4A", "MP3 · 192 kbps")
 
     @Test
     fun exactlyTwoSectionsAudioThenVideoWithOneRowPerResolution() {
-        // P3-FIX (owner's phone): "Music" quick rows, "Fast"/"High" and More formats listed the
-        // same formats twice. Now Audio (M4A, MP3 bitrates) and Video (one row per resolution).
+        // On the owner's phone, "Music" quick rows, "Fast"/"High" and More formats listed the same
+        // formats twice. Now Audio (M4A, MP3 bitrates) and Video (one row per resolution).
         val choices = choices(QuickDownloadFixtures.youtube())!!
 
         assertEquals(
@@ -45,7 +45,7 @@ class QuickDownloadChoicesTest {
             choices.video.map(SheetOption::size),
         )
         assertEquals("1920 × 1080 · 30 fps · MP4", choices.video.first().detail)
-        // P25: the original sound is "M4A", its bitrate on the line below.
+        // The original sound is "M4A", its bitrate on the line below.
         assertEquals(listOf("M4A") + mp3Titles, choices.audio.map(SheetOption::title))
         assertEquals("128 kbps", choices.audio.first().detail)
         assertTrue(choices.audio.all { it.section == OptionSection.AUDIO })
@@ -79,7 +79,7 @@ class QuickDownloadChoicesTest {
 
     @Test
     fun youTubeKeepsFourAudioRowsAndEverySiteThatIsNotYouTubeShowsM4aAndMp3At192() {
-        // D2 (the owner): YouTube keeps M4A + MP3 320/192/128; Facebook, Instagram, X, TikTok,
+        // As the owner asked: YouTube keeps M4A + MP3 320/192/128; Facebook, Instagram, X, TikTok,
         // VK and the generic web show M4A + MP3 192. The rule is "not YouTube": no VK code.
         val youtube = listOf(
             "https://www.youtube.com/watch?v=fixture0001",
@@ -219,7 +219,7 @@ class QuickDownloadChoicesTest {
 
     @Test
     fun aCompleteFileBeatsAMergeAtTheSameResolution() {
-        // Facebook (P4): the HD file and the 720p video track merged with the audio track.
+        // Facebook adapter: the HD file and the 720p video track merged with the audio track.
         val hdFile = video(720, 30 * MIB, index = 1, label = "HD")
         val merged720 = video(720, 40 * MIB, merged = true, index = 2)
             .copy(bitrateBitsPerSecond = 2_749_477)
@@ -238,7 +238,7 @@ class QuickDownloadChoicesTest {
 
     @Test
     fun twoKAndFourKRowsThePhoneCannotDecodeAreStillOfferedWithAWarning() {
-        // P6: YouTube's 2K and 4K are VP9 WebM merged with Opus; some phones cannot play them.
+        // Merge: YouTube's 2K and 4K are VP9 WebM merged with Opus; some phones cannot play them.
         fun webm(height: Int) = video(height, 300 * MIB, merged = true).copy(
             mediaUrl = "https://media.example.test/video-$height.webm",
             mimeType = "video/webm",
@@ -284,7 +284,7 @@ class QuickDownloadChoicesTest {
         assertEquals("The video's own sound · 96 kbps", m4a.detail)
         // 252 s at 96 kbps.
         assertEquals("~${YftFormat.bytes(3_024_000)}", m4a.size)
-        // P25: the sound is copied, not re-encoded: the fastest audio, so not "Slow".
+        // The sound is copied, not re-encoded: the fastest audio, so not "Slow".
         assertTrue(m4a.chips.isEmpty())
         assertTrue(
             choices.audio.drop(1).all {
@@ -368,8 +368,9 @@ class QuickDownloadChoicesTest {
 
     @Test
     fun aQualityPlaylistFoundBesideItsMasterIsNoRowOfItsOwn() {
-        // P24: the page's player fetched its HLS master and the 720p playlist the master names;
-        // both are one video, and the playlist is the master's 720p row, not a third row.
+        // Page video finder: the page's player fetched its HLS master and the 720p playlist the
+        // master names; both are one video, and the playlist is the master's 720p row, not a third
+        // row.
         val master = video(null, kind = MediaKind.HLS, videoId = null, label = null, index = 1)
         val playlist = video(null, kind = MediaKind.HLS, videoId = null, label = null, index = 2)
         val stated = resolvedAsset(master).variants.single()
@@ -457,9 +458,9 @@ class QuickDownloadChoicesTest {
 
     @Test
     fun everySiteGivesTheSameSectionsNamesAndOrder() {
-        // P25: YouTube, Facebook (DASH + HD/SD, or HD/SD alone) and another site's HLS + MP4
-        // give one sheet: Audio "M4A" then MP3, Video by height, the same short view. D2: MP3
-        // 320/192/128 on YouTube only, 192 alone on every other site.
+        // YouTube, Facebook (DASH + HD/SD, or HD/SD alone) and another site's HLS + MP4 give one
+        // sheet: Audio "M4A" then MP3, Video by height, the same short view. MP3 320/192/128 on
+        // YouTube only, 192 alone on every other site.
         val youtube = QuickDownloadFixtures.youtubeLadder()
         val facebookDash = QuickDownloadFixtures.facebookDash()
         val facebookFiles = QuickDownloadFixtures.facebookFiles()
@@ -507,7 +508,7 @@ class QuickDownloadChoicesTest {
                 QuickDownloadChoices.preselect(full, QualityPreference.UP_TO_720P)?.id,
             )
         }
-        // The sound of a file whose codecs nobody stated is offered too (P25).
+        // The sound of a file whose codecs nobody stated is offered too.
         val otherSound = sites.last().second.audio.first()
         assertTrue(otherSound.variant.audioFromVideo)
         assertEquals(other.last().candidate, otherSound.source.candidate)
@@ -518,7 +519,7 @@ class QuickDownloadChoicesTest {
 
     @Test
     fun everyRowSaysWhatItIsForInOneLine() {
-        // P25: the line under each title (`quick-row-description`).
+        // The line under each title (`quick-row-description`).
         val youtube = choices(QuickDownloadFixtures.youtubeLadder())!!
         val facebook = choices(QuickDownloadFixtures.facebookFiles())!!
         val unknown = choices(listOf(video(null, MIB, label = null, videoId = null)))!!
@@ -556,8 +557,8 @@ class QuickDownloadChoicesTest {
 
     @Test
     fun anHdOrSdRowIsRenamedInPlaceOnceItsPictureIsMeasured() {
-        // P25 (P11): "HD"/"SD" until the header check reads the file's picture, then the
-        // height's name without moving, changing its rank or the short view.
+        // "HD"/"SD" until the header check reads the file's picture, then the height's name without
+        // moving, changing its rank or the short view.
         val files = QuickDownloadFixtures.facebookFiles()
         val stated = files.map { SheetSource(it, QuickDownloadMetadata.asset(it), false) }
         val full = QuickDownloadChoices.of(group(files), stated)!!
@@ -598,7 +599,7 @@ class QuickDownloadChoicesTest {
             short.options.map(SheetOption::id),
             QuickDownloadChoices.compact(both, QualityPreference.UP_TO_720P).options.map { it.id },
         )
-        // D2: Facebook is not YouTube, so M4A and MP3 192 only.
+        // Facebook is not YouTube, so M4A and MP3 192 only.
         assertEquals(otherSiteAudio, both.audio.map(SheetOption::title))
         // The measured sound's bitrate sizes the M4A: 252 s at 96 kbps.
         assertEquals("~${YftFormat.bytes(3_024_000)}", both.audio.first().size)
@@ -607,8 +608,8 @@ class QuickDownloadChoicesTest {
 
     @Test
     fun sizesAreStatedElseEstimatedFromTheBitrateAndLengthElseUnknownAndNoRowIsDropped() {
-        // P25: a looked-up file without a size whose bitrate is known reads "~"; a merge adds
-        // its sound; nothing known keeps the row, which the sheet labels "Size unknown".
+        // A looked-up file without a size whose bitrate is known reads "~"; a merge adds its sound;
+        // nothing known keeps the row, which the sheet labels "Size unknown".
         val stream = video(720, index = 1).copy(bitrateBitsPerSecond = 2_000_000)
         val merged = video(1080, merged = true, index = 2).copy(bitrateBitsPerSecond = 4_000_000)
         val bare = video(480, index = 3)
@@ -633,9 +634,9 @@ class QuickDownloadChoicesTest {
 
     @Test
     fun aMasterRowThatStatesItsFilesOwnSizeIsNamedAsMainNamesThatSize() {
-        // Social plan task 16 (F6): Facebook link 1's Master rows showed "Quality unknown · As the
-        // page plays it" (the plugin player's answer names no size). Each now states its file's
-        // own, read from the bytes its check read, and the sheet names it through main's path.
+        // Social backup trial: a Facebook link's Master rows showed "Quality unknown · As the page
+        // plays it" (the plugin player's answer names no size). Each now states its file's own,
+        // read from the bytes its check read, and the sheet names it through main's path.
         fun master(index: Int, width: Int?, height: Int?) =
             video(height, fps = null, label = null, videoId = "facebook:fixture", index = index, width = width)
         fun sheet(rows: List<MediaCandidate>) =
@@ -657,7 +658,7 @@ class QuickDownloadChoicesTest {
 
     @Test
     fun aStatedSizeTooSmallForTheLengthReadsSizeUnknown() {
-        // G1 (v1.0.2): a 1:47:11 YouTube M4A once read "1 B" over a bad connection.
+        // A 1:47:11 YouTube M4A once read "1 B" over a bad connection.
         val replay = 6_431_000L
         fun m4a(bytes: Long, length: Long) = choices(
             listOf(audio(128, bytes = bytes).copy(durationMillis = length, bitrateBitsPerSecond = null)),
@@ -673,8 +674,8 @@ class QuickDownloadChoicesTest {
 
     @Test
     fun theSelectedRowAlwaysShowsInTheShortList() {
-        // N11 (v1.0.2): a row picked under More formats, or preselected there, stays in the
-        // collapsed list, in its place in the full list.
+        // A row picked under More formats, or preselected there, stays in the collapsed list, in
+        // its place in the full list.
         val full = choices(QuickDownloadFixtures.youtube())!!
         val short = QuickDownloadChoices.compact(full, QualityPreference.UP_TO_720P)
         val hidden = full.video.first { short.option(it.id) == null }
@@ -709,8 +710,8 @@ class QuickDownloadChoicesTest {
 
     @Test
     fun aZawgyiTitleBecomesTheSheetsTitleInUnicode() {
-        // v1.0.2 item 25: the lookup's title becomes the sheet's (the header, the download, its
-        // file name) here; the title the video gave stays for "Use original title".
+        // Zawgyi titles: the lookup's title becomes the sheet's (the header, the download, its file
+        // name) here; the title the video gave stays for "Use original title".
         val choices = choices(QuickDownloadFixtures.youtubeTitled(ZAWGYI_TITLE))!!
 
         assertEquals(UNICODE_TITLE, choices.title)

@@ -8,8 +8,8 @@ import com.alal.yft.extractor.master.solver.SignatureVerdicts
 
 /**
  * Backup finder: YouTube's player-script runner in a build with Master's own solver — the own
- * solver ([own], with the Own-solver ladder's live check: [SignatureVerdicts]) while the Backup
- * finder is [on], and main's ejs runner ([main]) while it is off, so the switch off leaves
+ * solver ([own], with the Own-solver ladder's live check: [SignatureVerdicts]) while the
+ * Backup finder is [on], and main's ejs runner ([main]) while it is off, so the switch off leaves
  * YouTube's reader as main built it. Each is made on first use. The live check's questions go to
  * the own solver only once it exists: a request main's runner answered has no pending check.
  */

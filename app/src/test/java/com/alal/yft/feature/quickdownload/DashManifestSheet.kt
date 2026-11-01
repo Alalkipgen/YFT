@@ -32,11 +32,10 @@ import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 
 /**
- * v1.0.2 fix R2: the download sheet of a pasted DASH manifest, as on the phone: the site serves
- * [served] (a test may change it between the sheet and its Download), the app's own resolver
- * reads it and the sheet pairs its sound ([com.alal.yft.detection.DashSoundPairing]); Download
- * queues on [starter], and [plan] is what the download then fetches. v1.0.2 fix R3: or the
- * manifest as the browser found it ([candidate]).
+ * The Download sheet of a pasted DASH manifest, as on the phone: the site serves [served] (a test
+ * may change it between the sheet and its Download), the app's own resolver reads it and the sheet
+ * pairs its sound ([com.alal.yft.detection.DashSoundPairing]); Download queues on [starter], and
+ * [plan] is what the download then fetches. Or the manifest as the browser found it ([candidate]).
  */
 internal class DashManifestSheet(
     val manifestUrl: String,

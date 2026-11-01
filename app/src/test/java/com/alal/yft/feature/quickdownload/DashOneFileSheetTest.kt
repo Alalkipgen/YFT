@@ -20,8 +20,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * v1.0.2 item 59: the sheet of a page's DASH stream whose qualities are one file each, shaped as
- * the phone test's stream (DASH-IF's on-demand test: four 480 × 360 AVC qualities at 24 fps,
+ * Sound pairing: the sheet of a page's DASH stream whose qualities are one file each, shaped as the
+ * phone test's stream (DASH-IF's on-demand test: four 480 × 360 AVC qualities at 24 fps,
  * 150–750 kbps, one HE-AAC sound at 72 kbps in English, 654 s), as the resolver reads it.
  */
 class DashOneFileSheetTest {
@@ -35,7 +35,7 @@ class DashOneFileSheetTest {
 
     @Test
     fun `the video row has its sound and the M4A row is the stream's sound`() {
-        // Before item 59: the video was a silent row whose download failed.
+        // Before Sound pairing: the video was a silent row whose download failed.
         val before = choices(asset())
         assertEquals(listOf("360p"), before.video.map(SheetOption::title))
         assertEquals(listOf(QuickDownloadChoices.NO_SOUND), before.video.single().chips)

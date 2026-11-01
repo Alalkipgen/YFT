@@ -36,10 +36,9 @@ import org.junit.Rule
 import org.junit.Test
 
 /**
- * v1.0.2 item 25: a video whose title is written in Zawgyi. The sheet shows the title in Unicode
- * and a Download saves it so: the file's name, an MP3's title tag, the Downloads row named after
- * the file. "Use original title" switches the next Download to the title the video gave, and
- * back again.
+ * A video whose title is written in Zawgyi. The sheet shows the title in Unicode and a Download
+ * saves it so: the file's name, an MP3's title tag, the Downloads row named after the file.
+ * "Use original title" switches the next Download to the title the video gave, and back again.
  */
 class ZawgyiTitleSheetTest {
     @get:Rule

@@ -43,10 +43,10 @@ import org.robolectric.annotation.Config
 /**
  * Social ladders: the social-ladder switch's wiring. Flag off (every CI build): the shared adapter
  * client and each lookup's context are today's. Flag on: each Facebook lookup (every link form)
- * gets its own record with Facebook's labels and its own main pages, and main's real Facebook
- * adapter writes its asks (with their ways) and its pages into them; other sites as before. Each
- * case passes the switch explicitly, so it holds whatever the build's flags are. Synthetic pages;
- * no live calls.
+ * gets its own record with Facebook's labels and its own main pages, and main's real
+ * Facebook adapter writes its asks (with their ways) and its pages into them; other sites as
+ * before. Each case passes the switch explicitly, so it holds whatever the build's flags are.
+ * Synthetic pages; no live calls.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])

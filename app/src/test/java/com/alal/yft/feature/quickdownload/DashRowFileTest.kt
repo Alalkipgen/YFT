@@ -17,9 +17,9 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
- * v1.0.2 fix R2: [DashRowFile] finds a row's own Representation in the manifest read for its
- * download — a merged row, a video-only row and an audio row of both of the owner's manifests,
- * each planned with its exact Representations — and nothing else when it is gone.
+ * [DashRowFile] finds a row's own Representation in the manifest read for its download — a merged
+ * row, a video-only row and an audio row of both of the owner's manifests, each planned with its
+ * exact Representations — and nothing else when it is gone.
  */
 class DashRowFileTest {
     private val a = DashManifestSheet(A_URL, text(A))
@@ -55,7 +55,7 @@ class DashRowFileTest {
     fun `each kind of Repro B's rows plans its own Representations`() {
         val rows = b.read()
         val fresh = b.read().variants
-        // AV1 merges on (item 26's debug switch): the video with the 128 kbps sound.
+        // AV1 merges on (the AV1 merge switch): the video with the 128 kbps sound.
         val merged = rows.variants.of("video_eng=208000")
             .withSound(rows.variants.of("audio_eng=128002"))
         val freshMerged = fresh.map {

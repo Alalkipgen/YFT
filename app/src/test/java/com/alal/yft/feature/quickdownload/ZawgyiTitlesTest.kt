@@ -10,9 +10,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * v1.0.2 item 25: a title written in Zawgyi becomes Unicode only when it has at least ten Myanmar
- * code points and Google's detector is sure (p ≥ 0.999); every other title stays exactly as it
- * is. The probabilities named here are the detector's, Myanmar Tools 1.2.0.
+ * A title written in Zawgyi becomes Unicode only when it has at least ten Myanmar code points and
+ * Google's detector is sure (p ≥ 0.999); every other title stays exactly as it is. The
+ * probabilities named here are the detector's, Myanmar Tools 1.2.0.
  */
 class ZawgyiTitlesTest {
     @Test

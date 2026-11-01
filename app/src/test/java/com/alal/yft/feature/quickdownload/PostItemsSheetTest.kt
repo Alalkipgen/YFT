@@ -39,9 +39,9 @@ import org.junit.Rule
 import org.junit.Test
 
 /**
- * v1.0.2 item 51: a post with several video items (an Instagram carousel, an X post with more
- * videos) shows every item in the sheet, the linked one first and selected; each item is read,
- * named and downloaded as a video of its own.
+ * A post with several video items (an Instagram carousel, an X post with more videos) shows every
+ * item in the sheet, the linked one first and selected; each item is read, named and downloaded as
+ * a video of its own.
  */
 class PostItemsSheetTest {
     @get:Rule

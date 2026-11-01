@@ -30,9 +30,10 @@ import org.junit.Rule
 import org.junit.Test
 
 /**
- * P43: what the sheet says when it skipped an ad ("That was an ad — showing the page's video"),
- * the ads it never counts as other videos, the reload that looks for the page's video and not
- * the ad, and G8's two rules (STRICT, the default; LENIENT keeps the browser's first choice).
+ * Ad filter: what the sheet says when it skipped an ad ("That was an ad — showing the page's
+ * video"), the ads it never counts as other videos, the reload that looks for the page's video and
+ * not the ad, and the Ad filter's two rules (STRICT, the default; LENIENT keeps the browser's first
+ * choice).
  */
 class QuickDownloadAdRuleTest {
     @get:Rule
@@ -45,7 +46,7 @@ class QuickDownloadAdRuleTest {
     private fun QuickDownloadUiState.offered(): List<String> =
         choices?.options.orEmpty().map { it.source.candidate.mediaUrl }.distinct()
 
-    /** The sheet opens while the browser still looks for the page's video (P28). */
+    /** The sheet opens while the browser still looks for the page's video (Ad filter). */
     private fun waitingSheet(vararg reads: PageReread): QuickDownloadViewModel {
         harness.store.awaitPageVideo()
         harness.store.showLookup(

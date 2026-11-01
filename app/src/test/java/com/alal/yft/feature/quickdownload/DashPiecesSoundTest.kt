@@ -24,12 +24,12 @@ import org.junit.Rule
 import org.junit.Test
 
 /**
- * v1.0.2 fix R3: the owner's `bbb_30fps.mpd` (Akamai's Big Buck Bunny at 30 fps, as its site
- * served it on 2026-10-31): one `SegmentTemplate` for each adaptation set; its sound `bbb_a64k`,
- * HE-AAC (`mp4a.40.5`) at 67 kbps with no language, an `Accessibility` and a `Role`. The sound
- * was read, and is the sheet's M4A; but on Preview #161 every video row was "No sound": the
- * sheet gave a manifest's sound only to one-file (`SegmentBase`) qualities (item 59). Now each
- * quality has `bbb_a64k`, and its Download fetches that video and that sound.
+ * The owner's `bbb_30fps.mpd` (Akamai's Big Buck Bunny at 30 fps, as its site served it on
+ * 2026-10-31): one `SegmentTemplate` for each adaptation set; its sound `bbb_a64k`, HE-AAC
+ * (`mp4a.40.5`) at 67 kbps with no language, an `Accessibility` and a `Role`. The sound was read,
+ * and is the sheet's M4A; but on a preview build every video row was "No sound": the sheet gave a
+ * manifest's sound only to one-file (`SegmentBase`) qualities (Sound pairing). Now each quality has
+ * `bbb_a64k`, and its Download fetches that video and that sound.
  */
 class DashPiecesSoundTest {
     @get:Rule
@@ -101,8 +101,8 @@ class DashPiecesSoundTest {
 
     @Test
     fun `Repro B's AV1 videos have its 128 kbps sound only while AV1 merges are on`() {
-        // Item 26's debug switch on (Android 14, an AV1 decoder): every quality with sound; off,
-        // as in the release, each stays "No sound" and downloads video only (fix R2).
+        // The AV1 merge switch on (Android 14, an AV1 decoder): every quality with sound; off, as
+        // in the release, each stays "No sound" and downloads video only.
         val asset = DashManifestSheet(B_URL, text(B)).read()
         fun videos(av1: Boolean): List<MediaVariant> {
             val phone = DeviceMergeSupport(sdkInt = 34, hasDecoder = { true }, av1Enabled = { av1 })

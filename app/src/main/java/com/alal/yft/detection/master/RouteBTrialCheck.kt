@@ -201,8 +201,8 @@ object RouteBTrialCheck {
     /**
      * Row check: the download's second range of each of [links] longer than its first range, asked
      * once each: the download asks a YouTube file of stated length `clen` in a [FIRST_RANGE_BYTES]
-     * first range and then ranges of [WholeFileTrack.DEFAULT_MAX_REQUEST_BYTES] (FAST_START, DASH
-     * download). Null when no file is that long.
+     * first range and then ranges of [WholeFileTrack.DEFAULT_MAX_REQUEST_BYTES] (FAST_START,
+     * DASH download). Null when no file is that long.
      */
     private suspend fun secondRanges(links: List<Link>, check: FileCheck): String? = coroutineScope {
         val asks = links.mapNotNull { link ->

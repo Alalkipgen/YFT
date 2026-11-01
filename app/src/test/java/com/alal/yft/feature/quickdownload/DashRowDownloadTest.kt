@@ -16,12 +16,12 @@ import org.junit.Rule
 import org.junit.Test
 
 /**
- * v1.0.2 fix R2: a DASH row of the sheet downloads its own Representation. The owner's Repro A
- * (DASH-IF's on-demand test: `SegmentBase` files under an http `BaseURL`) and Repro B (Unified
- * Streaming's AV1 Tears of Steel: a `SegmentTemplate` with a `SegmentTimeline` under `dash/`),
- * as their sites served them on 2026-10-31, through the sheet's Download as on the phone. On
- * Preview #161 every row queued the manifest's first Representation: the audio "1" for A's
- * 360p, `audio_eng=64008` for B's 240p and for its 128 kbps M4A.
+ * A DASH row of the sheet downloads its own Representation. The owner's Repro A (DASH-IF's
+ * on-demand test: `SegmentBase` files under an http `BaseURL`) and Repro B (Unified Streaming's AV1
+ * Tears of Steel: a `SegmentTemplate` with a `SegmentTimeline` under `dash/`), as their sites
+ * served them on 2026-10-31, through the sheet's Download as on the phone. On a preview build every
+ * row queued the manifest's first Representation: the audio "1" for A's 360p, `audio_eng=64008` for
+ * B's 240p and for its 128 kbps M4A.
  */
 class DashRowDownloadTest {
     @get:Rule

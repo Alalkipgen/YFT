@@ -68,8 +68,8 @@ internal object MasterLadderSwitch {
 
     /**
      * Ladder test switches: the h-only live-check APK (the ladder on, `-Pyft.ladderSkip=h-only`): a
-     * found YouTube page goes through Master, so the YouTube HLS rung's row (`ladder H` in Lookup
-     * details) is what the owner downloads.
+     * found YouTube page goes through Master, so the YouTube HLS rung's row (`ladder H` in
+     * Lookup details) is what the owner downloads.
      */
     val hOnly: Boolean
         get() = BuildConfig.CLIENT_LADDER_ENABLED &&

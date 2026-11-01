@@ -13,7 +13,7 @@ import java.net.URI
 import java.net.UnknownServiceException
 
 /**
- * P24: what the sheet says when a video cannot be prepared, and its Details.
+ * Page video finder: what the sheet says when a video cannot be prepared, and its Details.
  *
  * The message follows what went wrong, so a list of qualities the app could not read never says
  * the media could not be reached, and a site that refused the video says so with its status.
@@ -38,8 +38,8 @@ internal object QuickDownloadFailures {
             status == 401 -> "The site asks you to sign in for this video (HTTP 401)."
             status == 403 -> "$REFUSED (HTTP 403)."
             status == 404 -> "The site no longer has this video (HTTP 404)."
-            // P45: a CDN that refuses a fresh link a page's player plays (410, 412, 474 on the
-            // owner's phone) refuses the request, not the video.
+            // A CDN that refuses a fresh link a page's player plays (410, 412, 474 on the owner's
+            // phone) refuses the request, not the video.
             BrowserReads.isRefusal(status) ->
                 "The site refused this link (HTTP $status). $PLAY_AND_RETRY"
             status == 429 -> "The site is busy (HTTP 429). Try again in a minute."
@@ -78,17 +78,17 @@ internal object QuickDownloadFailures {
         failure.host?.let { add("Host: $it") }
         failure.request?.let { add("Request: $it") }
         add("Status: ${failure.httpStatusCode?.let { "HTTP $it" } ?: reasonName(failure.reason)}")
-        // P39: the exception's class name only, never its message, address or query.
+        // TikTok adapter: the exception's class name only, never its message, address or query.
         failure.error?.let { add("Error: $it") }
-        // P45: what the browser's own engine got for the same link, asked after YFT's refusal.
+        // What the browser's own engine got for the same link, asked after YFT's refusal.
         failure.browserStatus?.let { status ->
             add("Browser check: ${if (status > 0) "HTTP $status" else "not answered"}")
         }
     }
 
     /**
-     * P37: where a link came from, how old it is and whether its own expiry time passed, for
-     * every attempt's Details (FIX_ADD_PLAN R17): "Link from: page script", "Link age: 12 min",
+     * Fresh link renewal: where a link came from, how old it is and whether its own expiry time
+     * passed, for every attempt's Details: "Link from: page script", "Link age: 12 min",
      * "Link expiry: passed". Never the address or a query value. [origin] overrides what the
      * candidate's sources say.
      */

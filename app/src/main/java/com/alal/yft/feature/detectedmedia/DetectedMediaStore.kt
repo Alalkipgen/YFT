@@ -24,17 +24,21 @@ data class DetectedPage(
     val pageUrl: String,
     val pageTitle: String?,
     val candidates: List<MediaCandidate>,
-    /** P12: an adapter reads this page's video, so only its named video counts. */
+    /** Download sheet: an adapter reads this page's video, so only its named video counts. */
     val adapterSite: Boolean = false,
-    /** P28: what the page states about its own video: its length, title and picture. */
+    /** Ad filter: what the page states about its own video: its length, title and picture. */
     val facts: PageVideoFacts? = null,
-    /** P29: who found this page's files: the browser, or Home's check of a pasted link. */
+    /**
+     * Fresh link renewal: who found this page's files: the browser, or Home's check of a pasted
+     * link.
+     */
     val owner: LookupOwner = LookupOwner.BROWSER,
 )
 
 /**
- * P37: the sheet's "Reload page and try again": the browser reloads [pageUrl] once without its
- * cache and reopens the sheet when [video] is found again with a link not in [deadLinks].
+ * Fresh link renewal: the sheet's "Reload page and try again": the browser reloads [pageUrl] once
+ * without its cache and reopens the sheet when [video] is found again with a link not in
+ * [deadLinks].
  */
 data class PageReload(
     val pageUrl: String,
@@ -44,14 +48,17 @@ data class PageReload(
     override fun toString(): String = "PageReload(deadLinks=${deadLinks.size})"
 }
 
-/** P16: who runs a [PageVideoLookup]; only its owner answers, retries, stops or clears it. */
+/**
+ * Download sheet: who runs a [PageVideoLookup]; only its owner answers, retries, stops or clears
+ * it.
+ */
 enum class LookupOwner { BROWSER, HOME }
 
 /**
- * P12: the lookup of a site page's own video, while it runs or after it failed, so the download
+ * Download sheet: the lookup of a site page's own video, while it runs or after it failed, so the
  * sheet can open for that video before the lookup ends. [key] is the video's "site:contentId".
- * P16: Home's lookup of a pasted link and the browser's of a feed's video on screen are shown
- * the same way.
+ * Home's lookup of a pasted link and the browser's of a feed's video on screen are shown the same
+ * way.
  */
 data class PageVideoLookup(
     val key: String,
@@ -62,21 +69,21 @@ data class PageVideoLookup(
     /** Whether asking again can change the answer, so the sheet offers Try again. */
     val canRetry: Boolean = false,
     val owner: LookupOwner = LookupOwner.BROWSER,
-    /** P28: the page's picture of its video, shown while the sheet waits. */
+    /** Ad filter: the page's picture of its video, shown while the sheet waits. */
     val thumbnailUrl: String? = null,
     /**
-     * P28: the browser waits a few seconds for the page's own video, because what its player
+     * Ad filter: the browser waits a few seconds for the page's own video, because what its player
      * shows first is far shorter than the length the page states (an ad).
      */
     val findingPageVideo: Boolean = false,
     /**
-     * P39 (R25): the failed lookup's non-sensitive steps (page kinds, data keys, file checks),
+     * TikTok adapter: the failed lookup's non-sensitive steps (page kinds, data keys, file checks),
      * shown as the sheet's Details. Hosts only, never an address, query value or cookie.
      */
     val details: List<String> = emptyList(),
     /**
-     * Decision 30 (v): the site asked for a check (TikTok's "not a bot" page), which the
-     * browser shows: the quiet sheet's Show check opens it.
+     * Quiet details: the site asked for a check (TikTok's "not a bot" page), which the browser
+     * shows: the quiet sheet's Show check opens it.
      */
     val siteCheck: Boolean = false,
 ) {
@@ -100,20 +107,20 @@ class DetectedMediaStore @Inject constructor() {
     val page: StateFlow<DetectedPage?> = mutablePage.asStateFlow()
     private val mutableSelection = MutableStateFlow<MediaGroup?>(null)
 
-    /** The video the download sheet shows (P3): a snapshot, so new finds do not move it. */
+    /** The video the Download sheet shows: a snapshot, so new finds do not move it. */
     val selection: StateFlow<MediaGroup?> = mutableSelection.asStateFlow()
 
     private val mutableMaybeAd = MutableStateFlow(false)
 
     /**
-     * P28: the selected video may be the ad the page's player shows first: the page states a
+     * Ad filter: the selected video may be the ad the page's player shows first: the page states a
      * far longer video and it did not come in time. The sheet says so.
      */
     val maybeAd: StateFlow<Boolean> = mutableMaybeAd.asStateFlow()
 
     private val mutableLookup = MutableStateFlow<PageVideoLookup?>(null)
 
-    /** P12: the current page's own video lookup, while it runs or after it failed. */
+    /** Download sheet: the current page's own video lookup, while it runs or after it failed. */
     val lookup: StateFlow<PageVideoLookup?> = mutableLookup.asStateFlow()
 
     private val retryRequests = MutableSharedFlow<String>(
@@ -121,7 +128,7 @@ class DetectedMediaStore @Inject constructor() {
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
 
-    /** P12: the sheet's Try again for [lookup], by video key; its owner asks again. */
+    /** Download sheet: the sheet's Try again for [lookup], by video key; its owner asks again. */
     val lookupRetries: SharedFlow<String> = retryRequests.asSharedFlow()
 
     private val closeRequests = MutableSharedFlow<String>(
@@ -129,13 +136,20 @@ class DetectedMediaStore @Inject constructor() {
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
 
-    /** P16: the sheet that waited on [lookup] closed, by video key; its owner stops it. */
+    /**
+     * Download sheet: the sheet that waited on [lookup] closed, by video key; its owner stops it.
+     */
     val lookupCloses: SharedFlow<String> = closeRequests.asSharedFlow()
 
-    /** P16: a sheet opens for [lookup]; nothing the page itself shows stands in for it. */
+    /**
+     * Download sheet: a sheet opens for [lookup]; nothing the page itself shows stands in for it.
+     */
     private var awaiting = false
 
-    /** P16: whether an opening sheet waits on [lookup] rather than taking the page's video. */
+    /**
+     * Download sheet: whether an opening sheet waits on [lookup] rather than taking the page's
+     * video.
+     */
     val awaitsLookup: Boolean get() = awaiting && mutableSelection.value == null
 
     fun publish(
@@ -163,17 +177,17 @@ class DetectedMediaStore @Inject constructor() {
         )
     }
 
-    /** VK-Master wave 2: the detail lines [select] took with [group] ([lookupDetailsOf]). */
+    /** The detail lines [select] took with [group] ([lookupDetailsOf]). */
     private class SelectedLines(val group: MediaGroup, val lines: List<String>)
 
     private var selectedLines: SelectedLines? = null
 
     /**
-     * [group] is the video the sheet shows, the page's own video alone (P45: the sheet lists no
-     * other video). P28: [maybeAd] when it may be the ad before the page's video ([maybeAd]).
-     * VK-Master wave 2: [lookupDetails] are the detail lines of the lookup that found [group]
-     * (the browser's page lookup or the video on screen: the backup finder's lines), which the
-     * sheet shows as its Lookup details ([lookupDetailsOf]); none for every other selection.
+     * [group] is the video the sheet shows, the page's own video alone (the sheet lists no other
+     * video). Ad filter: [maybeAd] when it may be the ad before the page's video ([maybeAd]).
+     * [lookupDetails] are the detail lines of the lookup that found [group] (the browser's page
+     * lookup or the video on screen: the Backup finder's lines), which the sheet shows as its
+     * Lookup details ([lookupDetailsOf]); none for every other selection.
      */
     fun select(
         group: MediaGroup,
@@ -188,17 +202,16 @@ class DetectedMediaStore @Inject constructor() {
     }
 
     /**
-     * VK-Master wave 2: the lookup's detail lines [select] took with [group] — the same steps a
-     * failed lookup's Details show (sanitized: hosts, counts and words, never an address, a query
-     * value, a cookie or a site's value). Empty for another video, or one selected without lines.
-     * Memory only.
+     * The lookup's detail lines [select] took with [group] — the same steps a failed lookup's
+     * Details show (sanitized: hosts, counts and words, never an address, a query value, a cookie
+     * or a site's value). Empty for another video, or one selected without lines. Memory only.
      */
     fun lookupDetailsOf(group: MediaGroup?): List<String> =
         selectedLines?.takeIf { group != null && it.group == group }?.lines.orEmpty()
 
     /**
-     * P12: the sheet opens for the page's own video before its lookup found it. Nothing is
-     * selected until the browser's lookup selects the video, so the sheet waits on [lookup].
+     * Download sheet: the sheet opens for the page's own video before its lookup found it. Nothing
+     * is selected until the browser's lookup selects the video, so the sheet waits on [lookup].
      */
     fun awaitPageVideo() {
         mutableSelection.value = null
@@ -207,12 +220,12 @@ class DetectedMediaStore @Inject constructor() {
         awaiting = true
     }
 
-    /** P12: the browser's page lookup started, failed or ended (null). */
+    /** Download sheet: the browser's page lookup started, failed or ended (null). */
     fun showLookup(lookup: PageVideoLookup?) {
         mutableLookup.value = lookup
     }
 
-    /** P16: [owner]'s lookup ended; another owner's lookup stays. */
+    /** Download sheet: [owner]'s lookup ended; another owner's lookup stays. */
     fun clearLookup(owner: LookupOwner) {
         mutableLookup.update { current -> current?.takeUnless { it.owner == owner } }
     }
@@ -221,7 +234,9 @@ class DetectedMediaStore @Inject constructor() {
         retryRequests.tryEmit(key)
     }
 
-    /** P16: the sheet that waited on the lookup of [key] closed before its video came. */
+    /**
+     * Download sheet: the sheet that waited on the lookup of [key] closed before its video came.
+     */
     fun closeLookup(key: String) {
         awaiting = false
         closeRequests.tryEmit(key)
@@ -233,8 +248,8 @@ class DetectedMediaStore @Inject constructor() {
     )
 
     /**
-     * P29: the sheet's Try again on a page Home found, by page address: Home reads the page
-     * again, quietly, for its current files ([pageReadDone] when it answered).
+     * Fresh link renewal: the sheet's Try again on a page Home found, by page address: Home reads
+     * the page again, quietly, for its current files ([pageReadDone] when it answered).
      */
     val pageReads: SharedFlow<String> = pageReadRequests.asSharedFlow()
 
@@ -244,9 +259,9 @@ class DetectedMediaStore @Inject constructor() {
     )
 
     /**
-     * P29: asks Home to read [pageUrl] again and waits up to [timeoutMillis] for it; then the
-     * page as the store has it, null when it holds another page. Without Home listening, the
-     * page as it is.
+     * Fresh link renewal: asks Home to read [pageUrl] again and waits up to [timeoutMillis] for it;
+     * then the page as the store has it, null when it holds another page. Without Home listening,
+     * the page as it is.
      */
     suspend fun readPageAgain(
         pageUrl: String,
@@ -266,14 +281,14 @@ class DetectedMediaStore @Inject constructor() {
         return mutablePage.value?.takeIf { it.pageUrl == pageUrl }
     }
 
-    /** P29: Home read [pageUrl] again, with or without new files. */
+    /** Fresh link renewal: Home read [pageUrl] again, with or without new files. */
     fun pageReadDone(pageUrl: String) {
         pageReadAnswers.tryEmit(pageUrl)
     }
 
     /**
-     * P37: the browser's own user agent, which its requests carry: the sheet's quiet re-read of
-     * the browser's page introduces itself the same way. Not a secret; memory only.
+     * Fresh link renewal: the browser's own user agent, which its requests carry: the sheet's quiet
+     * re-read of the browser's page introduces itself the same way. Not a secret; memory only.
      */
     @Volatile
     var browserUserAgent: String? = null
@@ -283,10 +298,15 @@ class DetectedMediaStore @Inject constructor() {
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
 
-    /** P37: the sheet's "Reload page and try again"; the browser reloads its page. */
+    /**
+     * Fresh link renewal: the sheet's "Reload page and try again"; the browser reloads its page.
+     */
     val pageReloads: SharedFlow<PageReload> = reloadRequests.asSharedFlow()
 
-    /** P37: asks the browser to reload; false when no browser listens (the sheet stays). */
+    /**
+     * Fresh link renewal: asks the browser to reload; false when no browser listens (the sheet
+     * stays).
+     */
     fun reloadPage(request: PageReload): Boolean =
         reloadRequests.subscriptionCount.value > 0 && reloadRequests.tryEmit(request)
 
@@ -295,10 +315,10 @@ class DetectedMediaStore @Inject constructor() {
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
 
-    /** Decision 30 (v): the quiet sheet's Show check, by page address; the browser shows it. */
+    /** Quiet details: the quiet sheet's Show check, by page address; the browser shows it. */
     val siteChecks: SharedFlow<String> = siteCheckRequests.asSharedFlow()
 
-    /** Decision 30 (v): asks the browser to show [pageUrl]'s check; false when none listens. */
+    /** Quiet details: asks the browser to show [pageUrl]'s check; false when none listens. */
     fun requestSiteCheck(pageUrl: String): Boolean =
         siteCheckRequests.subscriptionCount.value > 0 && siteCheckRequests.tryEmit(pageUrl)
 
@@ -314,7 +334,7 @@ class DetectedMediaStore @Inject constructor() {
     companion object {
         const val MAX_CANDIDATES = 50
 
-        /** P29: how long Try again waits for Home's new read of a page. */
+        /** Fresh link renewal: how long Try again waits for Home's new read of a page. */
         const val PAGE_READ_TIMEOUT_MILLIS = 20_000L
     }
 }

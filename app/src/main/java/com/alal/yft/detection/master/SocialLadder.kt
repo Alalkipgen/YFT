@@ -148,14 +148,14 @@ internal object SocialLadder {
 
     /**
      * Social ladders: Master's social rung in a social-ladder build: the Facebook ladder
-     * ([FacebookLadder]: the plugin player, judged, `facebook F1` in Lookup details), the TikTok
-     * ladder ([TikTokLadder]: the embed player, judged, `tiktok T1`; main's pages, `tiktok T2`),
-     * the X ladder ([XLadder]: main's answer replayed, judged, no new ask, `x X1`) and the
-     * Instagram ladder ([InstagramLadder]: main's answers judged, no new ask, `instagram I2`; the
-     * tab-fetch probe, off by default, when the lookup's context has one) and the VK ladder
-     * ([VkLadder]: main's answers judged, no new ask, `vk V1`; the heal, `vk V2`: the web client's
-     * own token and `video.get` with [vkValues]' values, the one VK refused healed; the tab's
-     * playback, `vk V3`), each claiming only its own site's lookup with its own record
+     * ([FacebookLadder]: the plugin player, judged, `facebook F1` in Lookup details), the
+     * TikTok ladder ([TikTokLadder]: the embed player, judged, `tiktok T1`; main's pages,
+     * `tiktok T2`), the X ladder ([XLadder]: main's answer replayed, judged, no new ask, `x X1`)
+     * and the Instagram ladder ([InstagramLadder]: main's answers judged, no new ask,
+     * `instagram I2`; the tab-fetch probe, off by default, when the lookup's context has one) and
+     * the VK ladder ([VkLadder]: main's answers judged, no new ask, `vk V1`; the heal, `vk V2`: the
+     * web client's own token and `video.get` with [vkValues]' values, the one VK refused healed;
+     * the tab's playback, `vk V3`), each claiming only its own site's lookup with its own record
      * ([lookupContext]; [SocialStages]: the first that claims it), over Master's own client [http];
      * [identify]: main's adapters. Their recipes come from the same source as the engine's
      * ([MasterRecipeConfig]); Social limits: their stops cool in [cooldown] (the app's, by
@@ -326,8 +326,8 @@ internal object SocialLadder {
      * "the post's video in the answer: yes"; Facebook's plugin player, TikTok's "names the video",
      * X's item playlist) → [Words.PLAYBACK], the page can play it; (3) a sign-in or age wall
      * (`LOGIN_WALL`, `AGE_LIMITED`) → [Words.SIGN_IN]; (4) else, no video in the tab →
-     * [Words.MAINS] (X's widget 404 or tombstone, Instagram's "no post", nothing read). Signed
-     * recipe config: before (1), the tab's own playback off in the signed config
+     * [Words.MAINS] (X's widget 404 or tombstone, Instagram's "no post", nothing read).
+     * Signed recipe config: before (1), the tab's own playback off in the signed config
      * ([RungsOff.captureOff]) → [Words.MAINS] (no capture was asked, so playing the video again
      * gives nothing).
      */
@@ -378,8 +378,8 @@ internal object SocialLadder {
     private val VIDEO_CLASSES = Regex("""\b(DIRECT|PARTIAL|VIDEO_WITHOUT_FILES)\b""")
 
     /**
-     * Social ladders: the judges' evidence that names the post's video (each site's "needs
-     * playback" with a video).
+     * Social ladders: the judges' evidence that names the post's video (each site's
+     * "needs playback" with a video).
      */
     private val VIDEO_MARKS = listOf(
         "the post's video in the answer: yes",

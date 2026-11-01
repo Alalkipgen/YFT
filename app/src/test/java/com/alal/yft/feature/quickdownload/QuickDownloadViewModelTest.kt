@@ -84,7 +84,7 @@ class QuickDownloadViewModelTest {
         select(QuickDownloadFixtures.youtube())
 
         val state = viewModel().uiState.value
-        // P9: 720p is the unset preference; an explicitly saved Highest still stays.
+        // 720p is the unset preference; an explicitly saved Highest still stays.
         assertEquals(QualityPreference.UP_TO_720P, state.defaultQuality)
         assertEquals("720p · HD", state.selectedOption?.title)
         assertEquals(
@@ -127,7 +127,7 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun aPortraitVideoIsNamedAfterItsRowNotItsHeight() = runTest {
-        // N6 (v1.0.2): TikTok's 720 × 1280 file is the 720p row, so its file says 720p too.
+        // TikTok's 720 × 1280 file is the 720p row, so its file says 720p too.
         select(listOf(video(1280, 9 * MIB, width = 720, label = null)))
         val viewModel = viewModel()
         assertEquals("720p · HD", viewModel.uiState.value.selectedOption?.title)
@@ -140,7 +140,7 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun aWideHighFrameRateVideoIsNamedAfterItsRow() = runTest {
-        // N6: a 1920 × 960 file at 60 fps is the 1080p60 row; its file was "960p60".
+        // A 1920 × 960 file at 60 fps is the 1080p60 row; its file was "960p60".
         select(listOf(video(960, 90 * MIB, fps = 60.0, width = 1920, label = null)))
         val viewModel = viewModel()
         assertEquals("1080p60 · Full HD", viewModel.uiState.value.selectedOption?.title)
@@ -152,7 +152,7 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun aFourKRowThePhoneMayNotPlayIsWarnedAboutAndStillDownloads() = runTest {
-        // P6: the phone's decoder list decides; the file itself is fine, so it stays offered.
+        // Merge: the phone's decoder list decides; the file itself is fine, so it stays offered.
         val fourK = video(2160, 300 * MIB, merged = true).copy(
             mediaUrl = "https://media.example.test/video-2160.webm",
             mimeType = "video/webm",
@@ -193,7 +193,9 @@ class QuickDownloadViewModelTest {
         assertEquals("https://media.example.test/audio-128.m4a", queued.playbackUrl)
     }
 
-    /** Track E: an MP3's source is its M4A, from the browser's page with the tab's agent. */
+    /**
+     * Fresh link renewal: an MP3's source is its M4A, from the browser's page with the tab's agent.
+     */
     @Test
     fun theMp3RowTellsWhereItsFileCameFrom() = runTest {
         store.browserUserAgent = TAB_AGENT
@@ -215,7 +217,10 @@ class QuickDownloadViewModelTest {
         assertEquals(TAB_AGENT, origin.userAgent)
     }
 
-    /** Track E: the sound kept from a video keeps the video as its source, Home's lookup's. */
+    /**
+     * Fresh link renewal: the sound kept from a video keeps the video as its source, Home's
+     * lookup's.
+     */
     @Test
     fun theSoundKeptFromAVideoTellsTheVideoAndHomeAsItsSource() = runTest {
         val file = video(360, 11 * MIB, videoId = "facebook:1")
@@ -278,9 +283,9 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun aSitesHdAndSdFilesAreRenamedInPlaceOnceMeasuredAndOfferTheirSound() = runTest {
-        // P25: Facebook's HD/SD files state no height, codec or size. Their size check reads
-        // the pictures: the rows take their heights' names without moving, and their sound is
-        // offered as M4A and MP3 although no codec was stated.
+        // Facebook's HD/SD files state no height, codec or size. Their size check reads the
+        // pictures: the rows take their heights' names without moving, and their sound is offered
+        // as M4A and MP3 although no codec was stated.
         val files = QuickDownloadFixtures.facebookFiles()
         resolver.heights[files[0].mediaUrl] = 720
         resolver.heights[files[1].mediaUrl] = 360
@@ -299,7 +304,7 @@ class QuickDownloadViewModelTest {
         assertEquals(listOf("720p · HD", "360p"), choices.video.map { it.title })
         assertEquals(stated.options.map { it.id }, choices.options.map { it.id })
         assertEquals(listOf("25 MB", "9 MB"), choices.video.map { it.size })
-        // D2: Facebook is not YouTube, so M4A and MP3 192 only.
+        // Facebook is not YouTube, so M4A and MP3 192 only.
         assertEquals(listOf("M4A", "MP3 · 192 kbps"), choices.audio.map { it.title })
         assertEquals(stated.video.first().id, state.selectedId)
         assertEquals(files.toSet(), resolver.requested.toSet())
@@ -307,7 +312,8 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun aListOfQualitiesThatCannotBeReadIsNotANetworkProblem() = runTest {
-        // P24: an exception from reading a page's manifest used to say "could not be reached".
+        // Page video finder: an exception from reading a page's manifest used to say
+        // "could not be reached".
         val stream = video(null, 25 * MIB, label = null, videoId = null, index = 1)
         resolver.thrown = NumberFormatException("For input string: \"fixture\"")
         select(listOf(stream))
@@ -326,7 +332,7 @@ class QuickDownloadViewModelTest {
             "The media could not be reached. Check the connection and try again.",
             viewModel.uiState.value.failure,
         )
-        // P39: the Details name the exception's class, never its message.
+        // TikTok adapter: the Details name the exception's class, never its message.
         val details = viewModel.uiState.value.failureDetails
         assertTrue(details.toString(), "Error: SocketTimeoutException" in details)
         assertTrue(details.none { "fixture" in it })
@@ -334,7 +340,7 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun aRefusedVideoSaysSoAndItsDetailsNameTheStepTheHostAndTheStatus() = runTest {
-        // P24: the sheet that could not read the qualities.
+        // Page video finder: the sheet that could not read the qualities.
         val stream = video(null, 25 * MIB, label = null, videoId = null, index = 1)
         resolver.answer = {
             VariantResolutionResult.Failure(
@@ -352,7 +358,7 @@ class QuickDownloadViewModelTest {
                 "Step: list of qualities (manifest)",
                 "Host: stream.example.test",
                 "Status: HTTP 403",
-                // P37: where the link came from, its age and its expiry.
+                // Fresh link renewal: where the link came from, its age and its expiry.
                 "Link from: pasted link",
                 "Link age: unknown",
                 "Link expiry: none",
@@ -521,7 +527,7 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun aSheetOpenedDuringThePageLookupWaitsForThatLookupAndShowsItsVideo() = runTest {
-        // P12: the Download button was tapped on a watch page before its lookup ended.
+        // The Download button was tapped on a watch page before its lookup ended.
         store.publish(QuickDownloadFixtures.PAGE, null, emptyList(), adapterSite = true)
         val lookup = PageVideoLookup(KEY, QuickDownloadFixtures.PAGE, title = null)
         store.showLookup(lookup)
@@ -547,7 +553,7 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun aSheetOpenedOnALinkShowsTheLinkThenItsRowsAndClosingItEarlyStopsTheLookup() = runTest {
-        // P16: the browser's last page has a video of its own; Home's link is another video.
+        // The browser's last page has a video of its own; Home's link is another video.
         val feed = video(720, 42 * MIB, title = "Feed clip", videoId = null, index = 9)
         store.publish("https://m.youtube.com/", "YouTube", listOf(feed))
         store.awaitPageVideo()
@@ -571,7 +577,7 @@ class QuickDownloadViewModelTest {
         assertEquals(YOUTUBE_PICTURE, waiting.header?.thumbnailUrl)
         assertTrue(waiting.loading)
         assertNull(waiting.choices)
-        // Plan adapted (P18): Download is ready while it waits; it queues the Default quality.
+        // Download is ready while it waits; it queues the Default quality.
         assertTrue(waiting.canDownload)
 
         // The lookup answers: the same sheet fills in with the video's rows.
@@ -635,7 +641,7 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun aFailedPageLookupShowsTheLookupsStepsAsDetails() = runTest {
-        // P39 (R25): the sheet's Details say why, e.g. which TikTok page answered what.
+        // TikTok adapter: the sheet's Details say why, e.g. which TikTok page answered what.
         val steps = listOf(
             "page: phone · HTTP 200 · 150 KB · landed on: video page",
             "answer: none · no file opened",
@@ -656,7 +662,7 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun anAdapterSiteNeverOffersItsPlayersFilesAndAGenericPageOffersThem() = runTest {
-        // P12: unnamed files on a site's page are its player's, not the page's video.
+        // Unnamed files on a site's page are its player's, not the page's video.
         val file = video(720, 42 * MIB, title = "Player part", videoId = null, index = 1)
         store.publish(QuickDownloadFixtures.PAGE, "Page", listOf(file), adapterSite = true)
         assertNull(viewModel().uiState.value.header)
@@ -697,8 +703,8 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun theSheetsOwnPickOfAnUnknownOggGivesWayToTheMp4ReadAfterIt() = runTest {
-        // N10 (v1.0.2): w3schools' html5_video page offers mov_bbb.ogg and mov_bbb.mp4, neither
-        // stated; the OGG was read first and preselected, and the MP4 (144p) read later was not.
+        // w3schools' html5_video page offers mov_bbb.ogg and mov_bbb.mp4, neither stated; the OGG
+        // was read first and preselected, and the MP4 (144p) read later was not.
         val ogg = video(null, label = null, videoId = null, index = 1).copy(
             mediaUrl = "https://media.example.test/mov_bbb.ogg",
             mimeType = "video/ogg",
@@ -768,7 +774,7 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun theHeaderNamesTheVideosPictureAndAStartedDownloadSavesIt() = runTest {
-        // P19: a YouTube picture is known from the video's ID while the page lookup runs.
+        // A YouTube picture is known from the video's ID while the page lookup runs.
         store.publish(QuickDownloadFixtures.PAGE, null, emptyList(), adapterSite = true)
         store.showLookup(PageVideoLookup(KEY, QuickDownloadFixtures.PAGE, title = null))
         val waiting = viewModel()
@@ -798,7 +804,7 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun linksThatStoppedWorkingDropTheVideosRememberedLookup() = runTest {
-        // P17: after a 403 or 410 the next lookup of this video asks the site again.
+        // Lookup reuse: after a 403 or 410 the next lookup of this video asks the site again.
         val candidate = video(720, videoId = "facebook:fixture")
         val key = SiteLookupKey("facebook", "fixture", session = false)
         val answer = SiteAdapterOutcome.Detected("facebook", listOf(candidate))
@@ -836,7 +842,7 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun aDownloadTappedWhileTheSheetWaitsStartsWithTheDefaultQualityOnceTheRowsCome() = runTest {
-        // P18: Download works while the sheet still says "Getting qualities…" (was disabled).
+        // Download works while the sheet still says "Getting qualities…" (was disabled).
         val viewModel = waitingSheet()
         val waiting = viewModel.uiState.value
         assertTrue(waiting.waitsForQualities)
@@ -999,7 +1005,7 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun theSheetWaitingForThePagesVideoShowsThePagesTitleAndPictureThenItsLine() = runTest {
-        // P28: the browser waits a few seconds for the page's video after what may be its ad.
+        // Ad filter: the browser waits a few seconds for the page's video after what may be its ad.
         val page = "https://tube.example.test/watch/77"
         val poster = "https://img.example.test/v77/poster.jpg"
         val facts = PageVideoFacts(984_000, "Harbour lights at dusk", poster)
@@ -1018,7 +1024,7 @@ class QuickDownloadViewModelTest {
         )
 
         val sheet = viewModel()
-        // P43: LENIENT keeps this (the browser's first choice); STRICT skips it (below).
+        // Ad filter: LENIENT keeps this (the browser's first choice); STRICT skips it (below).
         sheet.adRule = AdRule.LENIENT
         val waiting = sheet.uiState.value
         assertTrue(waiting.findingPageVideo)
@@ -1041,7 +1047,7 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun theSheetWaitingForThePagesVideoSkipsAShortAdAndOffersNoAdInstead() = runTest {
-        // P43 (STRICT, the default): the same 0:30 ad on a 16:24 page is never offered.
+        // Ad filter (STRICT, the default): the same 0:30 ad on a 16:24 page is never offered.
         val page = "https://tube.example.test/watch/77"
         val poster = "https://img.example.test/v77/poster.jpg"
         val facts = PageVideoFacts(984_000, "Harbour lights at dusk", poster)
@@ -1078,7 +1084,7 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun aVideoWithoutTitleOrPictureTakesThePagesOwn() = runTest {
-        // P28 step 6 / P29 step 3: every entry; the found list selects the bare group.
+        // Ad filter, Fresh link renewal: every entry; the found list selects the bare group.
         val page = "https://tube.example.test/watch/77"
         val poster = "https://img.example.test/v77/poster.jpg"
         val stream = video(720, videoId = null, title = null, label = null, page = page)
@@ -1099,8 +1105,8 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun aGoneFirstFileNeverShowsThePagesOtherVideo() = runTest {
-        // P45 (was P29): the owner's page: the tapped video's address answered HTTP 410. The
-        // sheet stays the tapped video's; the page's other video is never shown in its place.
+        // The owner's page: the tapped video's address answered HTTP 410. The sheet stays the
+        // tapped video's; the page's other video is never shown in its place.
         val page = "https://tube.example.test/watch/77"
         val first = generic(1, 25 * MIB, page, lengthMillis = 600_000)
         val next = generic(2, 9 * MIB, page, lengthMillis = 300_000)
@@ -1134,7 +1140,8 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun anAdOrAPreviewIsNeverShownForTheTappedVideo() = runTest {
-        // P29: the page's other files are its ad and a preview clip: the first one's error stays.
+        // Fresh link renewal: the page's other files are its ad and a preview clip: the first one's
+        // error stays.
         val page = "https://tube.example.test/watch/77"
         val first = generic(1, 25 * MIB, page, lengthMillis = 984_000)
         val ad = generic(2, 5 * MIB, page, lengthMillis = 30_000)
@@ -1162,7 +1169,8 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun tryAgainAsksTheStoresNewestAddressNotTheDeadOne() = runTest {
-        // P29: the browser keeps the page's files current; Try again takes the newest address.
+        // Fresh link renewal: the browser keeps the page's files current; Try again takes the
+        // newest address.
         val page = "https://tube.example.test/watch/77"
         val dead = generic(1, 25 * MIB, page, lengthMillis = 600_000)
             .copy(mediaUrl = "https://media.example.test/video-1.mp4?token=old")
@@ -1188,7 +1196,8 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun tryAgainOnAPageHomeFoundWaitsForHomesNewReadOfThePage() = runTest {
-        // P29: Home's page is read again (HomeViewModel answers the store's request).
+        // Fresh link renewal: Home's page is read again (HomeViewModel answers the store's
+        // request).
         val page = "https://tube.example.test/watch/77"
         val dead = generic(1, 25 * MIB, page, lengthMillis = 600_000)
             .copy(mediaUrl = "https://media.example.test/video-1.mp4?token=old")
@@ -1217,8 +1226,8 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun thePlayersRequestOfTheSameFileIsPreparedInsteadOfTheScriptsLink() = runTest {
-        // P37 (R18): the owner's Preview #5 page: its script names a link that answers 410
-        // for YFT while its player plays the same file from a newer signed address.
+        // Fresh link renewal: the owner's test page: its script names a link that answers 410 for
+        // YFT while its player plays the same file from a newer signed address.
         val page = "https://clips.example.test/watch/5"
         val script = generic(1, 25 * MIB, page, lengthMillis = 600_000).copy(
             mediaUrl = "https://media.example.test/v5.mp4?validto=1&hash=old",
@@ -1251,9 +1260,9 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun aStatedRowWhoseLinkIsGoneIsNotOfferedAndTheFreshLinkIsPrepared() = runTest {
-        // P37 (CI emulator, real WebView): the script states its file's quality ("720p"), so
-        // the sheet shows that row before the file check; a gone answer must not leave it
-        // offered, or the fresh link is never looked for and only Download meets the 410.
+        // Fresh link renewal (CI emulator, real WebView): the script states its file's quality
+        // ("720p"), so the sheet shows that row before the file check; a gone answer must not leave
+        // it offered, or the fresh link is never looked for and only Download meets the 410.
         val page = "https://clips.example.test/watch/5"
         val dead = video(720, bytes = null, videoId = null, index = 1, page = page).copy(
             mediaUrl = "https://media.example.test/v5.mp4?validto=1&hash=old",
@@ -1292,8 +1301,9 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun aLinkGoneAtDownloadIsReplacedByAFreshLinkThatDownloadsByItself() = runTest {
-        // P37: the row's file was known by its size, so only Download asked for it, and it was
-        // gone: the page read again gives the video's new link, which downloads without a tap.
+        // Fresh link renewal: the row's file was known by its size, so only Download asked for it,
+        // and it was gone: the page read again gives the video's new link, which downloads without
+        // a tap.
         val page = "https://clips.example.test/watch/5"
         val dead = video(720, 25 * MIB, videoId = null, index = 1, page = page).copy(
             mediaUrl = "https://media.example.test/v5.mp4?validto=1&hash=old",
@@ -1328,8 +1338,8 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun aGoneLinkTriesThePlayersOwnVideoBeforeThePagesNextVideo() = runTest {
-        // P37: the script's link is gone; the video the player asked for (same length) comes
-        // before P29's next video, as the same video from a fresh link.
+        // Fresh link renewal: the script's link is gone; the video the player asked for (same
+        // length) comes before the next video, as the same video from a fresh link.
         val page = "https://clips.example.test/watch/5"
         val script = generic(1, 25 * MIB, page, lengthMillis = 600_000)
             .copy(sources = setOf(CandidateSource.DOM))
@@ -1374,8 +1384,8 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun aGoneLinkReadsThePageAgainQuietlyAndPreparesItsNewLink() = runTest {
-        // P37 (G7): nothing fresh on the page yet: the page is read again as the tab would
-        // ask for it, and the same video's new link is prepared.
+        // Fresh link renewal: nothing fresh on the page yet: the page is read again as the tab
+        // would ask for it, and the same video's new link is prepared.
         val page = "https://clips.example.test/watch/5"
         val dead = generic(1, 25 * MIB, page, lengthMillis = 600_000).copy(
             mediaUrl = "https://media.example.test/v5.mp4?validto=1&hash=old",
@@ -1411,7 +1421,8 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun atMostTwoQuietReadsThenTheErrorOffersReloadPageAndTryAgain() = runTest {
-        // P37: two reads that give only the dead link, then the error with both in Details.
+        // Fresh link renewal: two reads that give only the dead link, then the error with both in
+        // Details.
         val page = "https://clips.example.test/watch/5"
         val dead = generic(1, 25 * MIB, page, lengthMillis = 600_000)
             .copy(sources = setOf(CandidateSource.DOM))
@@ -1441,8 +1452,8 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun aNoticePageIsNotUsedAndTryAgainReadsThePageOnceMore() = runTest {
-        // P37: the page answered with a notice (no player data): not used, one read only.
-        // Try again reads it again and prepares the new link it gives then.
+        // Fresh link renewal: the page answered with a notice (no player data): not used, one read
+        // only. Try again reads it again and prepares the new link it gives then.
         val page = "https://clips.example.test/watch/5"
         val dead = generic(1, 25 * MIB, page, lengthMillis = 600_000).copy(
             mediaUrl = "https://media.example.test/v5.mp4?hash=old",
@@ -1491,8 +1502,8 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun withoutQuietReadsTheErrorOffersReloadAtOnceAndReloadAsksTheBrowser() = runTest {
-        // P37: REREAD=0. Reload page and try again hands the browser the video and its dead
-        // links; without a browser listening the sheet stays.
+        // Fresh link renewal: REREAD=0. Reload page and try again hands the browser the video and
+        // its dead links; without a browser listening the sheet stays.
         val page = "https://clips.example.test/watch/5"
         val dead = generic(1, 25 * MIB, page, lengthMillis = 600_000)
             .copy(sources = setOf(CandidateSource.DOM))
@@ -1519,7 +1530,8 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun homesPageAndAnAdaptersVideoKeepTheirOwnWaysAndOfferNoReload() = runTest {
-        // P37: Home's page keeps Home's re-read; a site adapter's video is untouched.
+        // Fresh link renewal: Home's page keeps Home's re-read; a site adapter's video is
+        // untouched.
         val page = "https://clips.example.test/watch/5"
         val dead = generic(1, 25 * MIB, page, lengthMillis = 600_000)
             .copy(sources = setOf(CandidateSource.DOM))
@@ -1540,7 +1552,7 @@ class QuickDownloadViewModelTest {
         assertTrue(reader.asked.isEmpty())
     }
 
-    /** P16/P18: a sheet opened on Home's lookup of a link, before the video came. */
+    /** A sheet opened on Home's lookup of a link, before the video came. */
     private fun waitingSheet(
         preferences: DownloadPreferences = DownloadPreferences(confirmOnMeteredNetwork = false),
         network: StateFlow<NetworkSnapshot> = MutableStateFlow(WIFI),
@@ -1558,12 +1570,15 @@ class QuickDownloadViewModelTest {
         store.clearLookup(LookupOwner.HOME)
     }
 
-    /** P29: a file another site's page lists, of [lengthMillis], without title or label. */
+    /**
+     * Fresh link renewal: a file another site's page lists, of [lengthMillis], without title or
+     * label.
+     */
     private fun generic(index: Int, bytes: Long, page: String, lengthMillis: Long) =
         video(null, bytes, label = null, title = null, videoId = null, index = index, page = page)
             .copy(durationMillis = lengthMillis)
 
-    /** P29: the file check answered [status]: the file is gone. */
+    /** Fresh link renewal: the file check answered [status]: the file is gone. */
     private fun gone(status: Int) = VariantResolutionResult.Failure(
         VariantResolutionFailure.HTTP_STATUS,
         httpStatusCode = status,
@@ -1618,10 +1633,16 @@ class QuickDownloadViewModelTest {
         var failure: VariantResolutionFailure? = null
         var failureStatus: Int? = null
 
-        /** P24: what the resolver throws instead of answering, like a parser that failed. */
+        /**
+         * Page video finder: what the resolver throws instead of answering, like a parser that
+         * failed.
+         */
         var thrown: Exception? = null
 
-        /** P24: a whole answer for a candidate, when the test needs more than a reason. */
+        /**
+         * Page video finder: a whole answer for a candidate, when the test needs more than a
+         * reason.
+         */
         var answer: ((MediaCandidate) -> VariantResolutionResult?)? = null
         val sizes = mutableMapOf<String, Long>()
         var beforeResolve: suspend (MediaCandidate) -> Unit = {}
@@ -1666,7 +1687,7 @@ class QuickDownloadViewModelTest {
         }
     }
 
-    /** P37: answers the sheet's quiet re-reads in turn; then "not read". */
+    /** Fresh link renewal: answers the sheet's quiet re-reads in turn; then "not read". */
     private class FakePageReader(vararg answers: PageReread) : BrowserPageReader {
         val asked = mutableListOf<Pair<String, String?>>()
         private val queue = ArrayDeque(answers.toList())
@@ -1714,7 +1735,10 @@ class QuickDownloadViewModelTest {
         const val YOUTUBE_PICTURE = "https://i.ytimg.com/vi/fixture0001/hqdefault.jpg"
         const val TAB_AGENT = "Mozilla/5.0 (Linux; Android 15; wv) WebView/test"
 
-        /** P37: a pasted file's link lines: no time it was seen, no expiry in its address. */
+        /**
+         * Fresh link renewal: a pasted file's link lines: no time it was seen, no expiry in its
+         * address.
+         */
         val PASTED_LINK_LINES =
             listOf("Link from: pasted link", "Link age: unknown", "Link expiry: none")
     }
