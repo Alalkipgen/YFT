@@ -12,10 +12,11 @@ import org.junit.Assert.assertSame
 import org.junit.Test
 
 /**
- * VK-Master wave 2 (agent D, item 7): the trial's VK value break. Off, or outside the trial: main's
- * client and values as they are. Each choice breaks one value only — the token request's client
- * id or secret, or `video.get`'s version — and Master's V2 gets the same change of main's values,
- * each of VK's shape. The choice a tap keeps waits for a restart. Made-up values only; no live call.
+ * VK trial break: the trial's VK value break. Off, or outside the trial: main's client and values
+ * as they are. Each choice breaks one value only — the token request's client id or secret, or
+ * `video.get`'s version — and Master's heal (`vk V2` in Lookup details) gets the same change of
+ * main's values, each of VK's shape. The choice a tap keeps waits for a restart. Made-up values
+ * only; no live call.
  */
 class VkTrialBreakTest {
     @Test

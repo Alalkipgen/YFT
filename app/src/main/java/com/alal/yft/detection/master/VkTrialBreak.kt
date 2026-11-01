@@ -11,17 +11,18 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * VK-Master wave 2 (agent D, item 7): the trial's VK value break, the owner's phone proof of V2's
- * heal. Only #12 trial ([BuildConfig.SOCIAL_TRIAL]; a social-trial debug build too) has it, in
- * Settings › Browser: Off, the client id, the API version or the client secret only. Main's VK
- * adapter then asks with that value broken ([client]: the token request's client id or secret,
- * or `video.get`'s version, changed before main's record, so the record keeps what was sent) and
- * Master's V2 knows main's set ([mutate]: the same change). With the client id or the version
- * broken VK refuses main, and V2 heals that value from vkvideo.ru's public script; with the
- * secret only VK still mints a token (it does not check it), so main's answer stands and V1
- * answers with no heal. Main keeps its token for a day, so the choice is read once per process
- * ([active]): a change applies after YFT restarts. Every other build: off, the preferences never
- * read, main's client as it is. The broken values are VK's shapes only, never a real value.
+ * VK trial break: the trial's VK value break, the owner's phone proof of the VK ladder's heal
+ * (`vk V2` in Lookup details). Only the Trial preview ([BuildConfig.SOCIAL_TRIAL]; a social-trial
+ * debug build too) has it, in Settings › Browser: Off, the client id, the API version or the client
+ * secret only. Main's VK adapter then asks with that value broken ([client]: the token request's
+ * client id or secret, or `video.get`'s version, changed before main's record, so the record keeps
+ * what was sent) and Master's heal knows main's set ([mutate]: the same change). With the client id
+ * or the version broken VK refuses main, and the heal mends that value from vkvideo.ru's public
+ * script; with the secret only VK still mints a token (it does not check it), so main's answer
+ * stands and the main's-answers step (`vk V1`) answers with no heal. Main keeps its token for a
+ * day, so the choice is read once per process ([active]): a change applies after YFT restarts.
+ * Every other build: off, the preferences never read, main's client as it is. The broken values are
+ * VK's shapes only, never a real value.
  */
 class VkTrialBreak internal constructor(
     private val preferences: SharedPreferences?,
@@ -56,7 +57,7 @@ class VkTrialBreak internal constructor(
         state.value = state.value.copy(chosen = next)
     }
 
-    /** Main's values as this process's choice breaks them, for Master's V2; null when off. */
+    /** Main's values as this process's choice breaks them, for Master's heal; null when off. */
     fun mutate(): ((VkClient.Values) -> VkClient.Values)? = when (active) {
         Break.OFF -> null
         Break.CLIENT_ID -> { values -> values.copy(clientId = BROKEN_CLIENT_ID) }
@@ -98,7 +99,7 @@ class VkTrialBreak internal constructor(
         fun client(context: Context, http: ExtractorHttpClient): ExtractorHttpClient =
             if (BuildConfig.SOCIAL_TRIAL) get(context).client(http) else http
 
-        /** Main's values as this build breaks them, for Master's V2: null but in the trial. */
+        /** Main's values as this build breaks them, for Master's heal: null but in the trial. */
         fun mutate(context: Context): ((VkClient.Values) -> VkClient.Values)? =
             if (BuildConfig.SOCIAL_TRIAL) get(context).mutate() else null
 

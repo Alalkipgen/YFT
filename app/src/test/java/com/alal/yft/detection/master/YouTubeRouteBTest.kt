@@ -37,11 +37,14 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Phase 1.4 item 7 (YouTube routing B) R1–R2: the app's wiring of the recorder and of route B's Master wrappers. */
+/**
+ * YouTube backup route: the app's wiring of the Lookup record's recorder and of the route's Master
+ * wrappers.
+ */
 class YouTubeRouteBTest {
     /**
-     * Item 7 R4: the trial acts only with route B on (debug, `-Pyft.routeBTrial`); the browser's
-     * notice is route B's line of rows Master found, nothing for any other answer.
+     * YouTube backup trial: the trial acts only with the route on (debug, `-Pyft.routeBTrial`); the
+     * browser's notice is route B's line of rows Master found, nothing for any other answer.
      */
     @Test
     fun theTrialNeedsRouteBAndTheNoticeIsRouteBsLine() {
@@ -59,10 +62,10 @@ class YouTubeRouteBTest {
     }
 
     /**
-     * Item 7 promotion (the owner, 2026-10-19, plan §9 4): route B goes with Master capture. The
-     * CI runs this in its two builds: the Master build (`-Pyft.masterCapture=true`, route B's
-     * default) has it on; the plain validation build (no Master capture) has it off, as do release
-     * and preview. Only a build made with `-Pyft.youtubeRouteB=false` (P12 as before) differs.
+     * YouTube backup route: the route goes with Master capture. The CI runs this in its two builds:
+     * the Master build (`-Pyft.masterCapture=true`, route B's default) has it on; the plain
+     * validation build (no Master capture) has it off, as do release and preview. Only a build made
+     * with `-Pyft.youtubeRouteB=false` (one lookup per page, as before) differs.
      */
     @Test
     fun routeBIsOnWhereverMasterCaptureIs() {

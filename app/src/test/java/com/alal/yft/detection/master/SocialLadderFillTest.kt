@@ -49,12 +49,12 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Social plan S6 (B+, `MASTER_KEY_SOCIAL_PLAN.md` §4 S6, decision 7) in the app's lookup: a
- * Facebook page main found with weak rows (no HD row) keeps main's rows exactly as main gave them,
- * first, and gets only the HD row Master's ladder finds that they lack, after V read its file and
- * the census's one-row check passed it (never with the user's session); a strong answer, a build
- * without B+ and every other case return main's answer at once, nothing asked; whatever stops B+
- * (a 429 in the lookup, a failed file check, the page moving on) leaves main's answer with B+'s
+ * Weak-answer fill (`B+` in Lookup details; docs/DESIGN.md) in the app's lookup: a Facebook page
+ * main found with weak rows (no HD row) keeps main's rows exactly as main gave them, first, and
+ * gets only the HD row Master's ladder finds that they lack, after V read its file and the census's
+ * one-row check passed it (never with the user's session); a strong answer, a build without the
+ * fill and every other case return main's answer at once, nothing asked; whatever stops the fill (a
+ * 429 in the lookup, a failed file check, the page moving on) leaves main's answer with the fill's
  * line saying why. Main's real Facebook adapter over synthetic pages with made-up IDs, fake files
  * and file checks; each case passes the switches explicitly. No live calls.
  */
@@ -69,7 +69,7 @@ class SocialLadderFillTest {
         assertEquals("$TITLE — SD", primary.candidates.single().title)
         assertEquals(setOf(SocialFill.Weak.NO_HD), SocialFill.weakness(primary.candidates))
         assertTrue(fixture.bridge.fills(WATCH, primary))
-        // A B+ build's weak answer goes to B+, not the trial.
+        // A fill build's weak answer goes to the fill, not the trial.
         assertSame(primary, fixture.bridge.trialPrimary(WATCH, primary))
 
         val filled = fixture.recover(primary) as SiteAdapterOutcome.Detected
@@ -83,7 +83,7 @@ class SocialLadderFillTest {
         assertEquals("facebook:$VIDEO", added.videoId)
         // Listed with main's video under its name (the sheet groups by the key and the base title).
         assertTrue(added.title.toString(), added.title?.startsWith(TITLE) == true)
-        // Main's details first, then B+'s line, then Master's own.
+        // Main's details first, then the fill's line, then Master's own.
         assertEquals(primary.details, filled.details.take(primary.details.size))
         assertEquals(LINE, filled.details[primary.details.size])
         assertTrue(filled.details.toString(), filled.details.any { it.startsWith("master: facebook ladder after NO_MEDIA_FOUND") })
@@ -111,8 +111,9 @@ class SocialLadderFillTest {
         assertSame(found, strong.recover(found))
         strong.assertNothingAsked()
 
-        // A weak answer in a build without B+ (no fill run: every build but -Pyft.socialFill's
-        // debug one), without the social ladder, or with Master off: main's answer, nothing asked.
+        // A weak answer in a build without the fill (no fill run: every build but
+        // -Pyft.socialFill's debug one), without the social ladder, or with Master off: main's
+        // answer, nothing asked.
         for (off in listOf(Fixture(fill = false), Fixture(socialLadder = false), Fixture(enabledBuild = false))) {
             val weak = off.inspect() as SiteAdapterOutcome.Detected
             assertEquals(1, weak.candidates.size)
@@ -283,7 +284,8 @@ class SocialLadderFillTest {
                 social = stage,
             ),
             MergeSupport { true },
-            // The page's own context, the user's session in it (B+ never sends it with a file).
+            // The page's own context, the user's session in it (the fill never sends it with a
+            // file).
             requestFactory = { reason, at, expected ->
                 MasterRequest(WATCH, scope.generation, at, reason, expected, BrowserRequestContext(WATCH, "Browser", "c_user=fixture"))
             },

@@ -34,13 +34,14 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Social plan S1a (4): F2, main's pages, in the app's lookup, in a social-ladder build: a share
- * link whose page main read (redirected to the reel) under keys main no longer knows gets F2's
- * rows for the reel's video after F1's one ask, nothing more asked; a post whose page is the
- * page's own route (private, in any language) ends the lookup in main's words, nothing asked or
- * captured. Flag off (every CI build): the same lookups answer as today (no record and no main's
- * pages, so the ladder claims nothing; R8's path). Main's real Facebook adapter over synthetic
- * pages; each case passes the switch explicitly. No live calls.
+ * Social ladders: the Facebook ladder's main's-pages step (`facebook F2` in Lookup details), in the
+ * app's lookup, in a social-ladder build: a share link whose page main read (redirected to the
+ * reel) under keys main no longer knows gets that step's rows for the reel's video after the plugin
+ * player's one ask, nothing more asked; a post whose page is the page's own route (private, in any
+ * language) ends the lookup in main's words, nothing asked or captured. Flag off (every CI build):
+ * the same lookups answer as today (no record and no main's pages, so the ladder claims nothing;
+ * the Site contract reader's path). Main's real Facebook adapter over synthetic pages; each case
+ * passes the switch explicitly. No live calls.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
@@ -53,7 +54,8 @@ class SocialLadderF2Test {
 
         assertEquals(setOf(hd(REEL_VIDEO), sd(REEL_VIDEO)), detected.candidates.map { it.mediaUrl }.toSet())
         detected.candidates.forEach { assertEquals("facebook:$REEL_VIDEO", it.videoId) }
-        // Main's one page; F1's one ask (no data); F2 asked nothing.
+        // Main's one page; the plugin player's one ask (no data); the main's-pages step asked
+        // nothing.
         assertEquals(listOf(SHARE_PAGE), fixture.main.asked)
         assertEquals(listOf(embedUrl(REEL)), fixture.master.asked)
         assertEquals(0, fixture.captures.get())
@@ -70,7 +72,8 @@ class SocialLadderF2Test {
         assertEquals(1, fixture.main.asked.size)
         assertTrue(fixture.master.asked.isEmpty())
         assertEquals(0, fixture.captures.get())
-        // Main's own final answer (§7.4's A1, the page's route): Master is skipped, no F2 line.
+        // Main's own final answer (the Facebook adapter's access fix, the page's route): Master is
+        // skipped, no main's-pages line.
         assertTrue(failed.details.toString(), failed.details.none { it.startsWith("master: facebook") })
         assertTrue(failed.details.none { BURMESE in it || POST_ID in it })
     }
@@ -78,9 +81,9 @@ class SocialLadderF2Test {
     @Test
     fun flagOffTheSameLookupsAnswerAsToday() = runTest {
         // Today's engine (no ladder), and the ladder present with the switch off: no record and no
-        // main's pages, so it claims nothing and R8's path answers (a link main resolves first is
-        // not asked about), in today's words; the post's unavailable page is main's own final
-        // answer (§7.4's A1), nothing captured.
+        // main's pages, so it claims nothing and the Site contract reader's path answers (a link
+        // main resolves first is not asked about), in today's words; the post's unavailable page is
+        // main's own final answer (the Facebook adapter's access fix), nothing captured.
         val cases = listOf(
             Triple(SHARE, SiteExtractionFailure.RESPONSE_CHANGED, "Play the video on this page, then tap Try again."),
             Triple(POST, SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, "This Facebook post is private or no longer available."),

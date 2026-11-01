@@ -37,12 +37,12 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Social plan S1a (7), in the app's lookup, in a social-ladder build: a Facebook page whose video
- * object lists another video's files under the video's ID (a related list without an ID) gives
- * no Master row, and no file is read; the lookup ends with Master's failure, as a lookup with no
- * row does; the video's own files on the same page are offered. Flag off (every CI build): the
- * same lookups answer as today and no file is read. Main's real Facebook adapter over synthetic
- * pages, a fake file reader; each case passes the switch explicitly. No live calls.
+ * Social ladders, in the app's lookup, in a social-ladder build: a Facebook page whose video object
+ * lists another video's files under the video's ID (a related list without an ID) gives no Master
+ * row, and no file is read; the lookup ends with Master's failure, as a lookup with no row does;
+ * the video's own files on the same page are offered. Flag off (every CI build): the same lookups
+ * answer as today and no file is read. Main's real Facebook adapter over synthetic pages, a fake
+ * file reader; each case passes the switch explicitly. No live calls.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])

@@ -39,14 +39,14 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Social plan S2d part 1: the app's Instagram wiring. Flag off: no stage. Flag on: Master's social
- * rung has Instagram's ladder too, claiming only an Instagram lookup with its record (Instagram's
+ * Instagram ladder: the app's Instagram wiring. Flag off: no stage. Flag on: Master's social rung
+ * has Instagram's ladder too, claiming only an Instagram lookup with its record (Instagram's
  * labels, a MainPages naming Instagram); Instagram's Details lines and trial words; a photo post in
- * main's words only on Instagram's final line (no REMOVED answer: decision 19 (vi)); the trial
- * compares the item (one of main's files among Master's rows, which add the 360p files main drops)
- * and says each side's tallest row; the probe's own switch, off by default, only in a social-ladder
- * build. Each case passes the switch explicitly, so it holds whatever the build's flags are.
- * Synthetic rows and made-up IDs; no live calls.
+ * main's words only on Instagram's final line (no REMOVED answer); the trial compares the item (one
+ * of main's files among Master's rows, which add the 360p files main drops) and says each side's
+ * tallest row; the probe's own switch, off by default, only in a social-ladder build. Each case
+ * passes the switch explicitly, so it holds whatever the build's flags are. Synthetic rows and
+ * made-up IDs; no live calls.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
@@ -101,7 +101,7 @@ class SocialLadderInstagramTest {
             SocialLadder.finalMessage(SiteExtractionFailure.NO_MEDIA_FOUND, KEY, listOf(ladder, perWay, final)),
         )
         assertEquals("This post has photos only, no video.", InstagramExtractor.PHOTOS_MESSAGE)
-        // Task 15 (F3b): that answer is final (no Try again); without the final line it is not.
+        // Download sheet: that answer is final (no Try again); without the final line it is not.
         assertTrue(SocialLadder.photosOnly(SiteExtractionFailure.NO_MEDIA_FOUND, KEY, listOf(ladder, perWay, final)))
         assertFalse(SocialLadder.photosOnly(SiteExtractionFailure.NO_MEDIA_FOUND, KEY, listOf(ladder, perWay)))
         assertFalse(SocialLadder.photosOnly(SiteExtractionFailure.LOGIN_REQUIRED, KEY, listOf(ladder, final)))
@@ -166,7 +166,8 @@ class SocialLadderInstagramTest {
                 key,
             ),
         )
-        // X's line as before: no tallest; Facebook's no tallest either, but each side's heights (task 16, F6).
+        // X's line as before: no tallest; Facebook's no tallest either, but each side's heights
+        // (Social backup trial).
         val x = SocialLadder.trialSegment(
             listOf(row(X_FILE, X_KEY, 9_000, 720)),
             listOf(row(X_FILE, X_KEY, 9_000, 720)),
@@ -191,7 +192,7 @@ class SocialLadderInstagramTest {
         val ladder = "master: instagram ladder after RESPONSE_CHANGED; main's answers read, no new ask"
         val outcome = SiteAdapterOutcome.Detected("instagram", listOf(row(FILE_720, KEY, 9_000, 720)), listOf(ladder + segment))
         assertEquals(ladder + segment, SocialLadder.trialNotice(outcome))
-        // Task 15 (F1): rows without the trial's comparison (main failed) show the ladder's line.
+        // Social ladders: rows without the trial's comparison (main failed) show the ladder's line.
         val none = SiteAdapterOutcome.Detected("instagram", listOf(row(FILE_720, KEY, 9_000, 720)), listOf(ladder))
         assertEquals(ladder, SocialLadder.trialNotice(none))
 
@@ -200,10 +201,11 @@ class SocialLadderInstagramTest {
             "a wall on the page: no; rows 1 (DIRECT)"
         val both = SiteAdapterOutcome.Detected("instagram", listOf(row(FILE_720, KEY, 9_000, 720)), listOf(ladder + segment, rung))
         assertEquals(ladder + segment + "\n" + rung, SocialLadder.trialNotice(both))
-        // F1: the rung's rows after main's LOGIN_REQUIRED (IG slot 5): the ladder's line and the rung's.
+        // Instagram tab-fetch step: the rung's rows after main's LOGIN_REQUIRED (signed out): the
+        // ladder's line and the rung's.
         val alone = SiteAdapterOutcome.Detected("instagram", listOf(row(FILE_720, KEY, 9_000, 720)), listOf(ladder, rung))
         assertEquals(ladder + "\n" + rung, SocialLadder.trialNotice(alone))
-        // F4: the proof's line too, before the rung's answer.
+        // The proof's line too, before the rung's answer.
         val proof = SiteAdapterOutcome.Detected(
             "instagram", listOf(row(FILE_720, KEY, 9_000, 720)),
             listOf(ladder, InstagramLadder.PROOF, rung),
@@ -220,9 +222,10 @@ class SocialLadderInstagramTest {
 
     @Test
     fun theRungsProofLeavingNoRowKeepsMainsWordsAndTheBannerShowsItsLines() {
-        // Task 15 (F4): signed in, the proof set I2's rows aside and the rung was not asked: no row;
-        // main's (the trial's) words even with a video in the tab (Try again gives the same), and
-        // the banner shows the words, then the proof's lines.
+        // Instagram tab-fetch step: signed in, the proof set the main's-answers rows
+        // (`instagram I2` in Lookup details) aside and the rung was not asked: no row; main's (the
+        // trial's) words even with a video in the tab (Try again gives the same), and the banner
+        // shows the words, then the proof's lines.
         val notAsked = "master: instagram probe: not asked (signed in: the rung is the signed-out query)"
         val lines = listOf(
             "master: instagram ladder after RESPONSE_CHANGED; main's answers read, no new ask",

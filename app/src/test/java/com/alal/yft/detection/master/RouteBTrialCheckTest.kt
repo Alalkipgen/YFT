@@ -29,9 +29,9 @@ import org.junit.Assert.assertNotNull
 import org.junit.Test
 
 /**
- * Phase 1.4 item 7 (YouTube routing B) F7: the route-B trial's comparison of Master's rows with
- * main's set-aside rows of the same lookup — the files' one-byte check now, whether the links and
- * the download headers are main's, and which names differ. Names, statuses and counts only.
+ * YouTube backup trial: the trial's comparison of Master's rows with main's set-aside rows of the
+ * same lookup — the files' one-byte check now, whether the links and the download headers are
+ * main's, and which names differ. Names, statuses and counts only.
  */
 class RouteBTrialCheckTest {
     @Test
@@ -74,8 +74,9 @@ class RouteBTrialCheckTest {
     }
 
     /**
-     * F8: D7 run 12's one-byte check said 206×8 while the V3 download had 403 at once. The check
-     * now also asks each long file's second range, as the download asks it after its 1 MiB first.
+     * Row check: a phone run's one-byte check said 206×8 while that video's download had 403 at
+     * once. The check now also asks each long file's second range, as the download asks it after
+     * its 1 MiB first.
      */
     @Test
     fun theSecondRangeOfEachLongFileIsAskedAsTheDownloadAsksIt() = runTest {
@@ -137,9 +138,10 @@ class RouteBTrialCheckTest {
     }
 
     /**
-     * D7 run 11's first trial APK closed its answers on the caller's thread, the main thread (route
-     * B's lookup runs there): an answer whose body has not all arrived then reads the network on
-     * it, which Android stops with a crash. The check now asks, reads and closes off that thread.
+     * A phone run's first trial APK closed its answers on the caller's thread, the main thread (the
+     * backup route's lookup runs there): an answer whose body has not all arrived then reads the
+     * network on it, which Android stops with a crash. The check now asks, reads and closes off
+     * that thread.
      */
     @Test
     fun theFileCheckNeverReadsOrWritesTheNetworkOnItsCallersThread() {
@@ -185,7 +187,9 @@ class RouteBTrialCheckTest {
         }
     }
 
-    /** F8: the second range is asked like the one byte, with its own Range, and left unread. */
+    /**
+     * Row check: the second range is asked like the one byte, with its own Range, and left unread.
+     */
     @Test
     fun theFileCheckAsksARangeWithTheRowsHeaders() {
         val server = MockWebServer()

@@ -41,12 +41,12 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Social plan S1a (2): the social-ladder switch's wiring. Flag off (every CI build): the shared
- * adapter client and each lookup's context are today's. Flag on: each Facebook lookup (every link
- * form) gets its own record with Facebook's labels and its own main pages, and main's real
- * Facebook adapter writes its asks (with their ways) and its pages into them; other sites as
- * before. Each case passes the switch explicitly, so it holds whatever the build's flags are.
- * Synthetic pages; no live calls.
+ * Social ladders: the social-ladder switch's wiring. Flag off (every CI build): the shared adapter
+ * client and each lookup's context are today's. Flag on: each Facebook lookup (every link form)
+ * gets its own record with Facebook's labels and its own main pages, and main's real Facebook
+ * adapter writes its asks (with their ways) and its pages into them; other sites as before. Each
+ * case passes the switch explicitly, so it holds whatever the build's flags are. Synthetic pages;
+ * no live calls.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
@@ -56,7 +56,7 @@ class SocialLadderTest {
         assertTrue(!SocialLadder.enabled || BuildConfig.MASTER_CAPTURE_ENABLED)
         assertTrue(SocialLadder.claims("facebook:1000000000000001"))
         assertTrue(SocialLadder.claims("facebook:AbCdEf123"))
-        // S2b: TikTok's lookups too; S2c: X's; S2d: Instagram's; no other site's.
+        // TikTok's, X's and Instagram's lookups too; no other site's.
         assertTrue(SocialLadder.claims("tiktok:11111"))
         assertTrue(SocialLadder.claims("tiktok:ZMabcdef1"))
         assertTrue(SocialLadder.claims("x:1000000000000000001"))
@@ -91,7 +91,8 @@ class SocialLadderTest {
             assertNotSame(first[LookupRecord], second[LookupRecord])
             assertNotSame(first[MainPages], second[MainPages])
         }
-        // S2b: a TikTok lookup its own record and pages, which name TikTok (V asks TikTok's hosts).
+        // A TikTok lookup its own record and pages, which name TikTok (the row check asks TikTok's
+        // hosts).
         val tiktok = social.lookupContext(TIKTOK)
         assertNotNull(tiktok[LookupRecord])
         assertEquals("tiktok", tiktok[MainPages]?.site)

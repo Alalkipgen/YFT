@@ -35,7 +35,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Social plan S2b: the app's TikTok wiring. Flag off (every CI build): main's TikTok client is
+ * TikTok ladder: the app's TikTok wiring. Flag off (every CI build): main's TikTok client is
  * today's (its cookies sent back), no stage, Facebook's words as before. Flag on: main's TikTok
  * client keeps main's pages; Master's social rung is both ladders, each claiming only its own
  * site's lookup with a record; each site's Details lines, trial words and final words. Each case
@@ -107,7 +107,7 @@ class SocialLadderTikTokTest {
         val words = "This TikTok post has no downloadable video." // main's own for a photo post
         assertEquals(words, SocialLadder.finalMessage(SiteExtractionFailure.NO_MEDIA_FOUND, tiktok, listOf(photo)))
         assertEquals(words, SocialLadder.finalMessage(SiteExtractionFailure.NO_MEDIA_FOUND, tiktok, listOf("x", t1)))
-        // Task 15 (F3b): the photo stop is final (no Try again); Facebook's private answer is not.
+        // Download sheet: the photo stop is final (no Try again); Facebook's private answer is not.
         assertTrue(SocialLadder.photosOnly(SiteExtractionFailure.NO_MEDIA_FOUND, tiktok, listOf(photo)))
         assertTrue(SocialLadder.photosOnly(SiteExtractionFailure.NO_MEDIA_FOUND, tiktok, listOf("x", t1)))
         assertFalse(SocialLadder.photosOnly(SiteExtractionFailure.NO_MEDIA_FOUND, tiktok, emptyList()))
@@ -150,7 +150,8 @@ class SocialLadderTikTokTest {
         assertEquals("master: tiktok$segment", SocialLadder.trialNotice(tiktok))
         val facebook = detected(listOf("master: facebook$segment"))
         assertEquals("master: facebook$segment", SocialLadder.trialNotice(facebook))
-        // No ladder site's line: null. Task 15 (F1): no trial segment (main failed): the ladder's line.
+        // No ladder site's line: null. Social ladders: no trial segment (main failed): the ladder's
+        // line.
         assertNull(SocialLadder.trialNotice(detected(listOf("master: vimeo$segment"))))
         assertEquals(
             "master: tiktok ladder after RESPONSE_CHANGED",
@@ -160,8 +161,9 @@ class SocialLadderTikTokTest {
 
     @Test
     fun s4TheNoticeShowsAContractReadByShape() {
-        // S4 (the R9 drill's renamed key): rows the key table read none of, found by shape, show
-        // the contract's line under the site's (each once); the key table's count line is not shown.
+        // Signed recipe config (the drill's renamed key): rows the key table read none of, found by
+        // shape, show the contract's line under the site's (each once); the key table's count line
+        // is not shown.
         val segment = "; trial: Master's rows 2, main's 3; the same video: yes; duration within 1 s: yes"
         val site = "master: facebook ladder after LOGIN_REQUIRED; replayed 0; new 1$segment"
         val shape = "master: facebook contract: 2 $KEY_TABLE_CHANGED"

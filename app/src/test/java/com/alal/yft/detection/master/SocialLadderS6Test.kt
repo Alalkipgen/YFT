@@ -38,13 +38,12 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Social plan S1a (6), S6, in the app's lookup, in a social-ladder build: a Facebook lookup offers
- * a row only after its file's first bytes (read once, without the user's session) pass V and the
- * init check; when the bytes prove the rows wrong none is offered and the lookup ends with
- * Master's failure, as a lookup with no row does. Flag off (every CI build): the engine's file check is
- * the one given, no file is read and the same lookups answer as today. Main's real Facebook
- * adapter over synthetic pages, a fake file reader; each case passes the switch explicitly. No
- * live calls.
+ * Row check, in the app's lookup, in a social-ladder build: a Facebook lookup offers a row only
+ * after its file's first bytes (read once, without the user's session) pass V and the init check;
+ * when the bytes prove the rows wrong none is offered and the lookup ends with Master's failure, as
+ * a lookup with no row does. Flag off (every CI build): the engine's file check is the one given,
+ * no file is read and the same lookups answer as today. Main's real Facebook adapter over synthetic
+ * pages, a fake file reader; each case passes the switch explicitly. No live calls.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
@@ -56,8 +55,8 @@ class SocialLadderS6Test {
 
         val found = fixture.lookup() as SiteAdapterOutcome.Detected
         assertEquals(setOf(hd(VIDEO), sd(VIDEO)), found.candidates.map { it.mediaUrl }.toSet())
-        // Social plan task 15 (F1): Master's rows after main's failure carry its lines, so the
-        // browser's banner names Facebook's ladder line (no trial here: nothing to compare).
+        // Social ladders: Master's rows after main's failure carry its lines, so the browser's
+        // banner names Facebook's ladder line (no trial here: nothing to compare).
         val notice = SocialLadder.trialNotice(found)
         assertTrue(notice.toString(), notice?.startsWith("master: facebook ladder after RESPONSE_CHANGED") == true)
         assertTrue(found.details.toString(), found.details.none { "://" in it })

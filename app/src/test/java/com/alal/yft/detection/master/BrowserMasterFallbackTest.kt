@@ -58,7 +58,7 @@ class BrowserMasterFallbackTest {
 
     @Test
     fun codecSteeringFollowsTheDeviceMergeRules() {
-        // R5: VP9/Opus WebM merges from Android 10; AV1 merges are off everywhere.
+        // Codec steering: VP9/Opus WebM merges from Android 10; AV1 merges are off everywhere.
         assertEquals(
             CodecSteering(vp9 = false, av1 = false),
             AndroidBrowserMasterFallback.codecSteering(28),
@@ -132,7 +132,9 @@ class BrowserMasterFallbackTest {
         }
     }
 
-    /** Phase 1.4 item 2: the h-only APK's site still goes through Master when its page is found. */
+    /**
+     * Ladder test switches: the h-only APK's site still goes through Master when its page is found.
+     */
     @Test
     fun aFoundPageOfTheMasterFirstSiteGoesThroughMaster() = runTest {
         val fixture = Fixture(tiktok, masterFirstSite = "tiktok")
@@ -146,8 +148,8 @@ class BrowserMasterFallbackTest {
     }
 
     /**
-     * Item 2, run 4: the trial's found page is answered by the site's own module (YouTube: the
-     * ladder, so H's row), not by capture. Run 4 showed the adapter's rows: the engine skips a
+     * Ladder test switches: the trial's found page is answered by the site's own module (YouTube:
+     * the ladder, so H's row), not by capture. Run 4 showed the adapter's rows: the engine skips a
      * claimed page unless no adapter answered, so a found page must reach it as unanswered.
      */
     @Test
@@ -169,8 +171,8 @@ class BrowserMasterFallbackTest {
     }
 
     /**
-     * Item 2, run 4: the h-only trial never gives the adapter's rows back. Master cannot ask (no
-     * page), or the page went to another video meanwhile: the lookup fails and names the step;
+     * Ladder test switches: the h-only trial never gives the adapter's rows back. Master cannot ask
+     * (no page), or the page went to another video meanwhile: the lookup fails and names the step;
      * the same video reloaded meanwhile keeps the module's answer.
      */
     @Test
@@ -216,9 +218,9 @@ class BrowserMasterFallbackTest {
     }
 
     /**
-     * Phase 1.4 item 7 (YouTube routing B) R1: a route-B build gives each YouTube lookup a new
-     * record; another site, a page no enabled adapter claims, Master off in the build and every
-     * other build (the switch off) get nothing, so their lookups run as before.
+     * Lookup record: a YouTube backup route build gives each YouTube lookup a new record; another
+     * site, a page no enabled adapter claims, Master off in the build and every other build (the
+     * switch off) get nothing, so their lookups run as before.
      */
     @Test
     fun aRouteBBuildGivesEachYouTubeLookupItsOwnRecordAndNothingElseOne() {
@@ -243,9 +245,9 @@ class BrowserMasterFallbackTest {
     }
 
     /**
-     * Item 7 F5: a route-B YouTube lookup's record names the looked-up video's watch page — main's
-     * GET of it with the tab's cookie is kept for one replay of the same GET without the cookie;
-     * another video's page is not kept.
+     * YouTube backup route: a backup-route YouTube lookup's record names the looked-up video's
+     * watch page — main's GET of it with the tab's cookie is kept for one replay of the same GET
+     * without the cookie; another video's page is not kept.
      */
     @Test
     fun aRouteBRecordKeepsMainsCookieGetOfTheLookedUpVideosPageForOneReplay() = runTest {
@@ -268,7 +270,9 @@ class BrowserMasterFallbackTest {
         assertNull(record.replay(LookupAsk(LookupAsk.GET, WATCH_PAGE, null, cookieLess), YouTubeHttp.MAX))
     }
 
-    /** Item 7 R1: the record changes nothing yet — a found YouTube page still returns at once. */
+    /**
+     * Lookup record: the record changes nothing yet — a found YouTube page still returns at once.
+     */
     @Test
     fun aRouteBRecordLeavesTheLookupAsBefore() = runTest {
         val fixture = Fixture(YOUTUBE_PAGE, extractor = youTubeExtractor(), youtubeRouteB = true)
@@ -281,9 +285,9 @@ class BrowserMasterFallbackTest {
     }
 
     /**
-     * Phase 1.4 item 7 (YouTube routing B) R3: in a route-B build a YouTube page main failed with
-     * a recoverable reason is answered by Master's module inside a route-B run over the lookup's
-     * record (main's identical answer replayed, not asked again); the rows keep main's adapter.
+     * YouTube backup route: in its build a YouTube page main failed with a recoverable reason is
+     * answered by Master's module inside a route-B run over the lookup's record (main's identical
+     * answer replayed, not asked again); the rows keep main's adapter.
      */
     @Test
     fun routeBAnswersAYouTubePageMainFailedForARecoverableReason() = runTest {
@@ -305,7 +309,8 @@ class BrowserMasterFallbackTest {
             assertEquals(reason.name, 1, http.asked.get()) // main's one request only
             assertEquals(reason.name, 0, fixture.captures.get())
             assertEquals(reason.name, 0, fixture.probes.get())
-            // Item 7 R4: the rows carry route B's line first — the browser's notice in a route-B build.
+            // YouTube backup route: the rows carry its line first (`route B` in Lookup details) —
+            // the browser's notice in its build.
             val line = "master: route B after ${reason.name}; replayed 1; new 0"
             assertEquals(reason.name, line, found.details.first())
             assertEquals(reason.name, line, YouTubeRouteB.notice(found))
@@ -313,7 +318,7 @@ class BrowserMasterFallbackTest {
     }
 
     /**
-     * Item 7 R4: the route-B trial APK answers a YouTube page main found as main's failure —
+     * YouTube backup trial: its trial APK answers a YouTube page main found as main's failure —
      * RESPONSE_CHANGED (recoverable, so route B answers), main's adapter, Try again, no page files,
      * main's row count in Details. Main's failures (a bot check stays final), nothing found,
      * another site's page and every build without the trial keep main's answer itself.
@@ -349,7 +354,7 @@ class BrowserMasterFallbackTest {
     }
 
     /**
-     * Item 7 F7: in the route-B trial, route B's line (the browser's notice) also says whether
+     * YouTube backup trial: in the trial, the route's line (the browser's notice) also says whether
      * YouTube takes Master's files now (a one-byte check) and whether Master's rows are main's rows
      * the trial set aside in that lookup; a lookup that set nothing aside (main's own failure)
      * keeps the line as before, without a check.
@@ -396,7 +401,10 @@ class BrowserMasterFallbackTest {
         assertEquals(1, checked.size)
     }
 
-    /** F7 fix (D7 run 11's crash): a failing trial check only says so on the line; the rows stand. */
+    /**
+     * YouTube backup trial (a phone run's crash): a failing trial check only says so on the line;
+     * the rows stand.
+     */
     @Test
     fun aFailingRouteBTrialCheckOnlySaysSoOnTheLine() = runTest {
         val http = YouTubeHttp()
@@ -427,8 +435,8 @@ class BrowserMasterFallbackTest {
     }
 
     /**
-     * Item 7 R3: bot check, login, player script, 429 and the other final reasons stay final —
-     * main's failure itself; F2: with a Details line saying route B did not run and why.
+     * YouTube backup route: bot check, login, player script, 429 and the other final reasons stay
+     * final — main's failure itself, with a Details line saying the route did not run and why.
      */
     @Test
     fun routeBNeverAnswersAFinalReason() = runTest {
@@ -461,7 +469,10 @@ class BrowserMasterFallbackTest {
         }
     }
 
-    /** Item 7 R3: every other build (route B off) keeps main's failure for a claimed page (P12). */
+    /**
+     * YouTube backup route: every other build (the route off) keeps main's failure for a claimed
+     * page (one lookup per page, as before).
+     */
     @Test
     fun withoutRouteBAYouTubePageMainFailedKeepsMainsAnswer() = runTest {
         for (reason in TerminalRules.ROUTE_B_RECOVERABLE) {
@@ -479,9 +490,9 @@ class BrowserMasterFallbackTest {
     }
 
     /**
-     * Item 7 R3: a lookup without main's recorded requests (none, or a reused answer) keeps the
-     * skip — main's failure stays; F2: with a Details line saying why, from the lookup's record
-     * (none; main's requests in it; how main's answer was reused, P17).
+     * YouTube backup route: a lookup without main's recorded requests (none, or a reused answer)
+     * keeps the skip — main's failure stays, with a Details line saying why, from the lookup's
+     * record (none; main's requests in it; how main's answer was reused, Lookup reuse).
      */
     @Test
     fun routeBWithoutMainsRequestsKeepsMainsAnswer() = runTest {
@@ -513,7 +524,7 @@ class BrowserMasterFallbackTest {
     }
 
     /**
-     * Item 7 F2: route B's lookup that never reached Master keeps main's failure — its reason,
+     * YouTube backup route: its lookup that never reached Master keeps main's failure — its reason,
      * message and retry — with a Details line saying why: no page to ask, or the page to ask shows
      * another video. Route B off: main's answer itself, as before.
      */
@@ -549,8 +560,9 @@ class BrowserMasterFallbackTest {
     }
 
     /**
-     * Item 7 R3: when Master's module gives no rows the lookup's answer stays main's failure —
-     * its reason, message and retry — and Master's details follow main's, route B named first.
+     * YouTube backup route: when Master's module gives no rows the lookup's answer stays main's
+     * failure — its reason, message and retry — and Master's details follow main's, route B named
+     * first.
      */
     @Test
     fun routeBWithoutRowsKeepsMainsFailureAndAddsMastersDetails() = runTest {
@@ -583,8 +595,8 @@ class BrowserMasterFallbackTest {
     }
 
     /**
-     * Item 7 R3: the module answers for the video, so the same video still open (reloaded)
-     * keeps its rows; another video opened meanwhile leaves main's answer (F2: with a line).
+     * YouTube backup route: the module answers for the video, so the same video still open
+     * (reloaded) keeps its rows; another video opened meanwhile leaves main's answer (with a line).
      */
     @Test
     fun routeBKeepsTheRowsOfTheSameVideoReloadedMeanwhile() = runTest {
@@ -604,7 +616,7 @@ class BrowserMasterFallbackTest {
             YOUTUBE_PAGE, extractor = youTubeExtractor(), youtubeRouteB = true,
             modules = listOf(YouTubeModule(other) { moved.capture.session.navigate("${YOUTUBE_PREFIX}Yft1Fixture") }),
         )
-        // F2: the answer for a video the page no longer shows is dropped, and the line says so.
+        // The answer for a video the page no longer shows is dropped, and the line says so.
         assertEquals(
             primary.copy(details = listOf("master: route B answer dropped: the page changed during the lookup")),
             withContext(mainAsked(other)) { moved.bridge.recover(YOUTUBE_PAGE, primary, 100) },
@@ -634,8 +646,8 @@ class BrowserMasterFallbackTest {
 
     @Test
     fun aGenericPagesOnDemandRowsCarryMastersOwnLinesAndASitesRowsNoneAsBefore() = runTest {
-        // v1.0.2 item 13 (d): the rows Master finds on demand on a generic page carry its own
-        // lines (the sheet's Lookup details): the capture it asked for, the rows it checked.
+        // Download sheet: the rows Master finds on demand on a generic page carry its own lines
+        // (the sheet's Lookup details): the capture it asked for, the rows it checked.
         val fixture = Fixture(generic)
         val result = fixture.bridge.recover(
             generic, SiteAdapterOutcome.NotHandled, 100, true,
@@ -708,8 +720,8 @@ class BrowserMasterFallbackTest {
 
     @Test
     fun contractRowsReachTheAppUnderTheAdaptersKey() = runTest {
-        // R8: the hook hands Master the adapter's identity; the site's own answer is read and
-        // its rows carry the app's key, so no capture is needed.
+        // Site contract reader: the hook hands Master the adapter's identity; the site's own answer
+        // is read and its rows carry the app's key, so no capture is needed.
         val page = "https://vimeo.com/123456789"
         val asked = mutableListOf<String>()
         val http = object : ExtractorHttpClient {
@@ -741,7 +753,7 @@ class BrowserMasterFallbackTest {
 
         assertEquals("vimeo", outcome.adapterId)
         assertEquals(listOf("https://cdn.test/v720.mp4"), outcome.candidates.map { it.mediaUrl })
-        assertTrue(outcome.details.isEmpty()) // item 7 R4: only route B's rows carry details
+        assertTrue(outcome.details.isEmpty()) // YouTube backup route: only its rows carry details
         assertEquals(listOf("https://player.vimeo.com/video/123456789/config"), asked)
         assertEquals(0, fixture.captures.get())
         assertEquals(1, fixture.probes.get())
@@ -752,7 +764,7 @@ class BrowserMasterFallbackTest {
     private fun youTubeFailed(reason: SiteExtractionFailure) =
         SiteAdapterOutcome.Failed("youtube", reason, MAIN_MESSAGE, true)
 
-    /** Item 7 R3: a lookup's record in which main asked the player endpoint once. */
+    /** YouTube backup route: a lookup's record in which main asked the player endpoint once. */
     private suspend fun mainAsked(http: YouTubeHttp): LookupRecord {
         val record = LookupRecord()
         withContext(record) { LookupRecorder(http).postJson(YouTubeHttp.PLAYER, YouTubeHttp.BODY, YouTubeHttp.HEADERS, YouTubeHttp.MAX) }
@@ -814,7 +826,8 @@ class BrowserMasterFallbackTest {
                     ),
                 )
             },
-            // Item 7 R3: the engine's route-B rule follows the build's switch, as in create().
+            // YouTube backup route: the engine's route rule follows the build's switch, as in
+            // create().
             policy = MasterPolicy(enabled = true, youtubeRouteB = youtubeRouteB),
             modules = modules,
             contracts = contracts,
@@ -858,7 +871,7 @@ class BrowserMasterFallbackTest {
         }
     }
 
-    /** Item 7 R3: YouTube's player endpoint, answered without a live call. */
+    /** YouTube backup route: YouTube's player endpoint, answered without a live call. */
     private class YouTubeHttp : ExtractorHttpClient {
         val asked = AtomicInteger()
         override suspend fun get(url: String, headers: Map<String, String>, maxBodyBytes: Long): ExtractorHttpResult =
@@ -881,8 +894,9 @@ class BrowserMasterFallbackTest {
     }
 
     /**
-     * Item 7 R3: Master's YouTube module stand-in. It asks main's player request again through
-     * route B's client and answers one HLS row (or [answer]); it notes the route-B run it saw.
+     * YouTube backup route: Master's YouTube module stand-in. It asks main's player request again
+     * through route B's client and answers one HLS row (or [answer]); it notes the route-B run it
+     * saw.
      */
     private class YouTubeModule(
         http: ExtractorHttpClient,

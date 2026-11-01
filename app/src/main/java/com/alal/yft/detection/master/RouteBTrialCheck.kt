@@ -24,36 +24,40 @@ import okhttp3.Request
 import okhttp3.Response
 
 /**
- * Phase 1.4 item 7 (YouTube routing B) F7, the route-B trial APK only (D7 `routeb`): Master's rows
- * checked against main's rows the trial set aside in the same lookup, as one segment of route B's
- * line (the browser's notice), for example
+ * YouTube backup trial, its trial APK only (`routeb`): Master's rows checked against main's rows
+ * the trial set aside in the same lookup, as one segment of the YouTube backup route's line
+ * (`route B` in Lookup details; the browser's notice), for example
  * `; check: 403×2; same as main's: 3 of 3 rows, headers same`.
  *
- * D7 run 10's V3 download failed at once (403 on a fresh VISIONOS link, which main's links never
- * get a proof-of-origin token for either). So the segment says whether YouTube takes the rows'
- * files now ([FileCheck]: a one-byte ranged GET like the download's first, with the row's own
- * headers), and whether the rows are main's own — the same links (file and audio) and the same
- * download headers. When a link is not main's, it names the query names whose values differ or
+ * On a phone run, a test video's download failed at once (403 on a fresh VISIONOS link, which
+ * main's links never get a proof-of-origin token for either). So the segment says whether YouTube
+ * takes the rows' files now ([FileCheck]: a one-byte ranged GET like the download's first, with the
+ * row's own headers), and whether the rows are main's own — the same links (file and audio) and the
+ * same download headers. When a link is not main's, it names the query names whose values differ or
  * that only one side has (against main's link of the same stream, `itag`) and checks main's link
  * too. Names, statuses and counts only: never a link, a host, a query value or a header value.
  *
- * F8: D7 run 12's check said `206×8` and the V3 download still had 403 at once. The download asks
- * more than the check's one byte: a 1 MiB first range and then 10 MiB ranges, four of a file at
- * once. So the check also asks each file's second range once, as the download asks it, unread:
- * `; check: 206×8; 2nd range: 403×6; same as main's: …` (only files longer than the first range).
+ * Row check: a later phone run's check said `206×8` and that video's download still had 403 at
+ * once. The download asks more than the check's one byte: a 1 MiB first range and then 10 MiB
+ * ranges, four of a file at once. So the check also asks each file's second range once, as the
+ * download asks it, unread: `; check: 206×8; 2nd range: 403×6; same as main's: …` (only files
+ * longer than the first range).
  */
 object RouteBTrialCheck {
     fun interface FileCheck {
         /** The HTTP status of a one-byte ranged GET of [url] with [context]'s headers; null: none. */
         suspend fun status(url: String, context: BrowserRequestContext): Int?
 
-        /** F8: whether the check asks [rangeStatus]; one that does not leaves the 2nd range out. */
+        /**
+         * Row check: whether the check asks [rangeStatus]; one that does not leaves the 2nd range
+         * out.
+         */
         val asksRanges: Boolean
             get() = false
 
         /**
-         * F8: the HTTP status of a GET of [url]'s bytes [first] to [last] with [context]'s headers,
-         * the answer unread; null: no answer.
+         * Row check: the HTTP status of a GET of [url]'s bytes [first] to [last] with [context]'s
+         * headers, the answer unread; null: no answer.
          */
         suspend fun rangeStatus(url: String, context: BrowserRequestContext, first: Long, last: Long): Int? =
             null
@@ -118,11 +122,12 @@ object RouteBTrialCheck {
     }
 
     /**
-     * F7: the trial's file check over [client] — the download's own first request, one byte. The
-     * whole call runs off the caller's thread, and the answer is closed on OkHttp's thread as soon
-     * as its status is known: route B's lookup runs on the main thread, where closing an answer
-     * whose body has not all arrived reads the network, which Android stops with a crash (D7 run
-     * 11's first trial APK closed its answers there). Any failure is "no answer", never an error.
+     * YouTube backup trial: the trial's file check over [client] — the download's own first
+     * request, one byte. The whole call runs off the caller's thread, and the answer is closed on
+     * OkHttp's thread as soon as its status is known: the backup route's lookup runs on the main
+     * thread, where closing an answer whose body has not all arrived reads the network, which
+     * Android stops with a crash (a phone run's first trial APK closed its answers there). Any
+     * failure is "no answer", never an error.
      */
     class OkHttpFileCheck(client: OkHttpClient) : FileCheck {
         private val client = client.newBuilder()
@@ -135,7 +140,10 @@ object RouteBTrialCheck {
         override suspend fun status(url: String, context: BrowserRequestContext): Int? =
             rangeStatus(url, context, first = 0, last = 0)
 
-        /** F8: any range, asked and closed like the one byte: off the caller's thread, unread. */
+        /**
+         * Row check: any range, asked and closed like the one byte: off the caller's thread,
+         * unread.
+         */
         override suspend fun rangeStatus(url: String, context: BrowserRequestContext, first: Long, last: Long): Int? =
             withContext(Dispatchers.IO) {
                 val request = try {
@@ -191,10 +199,10 @@ object RouteBTrialCheck {
     }
 
     /**
-     * F8: the download's second range of each of [links] longer than its first range, asked once
-     * each: the download asks a YouTube file of stated length `clen` in a [FIRST_RANGE_BYTES]
-     * first range and then ranges of [WholeFileTrack.DEFAULT_MAX_REQUEST_BYTES] (FAST_START, P41).
-     * Null when no file is that long.
+     * Row check: the download's second range of each of [links] longer than its first range, asked
+     * once each: the download asks a YouTube file of stated length `clen` in a [FIRST_RANGE_BYTES]
+     * first range and then ranges of [WholeFileTrack.DEFAULT_MAX_REQUEST_BYTES] (FAST_START, DASH
+     * download). Null when no file is that long.
      */
     private suspend fun secondRanges(links: List<Link>, check: FileCheck): String? = coroutineScope {
         val asks = links.mapNotNull { link ->
