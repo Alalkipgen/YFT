@@ -1,11 +1,11 @@
 name: Minified build check (release branch)
-# Decision 30 (R8, the release commit): the shrunk builds are run, not only compiled. This job
-# builds the #12 normal preview and the #12 trial exactly as "Preview APK (test key)" does (R8 on,
+# The shrunk release builds are run, not only compiled. This job
+# builds the preview and the trial preview exactly as "Preview APK (test key)" does (R8 on,
 # a fresh test key, never a secret), installs them on the emulator smoke's API 34 emulator and
 # drives each through its screens (scripts/ci-minified-check.sh, MinifiedBuildCheckTest): YouTube's
-# route B, one social ladder and the capture. Each check's answer is an annotation; a crash or a
+# backup route, one social ladder and the capture. Each check's answer is an annotation; a crash or a
 # run that cannot finish fails the job, a live site's answer to the data centre does not. Its APKs
-# are never uploaded: the #12 artifacts stay Preview APK's.
+# are never uploaded: the preview artifacts stay Preview APK's.
 on:
   push:
     branches: ["work/phase-release-*", "work/phase-vk-master-wire", "work/phase-track-e-403", "work/phase-v102-easy"]
@@ -49,7 +49,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
-      # v1.0.2 item 0: the runner's Gradle memory, from one place (scripts/ci-gradle-memory.sh).
+      # The runner's Gradle memory, from one place (scripts/ci-gradle-memory.sh).
       - name: CI Gradle memory
         shell: bash
         run: bash scripts/ci-gradle-memory.sh

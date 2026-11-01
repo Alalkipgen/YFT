@@ -1,6 +1,6 @@
 name: Own solver canary (spike)
 
-# Phase 1.2 N6 (MASTER_KEY_PHASE1_2_PLAN.md §3 N6): today's YouTube player (its four builds)
+# Own-solver canary: today's YouTube player (its four builds)
 # through main's ejs solver and the own solver's strategies P and B alone; the corpus against the
 # recorded vectors (own P, then own B alone); the change simulator's quick run (the phone build of
 # each corpus player, every class, one seed: ejs, own P and own B). Any wrong value, a P or B miss

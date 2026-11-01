@@ -1,8 +1,8 @@
 name: Preview APK (test key)
 
-# P7: the owner's test builds. The release code (minified, not debuggable) as
-# com.alal.yft.preview ("YFT Preview", #12 normal: the release's flags and look exactly) and, by
-# decision 30 (iii), as com.alal.yft.trial ("YFT Trial", #12 trial: the same with the trials on
+# The owner's test builds. The release code (minified, not debuggable) as
+# com.alal.yft.preview ("YFT Preview": the release's flags and look exactly) and, by
+# the owner's decision, as com.alal.yft.trial ("YFT Trial": the same with the trials on
 # and every detail shown), both signed with one throwaway test key made fresh in this job and
 # deleted at its end. It never sees the release key or any repository secret.
 on:
@@ -50,7 +50,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
-      # v1.0.2 item 0: the runner's Gradle memory, from one place (scripts/ci-gradle-memory.sh).
+      # The runner's Gradle memory, from one place (scripts/ci-gradle-memory.sh).
       - name: CI Gradle memory
         shell: bash
         run: bash scripts/ci-gradle-memory.sh
