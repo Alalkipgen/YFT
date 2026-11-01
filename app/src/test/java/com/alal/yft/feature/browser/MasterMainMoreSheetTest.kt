@@ -71,12 +71,11 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * M2 after P45 (the tapped video only): the browser's real ViewModel takes Master's main/More
- * presentation through the existing hook, the real download sheet (QuickDownloadRoute) shows
- * only the main video with no "Other videos" row, and the remaining videos stay in the
- * browser's own found list. The presentation fixture has the module's shape (one group per
- * verified file, owned UI keys, no post ID); the selection policy itself is covered by the
- * module tests.
+ * The tapped video only: the browser's real ViewModel takes Master's main/More presentation through
+ * the existing hook, the real download sheet (QuickDownloadRoute) shows only the main video with no
+ * "Other videos" row, and the remaining videos stay in the browser's own found list. The
+ * presentation fixture has the module's shape (one group per verified file, owned UI keys, no post
+ * ID); the selection policy itself is covered by the module tests.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)

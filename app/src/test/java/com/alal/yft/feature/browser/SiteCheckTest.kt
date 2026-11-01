@@ -8,7 +8,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** P46: when the browser offers TikTok's check, and which pages the check may open. */
+/** TikTok adapter: when the browser offers TikTok's check, and which pages the check may open. */
 class SiteCheckTest {
     @Test
     fun aTikTokLookupThatEndedOnACheckOffersTheCheck() {

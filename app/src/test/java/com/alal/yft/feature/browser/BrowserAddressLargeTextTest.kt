@@ -30,11 +30,11 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * v1.0.2 fix R4: on the owner's phone, at a large text size, the address pill's host and path
- * were drawn on top of other text. With native graphics on a phone-sized screen at 100, 130, 150
- * and 200 % text: the styled address is the only text drawn in the pill (two addresses that look
- * the same there, one with "www." and one with a query, draw the same pixels although the field
- * underneath holds different text), and it is one line that ends in "…".
+ * On the owner's phone, at a large text size, the address pill's host and path were drawn on top of
+ * other text. With native graphics on a phone-sized screen at 100, 130, 150 and 200 % text: the
+ * styled address is the only text drawn in the pill (two addresses that look the same there, one
+ * with "www." and one with a query, draw the same pixels although the field underneath holds
+ * different text), and it is one line that ends in "…".
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)

@@ -42,7 +42,7 @@ class BrowserDownloadFabTest {
         assertEquals(Action.FIND_VIDEO_ON_SCREEN, action(3, feedSite = true, feedPage = true))
         // A page of those sites no adapter reads (a channel or search page) that found nothing.
         assertEquals(Action.FIND_VIDEO_ON_SCREEN, action(0, feedSite = true, feedPage = false))
-        // Every other site keeps P3's button; several videos open the main one's sheet (P12).
+        // Every other site keeps the round button; several videos open the main one's sheet.
         assertNull(action(0, feedSite = false, feedPage = false))
         assertEquals(Action.OPEN_VIDEO, action(1, feedSite = false, feedPage = false))
         assertEquals(Action.OPEN_MAIN_VIDEO, action(2, feedSite = false, feedPage = false))
@@ -50,7 +50,7 @@ class BrowserDownloadFabTest {
 
     @Test
     fun aSiteVideoPageAlwaysOpensThisVideosSheetWhateverItFound() {
-        // P12: a watch page, short, reel or Vimeo video with 0, 1 or 4 found: never the list.
+        // A watch page, short, reel or Vimeo video with 0, 1 or 4 found: never the list.
         for (count in listOf(0, 1, 4)) {
             assertEquals(
                 "YouTube watch page, $count found",

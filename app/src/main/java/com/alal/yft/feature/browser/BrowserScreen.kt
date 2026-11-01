@@ -165,20 +165,20 @@ fun BrowserRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val preferences by browserSettings.preferences.collectAsStateWithLifecycle()
     val historyState by history.uiState.collectAsStateWithLifecycle()
-    // Decision 30 (v): a quiet build's sheet has no Try again; Download again looks up again.
+    // Quiet details: a quiet build's sheet has no Try again; Download again looks up again.
     val quiet = LocalQuietRelease.current
     var historyOpen by rememberSaveable { mutableStateOf(false) }
-    // P30: typed words (the view model asks BrowserSearch) search with the chosen engine.
+    // Typed words (the view model asks BrowserSearch) search with the chosen engine.
     SideEffect { BrowserSearch.engine = preferences.searchEngine }
     val clipboard = LocalClipboardManager.current
     val copiedLinkHint = rememberCopiedLinkHint()
     val pageUrlState = remember { BrowserPageUrl() }
     var webView by remember { mutableStateOf<WebView?>(null) }
-    // P32: what the WebView's clients block (Settings › Browser) and the last blocked page.
+    // What the WebView's clients block (Settings › Browser) and the last blocked page.
     val guard = remember { BrowserNavigationGuard() }
     SideEffect { guard.enabled = preferences.blockPopups }
     var blockedNotice by remember { mutableStateOf<BlockedNavigation?>(null) }
-    // P31: the detection's view model stays the sink; page loads also reach the history.
+    // The detection's view model stays the sink; page loads also reach the history.
     val sink = remember(viewModel, history) {
         val recorder = BrowserHistoryRecorder(
             onVisit = history::recordVisit,
@@ -192,7 +192,7 @@ fun BrowserRoute(
     var pendingUrl by remember { mutableStateOf(uiState.currentUrl) }
     var canGoBack by remember { mutableStateOf(false) }
     var canGoForward by remember { mutableStateOf(false) }
-    // The site player's full-screen view (P2) and how to tell the page it was closed.
+    // The site player's full-screen view and how to tell the page it was closed.
     var fullscreenView by remember { mutableStateOf<View?>(null) }
     var exitFullscreen by remember { mutableStateOf<(() -> Unit)?>(null) }
     val fullscreenHandler = remember {
@@ -243,12 +243,12 @@ fun BrowserRoute(
     LaunchedEffect(initialLink) {
         initialLink?.let(viewModel::openInitialLink)?.let(::requestNavigation)
     }
-    // P5: the video on screen was found and selected; its download sheet opens.
+    // Page video finder: the video on screen was found and selected; its download sheet opens.
     val openQuickDownload by rememberUpdatedState(onOpenQuickDownload)
     LaunchedEffect(viewModel) {
         viewModel.quickDownloadRequests.collect { openQuickDownload() }
     }
-    // P40 step 2: the TikTok tab's own data for a post, read on the main thread.
+    // TikTok page reader: the TikTok tab's own data for a post, read on the main thread.
     LaunchedEffect(webView, viewModel) {
         val browser = webView ?: return@LaunchedEffect
         val script = TikTokPageScript.source(browser.context)
@@ -266,10 +266,9 @@ fun BrowserRoute(
             }
         }
     }
-    // Social plan S2d (decisions 19 and 24, debug only): Instagram's tab-fetch rung, run in the
-    // tab only while it is on the post's page and signed out (task 13: the tab's own cookies for
-    // Instagram's web host name no session); a social-ladder build with the rung's own switch on
-    // asks it, every other build asks none. One at a time.
+    // Instagram tab-fetch step (debug only), run in the tab only while it is on the post's page and
+    // signed out (the tab's own cookies for Instagram's web host name no session); a social-ladder
+    // build with the step's own switch on asks it, every other build asks none. One at a time.
     LaunchedEffect(webView, viewModel) {
         val browser = webView ?: return@LaunchedEffect
         viewModel.instagramProbes.collect { request ->
@@ -286,8 +285,8 @@ fun BrowserRoute(
             )
         }
     }
-    // P37: the sheet's "Reload page and try again" reloads the tab once without its cache; the
-    // cache comes back once that load finished.
+    // Fresh link renewal: the sheet's "Reload page and try again" reloads the tab once without its
+    // cache; the cache comes back once that load finished.
     var shownReload by rememberSaveable { mutableIntStateOf(uiState.reloadRequest) }
     var noCacheApplied by remember { mutableStateOf(false) }
     LaunchedEffect(webView, uiState.reloadRequest) {
@@ -344,11 +343,11 @@ fun BrowserRoute(
                 if (viewModel.selectForDownload(group)) onOpenQuickDownload()
             },
             onDownloadPage = {
-                // P12: this page's video, or its sheet waiting for the page's own lookup.
+                // This page's video, or its sheet waiting for the page's own lookup.
                 if (viewModel.openPageVideo(retryFailed = quiet)) onOpenQuickDownload()
             },
             onDownloadMain = {
-                // P12: the page says which video plays; the view model opens the main one.
+                // The page says which video plays; the view model opens the main one.
                 val script = viewModel.mainVideoScript()
                 val browser = webView
                 if (browser != null) {
@@ -358,7 +357,8 @@ fun BrowserRoute(
                 }
             },
             onDownloadFocused = {
-                // P5: the page script runs on the main thread; the view model never sees the page.
+                // Page video finder: the page script runs on the main thread; the view model never
+                // sees the page.
                 val browser = webView
                 val script = browser?.let { viewModel.focusedVideoScript() }
                 if (browser != null && script != null) {
@@ -393,7 +393,7 @@ fun BrowserRoute(
             onShowSiteCheck = viewModel::showSiteCheck,
             onRetryFocusedLookup = viewModel::retryFocusedLookup,
             fullScreen = fullscreenView != null,
-            // P13: a download sheet over the browser pauses this screen; the wide button goes.
+            // A download sheet over the browser pauses this screen; the wide button goes.
             downloadSheetOpen = !resumed,
             searchEngine = preferences.searchEngine,
             recentPages = historyState.recent,
@@ -427,7 +427,7 @@ fun BrowserRoute(
                 onClose = { historyOpen = false },
             )
         }
-        // P46: TikTok's check for the user to answer; Done asks the page again.
+        // TikTok adapter: TikTok's check for the user to answer; Done asks the page again.
         val checkUrl = uiState.siteCheckUrl
         if (uiState.siteCheckOpen && checkUrl != null) {
             SiteCheckDialog(url = checkUrl, onDone = viewModel::siteCheckDone)
@@ -556,14 +556,14 @@ fun BrowserScreen(
     val quiet = LocalQuietRelease.current
     val savable = remember(uiState.candidates) { uiState.candidates.filter { it.isSavable } }
     val hiddenCount = uiState.candidates.size - savable.size
-    // One row, one count and one sheet per video: its qualities and audio are inside (P3).
-    // A video a site adapter named is the page's video; its player's files are not more (P3-FIX).
-    // On a site's page they never are, even before it named one (P12).
+    // One row, one count and one sheet per video: its qualities and audio are inside. A video a
+    // site adapter named is the page's video; its player's files are not more. On a site's page
+    // they never are, even before it named one.
     val videos = remember(savable, uiState.sitePage) {
         MediaGroups.pageVideos(savable, adapterSite = uiState.sitePage)
     }
-    // P24: the count and the button's label count the page's videos; its previews follow them
-    // under "Other videos on this page". P45: a video proven an ad is not listed at all.
+    // Page video finder: the count and the button's label count the page's videos; its previews
+    // follow them under "Other videos on this page". A video proven an ad is not listed at all.
     val pageList = remember(videos) { MediaGroups.ofPage(videos, hideAds = true) }
     var sheetExpanded by rememberSaveable { mutableStateOf(initialSheetExpanded) }
     var editingAddress by remember { mutableStateOf(false) }
@@ -631,7 +631,7 @@ fun BrowserScreen(
                 modifier = Modifier.testTag("browser-error"),
             )
         }
-        // Decision 30 (v): a quiet build shows no lookup notice (the sheet says its one line).
+        // Quiet details: a quiet build shows no lookup notice (the sheet says its one line).
         uiState.siteNotice?.takeUnless { quiet }?.let { notice ->
             BrowserBanner(
                 text = notice,
@@ -692,7 +692,7 @@ fun BrowserScreen(
                 findsFocusedVideo = uiState.findsFocusedVideo,
                 sitePage = uiState.sitePage,
             ) && fabAction != null
-            // P13: one button at a time; the wide one under the page where a tap means one video.
+            // One button at a time; the wide one under the page where a tap means one video.
             val wideVisible = BrowserDownloadFab.wideVisible(
                 action = fabAction,
                 roundVisible = fabVisible,
@@ -714,7 +714,7 @@ fun BrowserScreen(
                         .clipToBounds()
                         .testTag("browser-surface"),
                 ) {
-                    // P13: the page ends above the wide button, so its own controls stay usable.
+                    // The page ends above the wide button, so its own controls stay usable.
                     browserSurface(Modifier.fillMaxSize().padding(bottom = pageBottomPadding))
                 }
             } else {
@@ -757,8 +757,8 @@ fun BrowserScreen(
             val focusNotice = uiState.focusNotice?.takeIf { hasBrowserPage }
             val busy = uiState.sitePage && uiState.pageLookupRunning
             val onDownloadTap = {
-                // One video opens the download sheet; several the main one's; a site's page
-                // its own video (P12); a feed looks for the video on screen (P5).
+                // One video opens the Download sheet; several the main one's; a site's page its own
+                // video; a feed looks for the video on screen (Page video finder).
                 when (fabAction) {
                     BrowserDownloadFab.Action.OPEN_VIDEO ->
                         videos.singleOrNull()?.let(onDownloadGroup)
@@ -779,7 +779,7 @@ fun BrowserScreen(
                 ) {
                     focusNotice?.let { notice ->
                         BrowserBanner(
-                            // Decision 30 (v): a quiet build's failure is its one line.
+                            // Quiet details: a quiet build's failure is its one line.
                             text = if (quiet && uiState.focusFailed) {
                                 QuietLines.of(notice)
                             } else {
@@ -907,9 +907,9 @@ private fun BrowserAddressField(
                 .padding(start = 8.dp, end = 4.dp),
             contentAlignment = Alignment.CenterStart,
         ) {
-            // R4 (v1.0.2): one text at a time. While the styled address shows, the field draws
-            // nothing at all; before, only its ink was transparent, and on the owner's phone (large
-            // text) its own address showed through under the host and path.
+            // One text at a time. While the styled address shows, the field draws nothing at all;
+            // before, only its ink was transparent, and on the owner's phone (large text) its own
+            // address showed through under the host and path.
             val fieldDrawn = focused || display == null
             BasicTextField(
                 value = field,
@@ -986,9 +986,9 @@ private fun BrowserAddressField(
 }
 
 /**
- * The address pill's styled address: the host in Ink and the path in Slate, as one single-line
- * Text that ends in "…" when it is too long (R4, v1.0.2). Visual only: accessibility services
- * read and edit the field underneath.
+ * The address pill's styled address: the host in Ink and the path in Slate, as one single-line Text
+ * that ends in "…" when it is too long. Visual only: accessibility services read and edit the field
+ * underneath.
  */
 @Composable
 internal fun AddressDisplayText(
@@ -1289,7 +1289,7 @@ private fun BrowserToolbar(
     }
 }
 
-/** The browser's menu (P31): History. */
+/** The browser's menu: History. */
 @Composable
 private fun BrowserMenu(onShowHistory: () -> Unit) {
     val colors = YftTheme.colors
@@ -1364,7 +1364,7 @@ private fun BrowserWebView(
     fullscreenHandler: SecureBrowserChromeClient.FullscreenHandler,
     guard: BrowserNavigationGuard,
     masterCapture: WebViewPlaybackCapture?,
-    // Decision 30 (i): whether this new tab gets the capture (Backup finder on), asked once.
+    // Release build: whether this new tab gets the capture (Backup finder on), asked once.
     attachCapture: () -> Boolean,
     onWebViewReady: (WebView) -> Unit,
 ) {
@@ -1373,7 +1373,7 @@ private fun BrowserWebView(
         factory = { context ->
             val browser = WebView(context)
             // Without these, the WebView treats its height as "wrap content" and lays pages out
-            // with a zero viewport height: Facebook's reel video got a 320x0 box (P2).
+            // with a zero viewport height: Facebook's reel video got a 320x0 box.
             browser.layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -1385,8 +1385,8 @@ private fun BrowserWebView(
             val capture = masterCapture?.takeIf { attachCapture() }
             capture?.attach(browser)
             val observingSink = capture?.decorate(sink, browser) ?: sink
-            // P40 step 3: TikTok's pages keep a copy of TikTok's own API answers (document start;
-            // without that feature, when a TikTok page starts).
+            // TikTok page reader: TikTok's pages keep a copy of TikTok's own API answers (document
+            // start; without that feature, when a TikTok page starts).
             val tikTokStore = TikTokPageScript.source(context).text()?.let(TikTokPageScript::store)
             val storeAtStart = tikTokStore != null && TikTokApiCapture.install(browser, tikTokStore)
             browser.webViewClient = SecureBrowserWebViewClient(

@@ -13,13 +13,13 @@ import java.net.URI
 import java.util.Locale
 
 /**
- * P39 (R25): the browser never dead-ends on TikTok.
+ * TikTok adapter: the browser never dead-ends on TikTok.
  *
- * When the TikTok adapter cannot read a page whose player already fetched TikTok media files,
- * the sheet offers the file the player plays instead of a failure: the fetched file that is the
- * on-screen `<video>`'s `currentSrc`, else the newest file the player fetched, with the cookies
- * and headers the player sent. Other adapters keep P12's behaviour. The files stay in memory for
- * the open page only, like the browser's session context.
+ * When the TikTok adapter cannot read a page whose player already fetched TikTok media files, the
+ * sheet offers the file the player plays instead of a failure: the fetched file that is the
+ * on-screen `<video>`'s `currentSrc`, else the newest file the player fetched, with the cookies and
+ * headers the player sent. Other adapters' sheets still show the failure. The files stay in memory
+ * for the open page only, like the browser's session context.
  */
 internal class PlayerFileFallback(
     private val isPlayerMedia: (adapterId: String, requestUrl: String) -> Boolean,

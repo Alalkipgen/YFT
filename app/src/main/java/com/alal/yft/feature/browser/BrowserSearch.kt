@@ -4,17 +4,17 @@ import com.alal.yft.core.model.settings.SearchEngine
 import java.net.URLEncoder
 
 /**
- * "Search to download" (T13): words typed in the browser's address field become a YouTube or a
- * web search, while anything that looks like an address still opens as a page.
+ * "Search to download": words typed in the browser's address field become a YouTube or a web
+ * search, while anything that looks like an address still opens as a page.
  */
 internal object BrowserSearch {
     private val scheme = Regex("^[A-Za-z][A-Za-z0-9+.-]*:")
     private val whitespace = Regex("""\s""")
 
     /**
-     * The engine Settings › Browser chose (P30). [BrowserRoute] keeps it current from the
-     * settings, so [webUrl] — also for words the view model turns into a search — uses it; Google
-     * until the settings are read.
+     * The engine Settings › Browser chose. [BrowserRoute] keeps it current from the settings, so
+     * [webUrl] — also for words the view model turns into a search — uses it; Google until the
+     * settings are read.
      */
     @Volatile
     var engine: SearchEngine = SearchEngine.GOOGLE

@@ -28,9 +28,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * P39 (R25): when the TikTok adapter cannot read a page whose player fetched TikTok files, the
- * sheet offers the file the player plays instead of a failure. Fails on the P38 browser, which
- * showed the failure.
+ * When the TikTok adapter cannot read a page whose player fetched TikTok files, the sheet offers
+ * the file the player plays instead of a failure. Fails on the older browser, which showed the
+ * failure.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -59,8 +59,8 @@ class BrowserPlayerFileFallbackTest {
         assertEquals(VIDEO_PAGE, row.pageUrl)
         assertEquals("tt_chain_token=fixture", row.requestContext.cookie)
         assertEquals("https://www.tiktok.com/", row.requestContext.observedHeaders["Referer"])
-        // v1.0.2 item 13 (c): the failed lookup's own lines go with the player's file to the
-        // sheet (its Lookup details), the same lines its failure shows without a file.
+        // Download sheet: the failed lookup's own lines go with the player's file to the sheet (its
+        // Lookup details), the same lines its failure shows without a file.
         assertEquals(failureLines(), store.lookupDetailsOf(store.selection.value))
     }
 
@@ -86,7 +86,7 @@ class BrowserPlayerFileFallbackTest {
             store.selection.value?.candidates?.map { it.mediaUrl },
         )
         assertEquals(PlayerFileFallback.NOTICE, viewModel.uiState.value.siteNotice)
-        // v1.0.2 item 13 (c): the video on screen's file comes with its failed lookup's lines.
+        // Download sheet: the video on screen's file comes with its failed lookup's lines.
         assertEquals(failureLines(), store.lookupDetailsOf(store.selection.value))
     }
 

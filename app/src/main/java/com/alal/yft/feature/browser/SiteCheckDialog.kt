@@ -38,11 +38,11 @@ import java.net.URI
 import java.util.Locale
 
 /**
- * P46: TikTok's check, shown to the user. YFT's hidden page asks TikTok's desktop page (P40),
- * and TikTok sometimes answers it with a check only a person can pass. This page opens the
- * same video's address with the same desktop agent and the browser's shared cookies, so once
- * the user passes the check, TikTok's answer cookies reach the hidden page and the page read
- * too. Done closes it and YFT asks again. YFT never answers the check itself; only TikTok's
+ * TikTok adapter: TikTok's check, shown to the user. YFT's hidden page asks TikTok's desktop page
+ * (TikTok page reader), and TikTok sometimes answers it with a check only a person can pass. This
+ * page opens the same video's address with the same desktop agent and the browser's shared cookies,
+ * so once the user passes the check, TikTok's answer cookies reach the hidden page and the page
+ * read too. Done closes it and YFT asks again. YFT never answers the check itself; only TikTok's
  * own `https` pages load here.
  */
 @Composable
@@ -147,7 +147,7 @@ private const val CHECK_HOST = "tiktok.com"
 /** The line above TikTok's check. */
 const val CHECK_HINT = "Answer TikTok's check below (zoom in if it is small), then tap Done."
 
-/** P46: when the browser offers TikTok's check, and its words. */
+/** TikTok adapter: when the browser offers TikTok's check, and its words. */
 object SiteCheck {
     /** The browser's notice for TikTok's check, which the user answers with Show check. */
     const val NOTICE =

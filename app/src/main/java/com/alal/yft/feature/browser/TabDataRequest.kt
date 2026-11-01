@@ -3,9 +3,9 @@ package com.alal.yft.feature.browser
 import kotlinx.coroutines.CompletableDeferred
 
 /**
- * P40 step 2: one read of the TikTok tab's own data for the post [postId]. The screen runs the
- * page script on the tab's WebView (main thread) and [answer]s with the script's result and
- * the tab's TikTok cookies (never logged); a read nobody waits for any more is skipped.
+ * TikTok page reader: one read of the TikTok tab's own data for the post [postId]. The screen runs
+ * the page script on the tab's WebView (main thread) and [answer]s with the script's result and the
+ * tab's TikTok cookies (never logged); a read nobody waits for any more is skipped.
  */
 class TabDataRequest(val postId: String) {
     private val reply = CompletableDeferred<Reply>()

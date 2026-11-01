@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
-/** The browser's history held in memory, with the real address rules (P31). */
+/** The browser's history held in memory, with the real address rules. */
 internal class FakeBrowserHistoryRepository(
     initial: List<BrowserHistoryEntry> = emptyList(),
 ) : BrowserHistoryRepository {

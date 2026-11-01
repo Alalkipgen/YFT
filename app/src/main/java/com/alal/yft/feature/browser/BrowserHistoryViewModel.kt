@@ -20,7 +20,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/** The browser's History list and the start page's Recent pages (P31). */
+/** The browser's History list and the start page's Recent pages. */
 data class BrowserHistoryUiState(
     val query: String = "",
     /** Newest first; the words in [query] filter them. */

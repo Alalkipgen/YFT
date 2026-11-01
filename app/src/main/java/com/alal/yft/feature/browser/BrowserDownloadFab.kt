@@ -33,35 +33,37 @@ import com.alal.yft.ui.theme.YftIcons
 import com.alal.yft.ui.theme.YftShapes
 import com.alal.yft.ui.theme.YftTheme
 
-/** When the browser shows its floating Download button (T14), what it says and what it does. */
+/** When the browser shows its floating Download button, what it says and what it does. */
 internal object BrowserDownloadFab {
     /** What a tap on the button does. */
     enum class Action {
-        /** The page's one video: its download sheet opens (P3). */
+        /** The page's one video: its Download sheet opens. */
         OPEN_VIDEO,
 
         /**
-         * P12: the page has several videos and no site adapter: the main one's sheet opens (the
-         * one playing, else the largest), with a row that opens the others.
+         * Download sheet: the page has several videos and no site adapter: the main one's sheet
+         * opens (the one playing, else the largest), with a row that opens the others.
          */
         OPEN_MAIN_VIDEO,
 
         /**
-         * P12: a site's video page (watch, shorts, reel, video, post): this video's sheet opens,
-         * in its loading state while the page's own lookup runs. Never the found list.
+         * Download sheet: a site's video page (watch, shorts, reel, video, post): this video's
+         * sheet opens, in its loading state while the page's own lookup runs. Never the found list.
          */
         OPEN_PAGE_VIDEO,
 
-        /** A YouTube, Facebook or TikTok page: the video on screen is looked up (P5). */
+        /**
+         * A YouTube, Facebook or TikTok page: the video on screen is looked up (Page video finder).
+         */
         FIND_VIDEO_ON_SCREEN,
     }
 
     /**
-     * Shown while the page has media YFT may save, and on YouTube, Facebook and TikTok pages
-     * even before anything was found (P5: their feeds play no file of their own). A new page of
-     * another site starts with no candidates, so the button goes until it finds some; DRM-only
-     * pages have none savable; the expanded found sheet and typing an address hide it. A site's
-     * video page (P12) always has it: it means that page's video.
+     * Shown while the page has media YFT may save, and on YouTube, Facebook and TikTok pages even
+     * before anything was found (Page video finder: their feeds play no file of their own). A new
+     * page of another site starts with no candidates, so the button goes until it finds some;
+     * DRM-only pages have none savable; the expanded found sheet and typing an address hide it. A
+     * site's video page always has it: it means that page's video.
      */
     fun isVisible(
         hasPage: Boolean,
@@ -74,9 +76,9 @@ internal object BrowserDownloadFab {
         !sheetExpanded && !editingAddress
 
     /**
-     * On a feed, whatever the page found may belong to any of its videos, so the button looks
-     * for the one on screen. A site's video page means its own video whatever it found (P12):
-     * 0, 1 or 4 found open that one sheet. Several videos elsewhere open the main one's sheet.
+     * On a feed, whatever the page found may belong to any of its videos, so the button looks for
+     * the one on screen. A site's video page means its own video whatever it found: 0, 1 or 4 found
+     * open that one sheet. Several videos elsewhere open the main one's sheet.
      */
     fun action(
         savableCount: Int,
@@ -92,10 +94,10 @@ internal object BrowserDownloadFab {
     }
 
     /**
-     * P13: the wide Download button under the page replaces the round one on a site's video
-     * page and on a page with one video, where a tap opens that video. Feeds and pages with
-     * several videos keep the round button (P5). It shows only where the round one would
-     * ([roundVisible]: a page, no found sheet open, no address being typed) and goes in full
+     * Download sheet: the wide Download button under the page replaces the round one on a site's
+     * video page and on a page with one video, where a tap opens that video. Feeds and pages with
+     * several videos keep the round button (Page video finder). It shows only where the round one
+     * would ([roundVisible]: a page, no found sheet open, no address being typed) and goes in full
      * screen, while a download sheet covers the browser and while the keyboard is up.
      */
     fun wideVisible(
@@ -116,18 +118,18 @@ internal object BrowserDownloadFab {
 
     const val ON_SCREEN_LABEL = "Download the video on screen"
 
-    /** P12: the label on a site's video page. */
+    /** Download sheet: the label on a site's video page. */
     const val PAGE_VIDEO_LABEL = "Download this video"
 
-    /** P12: read with the label while the page's lookup runs. */
+    /** Download sheet: read with the label while the page's lookup runs. */
     const val LOOKING_UP_STATE = "Looking up the video"
 }
 
 /**
  * The Mint floating Download button, with a count badge when the page has several items. When it
  * looks for the video on screen ([findsOnScreen]) or means a site page's video ([sitePage]) it
- * counts nothing: the tap picks one video. [busy] shows a small spinner while the page's own
- * lookup runs (P12); the button still works and its sheet waits for that lookup.
+ * counts nothing: the tap picks one video. [busy] shows a small spinner while the page's own lookup
+ * runs; the button still works and its sheet waits for that lookup.
  */
 @Composable
 internal fun BrowserDownloadButton(
@@ -180,9 +182,9 @@ internal fun BrowserDownloadButton(
 }
 
 /**
- * P13: the wide Mint "Download" button at the bottom of the page area, drawn by YFT (nothing is
- * added to the site's page). It does what the round button does there and spins while the
- * page's own lookup runs; the page above it is shortened by its height, so the site's own
+ * Download sheet: the wide Mint "Download" button at the bottom of the page area, drawn by YFT
+ * (nothing is added to the site's page). It does what the round button does there and spins while
+ * the page's own lookup runs; the page above it is shortened by its height, so the site's own
  * controls stay reachable.
  */
 @Composable

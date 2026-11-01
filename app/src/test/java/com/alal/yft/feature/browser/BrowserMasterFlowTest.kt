@@ -72,7 +72,7 @@ class BrowserMasterFlowTest {
         assertEquals(0, backup.calls)
     }
 
-    /** Phase 1.4 item 2: the h-only APK's site goes through the backup even when it was found. */
+    /** Ladder test switches: the `h-only` APK's site goes through the backup even when found. */
     @Test
     fun aFoundPageOfTheMasterFirstSiteRunsTheBackupOnce() = runTest {
         val adapter = FixtureExtractor(succeeds = true)
@@ -99,8 +99,8 @@ class BrowserMasterFlowTest {
     }
 
     /**
-     * Phase 1.4 item 7 (YouTube routing B) R1: a route-B lookup runs main's adapter and the backup
-     * in one record of its own — main's request lands there — and Try again gets a new record.
+     * Lookup record: a YouTube backup route lookup runs main's adapter and the backup in one record
+     * of its own — main's request lands there — and Try again gets a new record.
      */
     @Test
     fun aRouteBLookupRunsMainAndTheBackupInARecordOfItsOwn() = runTest {
@@ -127,7 +127,7 @@ class BrowserMasterFlowTest {
         assertEquals(1, second.mainAsks)
     }
 
-    /** Item 7 R1: every other build's lookup carries no record; the recorder only passes through. */
+    /** Lookup record: every other build's lookup carries none; the recorder only passes through. */
     @Test
     fun withoutRouteBNoLookupCarriesARecord() = runTest {
         val http = Answering()
@@ -143,9 +143,9 @@ class BrowserMasterFlowTest {
     }
 
     /**
-     * Item 7 R3: a route-B page lookup is main, then Master — after main's RESPONSE_CHANGED the
-     * module answers inside the lookup's record (main's request replayed, not asked again) and
-     * its row is the page's video; after a bot check main's failure stays and Master never runs.
+     * YouTube backup route: a page lookup is main, then Master — after main's RESPONSE_CHANGED the
+     * module answers inside the lookup's record (main's request replayed, not asked again) and its
+     * row is the page's video; after a bot check main's failure stays and Master never runs.
      */
     @Test
     fun aRouteBYouTubeLookupShowsMastersRowOnlyAfterARecoverableFailure() = runTest {
@@ -190,10 +190,11 @@ class BrowserMasterFlowTest {
     }
 
     /**
-     * Item 7 R4: the route-B trial APK — main finds the YouTube page, its rows are set aside as
+     * YouTube backup trial: the trial APK — main finds the YouTube page, its rows are set aside as
      * main's RESPONSE_CHANGED after main asked, Master's module answers from the lookup's record
-     * (main's request replayed, nothing new) and the browser names route B with its counts;
-     * Master's row is the page's video. Route B without the trial keeps main's row, no notice.
+     * (main's request replayed, nothing new) and the browser names the YouTube backup route with
+     * its counts; Master's row is the page's video. Without the trial the route keeps main's row,
+     * no notice.
      */
     @Test
     fun theRouteBTrialShowsMastersRowAndRouteBsCounts() = runTest {
@@ -231,7 +232,7 @@ class BrowserMasterFlowTest {
                 assertEquals(1, module.calls)
                 assertEquals(1, module.runs.single()!!.replayed)
                 assertEquals(listOf(ROW), rows)
-                // F7: the trial's line compares Master's row with main's set-aside one (another link).
+                // The trial's line compares Master's row with main's set-aside one (another link).
                 assertEquals("master: route B after RESPONSE_CHANGED; replayed 1; new 0$F7_OTHER_ROW", notice)
             } else {
                 assertEquals(0, module.calls)
@@ -242,12 +243,12 @@ class BrowserMasterFlowTest {
     }
 
     /**
-     * Item 7 F5 (D7 run 8: V2, V3): the route-B trial on a page whose visionOS answer is a bot
-     * check. Main asks the player endpoint, then reads the watch page with the tab's cookie and
-     * finds its row (set aside by the trial); Master's module asks the same player request and the
-     * same page without the cookie — both answered from the lookup's record (replayed 2, new 0),
-     * nothing goes out again and only main's page carried the cookie. Master read main's page, and
-     * its row reaches the sheet with route B's counts.
+     * The YouTube backup trial on a page whose visionOS answer is a bot check (as in a phone run).
+     * Main asks the player endpoint, then reads the watch page with the tab's cookie and finds its
+     * row (set aside by the trial); Master's module asks the same player request and the same page
+     * without the cookie — both answered from the lookup's record (replayed 2, new 0), nothing goes
+     * out again and only main's page carried the cookie. Master read main's page, and its row
+     * reaches the sheet with the route's counts.
      */
     @Test
     fun theRouteBTrialOnAV2LikePageShowsMastersRowFromMainsWatchPage() = runTest {
@@ -289,12 +290,12 @@ class BrowserMasterFlowTest {
     }
 
     /**
-     * Item 7 F4 (`MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §8 (1)): a real failure midway, the trial
-     * off. Main asks the player endpoint — and, as after a bot-checked visionOS answer, reads the
-     * watch page with the tab's cookie — then fails with each recoverable reason (§2). Master's
-     * module asks the same requests without the cookie: answered from the lookup's record (replayed
-     * 1 or 2, new 0), nothing goes out again and only main's page carried the cookie. Master's row
-     * reaches the sheet with route B's notice and counts.
+     * YouTube backup route: a real failure midway, the trial off. Main asks the player endpoint —
+     * and, as after a bot-checked visionOS answer, reads the watch page with the tab's cookie —
+     * then fails with each recoverable reason. Master's module asks the same requests without the
+     * cookie: answered from the lookup's record (replayed 1 or 2, new 0), nothing goes out again
+     * and only main's page carried the cookie. Master's row reaches the sheet with the route's
+     * notice and counts.
      */
     @Test
     fun aRecoverableFailureMidwayShowsMastersRowFromMainsReplayedAnswers() = runTest {
@@ -329,10 +330,10 @@ class BrowserMasterFlowTest {
     }
 
     /**
-     * Item 7 F4 (2): when Master finds nothing after main's failure midway, main's own failure
-     * stays — its message, notice, Try again and Details — with Master's details after main's
-     * (route B's line first, Master's own reason last), compared with the same lookup in a build
-     * without route B (P12: main's answer itself, no record, no line, Master never asked). Try
+     * YouTube backup route: when Master finds nothing after main's failure midway, main's own
+     * failure stays — its message, notice, Try again and Details — with Master's details after
+     * main's (the route's line first, Master's own reason last), compared with the same lookup in a
+     * build without the route (main's answer itself, no record, no line, Master never asked). Try
      * again asks afresh in a new record and then shows Master's row.
      */
     @Test
@@ -394,11 +395,11 @@ class BrowserMasterFlowTest {
     }
 
     /**
-     * Item 7 F4 (3): main's final reasons never reach Master — main's failure stays with route B's
-     * line saying why (`master: route B not run: <reason> is final`), Master's module never runs
-     * and nothing of Master's goes out (main's 429 answers RATE_LIMITED, final). A 429 midway in a
-     * lookup main then failed recoverably: Master's identical request is answered with main's 429
-     * (replayed), its other request is refused, nothing new goes out and main's failure stays.
+     * YouTube backup route: main's final reasons never reach Master — main's failure stays with the
+     * route's line saying why (`master: route B not run: <reason> is final`), Master's module never
+     * runs and nothing of Master's goes out (main's 429 answers RATE_LIMITED, final). A 429 midway
+     * in a lookup main then failed recoverably: Master's identical request is answered with main's
+     * 429 (replayed), its other request is refused, nothing new goes out and main's failure stays.
      * Main's success: untouched (main's row, no notice, the backup never asked).
      */
     @Test
@@ -584,8 +585,8 @@ class BrowserMasterFlowTest {
     }
 
     /**
-     * Item 7 R3: the backup's engine runs on a background thread (Dispatchers.Default); the test
-     * thread runs the browser's coroutines until [done], for at most a few seconds.
+     * The backup's engine runs on a background thread (Dispatchers.Default); the test thread runs
+     * the browser's coroutines until [done], for at most a few seconds.
      */
     private fun TestScope.settle(done: () -> Boolean) {
         repeat(500) {
@@ -655,9 +656,9 @@ class BrowserMasterFlowTest {
     }
 
     /**
-     * Item 7 F4: one route-B YouTube browser as the app builds it — main's adapter in the
-     * coordinator, Master's engine with the module, the bridge (route B as [routeB], the trial
-     * off) as the browser holds it ([Watching]), the store and the view model.
+     * One YouTube backup route browser as the app builds it — main's adapter in the coordinator,
+     * Master's engine with the module, the bridge (the route as [routeB], the trial off) as the
+     * browser holds it ([Watching]), the store and the view model.
      */
     private inner class RouteBBrowser(val adapter: YouTubeAdapter, val module: YouTubeModule, routeB: Boolean = true) {
         val sites = SiteAdapterCoordinator(SiteExtractorRegistry(listOf(adapter)), MergeSupport { true })
@@ -686,7 +687,7 @@ class BrowserMasterFlowTest {
         }
     }
 
-    /** Item 7 F4: the bridge, noting main's answer it was given and its own answer. */
+    /** The bridge, noting main's answer it was given and its own answer. */
     private class Watching(private val inner: BrowserMasterFallback) : BrowserMasterFallback by inner {
         val primaries = mutableListOf<SiteAdapterOutcome>()
         val answers = mutableListOf<SiteAdapterOutcome>()
@@ -702,8 +703,8 @@ class BrowserMasterFlowTest {
     }
 
     /**
-     * Answers every request (no live call); F5: the watch page answers [PAGE_BODY]. F4: with
-     * [tooMany] the player endpoint answers 429.
+     * Answers every request (no live call); the watch page answers [PAGE_BODY]. With [tooMany] the
+     * player endpoint answers 429.
      */
     private class Answering(private val tooMany: Boolean = false) : ExtractorHttpClient {
         var asked = 0
@@ -724,10 +725,10 @@ class BrowserMasterFlowTest {
     }
 
     /**
-     * Item 7 R3: main's YouTube adapter stand-in — asks the player endpoint once, then fails with
-     * [reason] (R4: null = finds its own row, [MAIN_ROW]). F5: with [pageHeaders] it then reads
-     * the watch page with them (the tab's cookie), as after a bot-checked visionOS answer. F4: it
-     * notes the lookup record it ran in ([records]).
+     * Main's YouTube adapter stand-in — asks the player endpoint once, then fails with [reason]
+     * (null = finds its own row, [MAIN_ROW]). With [pageHeaders] it then reads the watch page with
+     * them (the tab's cookie), as after a bot-checked visionOS answer. It notes the lookup record
+     * it ran in ([records]).
      */
     private inner class YouTubeAdapter(
         private val http: ExtractorHttpClient,
@@ -758,9 +759,9 @@ class BrowserMasterFlowTest {
     }
 
     /**
-     * Item 7 R3: Master's YouTube module stand-in — main's request again, through route B. F5: with
-     * [pageHeaders] it then reads the watch page with them (no cookie) and keeps what it got. F4:
-     * with [otherClient] it also asks another client's player request; [answer] (by call number)
+     * Master's YouTube module stand-in — main's request again, through the YouTube backup route.
+     * With [pageHeaders] it then reads the watch page with them (no cookie) and keeps what it got.
+     * With [otherClient] it also asks another client's player request; [answer] (by call number)
      * replaces its row, as when Master finds nothing.
      */
     private inner class YouTubeModule(
@@ -821,16 +822,16 @@ class BrowserMasterFlowTest {
         const val PLAYER = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
         const val PLAYER_BODY = "{\"videoId\":\"Yft0Fixture\"}"
 
-        /** F4: another client's player request for the same video (not one of main's). */
+        /** Another client's player request for the same video (not one of main's). */
         const val OTHER_BODY = "{\"videoId\":\"Yft0Fixture\",\"context\":{\"client\":{\"clientName\":\"OTHER\"}}}"
         const val MAX_BODY = 2L * 1024 * 1024
         const val ROW = "https://cdn.test/yt/master.mp4"
         const val MAIN_ROW = "https://cdn.test/yt/main.mp4"
 
-        /** Item 7 F7: the trial line's comparison when Master's row is another link than main's. */
+        /** The trial line's comparison when Master's row is another link than main's. */
         const val F7_OTHER_ROW = "; same as main's: 0 of 1 rows, no main's stream to compare; streams not in main's: 1"
 
-        /** F5: the looked-up video's watch page as main's adapter and Master's module read it. */
+        /** The looked-up video's watch page as main's adapter and Master's module read it. */
         const val WATCH_PAGE = "https://www.youtube.com/watch?v=Yft0Fixture&bpctr=9999999999&has_verified=1"
         const val PAGE_BODY = "<html>main's watch page</html>"
         val MAIN_PAGE_HEADERS = linkedMapOf("User-Agent" to "YftTest/1.0", "Cookie" to "SID=fixture", "Accept-Language" to "en-US,en;q=0.9")

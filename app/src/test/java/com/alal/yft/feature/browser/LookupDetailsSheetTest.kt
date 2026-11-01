@@ -74,13 +74,13 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * VK-Master wave 2 (the success sheet's Lookup details): after the backup finder's success the
- * browser's real ViewModel hands the lookup's own lines (`outcome.details`) with the video to the
- * real download sheet — on a site's page (Download after the lookup or while it runs) and for the
- * video on a feed's screen — which shows them behind "Lookup details" with Copy details; a quiet
- * build without Show details shows none, and main's own success has none. Made-up lines only.
- * v1.0.2 item 13: under a format's failure after that success (b), and after Master's on-demand
- * find on a generic page (d), too.
+ * The success sheet's Lookup details: after the Backup finder's success the browser's real
+ * ViewModel hands the lookup's own lines (`outcome.details`) with the video to the real download
+ * sheet — on a site's page (Download after the lookup or while it runs) and for the video on a
+ * feed's screen — which shows them behind "Lookup details" with Copy details; a quiet build without
+ * Show details shows none, and main's own success has none. Made-up lines only. The lines show
+ * under a format's failure after that success, and after Master's on-demand find on a generic page,
+ * too.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -202,8 +202,8 @@ class LookupDetailsSheetTest {
 
     @Test
     fun aFormatsFailureAfterTheBackupsSuccessKeepsItsLookupDetails() {
-        // v1.0.2 item 13 (b): the backup found the page's video, but its list of qualities cannot
-        // be read: the sheet's failure keeps its own Details, and the lookup's lines stay with it.
+        // The backup found the page's video, but its list of qualities cannot be read: the sheet's
+        // failure keeps its own Details, and the lookup's lines stay with it.
         val store = DetectedMediaStore()
         val playlist = row(SITE, "fixture:11111").copy(
             mediaUrl = "https://cdn.fixture.test/11111/index.m3u8",
@@ -246,8 +246,8 @@ class LookupDetailsSheetTest {
 
     @Test
     fun mastersOnDemandFindOnAGenericPageGivesTheSheetItsLookupDetails() {
-        // v1.0.2 item 13 (d): a page no site reads and no video found: Download asks the backup
-        // on demand while the sheet waits; its rows come to the sheet with its own lines.
+        // A page no site reads and no video found: Download asks the backup on demand while the
+        // sheet waits; its rows come to the sheet with its own lines.
         val gate = CompletableDeferred<Unit>()
         val store = DetectedMediaStore()
         val backup = FoundByBackup(listOf(row(GENERIC, "fixture:33333").copy(videoId = null)), gate)
@@ -469,7 +469,7 @@ class LookupDetailsSheetTest {
             )
     }
 
-    /** v1.0.2 item 13 (b): the list of qualities cannot be read (a made-up broken manifest). */
+    /** The list of qualities cannot be read (a made-up broken manifest). */
     private object UnreadableList : VariantResolver {
         override suspend fun resolve(candidate: MediaCandidate): VariantResolutionResult =
             VariantResolutionResult.Failure(
@@ -482,7 +482,7 @@ class LookupDetailsSheetTest {
     private companion object {
         const val SITE = "https://video.fixture.test/watch/11111"
 
-        /** v1.0.2 item 13 (d): a page no site adapter reads. */
+        /** A page no site adapter reads. */
         const val GENERIC = "https://page.fixture.test/clip"
         const val FEED = "https://m.youtube.com/"
         const val FOCUSED = "https://www.youtube.com/watch?v=BBBBBBBBBB2"

@@ -682,7 +682,7 @@ class BrowserViewModelTest {
         viewModel.onFocusedVideoResult(answer("https://m.youtube.com/watch?v=FFFFFFFFFF7", "page"))
         runCurrent()
         assertEquals(listOf("FFFFFFFFFF7"), extractor.requests.map { it.identity.contentId })
-        // P16: the sheet opened at once for that video and says why, instead of a notice.
+        // The sheet opened at once for that video and says why, instead of a notice.
         assertEquals(1, opened.size)
         assertEquals(
             "This YouTube post has no downloadable video.",
@@ -741,7 +741,7 @@ class BrowserViewModelTest {
         runCurrent()
         assertEquals(1, extractor.requests.size)
 
-        // P16: the sheet opened at once and waits on that lookup.
+        // Download sheet: the sheet opened at once and waits on that lookup.
         assertEquals(1, opened.size)
         assertEquals("youtube:BBBBBBBBBB2", store.lookup.value?.key)
 
@@ -795,7 +795,7 @@ class BrowserViewModelTest {
         viewModel.focusedVideoScript()
         viewModel.onFocusedVideoResult(answer(FOCUSED_VIDEO))
         runCurrent()
-        // P16: the open sheet says why, with Try again; the page keeps its Download button.
+        // The open sheet says why, with Try again; the page keeps its Download button.
         val failed = store.lookup.value!!
         assertEquals("Couldn't reach YouTube.", failed.failure)
         assertTrue(failed.canRetry)
@@ -837,7 +837,7 @@ class BrowserViewModelTest {
         viewModel.focusedVideoScript()
         viewModel.onFocusedVideoResult(answer(FOCUSED_VIDEO))
         runCurrent()
-        // P16: the sheet is open while the adapter still answers, and waits on that lookup.
+        // The sheet is open while the adapter still answers, and waits on that lookup.
         assertEquals(1, opened.size)
         assertEquals(1, extractor.requests.size)
         val waiting = store.lookup.value!!
@@ -881,7 +881,7 @@ class BrowserViewModelTest {
         viewModel.onPageFinished(WATCH_A, "Video A")
         runCurrent()
 
-        // P12: the button means this page's video and spins while its lookup runs.
+        // Download sheet: the button means this page's video and spins while its lookup runs.
         val state = viewModel.uiState.value
         assertTrue(state.sitePage)
         assertFalse(state.feedPage)
@@ -951,7 +951,7 @@ class BrowserViewModelTest {
 
     @Test
     fun aQuietBuildsDownloadAfterAFailedLookupAsksAgainAsTryAgainDoes() = runTest {
-        // Decision 30 (v): the quiet sheet has no Try again; Download again looks up again.
+        // Quiet details: the quiet sheet has no Try again; Download again looks up again.
         val failing = mutableMapOf("AAAAAAAAAA1" to SiteExtractionFailure.NETWORK)
         val extractor = FeedVideoExtractor(failing = failing)
         val store = DetectedMediaStore()
@@ -997,7 +997,7 @@ class BrowserViewModelTest {
 
     @Test
     fun theQuietSheetsShowCheckOpensTikToksCheckInTheBrowser() = runTest {
-        // Decision 30 (v): the sheet's one Show check; the browser shows no notice to tap.
+        // Quiet details: the sheet's one Show check; the browser shows no notice to tap.
         assertFalse(DetectedMediaStore().requestSiteCheck(TIKTOK_POST))
         val extractor = TikTokCheckExtractor()
         val store = DetectedMediaStore()
@@ -1052,15 +1052,15 @@ class BrowserViewModelTest {
             viewModel.onFocusedVideoResult(answer("https://m.youtube.com/watch?v=BBBBBBBBBB2"))
             runCurrent()
         }
-        // P12: the same video ID in this page asks the adapter once; both taps open its sheet.
+        // The same video ID in this page asks the adapter once; both taps open its sheet.
         assertEquals(1, extractor.requests.size)
         assertEquals(2, opened.size)
         assertEquals(
             listOf("https://cdn.fixture.test/BBBBBBBBBB2.mp4"),
             store.selection.value?.candidates?.map { it.mediaUrl },
         )
-        // Nothing failed, so there is no Try again. Plan adapted (P17): a new page of the same
-        // video takes the answer remembered for a few minutes instead of asking the site again.
+        // Nothing failed, so there is no Try again. Lookup reuse: a new page of the same video
+        // takes the answer remembered for a few minutes instead of asking the site again.
         viewModel.retryFocusedLookup()
         viewModel.onPageStarted(YOUTUBE_FEED)
         viewModel.onPageFinished(YOUTUBE_FEED, "YouTube")
@@ -1100,7 +1100,7 @@ class BrowserViewModelTest {
         runCurrent()
         Thread.sleep(PROBE_SETTLE_MS)
         runCurrent()
-        // P12: the site's lookup goes first; the player's file is not probed meanwhile.
+        // Download sheet: the site's lookup goes first; the player's file is not probed meanwhile.
         assertEquals(0, probes.get())
         gate.complete(Unit)
         runCurrent()
@@ -1126,7 +1126,7 @@ class BrowserViewModelTest {
 
     @Test
     fun reloadPageAndTryAgainReloadsWithoutCacheAndReopensTheSheetForANewLink() = runTest {
-        // P37: the sheet's "Reload page and try again" on a page whose links were gone.
+        // Fresh link renewal: "Reload page and try again" on a page whose links were gone.
         val store = DetectedMediaStore()
         val viewModel = BrowserViewModel(OkHttpClient(), noAdapters(), store)
         val opened = mutableListOf<Unit>()
@@ -1234,9 +1234,9 @@ class BrowserViewModelTest {
     @Test
     fun aVideoPageWithPreviewsAndAnAdOpensItsStreamByItsLengthWithTheRestCountedAsOthers() =
         runTest {
-            // P24 (plan step 8): the owner's case. The page plays one HLS stream through Media
-            // Source Extensions (a blob: address); 40 muted looping previews and an ad's clip
-            // play around it. All hosts are reserved .test names.
+            // Page video finder: the owner's case. The page plays one HLS stream through Media
+            // Source Extensions (a blob: address); 40 muted looping previews and an ad's clip play
+            // around it. All hosts are reserved .test names.
             val page = "https://videos.example.test/watch/42"
             val master = "https://stream.example.test/v42/master.m3u8?token=fixture"
             val playlist = "https://stream.example.test/v42/720p/index.m3u8"
@@ -1353,7 +1353,9 @@ class BrowserViewModelTest {
     private fun answer(url: String, source: String = "centre"): String =
         JSONObject.quote(JSONObject().put("url", url).put("source", source).toString())
 
-    /** P24: a 720p playlist of 125 six-second pieces and a last one of 4.5 s: 754.5 s. */
+    /**
+     * Page video finder: a 720p playlist of 125 six-second pieces and a last one of 4.5 s: 754.5 s.
+     */
     private fun fixturePlaylist(): String = buildString {
         append("#EXTM3U\n#EXT-X-TARGETDURATION:6\n")
         repeat(125) { index -> append("#EXTINF:6.0,\nseg$index.ts\n") }
@@ -1369,7 +1371,7 @@ class BrowserViewModelTest {
     private fun adapters(extractor: SiteExtractor): SiteAdapterCoordinator =
         SiteAdapterCoordinator(SiteExtractorRegistry(listOf(extractor)))
 
-    /** P37: the page's script names one 10-minute video at [url]. */
+    /** Fresh link renewal: the page's script names one 10-minute video at [url]. */
     private fun oneVideo(url: String): String = JSONArray()
         .put(JSONObject().put("url", url).put("type", "video/mp4").put("duration", 600))
         .toString()
@@ -1429,7 +1431,7 @@ class BrowserViewModelTest {
     private class FeedVideoExtractor(
         private val failing: Map<String, SiteExtractionFailure> = emptyMap(),
         private val gate: CompletableDeferred<Unit>? = null,
-        /** P16: whether a stopped lookup stops here too; [cancelled] counts those. */
+        /** Download sheet: whether a stopped lookup stops here too; [cancelled] counts those. */
         private val cancellable: Boolean = false,
     ) : SiteExtractor {
         override val id: String = "youtube"
@@ -1499,7 +1501,7 @@ class BrowserViewModelTest {
         }
     }
 
-    /** Decision 30 (v): a TikTok post whose lookup ends on TikTok's check. */
+    /** Quiet details: a TikTok post whose lookup ends on TikTok's check. */
     private class TikTokCheckExtractor : SiteExtractor {
         override val id: String = "tiktok"
         override val displayName: String = "TikTok"
@@ -1537,7 +1539,7 @@ class BrowserViewModelTest {
         const val PLAYER_FILE = "https://cdn.player.test/part/clip.mp4"
         const val PROBE_SETTLE_MS = 200L
 
-        /** P24: an HLS master of two qualities, the first one 720p. */
+        /** Page video finder: an HLS master of two qualities, the first one 720p. */
         const val FIXTURE_MASTER = "#EXTM3U\n" +
             "#EXT-X-STREAM-INF:BANDWIDTH=2500000,RESOLUTION=1280x720\n720p/index.m3u8\n" +
             "#EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080\n1080p/index.m3u8\n"

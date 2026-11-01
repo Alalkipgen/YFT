@@ -5,11 +5,11 @@ import com.alal.yft.core.browser.webview.BrowserObservationSink
 import com.alal.yft.core.data.history.BrowserHistoryAddress
 
 /**
- * Decides which of the WebView's page events are visits for the history (P31): a page that
- * finished loading without a main-frame error, and a single-page site's own address change
- * after its page finished (YouTube's mobile site opens a video that way). A redirect while a page
- * loads, the same document finishing twice, a fragment change and tracking parameters are no new
- * visit. The page's title follows as [onTitle] when it names itself later.
+ * Decides which of the WebView's page events are visits for the history: a page that finished
+ * loading without a main-frame error, and a single-page site's own address change after its page
+ * finished (YouTube's mobile site opens a video that way). A redirect while a page loads, the same
+ * document finishing twice, a fragment change and tracking parameters are no new visit. The page's
+ * title follows as [onTitle] when it names itself later.
  *
  * Whether the visit is kept (Settings › Browser › Save browser history) is decided by the
  * receiver. Main thread only, like the WebView callbacks it reads.

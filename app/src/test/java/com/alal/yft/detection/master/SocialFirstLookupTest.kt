@@ -106,7 +106,7 @@ class SocialFirstLookupTest {
             assertTrue(notice, "; trial: Master's rows 1, main's 1; the same item: yes" in notice)
             assertTrue(page, vm.openPageVideo())
             assertEquals(page, listOf(file), store.selection.value!!.candidates.map { it.mediaUrl })
-            assertEquals(page, listOf(file), fixture.reads.toList()) // The row check read Master's row
+            assertEquals(page, listOf(file), fixture.reads.toList()) // Row check read Master's row
             assertEquals(page, 0, fixture.captures.get())
         }
     }

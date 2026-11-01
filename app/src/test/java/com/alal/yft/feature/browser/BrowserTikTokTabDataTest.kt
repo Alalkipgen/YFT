@@ -31,8 +31,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * P40 step 2: a TikTok lookup in the browser first asks the tab for TikTok's own data for the
- * post (at most 1 s), and its rows carry the tab's cookies; other sites never ask the tab.
+ * TikTok page reader: a TikTok lookup in the browser first asks the tab for TikTok's own data for
+ * the post (at most 1 s), and its rows carry the tab's cookies; other sites never ask the tab.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)

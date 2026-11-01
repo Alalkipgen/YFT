@@ -87,10 +87,11 @@ class BrowserViewModel(
     private val clock: () -> Long = System::currentTimeMillis,
     private val homeSitesRepository: HomeSitesRepository? = null,
     private val masterFallback: BrowserMasterFallback = BrowserMasterFallback.None,
-    // Social plan S2d (decisions 19 and 24): the switch of Instagram's tab-fetch rung; null (no
-    // rung in any lookup) in every build but a social-ladder one.
+    // Instagram tab-fetch step: its switch; null (no step in any lookup) in every build but a
+    // social-ladder one.
     private val instagramProbeOn: (() -> Boolean)? = null,
-    // Task 13: the rung's debug proof (I2's rows set aside so the rung is asked); null: off.
+    // Instagram tab-fetch step: its debug proof (the main's-answers step's rows, `instagram I2` in
+    // Lookup details, set aside so the step is asked); null: off.
     private val instagramRungProof: (() -> Boolean)? = null,
 ) : ViewModel(), BrowserObservationSink {
     /**
@@ -103,12 +104,12 @@ class BrowserViewModel(
         siteAdapters: SiteAdapterCoordinator,
         detectedMediaStore: DetectedMediaStore,
         homeSitesRepository: HomeSitesRepository,
-        // Phase 1.3 D5a: the app's player-script runner, handed to Master only for the client
-        // ladder's S (debug, -Pyft.clientLadder with the own solver on).
+        // YouTube ladder: the app's player-script runner, handed to Master only for the ladder's
+        // signature rung (debug, -Pyft.clientLadder with the own solver on).
         playerScriptRunner: PlayerScriptRunner,
-        // Phase 1.3 D7: only for the ladder's health file (app-private, found on first use).
+        // YouTube ladder: only for its health file (app-private, found on first use).
         @ApplicationContext appContext: Context,
-        // Decision 30 (i): Settings' Backup finder; off, no lookup asks Master.
+        // Release build: Settings' Backup finder; off, no lookup asks Master.
         backupFinder: BackupFinder,
     ) : this(
         okHttpClient,
@@ -120,7 +121,7 @@ class BrowserViewModel(
             BuildConfig.MASTER_CAPTURE_ENABLED, okHttpClient, siteAdapters, playerScriptRunner,
             { appContext.filesDir },
             on = backupFinder::isOn,
-            // VK-Master wave 2 (agent D, item 7): the trial's VK value break (null elsewhere).
+            // VK trial break: the trial's broken VK value (null elsewhere).
             vkMutate = VkTrialBreak.mutate(appContext),
         ),
         InstagramProbeSwitch.reader(appContext),
@@ -130,7 +131,7 @@ class BrowserViewModel(
     val masterCapture: WebViewPlaybackCapture? get() = masterFallback.capture
 
     /**
-     * Decision 30 (i): whether a new tab gets Master's capture — a build with Master while the
+     * Release build: whether a new tab gets Master's capture — a build with Master while the
      * Backup finder is on. A tab made while it was off stays without; [masterCapture] still
      * detaches every tab (a tab it never attached is left as it is).
      */
@@ -143,15 +144,18 @@ class BrowserViewModel(
 
     private val quickDownloads = Channel<Unit>(Channel.CONFLATED)
 
-    /** P5: one event each time the video in focus on a feed was found and its sheet may open. */
+    /**
+     * Page video finder: one event each time the video in focus on a feed was found and its sheet
+     * may open.
+     */
     val quickDownloadRequests: Flow<Unit> = quickDownloads.receiveAsFlow()
 
     private val tabDataRequests =
         MutableSharedFlow<TabDataRequest>(extraBufferCapacity = TAB_DATA_BUFFER)
 
     /**
-     * P40 step 2: the reads of the TikTok tab's own data the screen runs on the tab's page, one
-     * for each lookup of a TikTok post (Download, the page's own lookup, Try again). While no
+     * TikTok page reader: the reads of the TikTok tab's own data the screen runs on the tab's page,
+     * one for each lookup of a TikTok post (Download, the page's own lookup, Try again). While no
      * screen collects them there is no tab to read, and lookups go on without waiting.
      */
     val tabDataReads: Flow<TabDataRequest> = tabDataRequests.asSharedFlow()
@@ -160,15 +164,15 @@ class BrowserViewModel(
         MutableSharedFlow<InstagramProbeRequest>(extraBufferCapacity = TAB_DATA_BUFFER)
 
     /**
-     * Social plan S2d (`MASTER_KEY_SOCIAL_PLAN.md` decisions 19 and 24, debug only): the asks of
-     * Instagram's tab-fetch rung the screen runs in its tab (`InstagramProbeScript`), at most one
-     * per Instagram lookup, only in a social-ladder build with the rung's own switch on
-     * (Instagram's ladder asks it after I2 gave no rows). While no screen collects them there is
-     * no tab to fetch in, and the ladder's line says so.
+     * Instagram tab-fetch step (debug only): the asks of the step the screen runs in its tab
+     * (`InstagramProbeScript`), at most one per Instagram lookup, only in a social-ladder build
+     * with the step's own switch on (the Instagram ladder asks it after its main's-answers step,
+     * `instagram I2`, gave no rows). While no screen collects them there is no tab to fetch in, and
+     * the ladder's line says so.
      */
     val instagramProbes: Flow<InstagramProbeRequest> = instagramProbeRequests.asSharedFlow()
 
-    /** S2d: the rung an Instagram lookup's context carries; none in every other build. */
+    /** Instagram tab-fetch step: what an Instagram lookup carries; none in every other build. */
     private val instagramProbe: InstagramTabProbe? = instagramProbeOn?.let { switch ->
         object : InstagramTabProbe {
             override fun on(): Boolean = switch()
@@ -193,7 +197,7 @@ class BrowserViewModel(
         }
     }
 
-    /** P40: the tab's data for a TikTok post; other sites have none to read. */
+    /** TikTok page reader: the tab's data for a TikTok post; other sites have none to read. */
     private val tabData = TabDataSource { siteId, postId ->
         if (siteId == TikTokPageScript.SITE_ID) readTabData(postId) else null
     }
@@ -202,16 +206,16 @@ class BrowserViewModel(
     private var focusLookup: Job? = null
     private var focusNoticeTimer: Job? = null
 
-    /** P37: the wait for the reloaded page's fresh link of the sheet's video. */
+    /** Fresh link renewal: the wait for the reloaded page's fresh link of the sheet's video. */
     private var reloadWait: Job? = null
 
     private val candidateStore = PageCandidateStore(scope = viewModelScope)
     private val domParser = DomProbeResultParser()
 
-    /** P28: marks the ad file a page's player fetches right after asking for an ad break. */
+    /** Ad filter: marks the ad file a page's player fetches right after asking for an ad break. */
     private val vastAds = VastAdTracker()
 
-    /** P39 (R25): the TikTok player's files, offered when TikTok's page cannot be read. */
+    /** TikTok adapter: the TikTok player's files, offered when TikTok's page cannot be read. */
     private val playerFiles = PlayerFileFallback(siteAdapters::isPlayerMediaOf)
     private val metadataProbe = MediaMetadataProbe(okHttpClient)
     private val probeBudget = PageProbeBudget()
@@ -242,45 +246,50 @@ class BrowserViewModel(
     @Volatile
     private var siteLookupStarted = false
 
-    /** P40: the page's own lookup ended without its video (a TikTok tap reads the tab again). */
+    /**
+     * TikTok page reader: the page's own lookup ended without its video (a TikTok tap reads the tab
+     * again).
+     */
     private var pageLookupFailed = false
 
     private var focusedRetryPage: String? = null
 
     /**
-     * P12: this page's lookups by video key ("site:contentId"), so the page's own lookup, the
-     * Download button and a feed's focused link never ask the adapter twice for one video: a
-     * second ask joins the running lookup or takes the one that found the video.
+     * Download sheet: this page's lookups by video key ("site:contentId"), so the page's own
+     * lookup, the Download button and a feed's focused link never ask the adapter twice for one
+     * video: a second ask joins the running lookup or takes the one that found the video.
      */
     private val runningLookups = mutableMapOf<String, Deferred<SiteAdapterOutcome>>()
     private val foundLookups = mutableMapOf<String, SiteAdapterOutcome.Detected>()
 
-    /** P12: completes when the page's own lookup ends, true when it found anything. */
+    /** Download sheet: completes when the page's own lookup ends, true when it found anything. */
     private var pageLookupDone = CompletableDeferred<Boolean>()
 
-    /** P12: the page's own video once its lookup found it. */
+    /** Download sheet: the page's own video once its lookup found it. */
     private var foundPageVideo: MediaGroup? = null
 
     /**
-     * VK-Master wave 2: the detail lines of the lookup that found [foundPageVideo] (the backup
-     * finder's), which the download sheet shows as its Lookup details; none when it gave none.
+     * The detail lines of the lookup that found [foundPageVideo] (the Backup finder's), which the
+     * Download sheet shows as its Lookup details; none when it gave none.
      */
     private var foundPageDetails: List<String> = emptyList()
 
-    /** P12: the sheet opened before the page's lookup ended and waits for its video. */
+    /** Download sheet: the sheet opened before the page's lookup ended and waits for its video. */
     private var sheetAwaitsPageVideo = false
 
-    /** P12: the main-video script was evaluated and its answer has not come back yet. */
+    /** Download sheet: the main-video script was evaluated and its answer has not come back yet. */
     private var mainVideoTimer: Job? = null
 
-    /** P16: the lookup of a feed's video on screen that the open sheet waits on. */
+    /** Download sheet: the lookup of a feed's video on screen that the open sheet waits on. */
     private var focusedSheet: PageVideoLookup? = null
 
-    /** P24: the stream addresses whose manifest this page already read for its length. */
+    /**
+     * Page video finder: the stream addresses whose manifest this page already read for its length.
+     */
     private val manifestReads = mutableSetOf<String>()
 
     /**
-     * P28: the sheet waits a few seconds for the page's own video, because what the page
+     * Ad filter: the sheet waits a few seconds for the page's own video, because what the page
      * offered first may be the ad before it ([MediaGroups.mayBeAdBefore]).
      */
     private var pageVideoWait: Job? = null
@@ -295,7 +304,7 @@ class BrowserViewModel(
             }
         }
         viewModelScope.launch {
-            // P28: the length the page states tells its video from the ad its player shows
+            // Ad filter: the length the page states tells its video from the ad its player shows
             // first, so every list and count sees the files with the page's word on them.
             combine(candidateStore.candidates, candidateStore.facts, ::Pair)
                 .collect { (candidates, facts) ->
@@ -336,7 +345,7 @@ class BrowserViewModel(
                 }
         }
         viewModelScope.launch {
-            // P12: Try again in the sheet that waits on this page's own lookup.
+            // Download sheet: Try again in the sheet that waits on this page's own lookup.
             detectedMediaStore.lookupRetries.collect { key ->
                 val lookup = detectedMediaStore.lookup.value
                 if (lookup?.key != key || !lookup.canRetry) return@collect
@@ -345,7 +354,7 @@ class BrowserViewModel(
                     runMasterOnDemand()
                     return@collect
                 }
-                // P16: a feed's video on screen is asked for again in the sheet.
+                // Download sheet: a feed's video on screen is asked for again in the sheet.
                 focusedSheet?.takeIf { it.key == key }?.let { sheet ->
                     if (focusLookup?.isActive != true) {
                         detectedMediaStore.showLookup(sheet)
@@ -359,15 +368,15 @@ class BrowserViewModel(
             }
         }
         viewModelScope.launch {
-            // P16: the sheet closed before its video came.
+            // Download sheet: the sheet closed before its video came.
             detectedMediaStore.lookupCloses.collect(::closeSheetLookup)
         }
         viewModelScope.launch {
-            // P37: the sheet's "Reload page and try again".
+            // Fresh link renewal: the sheet's "Reload page and try again".
             detectedMediaStore.pageReloads.collect(::reloadForFreshLink)
         }
         viewModelScope.launch {
-            // Decision 30 (v): the quiet sheet's Show check opens this page's TikTok check.
+            // Quiet details: the quiet sheet's Show check opens this page's TikTok check.
             detectedMediaStore.siteChecks.collect { pageUrl ->
                 if (pageUrl == activePageUrl) showSiteCheck()
             }
@@ -390,7 +399,7 @@ class BrowserViewModel(
         }
     }
 
-    /** The page to load for the address field; words become a web search (T13). */
+    /** The page to load for the address field; words become a web search. */
     fun addressForLoading(): String? {
         val typed = mutableUiState.value.address
         val address = BrowserSearch.wordsOrNull(typed)?.let(BrowserSearch::webUrl) ?: typed
@@ -430,7 +439,7 @@ class BrowserViewModel(
         val state = mutableUiState.value
         val listed = state.candidates
         if (video.candidates.any { it !in listed || it.drmHint == true }) return false
-        // P28: the page's only video may be the ad its player shows before the page's video.
+        // Ad filter: the page's only video may be the ad its player shows before the page's video.
         val videos = MediaGroups.pageVideos(listed.filter { it.isSavable }, state.sitePage)
         if (videos.singleOrNull()?.key == video.key &&
             MediaGroups.mayBeAdBefore(video, state.pageFacts)
@@ -446,8 +455,8 @@ class BrowserViewModel(
     }
 
     /**
-     * VK-Master wave 2: the lines of the page's lookup when [video] is the video it found (the
-     * download sheet's Lookup details); none for every other video of the page.
+     * The lines of the page's lookup when [video] is the video it found (the Download sheet's
+     * Lookup details); none for every other video of the page.
      */
     private fun pageLookupDetails(video: MediaGroup): List<String> =
         foundPageDetails.takeIf { foundPageVideo?.key == video.key }.orEmpty()
@@ -487,8 +496,8 @@ class BrowserViewModel(
     }
 
     /**
-     * Follows an address the page changed by itself, such as YouTube's mobile site opening a
-     * video from its feed with `history.pushState` (P1).
+     * Follows an address the page changed by itself, such as YouTube's mobile site opening a video
+     * from its feed with `history.pushState`.
      *
      * Another video is a new page: its candidates, notice and retry state start empty, the old
      * page's lookups are cancelled, and the site adapters are asked once the address has stayed
@@ -540,8 +549,8 @@ class BrowserViewModel(
     }
 
     /**
-     * Asks the site adapters about a video page before it finished loading (P2): heavy pages such
-     * as Facebook's keep loading long after the video is known, and the Download button should not
+     * Asks the site adapters about a video page before it finished loading: heavy pages such as
+     * Facebook's keep loading long after the video is known, and the Download button should not
      * wait for them. A page that finishes first runs the lookup itself, and only once.
      */
     private fun scheduleEarlySiteLookup(url: String) {
@@ -554,8 +563,8 @@ class BrowserViewModel(
     }
 
     /**
-     * P5: the script that finds the video in focus, for the Download button on a YouTube,
-     * Facebook or TikTok page. Null on every other site, so no script runs there.
+     * Page video finder: the script that finds the video in focus, for the Download button on a
+     * YouTube, Facebook or TikTok page. Null on every other site, so no script runs there.
      */
     fun focusedVideoScript(): String? {
         val pageUrl = activePageUrl ?: return null
@@ -580,10 +589,10 @@ class BrowserViewModel(
     }
 
     /**
-     * P5: looks up the video the [focusedVideoScript] found with its site adapter and asks the
-     * route to open its download sheet. P16: the sheet opens before the lookup ends and waits on
-     * it; a video the adapter cannot read shows why in the sheet. A page with no video in focus
-     * gets a short notice instead. A result for a page the browser left is dropped.
+     * Page video finder: looks up the video the [focusedVideoScript] found with its site adapter
+     * and asks the route to open its Download sheet. The sheet opens before the lookup ends and
+     * waits on it; a video the adapter cannot read shows why in the sheet. A page with no video in
+     * focus gets a short notice instead. A result for a page the browser left is dropped.
      */
     fun onFocusedVideoResult(javascriptResult: String?) {
         if (!mutableUiState.value.findingFocusedVideo) return
@@ -596,7 +605,7 @@ class BrowserViewModel(
             finishFocusLookup(NO_FOCUSED_VIDEO_NOTICE)
             return
         }
-        // P16: the sheet opens now and waits on the lookup, unless this page already found it.
+        // The sheet opens now and waits on the lookup, unless this page already found it.
         val key = siteAdapters.videoKey(focused.url)
         if (key != null && foundLookups[key] == null) {
             val sheet = PageVideoLookup(key, focused.url, title = null)
@@ -609,9 +618,9 @@ class BrowserViewModel(
     }
 
     /**
-     * P16: the sheet that waited on a lookup closed. A feed's video on screen is no longer
-     * looked up; the page's own lookup keeps running for the page, without the sheet's wait.
-     * P28: the wait for the page's video after its ad ends with the sheet.
+     * Download sheet: the sheet that waited on a lookup closed. A feed's video on screen is no
+     * longer looked up; the page's own lookup keeps running for the page, without the sheet's wait.
+     * Ad filter: the wait for the page's video after its ad ends with the sheet.
      */
     private fun closeSheetLookup(key: String) {
         if (key == masterLookupKey) {
@@ -648,7 +657,7 @@ class BrowserViewModel(
         }
     }
 
-    /** P16: the sheet that waits on the feed's video shows why it was not found. */
+    /** Download sheet: the sheet that waits on the feed's video shows why it was not found. */
     private fun showFocusedFailure(
         sheet: PageVideoLookup,
         message: String,
@@ -685,7 +694,7 @@ class BrowserViewModel(
             val context = browserContext?.takeIf { context ->
                 context.pageUrl?.let { page -> isSameSite(url, page) } == true
             }
-            // P12: a link of a video this page already looks up, or found, joins that lookup.
+            // A link of a video this page already looks up, or found, joins that lookup.
             val outcome = lookUp(
                 url = url,
                 requestContext = context?.copy(pageUrl = url)
@@ -693,7 +702,7 @@ class BrowserViewModel(
                 fresh = fresh,
             )
             if (generation != pageGeneration) return@launch
-            // P16: the open sheet that waits on this video shows the answer.
+            // Download sheet: the open sheet that waits on this video shows the answer.
             val sheet = focusedSheet?.takeIf { it.key == siteAdapters.videoKey(url) }
             when (outcome) {
                 is SiteAdapterOutcome.Detected -> {
@@ -710,14 +719,14 @@ class BrowserViewModel(
                             if (mainMore != null) {
                                 mutableUiState.update { it.copy(sitePage = false) }
                             }
-                            // VK-Master wave 2: the sheet's Lookup details are the lookup's lines.
+                            // The sheet's Lookup details are the lookup's lines.
                             showFocusedVideo(video, sheet, outcome.details)
                         }
                     }
                 }
 
                 is SiteAdapterOutcome.Failed -> {
-                    // P39 (R25): TikTok's page could not be read; its player's file is the row.
+                    // TikTok's page could not be read; its player's file is the row.
                     val fallback = playerFiles.candidateFor(outcome, url, null, playerSrc)
                         ?.let { MediaGroups.pageVideos(listOf(it)).firstOrNull() }
                     when {
@@ -725,7 +734,7 @@ class BrowserViewModel(
                             mutableUiState.update {
                                 it.copy(siteNotice = PlayerFileFallback.NOTICE)
                             }
-                            // v1.0.2 item 13 (c): the failed lookup's lines are the sheet's
+                            // Download sheet: the failed lookup's lines are the sheet's
                             // Lookup details (why the player's file is the row).
                             showFocusedVideo(fallback, sheet, outcome.details)
                         }
@@ -756,8 +765,8 @@ class BrowserViewModel(
     }
 
     /**
-     * The focused video's rows are chosen; the sheet that waited on them shows them. VK-Master
-     * wave 2: with [details], the lines of the lookup that found them (its Lookup details).
+     * The focused video's rows are chosen; the sheet that waited on them shows them. With
+     * [details], the lines of the lookup that found them (its Lookup details).
      */
     private fun showFocusedVideo(
         video: MediaGroup,
@@ -775,10 +784,10 @@ class BrowserViewModel(
     }
 
     /**
-     * P37: "Reload page and try again": the tab reloads once without its cache (the screen does
-     * it for each new [BrowserUiState.reloadRequest]). When the reloaded page has the sheet's
-     * video with a link the sheet did not try yet, that video's sheet opens again; when none
-     * comes within a few seconds, a notice asks to play the video first.
+     * Fresh link renewal: "Reload page and try again": the tab reloads once without its cache (the
+     * screen does it for each new [BrowserUiState.reloadRequest]). When the reloaded page has the
+     * sheet's video with a link the sheet did not try yet, that video's sheet opens again; when
+     * none comes within a few seconds, a notice asks to play the video first.
      */
     private fun reloadForFreshLink(request: PageReload) {
         if (request.pageUrl != activePageUrl) return
@@ -804,7 +813,10 @@ class BrowserViewModel(
         }
     }
 
-    /** P37: [request]'s video on this page with only links the sheet did not try; or null. */
+    /**
+     * Fresh link renewal: [request]'s video on this page with only links the sheet did not try; or
+     * null.
+     */
     private fun BrowserUiState.freshVideo(request: PageReload): MediaGroup? {
         if (currentUrl != request.pageUrl) return null
         val videos = MediaGroups.pageVideos(candidates.filter { it.isSavable }, sitePage)
@@ -816,7 +828,7 @@ class BrowserViewModel(
 
     /**
      * Ends the focused-video lookup with [notice], which clears itself after a few seconds.
-     * Decision 30 (v): [failed], the notice is the lookup's failure (a quiet build's one line).
+     * Quiet details: [failed], the notice is the lookup's failure (a quiet build's one line).
      */
     private fun finishFocusLookup(notice: String?, failed: Boolean = false) {
         focusNoticeTimer?.cancel()
@@ -837,9 +849,9 @@ class BrowserViewModel(
     }
 
     /**
-     * The page's feed state (P5): whether the Download button may look for the video in focus,
-     * and whether the page is a feed rather than one video's own page. A new page forgets the
-     * previous page's focused-video lookup and notice; the same page under a new address keeps
+     * The page's feed state (Page video finder): whether the Download button may look for the video
+     * in focus, and whether the page is a feed rather than one video's own page. A new page forgets
+     * the previous page's focused-video lookup and notice; the same page under a new address keeps
      * them.
      */
     private fun BrowserUiState.withFeedOf(
@@ -873,7 +885,7 @@ class BrowserViewModel(
         // The focused-video lookup ran in the old page's job; its notice goes with the page.
         focusLookup = null
         focusNoticeTimer?.cancel()
-        // P12: the old page's lookups and the sheet's wait for its video end with it.
+        // Download sheet: the old page's lookups and the sheet's wait for its video end with it.
         runningLookups.clear()
         masterLookup = null
         masterLookupKey = null
@@ -911,7 +923,7 @@ class BrowserViewModel(
         siteLookupStarted = true
         pageLookupFailed = false
         val generation = pageGeneration
-        // P12: the sheet can open on this lookup and wait for it; the button shows a spinner.
+        // The sheet can open on this lookup and wait for it; the button shows a spinner.
         val key = siteAdapters.videoKey(pageUrl)
         if (key != null) {
             detectedMediaStore.showLookup(PageVideoLookup(key, pageUrl, lookupTitle(title)))
@@ -955,11 +967,11 @@ class BrowserViewModel(
                         }
                     }
                     candidateStore.submitAll(found)
-                    // VK-Master wave 2: the sheet's Lookup details are the lookup's own lines.
+                    // The sheet's Lookup details are the lookup's own lines.
                     showPageVideo(key, livePageUrl, pageTitle, found, outcome.details)
-                    // Phase 1.4 item 7 R4: a route-B build names route B's answer and its counts
+                    // YouTube backup route: a build with it names the route's answer and its counts
                     // (`master: route B after <reason>; replayed N; new M`); every other: nothing.
-                    // Social plan S1a (9): the Facebook trial APK names Facebook's line with the
+                    // Social backup trial: the Facebook trial APK names Facebook's line with the
                     // trial's comparison (`…; trial: Master's rows M, main's N; …`) the same way.
                     (YouTubeRouteB.notice(outcome) ?: SocialLadder.trialNotice(outcome))?.let { notice ->
                         mutableUiState.update { it.copy(siteNotice = notice) }
@@ -967,7 +979,7 @@ class BrowserViewModel(
                 }
 
                 is SiteAdapterOutcome.Failed -> {
-                    // P39 (R25): TikTok's page could not be read; its player's file is the row.
+                    // TikTok's page could not be read; its player's file is the row.
                     val fallback =
                         playerFiles.candidateFor(outcome, livePageUrl, lookupTitle(title))
                     if (fallback != null) {
@@ -979,7 +991,7 @@ class BrowserViewModel(
                             )
                         }
                         candidateStore.submit(fallback)
-                        // v1.0.2 item 13 (c): the failed lookup's lines go with the row.
+                        // Download sheet: the failed lookup's lines go with the row.
                         showPageVideo(
                             key, livePageUrl, lookupTitle(title), listOf(fallback), outcome.details,
                         )
@@ -987,8 +999,8 @@ class BrowserViewModel(
                     }
                     // One automatic retry per page; after that the user decides with Try again.
                     awaitingPlayback = outcome.retriesAfterPlayback && !autoRetried
-                    // P46: TikTok's check is shown to the user; the browser's own words.
-                    // Social plan task 15 (F4): the rung's proof's lookup (debug) adds its probe lines.
+                    // TikTok adapter: TikTok's check is shown to the user; the browser's own words.
+                    // Instagram tab-fetch step: its proof's lookup (debug) adds its probe lines.
                     val checkUrl = SiteCheck.urlFor(outcome, livePageUrl)
                     val message = if (checkUrl != null) {
                         SiteCheck.NOTICE
@@ -1005,7 +1017,7 @@ class BrowserViewModel(
                         )
                     }
                     pageLookupFailed = true
-                    // P12: the sheet shows why, with Try again, instead of the page's files.
+                    // The sheet shows why, with Try again, instead of the page's files.
                     key?.let {
                         detectedMediaStore.showLookup(
                             PageVideoLookup(
@@ -1034,9 +1046,9 @@ class BrowserViewModel(
             ?.takeIf(String::isNotEmpty)
 
     /**
-     * P12: the page's lookup found its video; a sheet that waits for it shows it now. A find
-     * with nothing savable (only protected media) is the sheet's failure, without Try again.
-     * VK-Master wave 2: [details] (the lookup's lines) go with the video to the sheet.
+     * Download sheet: the page's lookup found its video; a sheet that waits for it shows it now. A
+     * find with nothing savable (only protected media) is the sheet's failure, without Try again.
+     * [details] (the lookup's lines) go with the video to the sheet.
      */
     private fun showPageVideo(
         key: String?,
@@ -1068,10 +1080,10 @@ class BrowserViewModel(
     }
 
     /**
-     * P12: one adapter lookup per video in this page scope. A second ask joins the running
-     * lookup of the same video key or takes the outcome that found the video; [fresh] (Try
-     * again) skips a finished result but still joins a running lookup, so one video is never
-     * asked for twice at once.
+     * Download sheet: one adapter lookup per video in this page scope. A second ask joins the
+     * running lookup of the same video key or takes the outcome that found the video; [fresh] (Try
+     * again) skips a finished result but still joins a running lookup, so one video is never asked
+     * for twice at once.
      */
     private suspend fun lookUp(
         url: String,
@@ -1081,17 +1093,17 @@ class BrowserViewModel(
         val key = siteAdapters.videoKey(url) ?: url
         if (!fresh) foundLookups[key]?.let { return it }
         val lookup = runningLookups[key]?.takeIf { it.isActive }
-            // Phase 1.4 item 7 R1: a route-B build's YouTube lookup carries its own request
+            // Lookup record: a YouTube backup route build's YouTube lookup carries its own request
             // record (main's adapter and the backup); every other lookup runs as before.
-            // Social plan S2d part 1: an Instagram lookup carries the tab-fetch probe too (a
+            // Instagram tab-fetch step: an Instagram lookup carries the tab-fetch probe too (a
             // social-ladder build only).
             ?: viewModelScope.async(pageProbeJob + masterFallback.lookupContext(url) + probeContext(url)) {
-                // P17: the shared lookup cache answers unless this is Try again.
-                // Phase 1.4 item 7 R4: in the route-B trial APK a YouTube page main found is
-                // answered as main's failure (after main asked); every other build: main's answer.
-                // Social plan S1a (9): a Facebook page so too in the Facebook trial APK.
-                // Social plan task 12: in that APK a social page's lookup asks main every time (P17's
-                // remembered answer would leave the ladder nothing of main's to read); else as before.
+                // Lookup reuse: the shared lookup cache answers unless this is Try again.
+                // YouTube backup trial: in its trial APK a YouTube page main found is answered as
+                // main's failure (after main asked); every other build: main's answer.
+                // Social backup trial: a Facebook page so too in the Facebook trial APK. In that
+                // APK a social page's lookup asks main every time (Lookup reuse's remembered answer
+                // would leave the ladder nothing of main's to read); else as before.
                 val primary = masterFallback.trialPrimary(
                     url,
                     siteAdapters.inspect(
@@ -1102,8 +1114,9 @@ class BrowserViewModel(
                         tab = tabData,
                     ),
                 )
-                // Phase 1.4 item 2: in the h-only APK a found YouTube page goes through H too.
-                // Social plan S6 (B+): in a B+ build so does main's weak answer for a Facebook,
+                // Ladder test switches: in the `h-only` APK a found YouTube page goes through the
+                // YouTube HLS rung (`ladder H` in Lookup details) too.
+                // Weak-answer fill: in a `B+` build so does main's weak answer for a Facebook,
                 // Instagram or VK page (Master adds only the rows it lacks; main's rows stay).
                 if (primary is SiteAdapterOutcome.Failed ||
                     (primary is SiteAdapterOutcome.Detected &&
@@ -1123,13 +1136,13 @@ class BrowserViewModel(
     }
 
     /**
-     * P12: the Download button on a site's video page means this video. The sheet opens with
-     * the video when the page's lookup found it; while the lookup runs (it starts now when the
+     * Download sheet: the Download button on a site's video page means this video. The sheet opens
+     * with the video when the page's lookup found it; while the lookup runs (it starts now when the
      * page has not asked yet) the sheet waits for that same lookup, and after a failure it shows
      * the message with Try again. Returns whether the sheet opens.
      *
-     * Decision 30 (v): [retryFailed] (a quiet build, whose sheet has no Try again): after a
-     * failed lookup that asking again can change, Download looks up again, as Try again does.
+     * Quiet details: [retryFailed] (a quiet build, whose sheet has no Try again): after a failed
+     * lookup that asking again can change, Download looks up again, as Try again does.
      */
     fun openPageVideo(retryFailed: Boolean = false): Boolean {
         val pageUrl = activePageUrl ?: return false
@@ -1138,7 +1151,7 @@ class BrowserViewModel(
         val video = MediaGroups.pageVideos(savable, adapterSite = true).firstOrNull()
             ?: foundPageVideo
         if (video != null) {
-            // VK-Master wave 2: with the lines of the page's lookup, the sheet's Lookup details.
+            // With the lines of the page's lookup, the sheet's Lookup details.
             detectedMediaStore.select(video, lookupDetails = pageLookupDetails(video))
             return true
         }
@@ -1146,7 +1159,7 @@ class BrowserViewModel(
         sheetAwaitsPageVideo = true
         when {
             !siteLookupStarted -> runSiteAdapters(pageUrl, mutableUiState.value.pageTitle)
-            // P40: after a failed lookup a TikTok tap reads the tab's own data again.
+            // TikTok page reader: after a failed lookup a TikTok tap reads the tab's data again.
             pageLookupFailed && siteAdapters.siteId(pageUrl) == TikTokPageScript.SITE_ID ->
                 retryLookup(pageUrl)
             pageLookupFailed && retryFailed && mutableUiState.value.canRetrySiteLookup ->
@@ -1156,15 +1169,15 @@ class BrowserViewModel(
     }
 
     /**
-     * Social plan S2d part 1: [url]'s lookup's probe: Instagram's tab-fetch probe on an Instagram
-     * page in a social-ladder build ([instagramProbe]); nothing on every other page and build.
+     * [url]'s lookup's probe: the Instagram tab-fetch step's probe on an Instagram page in a
+     * social-ladder build ([instagramProbe]); nothing on every other page and build.
      */
     private fun probeContext(url: String): CoroutineContext =
         instagramProbe?.takeIf { siteAdapters.siteId(url) == SocialLadder.INSTAGRAM_SITE_ID } ?: EmptyCoroutineContext
 
     /**
-     * P40 step 2: asks the screen for the TikTok tab's own data for [postId] and waits at most
-     * [TAB_DATA_TIMEOUT_MS]; a tab that does not answer in time gives none.
+     * TikTok page reader: asks the screen for the TikTok tab's own data for [postId] and waits at
+     * most [TAB_DATA_TIMEOUT_MS]; a tab that does not answer in time gives none.
      */
     private suspend fun readTabData(postId: String): TabData? {
         if (tabDataRequests.subscriptionCount.value == 0) return null
@@ -1181,11 +1194,11 @@ class BrowserViewModel(
     }
 
     /**
-     * P12: on a page with several videos and no adapter, the Download button opens the main
-     * one. This script asks the page which video plays; its answer goes to
+     * Download sheet: on a page with several videos and no adapter, the Download button opens the
+     * main one. This script asks the page which video plays; its answer goes to
      * [onPlayingVideoResult], and a page that does not answer soon gets its largest video.
-     * P24: the answer describes the page's videos, so a muted looping preview that plays is not
-     * taken for the main video, and a player of a stream is matched by its length.
+     * Page video finder: the answer describes the page's videos, so a muted looping preview that
+     * plays is not taken for the main video, and a player of a stream is matched by its length.
      */
     fun mainVideoScript(): String {
         mainVideoTimer?.cancel()
@@ -1203,10 +1216,10 @@ class BrowserViewModel(
     }
 
     /**
-     * Selects the page's main video with the count of the others and opens its sheet. P28: by
-     * the length the page states ([PageVideoFacts]), so the ad its player shows first is not
-     * taken for its video; when the main one still may be that ad, the sheet waits a few
-     * seconds for the page's video ([awaitVideoAfterAd]).
+     * Selects the page's main video with the count of the others and opens its sheet. Ad filter: by
+     * the length the page states ([PageVideoFacts]), so the ad its player shows first is not taken
+     * for its video; when the main one still may be that ad, the sheet waits a few seconds for the
+     * page's video ([awaitVideoAfterAd]).
      */
     private fun openMainVideo(playing: PlayingVideo?) {
         mainVideoTimer = null
@@ -1253,7 +1266,7 @@ class BrowserViewModel(
                 if (video != null) {
                     candidateStore.submitAll(outcome.candidates)
                     if (mainMore != null) mutableUiState.update { it.copy(sitePage = false) }
-                    // v1.0.2 item 13 (d): Master's own lines are the sheet's Lookup details.
+                    // Download sheet: Master's own lines are the sheet's Lookup details.
                     detectedMediaStore.select(video, lookupDetails = outcome.details)
                     detectedMediaStore.clearLookup(LookupOwner.BROWSER)
                     masterLookupKey = null
@@ -1273,10 +1286,10 @@ class BrowserViewModel(
     }
 
     /**
-     * P28: what the page offered may be the ad its player shows before the page's video
+     * Ad filter: what the page offered may be the ad its player shows before the page's video
      * ([MediaGroups.mayBeAdBefore]). The sheet opens with "Finding the page's video…" and the
-     * page's title and picture, and waits up to [PAGE_VIDEO_WAIT_MS] for a video that is not
-     * that ad. Without one, [offered] opens, with the sheet's word that it may be an ad.
+     * page's title and picture, and waits up to [PAGE_VIDEO_WAIT_MS] for a video that is not that
+     * ad. Without one, [offered] opens, with the sheet's word that it may be an ad.
      */
     private fun awaitVideoAfterAd(offered: MediaGroup) {
         val pageUrl = activePageUrl ?: return
@@ -1317,7 +1330,7 @@ class BrowserViewModel(
         }
     }
 
-    /** P28: the page's main video once it is not the ad before it; null until then. */
+    /** Ad filter: the page's main video once it is not the ad before it; null until then. */
     private fun pageVideoAfterAd(state: BrowserUiState): MediaGroup? {
         val savable = state.candidates.filter { it.isSavable }
         val videos = MediaGroups.pageVideos(savable, state.sitePage)
@@ -1338,13 +1351,13 @@ class BrowserViewModel(
         retryLookup(pageUrl)
     }
 
-    /** P46: Show check: TikTok's check on screen for the user. */
+    /** TikTok adapter: Show check: TikTok's check on screen for the user. */
     fun showSiteCheck() {
         if (mutableUiState.value.siteCheckUrl == null) return
         mutableUiState.update { it.copy(siteCheckOpen = true) }
     }
 
-    /** P46: the check is closed; the page is asked again (its cookies may pass now). */
+    /** TikTok adapter: the check is closed; the page is asked again (its cookies may pass now). */
     fun siteCheckDone() {
         val wasOpen = mutableUiState.value.siteCheckOpen
         mutableUiState.update { it.copy(siteCheckOpen = false) }
@@ -1381,7 +1394,7 @@ class BrowserViewModel(
             rememberBrowserContext(observation)
             playerFiles.record(observation)
             retryAfterPlayback(observation)
-            // P28: the file a player fetches right after asking for an ad break is the ad.
+            // Ad filter: the file a player fetches right after asking for an ad break is the ad.
             vastAds.onRequest(observation)
             BrowserObservationMapper.fromRequest(observation)
                 ?.let { vastAds.marked(it, observation) }
@@ -1406,9 +1419,9 @@ class BrowserViewModel(
 
     override fun onDomProbeResult(pageUrl: String, result: String?) {
         if (pageUrl != activePageUrl) return
-        // P28: what the page states about its video: its length, title and picture.
+        // Ad filter: what the page states about its video: its length, title and picture.
         candidateStore.submitFacts(pageUrl, domParser.facts(pageUrl, result))
-        // P45: a link the page names is asked with the WebView's own agent, never OkHttp's.
+        // A link the page names is asked with the WebView's own agent, never OkHttp's.
         val agent = browserContext?.userAgent ?: detectedMediaStore.browserUserAgent
         candidateStore.submitAll(
             domParser.parse(
@@ -1454,7 +1467,7 @@ class BrowserViewModel(
      */
     private fun rememberBrowserContext(observation: RequestObservation) {
         if (observation.userAgent == null && observation.cookie == null) return
-        // P37: the sheet's quiet re-read of the page asks as this WebView does.
+        // Fresh link renewal: the sheet's quiet re-read of the page asks as this WebView does.
         observation.userAgent?.let { detectedMediaStore.browserUserAgent = it }
         // Only the page's own site set the cookie a lookup may replay to it: another site's
         // cookie is never kept, and neither another site's request nor a cookieless request
@@ -1480,8 +1493,8 @@ class BrowserViewModel(
         val sitePage = activePageUrl?.let(siteAdapters::handles) == true
         val lookupDone = pageLookupDone
         viewModelScope.launch(pageProbeJob) {
-            // P12: on a site's video page its adapter's lookup goes first on the shared line;
-            // the probes run afterwards only when it found nothing.
+            // Download sheet: on a site's video page its adapter's lookup goes first on the shared
+            // line; the probes run afterwards only when it found nothing.
             if (sitePage && lookupDone.await()) return@launch
             probePermits.withPermit {
                 when (val result = metadataProbe.probe(candidate)) {
@@ -1495,9 +1508,10 @@ class BrowserViewModel(
     }
 
     /**
-     * P24: a stream often states its length only in its manifest, so each HLS or DASH address
-     * of the page without a length is read once, at most [MAX_MANIFEST_READS] a page. The length
-     * tells the main video from the short previews and ads around it and fills the sheet's sizes.
+     * Page video finder: a stream often states its length only in its manifest, so each HLS or DASH
+     * address of the page without a length is read once, at most [MAX_MANIFEST_READS] a page. The
+     * length tells the main video from the short previews and ads around it and fills the sheet's
+     * sizes.
      */
     private fun readManifestLengths(candidates: List<MediaCandidate>) {
         val pageUrl = activePageUrl ?: return
@@ -1543,11 +1557,15 @@ class BrowserViewModel(
         const val PROTECTED_FOCUSED_VIDEO_NOTICE =
             "This video is protected, so YFT can't save it."
 
-        /** P37: the reloaded page gave the sheet's video no link it did not try yet. */
+        /**
+         * Fresh link renewal: the reloaded page gave the sheet's video no link it did not try yet.
+         */
         const val NO_NEW_LINK_NOTICE =
             "The site gave no new link. Play the video for a moment, then tap Download again."
 
-        /** P37: how long the reloaded page has to give the sheet's video a new link. */
+        /**
+         * Fresh link renewal: how long the reloaded page has to give the sheet's video a new link.
+         */
         const val RELOAD_WAIT_MS = 15_000L
 
         /** How long a focused-video notice stays before it clears itself. */
@@ -1556,14 +1574,16 @@ class BrowserViewModel(
         /** How long the page has to answer the focused-video script. */
         const val FOCUS_SCRIPT_TIMEOUT_MS = 5_000L
 
-        /** P12: how long a page has to say which of its videos plays. */
+        /** Download sheet: how long a page has to say which of its videos plays. */
         const val MAIN_VIDEO_SCRIPT_TIMEOUT_MS = 1_000L
 
-        /** P28: how long the sheet waits for the page's video after what may be its ad. */
+        /** Ad filter: how long the sheet waits for the page's video after what may be its ad. */
         const val PAGE_VIDEO_WAIT_MS = 6_000L
         const val PAGE_VIDEO_WAIT_PREFIX = "generic:page-video:"
 
-        /** P24: how many stream manifests one page may have read for their lengths. */
+        /**
+         * Page video finder: how many stream manifests one page may have read for their lengths.
+         */
         const val MAX_MANIFEST_READS = 8
 
         /** How long an in-page address must stay before the site adapters are asked about it. */
@@ -1572,7 +1592,7 @@ class BrowserViewModel(
         /** How long a loading video page waits for its own finish before the lookup starts. */
         const val EARLY_LOOKUP_DELAY_MS = 1_500L
 
-        /** P40 step 2: how long the tab has to give its own data for a TikTok post. */
+        /** TikTok page reader: how long the tab has to give its own data for a TikTok post. */
         const val TAB_DATA_TIMEOUT_MS = 1_000L
         const val TAB_DATA_BUFFER = 8
     }
