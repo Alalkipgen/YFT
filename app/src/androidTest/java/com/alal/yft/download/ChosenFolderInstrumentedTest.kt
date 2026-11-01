@@ -44,7 +44,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * v1.0.2 item 28 on the CI emulator (API 34) with a real folder tree and no folder picker. The
+ * Save folder on the CI emulator (API 34) with a real folder tree and no folder picker. The
  * tree is [TestTreeProvider], a documents provider in the test APK's own process, so each call
  * crosses processes and Android checks it as it checks a phone's storage; the access the picker
  * would give comes from [TestTreeAccessProvider]. YFT keeps that access as it does after the

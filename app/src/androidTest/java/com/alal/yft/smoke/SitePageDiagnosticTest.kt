@@ -28,8 +28,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * P2 evidence: how public Facebook and TikTok pages render in the production browser on a real
- * WebView.
+ * How public Facebook and TikTok pages render in the production browser on a real WebView.
  *
  * Diagnostic only. It logs safe numbers and markers (never page text, cookies or complete
  * addresses) as `YFT-DIAG` lines that `ci-smoke-diagnostics.py` turns into one annotation, and it
@@ -120,7 +119,7 @@ class SitePageDiagnosticTest {
     private fun hasNode(tag: String): Boolean =
         composeRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
 
-    /** P13: a video page shows the wide Download button, other pages the round one. */
+    /** Download sheet: a video page shows the wide Download button, other pages the round one. */
     private fun hasDownloadButton(): Boolean =
         hasNode("browser-download-fab") || hasNode("browser-download-wide")
 

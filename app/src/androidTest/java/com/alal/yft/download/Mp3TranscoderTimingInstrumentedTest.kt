@@ -26,10 +26,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * v1.0.2 fixes G2 and R5 on the emulator: a 4-minute and a 1-hour AAC source (the 2-second
+ * MP3 conversion on the emulator: a 4-minute and a 1-hour AAC source (the 2-second
  * fixture's frames repeated) convert to MP3 at 128 kbps, and Android reads each MP3 back at its
- * length. For the report, each logs its Details line and how long G2's one-thread loop (decode
- * and LAME in turn, before R5) takes for the same source; CI shows the "YftMp3Timing" lines as
+ * length. For the report, each logs its Details line and how long the old one-thread loop (decode
+ * and LAME in turn) takes for the same source; CI shows the "YftMp3Timing" lines as
  * notices.
  */
 @RunWith(AndroidJUnit4::class)
@@ -70,7 +70,7 @@ class Mp3TranscoderTimingInstrumentedTest {
     }
 
     /**
-     * G2's loop, on one thread: each pass queues every free input and takes every ready output,
+     * The old loop, on one thread: each pass queues every free input and takes every ready output,
      * each encoded by LAME (into nothing) before the next; it waits 5 ms only when neither moved.
      * Stopped after [G2_LIMIT_MS], saying how far it came.
      */
@@ -171,7 +171,7 @@ class Mp3TranscoderTimingInstrumentedTest {
 
     private fun seconds(millis: Long) = String.format(Locale.US, "%.1f s", millis / 1_000.0)
 
-    /** LAME's MP3 for G2's loop goes nowhere: only its time counts. */
+    /** LAME's MP3 for the old loop goes nowhere: only its time counts. */
     private class Nowhere : OutputStream() {
         override fun write(b: Int) = Unit
 

@@ -25,7 +25,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * v1.0.2 fix R5 on the emulator: the MP3 has its source's length. The decoder's thread hands
+ * MP3 conversion on the emulator: the MP3 has its source's length. The decoder's thread hands
  * LAME every sample the AAC decoder gives, once and in order (the same count and checksum as a
  * plain decode of the source, also while LAME is slow and the decoder waits), and the MP3
  * decodes to as many samples plus at most LAME's delay and last-frame padding. A conversion

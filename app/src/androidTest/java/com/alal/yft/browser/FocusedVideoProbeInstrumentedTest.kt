@@ -23,8 +23,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * P5: the focused-video script on a real WebView, over sanitized feed fixtures (invented IDs, no
- * real page text) served under the feed's own address. Offline: nothing is fetched.
+ * Page video finder: the focused-video script on a real WebView, over sanitized feed fixtures
+ * (invented IDs, no real page text) served at the feed's own address. Offline: nothing is fetched.
  */
 @RunWith(AndroidJUnit4::class)
 @LargeTest
@@ -99,7 +99,7 @@ class FocusedVideoProbeInstrumentedTest {
 
     @Test
     fun theTikTokForYouCardInTheMiddleOfTheScreenGivesItsVideo() {
-        // P36 (R19): today's feed has no /video/ link; the player's wrapper id names the video.
+        // TikTok's feed today has no /video/ link; the player's wrapper id names the video.
         assertEquals(
             FocusedVideo(
                 "https://www.tiktok.com/@second_user/video/7300000000000000012",
@@ -170,7 +170,7 @@ class FocusedVideoProbeInstrumentedTest {
         }
         assertTrue("fixture loaded", loaded.await(LOAD_TIMEOUT_S, TimeUnit.SECONDS))
         // The fixture scrolls itself while it loads, possibly before the WebView has its size
-        // (P6 CI: emulator #31 found TikTok's first video). Scroll again once it is laid out.
+        // (a CI emulator once found TikTok's first video). Scroll again once it is laid out.
         Thread.sleep(SETTLE_MS)
         instrumentation.runOnMainSync {
             webView!!.evaluateJavascript(settle, null)

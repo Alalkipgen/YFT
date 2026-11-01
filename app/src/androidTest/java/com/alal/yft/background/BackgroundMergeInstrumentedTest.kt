@@ -47,8 +47,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * P34 on the CI emulator: a merge keeps going after Home with the download service in the
- * foreground, its notification shows "Merging audio and video · N%", and the merged file has
+ * Download queue on the CI emulator: a merge keeps going after Home with the download service in
+ * the foreground, its notification shows "Merging audio and video · N%", and the merged file has
  * both tracks. The real MediaMuxer merges the one-second test tracks; the test's muxer first
  * reports half of its progress over 20 s, as a long video would, so Home lands mid-merge.
  */

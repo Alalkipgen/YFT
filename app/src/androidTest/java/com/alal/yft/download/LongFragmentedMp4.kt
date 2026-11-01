@@ -4,7 +4,7 @@ import java.io.File
 import java.nio.ByteBuffer
 
 /**
- * Makes a long fragmented MP4 out of a short one for the P27 timing test. The source's
+ * Makes a long fragmented MP4 out of a short one for the Merge speed test. The source's
  * `moof`/`mdat` pairs are written again and again, each copy with its fragment number and decode
  * time moved on, under one new `sidx` that gives the whole length. The test tracks' `tfhd` boxes
  * use default-base-is-moof, so the sample offsets inside each pair stay right. The source's

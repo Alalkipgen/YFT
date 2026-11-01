@@ -23,11 +23,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * P4 on a real device or emulator: a one-second video-only MP4 in the DASH on-demand layout
+ * Merge on a real device or emulator: a one-second video-only MP4 in the DASH on-demand layout
  * (fragments behind a `sidx`, like Facebook's and YouTube's tracks) and a one-second AAC track,
- * both made with ffmpeg, become one MP4 that Android's own extractor reads back with both
- * tracks and every frame. AV1 is probed on Android 14+ and stays off while it fails. P6 adds
- * VP9 and Opus WebM tracks merged into one WebM.
+ * both made with ffmpeg, become one MP4 that Android's own extractor reads back with both tracks
+ * and every frame. AV1 is probed on Android 14+ and stays off while it fails. The 2K and 4K tests
+ * add VP9 and Opus WebM tracks merged into one WebM.
  */
 @RunWith(AndroidJUnit4::class)
 class AudioVideoMuxerInstrumentedTest {
@@ -56,7 +56,7 @@ class AudioVideoMuxerInstrumentedTest {
     }
 
     /**
-     * P6: YouTube's 2K and 4K are VP9 WebM with Opus WebM sound, merged into one WebM from
+     * Merge: YouTube's 2K and 4K are VP9 WebM with Opus WebM sound, merged into one WebM from
      * Android 10 ([AudioVideoMuxCompatibility.WEBM_OPUS_MIN_SDK]). Both one-second tracks are made
      * with ffmpeg (libvpx-vp9 160 × 90 at 15 fps, libopus 48 kHz).
      */
@@ -77,7 +77,7 @@ class AudioVideoMuxerInstrumentedTest {
     }
 
     /**
-     * Phase 1.4 item 1: a 2K/4K VP9 keyframe is larger than the 256 KiB buffer a WebM track gets
+     * Merge: a 2K/4K VP9 keyframe is larger than the 256 KiB buffer a WebM track gets
      * (it states no maximum input size); on the owner's phone (Android 16, 2026-10-16) the 1440p
      * merge failed with a bare `IllegalArgumentException`. The video is 800 × 450 noise, 25 frames
      * at 25 fps (libvpx-vp9, crf 10), its keyframe 355,713 bytes; it is kept as Base64 text
@@ -128,14 +128,14 @@ class AudioVideoMuxerInstrumentedTest {
 
     /**
      * AV1 merges are off ([AudioVideoMuxCompatibility.AV1_MP4_ENABLED]) because this merge failed
-     * on the API 34 emulator (P4). P4's video, `mux/video-av1.mp4`, leaves its `av1C` box empty,
-     * and Android reads no AV1 track without one (R8's CI fix, `8fec3139`), so that run never
-     * showed whether today's MediaMuxer way writes AV1. The probe now merges R8's AV1 video,
+     * on the API 34 emulator. The older test video, `mux/video-av1.mp4`, leaves its `av1C` box
+     * empty, and Android reads no AV1 track without one (the CI fix `8fec3139`), so that run never
+     * showed whether today's MediaMuxer way writes AV1. The probe now merges that fix's AV1 video,
      * `mux/video-av1-with-av1c.mp4.b64` (the same 15 samples with a 16-byte `av1C`, as real AV1
      * files have one). It still tries it on Android 14+ and logs a `YFT-DIAG` line with the step
-     * that failed, so CI shows when an image writes AV1. v1.0.2 item 26: the line also names the
-     * kinds of the phone's AV1 decoders ([Av1Decoders.kinds]: hardware, software, both or none),
-     * as the debug switch's Details line does. v1.0.2 fix R8: an AV1 merge is a stream copy first
+     * that failed, so CI shows when an image writes AV1. AV1 merge switch: the line also names the
+     * kinds of the phone's AV1 decoders ([Av1Decoders.kinds]: hardware, software, both or none), as
+     * the debug switch's Details line does. An AV1 merge is a stream copy first
      * (`EditListedSoundMergeInstrumentedTest`), so the probe merges today's MediaMuxer way alone
      * (`fastMerge = false`), the stream copy's fallback.
      */

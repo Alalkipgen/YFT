@@ -11,7 +11,7 @@ import android.provider.DocumentsContract;
 import java.io.File;
 
 /**
- * v1.0.2 item 28: the folder picker's part for {@code ChosenFolderInstrumentedTest}. It runs in
+ * Save folder: the folder picker's part for {@code ChosenFolderInstrumentedTest}. It runs in
  * the process of {@link TestTreeProvider}, whose documents only this APK may hand out, and it
  * gives the app the same lasting read and write access to the folder as the picker does
  * ({@link #GRANT}). It also takes that access back ({@link #REVOKE}), deletes the folder

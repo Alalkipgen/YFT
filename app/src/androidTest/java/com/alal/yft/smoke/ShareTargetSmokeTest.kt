@@ -20,7 +20,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * v1.0.2 (item 4): another app's Share reaches the production activity, and Home looks the
+ * Another app's Share reaches the production activity, and Home looks the
  * shared link up. The link's host is `.invalid` (RFC 6761), so no site is ever asked.
  */
 @RunWith(AndroidJUnit4::class)

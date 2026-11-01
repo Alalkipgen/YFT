@@ -36,12 +36,12 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * D1 on the CI emulator (API 34) with the real MediaStore: the real [HlsTransferEngine] saves an
- * HLS download of MPEG-TS pieces (H.264 and AAC, made with FFmpeg; `assets/hls`) into a pending
- * row as an MP4 that Android's own MediaExtractor reads, and keeps pieces it cannot remux
- * (MPEG-2 video) as a `.ts` row, its name and type changed in one update. The row's stored type
- * is MediaStore's, not the app's, and differs across Android versions: either MPEG-TS type is
- * accepted (D1; API 34 stores `video/mp2ts` for the app's `video/mp2t`).
+ * HLS download on the CI emulator (API 34) with the real MediaStore: the real [HlsTransferEngine]
+ * saves an HLS download of MPEG-TS pieces (H.264 and AAC, made with FFmpeg; `assets/hls`) into a
+ * pending row as an MP4 that Android's own MediaExtractor reads, and keeps pieces it cannot remux
+ * (MPEG-2 video) as a `.ts` row, its name and type changed in one update. The row's stored type is
+ * MediaStore's, not the app's, and differs across Android versions: either MPEG-TS type is
+ * accepted (API 34 stores `video/mp2ts` for the app's `video/mp2t`).
  * There is no network: an application interceptor answers every request from memory. Each test
  * deletes the row it created, also when it fails.
  */
@@ -226,7 +226,7 @@ class HlsRemuxInstrumentedTest {
         const val TRANSPORT_STREAM = "video/mp2t"
         const val BASE_URL = "https://media.example.test/d1"
 
-        /** D1: the MPEG-TS types MediaStore may store for a `.ts` row (it differs by version). */
+        /** The MPEG-TS types MediaStore may store for a `.ts` row (it differs by version). */
         val MPEG_TS_TYPES = setOf(TRANSPORT_STREAM, "video/mp2ts")
     }
 }

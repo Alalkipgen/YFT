@@ -63,13 +63,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * P37 on a real WebView: a fixture page of a site without an adapter whose player setup names
- * a link that answers HTTP 410 for YFT while its player asks for the same file under a newer
- * signature. The DOM probe reads the setup and the request the page's player really made is
- * caught as the browser's hook catches it. The sheet prepares the player's address without a
- * manual reload. Once that link is gone too, the page read again (a notice the first time, a
- * fresh copy on Try again) gives the next working link. Offline: the test answers every
- * request, the page included; the files are checked by a fake resolver.
+ * Fresh link renewal on a real WebView: a fixture page of a site without an adapter whose player
+ * setup names a link that answers HTTP 410 for YFT while its player asks for the same file under a
+ * newer signature. The DOM probe reads the setup and the request the page's player really made is
+ * caught as the browser's hook catches it. The sheet prepares the player's address without a manual
+ * reload. Once that link is gone too, the page read again (a notice the first time, a fresh copy on
+ * Try again) gives the next working link. Offline: the test answers every request, the page
+ * included; the files are checked by a fake resolver.
  */
 @RunWith(AndroidJUnit4::class)
 @LargeTest

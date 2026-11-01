@@ -41,7 +41,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * P27 on the CI emulator with the real MediaStore and MediaMuxer: the merge writes straight into
+ * Merge on the CI emulator with the real MediaStore and MediaMuxer: the merge writes straight into
  * a new pending row in `Download/YFT/` (no second copy) and gives a playable file with one video
  * and one sound track. A 20-minute input, made by repeating the one-second test tracks'
  * fragments, is merged in place and through app storage, and read once with MediaExtractor

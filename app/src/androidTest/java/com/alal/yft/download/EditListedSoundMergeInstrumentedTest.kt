@@ -33,21 +33,21 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * v1.0.2 fix R8 on the CI emulator: a sound whose edit list starts its media at 2,048 ticks, as
+ * Merge on the CI emulator: a sound whose edit list starts its media at 2,048 ticks, as
  * tears-of-steel-av1's DASH sound (`audio_eng=128002`), keeps every sample in a merge. Android 11
  * and newer give its first two samples times before 0, which today's MediaMuxer way took for
  * the end of the sound (the merge kept the picture alone). An AV1 video is stream-copied with it
- * (the stream copy took no AV1 before R8); the AVC test video goes today's way with it. Each
+ * (the stream copy once took no AV1); the AVC test video goes today's way with it. Each
  * merged sound is read back with MediaExtractor: every sample of its input, byte for byte and
  * at the input's time.
  *
  * The AV1 video is `mux/video-av1-with-av1c.mp4.b64` (Base64 text, as the VP9 big keyframe's):
- * P4's `mux/video-av1.mp4` remuxed by FFmpeg 7.0 with `-c copy -use_editlist 0` and
+ * the older `mux/video-av1.mp4` remuxed by FFmpeg 7.0 with `-c copy -use_editlist 0` and
  * `-movflags dash+global_sidx+delay_moov`, the same 15 samples byte for byte, with the `av1C`
- * that P4's file leaves empty (FFmpeg adds a `btrt` too): its 4 bytes and the sequence header,
+ * that the older file leaves empty (FFmpeg adds a `btrt` too): its 4 bytes and the sequence header,
  * 16 bytes, as a real AV1 file has one (tears-of-steel-av1's is 17 bytes). Android reads no AV1
  * track without it: `MPEG4Extractor::getTrack` wants at least 4 bytes starting 0x81, else
- * `selectTrack` throws IllegalArgumentException; with P4's file CI run #202 failed so ("video
+ * `selectTrack` throws IllegalArgumentException; with the older file a CI run failed so ("video
  * unreadable").
  */
 @RunWith(AndroidJUnit4::class)
@@ -154,7 +154,7 @@ class EditListedSoundMergeInstrumentedTest {
             extractor.selectTrack(track)
             val buffer = ByteBuffer.allocateDirect(SAMPLE_BUFFER_BYTES)
             val samples = mutableListOf<Sampled>()
-            // R8: a time before 0 is a sample too; the end is when no track is left.
+            // A time before 0 is a sample too; the end is when no track is left.
             while (extractor.sampleTrackIndex == track) {
                 buffer.clear()
                 val size = extractor.readSampleData(buffer, 0)

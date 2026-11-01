@@ -19,15 +19,15 @@ import org.junit.runner.RunWith
 import org.xmlpull.v1.XmlPullParser
 
 /**
- * The release commit (decision 30, R8): the shrunk builds run, not only compiled. The #12 normal
- * preview (`com.alal.yft.preview`, the release's flags and look) and the #12 trial
+ * Shrunk build check: the shrunk (R8) builds run, not only compiled. The normal Preview APK
+ * (`com.alal.yft.preview`, the release's flags and look) and the Trial preview
  * (`com.alal.yft.trial`, Master answers every lookup) are driven through their screens only — no
  * class of theirs is read, so what runs is the minified code exactly as the phone gets it — on the
- * CI emulator (`.github/workflows/minified-check.yml`): YouTube's route B, one social ladder (X,
- * then Facebook) and the capture ("Play the video…": the page's video played, then Download again).
- * Opt-in only (`-e yft.minified <package>`); the emulator smoke skips it. Live sites answer a data
- * centre as they choose, so a check never fails on a site's answer: each logs one `RESULT` line
- * (tag [TAG]: what the screens said, Master's lines and the sheet's rows; no address) that the
+ * CI emulator (`.github/workflows/minified-check.yml`): the YouTube backup route, one social ladder
+ * (X, then Facebook) and the capture ("Play the video…": the page's video played, then Download
+ * again). Opt-in only (`-e yft.minified <package>`); the emulator smoke skips it. Live sites answer
+ * a data centre as they choose, so a check never fails on a site's answer: each logs one `RESULT`
+ * line (tag [TAG]: what the screens said, Master's lines and the sheet's rows; no address) that the
  * workflow turns into an annotation. The job fails on a crash or an R8-type error in the logs.
  */
 @RunWith(AndroidJUnit4::class)
@@ -47,7 +47,7 @@ class MinifiedBuildCheckTest {
         assumeTrue("Opt-in only: -e $ARG <package>", target.isNotEmpty())
     }
 
-    /** YouTube: the trial's notice names route B's answer (`master: route B after …`). */
+    /** YouTube backup route: the trial's notice names its answer (`master: route B after …`). */
     @Test
     fun youtubeRouteB() {
         check("youtube-route-b", YOUTUBE, if (trial) ROUTE_B else null)

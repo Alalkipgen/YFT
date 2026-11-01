@@ -16,7 +16,7 @@ import java.util.Arrays;
 import java.util.Locale;
 
 /**
- * v1.0.2 item 28: a real documents provider for {@code ChosenFolderInstrumentedTest}, in the test
+ * Save folder: a real documents provider for {@code ChosenFolderInstrumentedTest}, in the test
  * APK's own process, as a phone's storage is in its own: {@link #ROOT_ID} is the folder (a
  * directory in this APK's files) and "root:YFT/&lt;name&gt;" an entry at its top. Android checks
  * each call the app makes against the access the folder picker gives
@@ -25,7 +25,7 @@ import java.util.Locale;
  *
  * <p>Java with Android's own classes only: this process loads the test APK alone, and the test
  * APK leaves out the libraries the app already has, Kotlin's among them. The first version, in
- * Kotlin, stopped this process at its first call (emulator smoke #179).
+ * Kotlin, stopped this process at its first call (seen in the Emulator smoke test).
  */
 public final class TestTreeProvider extends DocumentsProvider {
     public static final String ROOT_ID = "root:YFT";

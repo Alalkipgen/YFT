@@ -59,7 +59,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * R1 live parity (MASTER_KEY_PLAN §4.1): arm A is main's site lookup, wired exactly as the app
+ * Master parity check: arm A is main's site lookup, wired exactly as the app
  * wires it; arm B is Master in the visible browser with its real one-byte checks. Opt-in only
  * (`-e yft.parity 1`), never in default CI; `scripts/canary.sh` runs it on a phone or emulator.
  *

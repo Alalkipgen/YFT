@@ -36,7 +36,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * P28 on a real WebView: a fixture page of a site without an adapter states its video (16:24)
+ * Ad filter on a real WebView: a fixture page of a site without an adapter states its video (16:24)
  * and its player plays a 30 s ad first, then the page's stream. Download during the ad picks
  * the page's video with its title and picture; the ad stays under Other videos. The DOM and
  * playing-video probes run on the page; the requests the browser's hook reports (the ad break,

@@ -26,12 +26,12 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * v1.0.2 R9: Android's own XML parser threw for the hardening settings both inline DASH readers
+ * DASH download: Android's own XML parser threw for the hardening settings both inline DASH readers
  * asked all at once, so on a phone every inline manifest went unread (the JVM's parser knows them
  * all). These read a small inline manifest through both readers with the emulator's own parser:
  * main's Facebook reader (`FacebookDashManifests`, through [FacebookExtractor], which Instagram's
  * merged sizes use too) and Master's (`InlineDashReader`, through the census's [SiteRowCheck],
- * which Master's layers and VK's page manifest use too). Before R9 both found no file in them; a
+ * which Master's layers and VK's page manifest use too). Both once found no file in them; a
  * manifest with a document type is still refused.
  */
 @RunWith(AndroidJUnit4::class)

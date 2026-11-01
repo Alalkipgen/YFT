@@ -10,7 +10,7 @@ import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-/** The MP3 tests' sources (G2, R5): the AAC fixtures, longer copies of them and their sound. */
+/** The MP3 tests' sources: the AAC fixtures, longer copies of them and their sound. */
 internal object Mp3TestFiles {
     private const val AAC_FRAME_SAMPLES = 1_024
     private const val WAIT_US = 5_000L

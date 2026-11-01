@@ -33,7 +33,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * v1.0.2 fix F1 (phone test 59) on the CI emulator (API 34), with Android's own XML parser: the
+ * DASH download on the CI emulator (API 34), with Android's own XML parser: the
  * shape of DASH-IF's Netflix test vector (an https manifest, its root `BaseURL` at http, each
  * representation one file) is read into its rows, and a track is downloaded from the manifest's
  * own https address when the https copy of the `BaseURL` fails; nothing is asked in cleartext.

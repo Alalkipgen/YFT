@@ -25,7 +25,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Phase 1.1 S6 phone canary (MASTER_KEY_PHASE1_1_PLAN.md §3 S6): today's YouTube player through
+ * Solver canary as a phone test: today's YouTube player through
  * main's ejs runner and Master's own runner, both in their real WebView engines on this phone,
  * with the same YouTube-shaped inputs; pass/fail per kind (n, sig) plus timings.
  *

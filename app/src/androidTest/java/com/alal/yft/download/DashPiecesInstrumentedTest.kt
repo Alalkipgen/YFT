@@ -45,7 +45,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * v1.0.2 fix R3 on the CI emulator (API 34), with Android's own XML parser and muxer: the
+ * DASH download on the CI emulator (API 34), with Android's own XML parser and muxer: the
  * owner's `bbb_30fps.mpd` (one `SegmentTemplate` for each adaptation set; its sound `bbb_a64k`,
  * HE-AAC with no language, an `Accessibility` and a `Role`) gives the sheet its M4A and every
  * video with that sound, and a quality in pieces of that shape downloads as one MP4 with its

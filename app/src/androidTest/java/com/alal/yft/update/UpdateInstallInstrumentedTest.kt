@@ -58,7 +58,7 @@ import org.junit.runner.RunWith
 import org.junit.runners.MethodSorters
 
 /**
- * U2 on a real Android (§6.2): the debug build (test mode) runs the in-app update with the real
+ * On a real Android: the debug build (test mode) runs the in-app update with the real
  * PackageManager reading the APK and Android's real installer, hosted in the test's activity with
  * the app's own Updates screen and confirmation starter. GitHub is played by an OkHttp interceptor
  * on GitHub's own hosts and paths, its redirect included; the APK streams from its file and

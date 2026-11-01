@@ -57,14 +57,14 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * v1.0.2 R10 on Android: the app's queue and direct engine, a partial file in the app's cache
- * and a media host in memory (the app's network rules forbid a local server) whose file states
- * no ETag or Last-Modified, as VK's and Facebook's media hosts answer. A 403 in the middle, then
- * a fresh link: the download goes on from the bytes it kept. VK's srcIp case: the network goes,
- * and when it is back the same link answers 400 at its first request; the download gets a fresh
- * link and goes on from the bytes it kept. Both failed before R10: the fresh link started again
- * at byte 0, and the 400 stopped the row as "HTTP 400". The lookup is a fake that answers the
- * fresh link (R10 calls the existing lookups unchanged).
+ * Fresh link renewal on Android: the app's queue and direct engine, a partial file in the app's
+ * cache and a media host in memory (the app's network rules forbid a local server) whose file
+ * states no ETag or Last-Modified, as VK's and Facebook's media hosts answer. A 403 in the middle,
+ * then a fresh link: the download goes on from the bytes it kept. VK's srcIp case: the network
+ * goes, and when it is back the same link answers 400 at its first request; the download gets a
+ * fresh link and goes on from the bytes it kept. Both once failed: the fresh link started again at
+ * byte 0, and the 400 stopped the row as "HTTP 400". The lookup is a fake that answers the fresh
+ * link (the renewal calls the existing lookups unchanged).
  */
 @RunWith(AndroidJUnit4::class)
 class FreshLinkResumeInstrumentedTest {

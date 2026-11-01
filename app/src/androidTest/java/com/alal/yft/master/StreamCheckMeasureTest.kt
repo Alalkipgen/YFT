@@ -9,9 +9,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Phase 1.2 N2 phone measurement (MASTER_KEY_PHASE1_2_PLAN.md §2 "Live check V in more detail"),
- * run through [StreamCheckMeasurement]: right n, unchanged n, wrong n and wrong sig on one public,
- * embeddable video; status class, bytes and time for the first 1 MiB of each.
+ * Stream check meter, a phone measurement run through [StreamCheckMeasurement]: right n, unchanged
+ * n, wrong n and wrong sig on one public, embeddable video; status class, bytes and time for the
+ * first 1 MiB of each.
  *
  * Opt-in only (`-e yft.streamCheckMeasure 1`), never in default CI;
  * `scripts/stream-check-measure.sh` runs it from a computer. Without a computer the owner opens

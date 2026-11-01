@@ -50,10 +50,10 @@ import okio.buffer
 import org.junit.Assert.fail
 
 /**
- * What P34's background tests share: a queue the download service runs on instead of the app's
- * ([DownloadForegroundService.testQueue]), an in-process "server" that sends a file slowly (the
- * app's network rules forbid a local cleartext or self-signed server), and readers for the
- * service and its notifications.
+ * What the Download queue's background tests share: a queue the download service runs on instead of
+ * the app's ([DownloadForegroundService.testQueue]), an in-process "server" that sends a file
+ * slowly (the app's network rules forbid a local cleartext or self-signed server), and readers for
+ * the service and its notifications.
  */
 internal object BackgroundTestKit {
     val instrumentation = InstrumentationRegistry.getInstrumentation()
