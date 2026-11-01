@@ -1,5 +1,39 @@
 # YFT Master Extractor backup
 
+## Owner item 6 again, run 4g (2026-11-01): a live that ended a short while ago stopped as `LIVE_NOT_READY`, 54 s short at the end (a stale head) → the head asked again before the length check, the newer pieces fetched, missing pieces retried; `68948ef5`
+
+- **Phone (the owner, `1.0.1-preview.170`, Android 16):** a YouTube live that had ended
+  (2h10m33s), Merge VISIONOS itag 160+140: **YouTube still preparing this live video, try later**
+  (`LIVE_NOT_READY`, VERIFY), Detail "… 245779 KB · 99 s; live 2h09m39s of 2h10m33s · 1556/…".
+  Run 4f's way had worked (2026-10-17, `2026d8c`).
+- **Cause:** `X-Head-Seqnum` was read once, before the 99 s download, so the head was stale. The
+  1556 pieces were contiguous from sq 0 (1556 × 5 s is the joined length), so the 54 s (about
+  11 pieces, out while the download ran) were missing **at the end**. Unchanged since `2026d8c`:
+  the expected length (`videoDetails.lengthSeconds`), `LivePieces`, `LivePieceJoin` and the length
+  check (file contents compared; `LivePieces.kt`'s history starts at `2dab4186`); the client
+  (VISIONOS) is not the cause. Measured on two lives after they ended (2026-10-31): the head stood
+  still from seconds after the end, and `lengthSeconds` minus the media's end at the head was
+  +0.17 to +0.97 s, so a whole download passes the old check.
+- **Fix (`DashTransferEngine`, the YouTube live path only):** a piece the server does not serve
+  (204, 404, 416, no bytes) is noted, not fatal, and sq 0 gets two spaced retries; when a piece is
+  missing or the file is short, YFT waits 5, 10, 15, 20, 30 and 40 s (at most 2 min), asks the
+  head again each round, fetches the new pieces, retries the missing ones and measures again.
+  Whole → saved as before; a gap in the middle → `LIVE_NOT_READY` "live: sq N missing in the
+  middle …"; the head stopped (two answers alike), every piece 0..head, no gap and at most 2 min
+  short → saved, its Details "Live video saved 54 s short of 2h10m33s, at the end: YouTube's
+  newest piece (sq 1555) stopped; no piece is missing"; otherwise `LIVE_NOT_READY` saying how
+  much is missing and where. Every other download path unchanged; run 4f's two cases pass.
+- **Tests:** `DashTransferEngineTest` (a fake live server with `X-Head-Seqnum`: the head moves
+  after the first read; a tail never served; a gap in the middle; a missing first piece served
+  late or never; the owner's numbers, 1556 pieces and 2h09m39s of 2h10m33s, three ways),
+  `AudioVideoMuxEngineTest`, `DownloadQueueTest`, `DownloadTransferDispatcherNotesTest`;
+  `core-download` 370, 0 failures. **CI, all green:** checkpoint validation #619 (41257800356),
+  emulator smoke #207 (41257800342), Preview APK #174 (41257800359), minified check #65
+  (41257800328).
+- **Next:** the owner's phone test (`docs/FIX_ADD_PLAN.md` §6, "The four tasks after R10",
+  checklist step 2: a live that ended a short while ago, 144p on mobile data). Open decision: the
+  save-shorter rule (the head stopped, no gap, at most 2 min short).
+
 ## v1.0.1 published; the install over 1.0.0 PASS (2026-10-29)
 
 - **Published:** v1.0.1 on 2026-10-29 10:08:33 UTC (16:38 MMT): release 427683089, tag `v1.0.1` on

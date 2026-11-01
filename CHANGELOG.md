@@ -179,6 +179,15 @@ Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.
   check of a file that TikTok's lookup already opened.
 - **Play preview** of an HLS quality whose sound comes as a separate playlist plays with its
   sound; it was silent (its download already had the sound).
+- A YouTube live that ended a short while ago downloads whole again instead of stopping at the end
+  as **YouTube still preparing this live video, try later**: YFT asked YouTube for the stream's
+  newest piece once, before the download, so the pieces that came out meanwhile were missing at
+  the end. Now it asks again before it checks the length, fetches the pieces that came out after
+  it and tries a missing piece a few more times, waiting at most 2 minutes. When YouTube's newest
+  piece no longer moves and every piece up to it came, but the video is still up to 2 minutes
+  shorter than YouTube says, it is saved, and with Show details on its **Details** say how much
+  shorter and why; a piece missing in the middle, or more missing, still stops, its **Details**
+  saying how much is missing and where.
 
 ## [1.0.1] - 2026-10-29
 

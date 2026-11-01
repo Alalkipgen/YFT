@@ -29,13 +29,15 @@ commit (docs only). **All PASS.**
 
 Afterwards both census boxes off; the owner signed out of Instagram.
 
-### Backlog from the retest (not blocking; plan §7.4; L1 and L3 fixed in task 17, L2 for S6)
+### Backlog from the retest (not blocking; plan §7.4; L1 and L3 fixed in task 17, L2 built with S6)
 - **L1:** Facebook's trial line says "heights … vs unknown": main's Facebook rows state no height
   when the line is made (the sheet measures them later), so the line cannot cross-check Master's
   heights.
 - **L2:** on the same Instagram post (slot 5) the rung's 720p row was 897 KB against the tab
   capture's 720p at 1.9 MB (both 720 × 1280): the rung may pick a lower bitrate (S6/B+; before the
-  rung's default turns on).
+  rung's default turns on). *Built* in v1.0.2 with S6 (`5e1ae143`, behind `yft.socialFill`; on in the
+  census APK `yft-vk-census-cc06a26f.apk`): each height's versions best first by rate; its retest on this post is
+  `docs/FIX_ADD_PLAN.md` §6's step 7 (the four tasks after R10).
 - **L3 (cosmetic):** I2's page line says `SHAPE_CHANGED` where main's Details say "no post" for the
   same page.
 
