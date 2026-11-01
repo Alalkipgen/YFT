@@ -111,6 +111,13 @@ data class MasterPolicy(
      * skipped. The app turns it on in its Master-capture debug builds (promoted 2026-10-19).
      */
     val youtubeRouteB: Boolean = false,
+    /**
+     * Social plan S6 (B+, [com.alal.yft.extractor.master.social.SocialFill]): whether the engine
+     * may ask the visible tab's own playback (one capture, the last stage). Off only in B+'s run
+     * for a page main found (main's answer stands, Master adds only what it lacks: no capture of
+     * the tab, no line); on (the default): every other engine, as before.
+     */
+    val capture: Boolean = true,
 ) {
     init {
         require(maxCandidates in 1..50)

@@ -19,14 +19,22 @@ import com.alal.yft.extractor.master.MasterResult
 import com.alal.yft.extractor.master.MasterStage
 import com.alal.yft.extractor.master.android.CodecSteering
 import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
+import com.alal.yft.extractor.master.MasterMediaValidator
+import com.alal.yft.extractor.master.contract.SiteContracts
 import com.alal.yft.extractor.master.lookup.LookupRecord
+import com.alal.yft.extractor.master.lookup.RouteBHttpClient
+import com.alal.yft.extractor.master.lookup.RouteBLookup
 import com.alal.yft.extractor.api.PlayerScriptRunner
 import java.io.File
 import com.alal.yft.extractor.master.verify.OkHttpMediaValidator
 import com.alal.yft.extractor.master.verify.CapturedMediaMetadata
 import com.alal.yft.extractor.master.present.MasterMainPresentation
 import com.alal.yft.extractor.master.policy.TerminalRules
+import com.alal.yft.extractor.master.social.SiteRowCheck
+import com.alal.yft.extractor.master.social.SiteWays
 import com.alal.yft.extractor.master.social.SocialCooldown
+import com.alal.yft.extractor.master.social.SocialFill
+import com.alal.yft.extractor.master.social.SocialStage
 import com.alal.yft.extractor.master.social.VkClient
 import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
@@ -36,6 +44,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 
 /** Browser-only, outside the site registry. Home/pasted-link extraction remains unchanged. */
@@ -83,6 +92,16 @@ interface BrowserMasterFallback {
      * had nothing to read. Every other build and page: false, P17 as before.
      */
     fun asksMainFresh(lookupUrl: String): Boolean = false
+
+    /**
+     * Social plan S6 (B+, `MASTER_KEY_SOCIAL_PLAN.md` §4 S6, decision 7): whether main's answer
+     * [primary] for [lookupUrl], a page main found, still goes through [recover] — a Facebook,
+     * Instagram or VK page whose rows are weak by an objective signal (no HD row, no sound row:
+     * [SocialFill.weakness]), in a B+ build (`-Pyft.socialFill` with the social ladder, debug
+     * only), so Master adds only the rows main's lack and main's rows stay. False in every other
+     * build, page and answer: a found page returns at once, as before.
+     */
+    fun fills(lookupUrl: String, primary: SiteAdapterOutcome): Boolean = false
 
     suspend fun recover(
         lookupUrl: String,
@@ -162,6 +181,12 @@ class AndroidBrowserMasterFallback(
      * no record, no trial, no capture rows). Always on but in the app.
      */
     private val on: () -> Boolean = { true },
+    /**
+     * Social plan S6 (B+): the parts of Master's run for a weak answer of main's ([fills], [fill]):
+     * only in a B+ build (`-Pyft.socialFill` with [socialLadder], debug only, [SocialLadder.fill]).
+     * Null in every other build: a page main found returns at once, as before.
+     */
+    private val fillRun: SocialFillRun? = null,
 ) : BrowserMasterFallback {
     override val enabled: Boolean get() = capture.enabled && on()
 
@@ -193,6 +218,8 @@ class AndroidBrowserMasterFallback(
         // Successful/disabled primary paths never sample the page or launch another probe
         // (except the h-only trial's site, item 2: Master's ladder answers instead).
         if (!enabled) return primary
+        // Social plan S6 (B+): main's weak answer keeps its rows and gets only what they lack.
+        if (primary is SiteAdapterOutcome.Detected && fills(lookupUrl, primary)) return fill(lookupUrl, primary, nowEpochMs)
         if (primary is SiteAdapterOutcome.Detected && !masterFirst(lookupUrl)) return primary
         if (primary === SiteAdapterOutcome.NotHandled && !genericOnDemand) return primary
         val key = sites.videoKey(lookupUrl)
@@ -529,6 +556,8 @@ class AndroidBrowserMasterFallback(
         // This lookup's set-aside rows only — none from an earlier lookup of the video.
         socialSetAside.remove(key)
         if (primary !is SiteAdapterOutcome.Detected) return primary
+        // S6 (B+): a weak answer of main's goes to B+ (main's rows and what Master adds), not the trial.
+        if (fills(lookupUrl, primary)) return primary
         val trial = SiteAdapterOutcome.Failed(
             adapterId = primary.adapterId,
             reason = SiteExtractionFailure.RESPONSE_CHANGED,
@@ -538,6 +567,120 @@ class AndroidBrowserMasterFallback(
         )
         socialSetAside[key] = SetAside(trial, primary.candidates)
         return trial
+    }
+
+    /**
+     * S6 (B+): a B+ build's ([fillRun]) Facebook, Instagram or VK page ([SocialFill.SITES]) main
+     * found with weak rows ([SocialFill.weakness]: no HD row, no sound row); else false.
+     */
+    override fun fills(lookupUrl: String, primary: SiteAdapterOutcome): Boolean {
+        if (fillRun == null || !socialLadder || !enabled || primary !is SiteAdapterOutcome.Detected) return false
+        val key = sites.videoKey(lookupUrl)
+        if (SocialFill.siteOf(key) == null || !sites.allowsMasterFallback(lookupUrl)) return false
+        return SocialFill.weakness(primary.candidates).isNotEmpty()
+    }
+
+    /**
+     * S6 (B+): main's weak answer [primary] for [lookupUrl] ([fills]) with the rows Master's ladder
+     * finds that it lacks. Master runs the lookup's own ladder in the lookup's own record (main's
+     * asks with it: the ladder's budgets and stops, nothing new after a 429 and no host that
+     * stopped or cools asked; V on each row, only rows that may fill the need read), with no
+     * capture of the tab ([SocialFill.run]); of its rows of the video main's rows name, only those
+     * proven main's video that fill the need ([SocialFill.added]); each then gets the census's
+     * one-row check of its file ([SiteRowCheck], under route B's rules: listed in the record as
+     * Master's, none after a 429) and is added only on a pass. Main's rows, their order and their
+     * details stay exactly as main gave them, first; B+'s line (what main's rows lack, what Master
+     * added, or none and why) and Master's own lines follow main's details. Whatever fails or
+     * changes (the page moved on, an error), main's answer stands with B+'s line.
+     */
+    private suspend fun fill(
+        lookupUrl: String,
+        primary: SiteAdapterOutcome.Detected,
+        nowEpochMs: Long,
+    ): SiteAdapterOutcome {
+        val run = checkNotNull(fillRun)
+        val key = sites.videoKey(lookupUrl)
+        val site = checkNotNull(SocialFill.siteOf(key))
+        val weak = SocialFill.weakness(primary.candidates)
+        fun answer(lines: List<String>, added: List<MediaCandidate> = emptyList()) = SiteAdapterOutcome.Detected(
+            primary.adapterId,
+            primary.candidates + added,
+            DiagnosticTextSanitizer.details(primary.details + lines),
+        )
+        fun none(why: String, lines: List<String> = emptyList()) = answer(listOf(SocialFill.none(site, weak, why)) + lines)
+        return try {
+            // S7: the hosts that answered a 429 or a bot check in this lookup (main's asks) cool.
+            SocialLadder.noteStops(socialCooldown)
+            val request = requestFactory(SiteExtractionFailure.NO_MEDIA_FOUND, nowEpochMs, key?.substringAfter(':'))
+                ?: return none("no page to ask")
+            if (!sites.allowsMasterFallback(request.pageUrl) || !relatedPage(lookupUrl, request.pageUrl, key)) {
+                return none("another page")
+            }
+            val need = SocialFill.Need(primary.candidates, weak)
+            val result = withContext(Dispatchers.Default) {
+                SocialFill.run(
+                    request.copy(snapshot = null, identity = sites.identity(lookupUrl)),
+                    need,
+                    run.validator,
+                    run.contracts,
+                    run.social,
+                    run.policy,
+                )
+            }
+            val lines = linesOf(result)
+            val scope = capture.session.currentScope()
+            if (scope == null || key == null || sites.videoKey(scope.pageUrl) != key) {
+                return none("the page changed during the lookup", lines)
+            }
+            if (result !is MasterResult.Success) {
+                val kept = need.unread.takeIf { it > 0 }
+                    ?.let { "; $it of its rows not checked: main's files or not what main's lack" }.orEmpty()
+                return none(if (result is MasterResult.Skipped) "the ladder did not run" else "Master found no row$kept", lines)
+            }
+            // S1a (3): the ladder's rows carry the key of the video it read (a share link's video).
+            val rowsKey = SocialLadder.rowsKey(sites, lookupUrl, key)
+            val rows = result.result.candidates.filter { it.videoId != null && it.videoId == rowsKey }
+                .filter(mergeSupport::canMerge)
+            val added = SocialFill.added(primary.candidates, rows, weak, need.sharesMainsFile) { id ->
+                if (id != null && id == key) rowsKey else id
+            }
+            if (added.rows.isEmpty()) return none(added.why ?: "Master found no row", lines)
+            val passed = checked(added.rows, site, nowEpochMs, run.rowCheck)
+            if (passed.isEmpty()) return none("the file check passed none of Master's ${added.rows.size}", lines)
+            answer(listOf(SocialFill.line(site, weak, passed)) + lines, passed)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            none("Master's run failed (${error.javaClass.simpleName})")
+        }
+    }
+
+    /**
+     * S6 (B+): of [rows], those whose file passes the census's one-row check ([SiteRowCheck] on
+     * [site]'s media hosts, with the download's headers but never the user's session: no cookie,
+     * no credentials, as S6's V reads files) under route B's rules in the lookup's record (listed
+     * as Master's asks; nothing after a 429 in the lookup, nor after one of these), within
+     * [SocialFillRun.checkMillis]. No record: none (nothing is asked outside a lookup).
+     */
+    private suspend fun checked(
+        rows: List<MediaCandidate>,
+        site: String,
+        nowEpochMs: Long,
+        rowCheck: SiteRowCheck,
+    ): List<MediaCandidate> {
+        val record = currentCoroutineContext()[LookupRecord] ?: return emptyList()
+        val hosts = SiteWays.site(site) ?: return emptyList()
+        val passed = mutableListOf<MediaCandidate>()
+        withTimeoutOrNull(checkNotNull(fillRun).checkMillis) {
+            withContext(Dispatchers.Default + RouteBLookup(record)) {
+                for (row in rows) {
+                    val checked = rowCheck.check(hosts, SocialFillRun.withoutSession(row), nowEpochMs)
+                    if (checked.verdict == SiteRowCheck.Verdict.PASS) passed += row
+                    if (checked.rateLimited) break
+                }
+            }
+        }
+        return passed.toList()
     }
 
     /** Task 12: the trial's social lookups ask main every time (Try again's way); else false. */
@@ -636,6 +779,8 @@ class AndroidBrowserMasterFallback(
             socialLadder: Boolean = SocialLadder.enabled,
             // Social plan S1a (9): the Facebook trial (D7 `social-trial`, -Pyft.socialTrial, debug only).
             socialTrial: Boolean = SocialLadder.trial,
+            // Social plan S6: B+ and L2 (-Pyft.socialFill with the social ladder, debug only).
+            socialFill: Boolean = SocialLadder.fill,
             // Decision 30 (i): Settings' Backup finder; off, no lookup asks Master and every one of
             // Master's requests (GitHub raw's config and version tables included) fails unsent.
             on: () -> Boolean = { true },
@@ -652,6 +797,20 @@ class AndroidBrowserMasterFallback(
                 codecs = codecSteering(),
             )
             val http = OkHttpExtractorClient(gated)
+            // Task 9: one S6 check and reader for every site, each read on its own lookup's site's hosts.
+            val validator = SocialLadder.validator(OkHttpMediaValidator(gated), gated, socialLadder)
+            // Social plan S1a (3): the ladders only with -Pyft.socialLadder (debug). VK-Master wave 2
+            // (agent D): VK's V2 with the process's healing values, read over the gated client
+            // (Backup finder off: nothing sent), kept in filesDir. S6 (L2): Instagram's rungs offer
+            // each height's best row first with -Pyft.socialFill.
+            val social = SocialLadder.stage(
+                http,
+                sites::identity,
+                socialLadder,
+                vkValues = { SocialLadder.vkValues(gated, filesDir, vkMutate) },
+                fill = socialLadder && socialFill,
+            )
+            val contracts = MasterRecipeConfig.contracts(http)
             return AndroidBrowserMasterFallback(
                 capture,
                 sites,
@@ -659,7 +818,7 @@ class AndroidBrowserMasterFallback(
                     // Item 7 R3: the engine's route-B rule only in a route-B build.
                     // Social plan S1a (6): S6's row check in a ladder's lookup only with -Pyft.socialLadder (debug);
                     // task 9: one check and reader for every site, each read on its own lookup's site's hosts.
-                    SocialLadder.validator(OkHttpMediaValidator(gated), gated, socialLadder), capture,
+                    validator, capture,
                     MasterPolicy(enabled = true, youtubeRouteB = youtubeRouteB),
                     captureSelection = capture::selectMain,
                     // R6: YouTube pages are Master's own module's, never capture's.
@@ -670,16 +829,8 @@ class AndroidBrowserMasterFallback(
                     ),
                     // R8: Vimeo/X/Facebook/TikTok/Instagram contract endpoints, then capture;
                     // R9: their recipes from a signed config when the build carries its key.
-                    contracts = MasterRecipeConfig.contracts(http),
-                    // Social plan S1a (3): Facebook's ladder only with -Pyft.socialLadder (debug).
-                    // VK-Master wave 2 (agent D): VK's V2 with the process's healing values, read
-                    // over the gated client (Backup finder off: nothing sent), kept in filesDir.
-                    social = SocialLadder.stage(
-                        http,
-                        sites::identity,
-                        socialLadder,
-                        vkValues = { SocialLadder.vkValues(gated, filesDir, vkMutate) },
-                    ),
+                    contracts = contracts,
+                    social = social,
                 ),
                 // Phase 1.4 item 2: in the h-only APK a found YouTube page goes through H too.
                 masterFirstSite = if (MasterLadderSwitch.hOnly) YOUTUBE_SITE_ID else null,
@@ -690,7 +841,51 @@ class AndroidBrowserMasterFallback(
                 socialLadder = socialLadder,
                 socialTrial = socialTrial,
                 on = on,
+                // S6 (B+): the same ladder, V and recipes as the engine's; each added row's file
+                // checked once more over Master's client under route B's rules.
+                fillRun = if (socialLadder && socialFill && social != null) {
+                    SocialFillRun(social, validator, contracts, SiteRowCheck(RouteBHttpClient(http), SocialFillRun.CHECK_TIMEOUT_MILLIS))
+                } else {
+                    null
+                },
             )
         }
+    }
+}
+
+/**
+ * Social plan S6 (B+): what Master's run for a weak answer of main's needs — the lookup's ladder
+ * ([social], the engine's own), V ([validator], the engine's: S6's row check in a ladder's lookup),
+ * the recipes ([contracts], the engine's) and the census's one-row check of each added row's file
+ * ([rowCheck]); the run's time ([policy], [SocialFill.POLICY]) and the checks' ([checkMillis]).
+ */
+class SocialFillRun(
+    val social: SocialStage,
+    val validator: MasterMediaValidator,
+    val contracts: SiteContracts?,
+    val rowCheck: SiteRowCheck,
+    val policy: MasterPolicy = SocialFill.POLICY,
+    val checkMillis: Long = CHECK_MILLIS,
+) {
+    companion object {
+        /** All of B+'s file checks of one answer (at most [SocialFill.MAX_ADDED] rows). */
+        const val CHECK_MILLIS = 6_000L
+
+        /** One file check's wait. */
+        const val CHECK_TIMEOUT_MILLIS = 3_000L
+
+        /**
+         * [row] as B+'s file check sends it: its context without the user's session (no cookie, no
+         * credential header), so route B's rules let the check go (they refuse an authorized one)
+         * and a file that needs the session is not added. The row itself is not changed.
+         */
+        fun withoutSession(row: MediaCandidate): MediaCandidate = row.copy(
+            requestContext = row.requestContext.copy(
+                cookie = null,
+                observedHeaders = row.requestContext.observedHeaders.filterKeys { it.trim().lowercase() !in SESSION_HEADERS },
+            ),
+        )
+
+        private val SESSION_HEADERS = setOf("cookie", "authorization", "proxy-authorization")
     }
 }

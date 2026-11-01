@@ -550,9 +550,15 @@ class VkLadder(
                         if (kept.isEmpty()) {
                             staged
                         } else {
-                            SocialStage.Staged(staged.stage, staged.snapshot, staged.request, staged.last) { passed ->
-                                kept.forEach { source.kept(it, answerClass, passed) }
-                            }
+                            SocialStage.Staged(
+                                staged.stage,
+                                staged.snapshot,
+                                staged.request,
+                                staged.last,
+                                checked = { passed -> kept.forEach { source.kept(it, answerClass, passed) } },
+                                pick = staged.pick,
+                                admit = staged.admit,
+                            )
                         }
                     }
                 }

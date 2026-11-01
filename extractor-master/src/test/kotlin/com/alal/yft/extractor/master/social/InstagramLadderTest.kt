@@ -601,6 +601,46 @@ class InstagramLadderTest {
     }
 
     @Test
+    fun `L2 - the rung's versions of one height, the best rate first with the flag, the answer's order without it`() = runTest {
+        // L2 (the owner's slot 5 retest, `rows 3 (DIRECT)`): three versions of the post's video, none
+        // stating its size (F1 gives each the post's 720 x 1280) or its bitrate; V reads each file's total.
+        val totals = mapOf("v1.mp4" to 918_528L, "v2.mp4" to 1_992_294L, "v3.mp4" to 1_200_000L)
+        fun files() = Files { url ->
+            val bytes = InitBytes.mp4()
+            val total = totals.getValue(url.substringAfterLast('/').substringBefore('?'))
+            MediaStart.Read(206, "video/mp4", "bytes 0-${bytes.size - 1}/$total", bytes.size.toLong(), bytes)
+        }
+        fun names(lookup: Lookup) = (lookup.result as MasterResult.Success).result.candidates.map { it.mediaUrl.substringAfterLast('/') }
+
+        // The flag on (yft.socialFill): each height's best rate first, every row kept, one line.
+        val cooldown = SocialCooldown()
+        val best = lookup(
+            REEL, embedNoFiles(),
+            validator = SocialRowCheck(RecordingValidator(), files(), site = SiteWays.INSTAGRAM),
+            ladder = InstagramLadder(FakeExtractorHttpClient(), cooldown = cooldown, bestFirst = true),
+            probe = Probe { answered(200, PROBE_VERSIONS) },
+        )
+        assertEquals(listOf("v2.mp4", "v3.mp4", "v1.mp4"), names(best))
+        (best.result as MasterResult.Success).result.candidates.forEach { assertEquals(it.mediaUrl, 1280, it.height) }
+        assertTrue(detailsOf(best.result).toString(), "master: each height's best first" in detailsOf(best.result))
+        assertTrue(
+            detailsOf(best.result).toString(),
+            "$PROBE: HTTP 200, ${bytes(PROBE_VERSIONS)} bytes; the post's video in the answer: yes; a wall on the page: no; rows 3 (DIRECT)"
+                in detailsOf(best.result),
+        )
+        assertBare(detailsOf(best.result))
+
+        // The flag off (today's release): the answer's order, no line.
+        val today = lookup(
+            REEL, embedNoFiles(),
+            validator = SocialRowCheck(RecordingValidator(), files(), site = SiteWays.INSTAGRAM),
+            probe = Probe { answered(200, PROBE_VERSIONS) },
+        )
+        assertEquals(listOf("v1.mp4", "v2.mp4", "v3.mp4"), names(today))
+        assertFalse(detailsOf(today.result).toString(), detailsOf(today.result).any { "best first" in it || "rows picked" in it })
+    }
+
+    @Test
     fun `the rung's answer without a row - no post, a wall, another post, a rejected value, too big, photos - its line and main's reason`() = runTest {
         val other = "100000000000000001"
         val cases = listOf(
@@ -1126,6 +1166,12 @@ class InstagramLadderTest {
         /** Task 15 (F1): the probe's answer whose file states no size; the post states its own. */
         val PROBE_NO_SIZE = """{"data":{"xig_polaris_media":{"if_not_gated_logged_out":{"code":"$REEL_CODE","media_type":2,$ORIGINAL_SIZE""" +
             """"video_versions":[{"type":101,"url":"https://instagram.fxyz1-1.fna.fbcdn.net/o1/v/t16/f2/m86/probe.mp4"}]}}},"status":"ok"}"""
+
+        /** L2: the probe's answer with three versions of the post's video, none stating its size or bitrate. */
+        val PROBE_VERSIONS = """{"data":{"xig_polaris_media":{"if_not_gated_logged_out":{"code":"$REEL_CODE","media_type":2,""" +
+            """"video_duration":30.0,$ORIGINAL_SIZE"video_versions":[""" +
+            (1..3).joinToString(",") { """{"type":${100 + it},"url":"https://instagram.fxyz1-1.fna.fbcdn.net/o1/v/t16/f2/m86/v$it.mp4"}""" } +
+            """]}}},"status":"ok"}"""
 
         /** The probe's answer without the post (gated or gone alike). */
         const val PROBE_NONE = """{"data":{"xig_polaris_media":{"if_not_gated_logged_out":null}},"status":"ok"}"""

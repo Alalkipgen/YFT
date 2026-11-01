@@ -11,6 +11,7 @@
  */
 package com.alal.yft.extractor.master.social
 
+import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.ExtractorHttpResult
 import com.alal.yft.extractor.api.SiteExtractionFailure
@@ -86,13 +87,22 @@ import kotlinx.coroutines.withTimeoutOrNull
  * social-ladder build's, `-Pyft.socialLadder`); every other lookup keeps R8's path. [contractsOf]
  * gives the recipe the engine reads with, around [http] (never asked here). Lines: short labels
  * and counts, never a link, an ID or the post's words; nothing is logged.
+ *
+ * L2 (S6, [bestFirst]: the app's `yft.socialFill`, a social-ladder debug build's; off, today's
+ * order): of the rows V passes from I2's or the tab-fetch rung's answer, each height's best first
+ * ([RowPick.bestFirst]: the answer states no bitrate, so the rate of each file V read; the owner's
+ * retest of slot 5 offered the answer's first 720p, 897 KB, where the tab's own was 1.9 MB).
  */
 class InstagramLadder(
     http: ExtractorHttpClient,
     contractsOf: (ExtractorHttpClient) -> SiteContracts = ::SiteContracts,
     private val cooldown: SocialCooldown = SocialCooldown(),
     private val budget: SocialBudget = SocialBudget.INSTAGRAM,
+    private val bestFirst: Boolean = false,
 ) : SocialStage {
+    /** L2: the order of the rows V passed from a request rung's answer (null: as the answer gives them). */
+    private val pick: ((List<MediaCandidate>) -> List<MediaCandidate>)? = if (bestFirst) RowPick::bestFirst else null
+
     private val contracts = contractsOf(http)
 
     override suspend fun claims(request: MasterRequest): Boolean =
@@ -194,10 +204,12 @@ class InstagramLadder(
                             ?: proofStop(request, read, details)
                     }
                 }
+                // L2: of the rows V passes, each height's best first (the answer states no bitrate).
                 SocialStage.Staged(
                     MasterStage.PAGE_DATA,
                     PageSnapshot(request.pageUrl, request.generation, contract = answer),
                     read,
+                    pick = pick,
                 )
             }
             Next.FINAL -> {
@@ -330,10 +342,12 @@ class InstagramLadder(
                     ", ${reply.bytes.coerceAtLeast(0)} bytes; the post's video in the answer: ${yes(video)}; " +
                     "a wall on the page: ${yes(reply.wall)}; $rows"
                 if (answer == null || over != null) return null
+                // L2: of the rows V passes, each height's best first (slot 5's three 720 × 1280 versions).
                 return SocialStage.Staged(
                     MasterStage.PAGE_DATA,
                     PageSnapshot(request.pageUrl, request.generation, authorizedPlayback = true, contract = answer),
                     read,
+                    pick = pick,
                 )
             }
         }

@@ -1103,8 +1103,11 @@ class BrowserViewModel(
                     ),
                 )
                 // Phase 1.4 item 2: in the h-only APK a found YouTube page goes through H too.
+                // Social plan S6 (B+): in a B+ build so does main's weak answer for a Facebook,
+                // Instagram or VK page (Master adds only the rows it lacks; main's rows stay).
                 if (primary is SiteAdapterOutcome.Failed ||
-                    (primary is SiteAdapterOutcome.Detected && masterFallback.masterFirst(url))
+                    (primary is SiteAdapterOutcome.Detected &&
+                        (masterFallback.masterFirst(url) || masterFallback.fills(url, primary)))
                 ) {
                     masterFallback.recover(url, primary, clock())
                 } else primary

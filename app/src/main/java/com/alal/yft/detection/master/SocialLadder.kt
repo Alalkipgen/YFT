@@ -21,6 +21,7 @@ import com.alal.yft.extractor.master.social.OkHttpRowReader
 import com.alal.yft.extractor.master.social.RungsOff
 import com.alal.yft.extractor.master.social.SiteWays
 import com.alal.yft.extractor.master.social.SocialCooldown
+import com.alal.yft.extractor.master.social.SocialFill
 import com.alal.yft.extractor.master.social.SocialRowCheck
 import com.alal.yft.extractor.master.social.SocialStage
 import com.alal.yft.extractor.master.social.SocialStages
@@ -56,6 +57,16 @@ internal object SocialLadder {
      * ([AndroidBrowserMasterFallback.trialPrimary]). Every other build: off.
      */
     val trial: Boolean get() = BuildConfig.SOCIAL_TRIAL
+
+    /**
+     * Social plan S6 (`MASTER_KEY_SOCIAL_PLAN.md` §4 S6): B+ and L2 — on only in a debug build with
+     * the ladder and Master capture on, unless made with `-Pyft.socialFill=false` (the census
+     * build has it): main's weak answer for a Facebook, Instagram or VK page in the browser gets
+     * the rows Master's ladder finds that it lacks ([AndroidBrowserMasterFallback.fills]), and
+     * Instagram's rungs offer each height's best row first ([stage]). Release, preview and every
+     * other build: off, each piece exactly today's.
+     */
+    val fill: Boolean get() = BuildConfig.SOCIAL_FILL
 
     /** The pilot's site ID (main's Facebook adapter; its video key's prefix). */
     const val FACEBOOK_SITE_ID = "facebook"
@@ -147,7 +158,9 @@ internal object SocialLadder {
      * [http]; [identify]: main's adapters. Their recipes come from the same source as the
      * engine's ([MasterRecipeConfig]); S1a (5): their stops cool in [cooldown] (the app's, by
      * default). [vkValues] is asked only here, in a social-ladder build (main's values only by
-     * default; the app's: [vkValues]). Every other build: null, the engine as before.
+     * default; the app's: [vkValues]). S6 (L2, [fill]: a B+ build's, [SocialLadder.fill]):
+     * Instagram's rungs offer, of the rows V passed, each height's best first; off, as before.
+     * Every other build: null, the engine as before.
      */
     fun stage(
         http: ExtractorHttpClient,
@@ -155,13 +168,14 @@ internal object SocialLadder {
         social: Boolean = enabled,
         cooldown: SocialCooldown = SocialLadder.cooldown,
         vkValues: () -> VkClientValues = { VkClientValues.bundled() },
+        fill: Boolean = social && SocialLadder.fill,
     ): SocialStage? = if (social) {
         SocialStages(
             listOf(
                 FacebookLadder(http, identify, MasterRecipeConfig::contracts, cooldown),
                 TikTokLadder(http, identify, MasterRecipeConfig::contracts, cooldown),
                 XLadder(http, identify, MasterRecipeConfig::contracts, cooldown),
-                InstagramLadder(http, MasterRecipeConfig::contracts, cooldown),
+                InstagramLadder(http, MasterRecipeConfig::contracts, cooldown, bestFirst = fill),
                 VkLadder(http, MasterRecipeConfig::contracts, vkValues(), cooldown),
             ),
         )
@@ -449,16 +463,19 @@ internal object SocialLadder {
      * trial's comparison (main failed: no rows to compare), the site's ladder line (`master: <site>
      * ladder after <reason>; …`) — and (F4) each of Instagram's probe lines ([probeLines]: the
      * proof's line too). S4: before the probe's, a contract's line whose rows came by shape — its
-     * key table read none ([keyTableLines]: a renamed key, R9's data fix; the drill's config). Null
-     * for an answer without a ladder site's line, a probe line or such a line (every other build
-     * and site).
+     * key table read none ([keyTableLines]: a renamed key, R9's data fix; the drill's config). S6
+     * (B+): main's answer B+ ran for, B+'s line first (`master: <site> B+ (main's rows: no HD):
+     * Master added 1: 720p`, or none and why). Null for an answer without a ladder site's line, a
+     * probe line or such a line (every other build and site).
      */
     fun trialNotice(outcome: SiteAdapterOutcome): String? {
         val details = (outcome as? SiteAdapterOutcome.Detected)?.details ?: return null
+        // S6 (B+): main's rows with B+'s line (what they lack, what Master added or why none) first;
         // Task 15 (F1): without the trial's comparison (main failed), the site's ladder line.
-        val site = details.firstOrNull { detail ->
-            SITES.any { detail.startsWith("master: $it") } && TRIAL_SEGMENT in detail
-        } ?: details.firstOrNull { detail -> SITES.any { detail.startsWith("master: $it ladder") } }
+        val site = details.firstOrNull { detail -> SocialFill.SITES.any { detail.startsWith(SocialFill.label(it)) } }
+            ?: details.firstOrNull { detail ->
+                SITES.any { detail.startsWith("master: $it") } && TRIAL_SEGMENT in detail
+            } ?: details.firstOrNull { detail -> SITES.any { detail.startsWith("master: $it ladder") } }
         return (listOfNotNull(site) + keyTableLines(details) + probeLines(details))
             .takeIf { it.isNotEmpty() }?.joinToString("\n")
     }

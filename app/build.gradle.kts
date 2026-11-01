@@ -171,6 +171,16 @@ val socialTrial = providers.gradleProperty("yft.socialTrial").orElse("false").ge
 require(socialTrial in setOf("true", "false")) {
     "yft.socialTrial must be true or false"
 }
+// Social plan S6 (MASTER_KEY_SOCIAL_PLAN.md section 4 S6, decision 7): B+ — in the browser, main's
+// answer for a Facebook, Instagram or VK page that is weak by an objective signal (no HD row, no
+// sound row) gets the rows Master's ladder finds that it lacks; main's rows stay first, untouched.
+// With it L2: Instagram's rungs offer each height's best row first. Acts only with
+// yft.socialLadder and yft.masterCapture on, and is on there (the census build too) unless this
+// says false; debug builds only, release and preview false until the owner's S5 runs pass.
+val socialFill = providers.gradleProperty("yft.socialFill").orElse("true").get()
+require(socialFill in setOf("true", "false")) {
+    "yft.socialFill must be true or false"
+}
 // R9: the public key (X.509 P-256, hex) for Master's signed recipe config; blank = bundled
 // recipes only and no config request. Only read when Master capture is on. Social plan S4: a
 // social-ladder debug build (yft.socialLadder with yft.masterCapture) carries the committed key,
@@ -200,9 +210,10 @@ require(Regex("""https://[A-Za-z0-9./_-]+""").matches(masterRecipeUrl)) {
  * key (`extractor-master/recipes/master-recipes.pub.hex`, each social rung's `rungsOff`). Master
  * acts only after main fails (decision 7) and only while Settings' "Backup finder" is on (30 (i)).
  * Never: the ladder's test hooks (skip, mutate), the own solver's next ladder (not before N8),
- * Instagram's tab-fetch rung (decision 28), v1.0.2 item 26's AV1 merge switch (AV1 stays off) and
- * the owner tools (src/debug: the census, W, the canary, the stream check). The trials ([trials])
- * only in the #12 trial preview ("debug and preview only; the release never reads them"), which
+ * Instagram's tab-fetch rung (decision 28), v1.0.2 item 26's AV1 merge switch (AV1 stays off),
+ * S6's B+ and L2 (yft.socialFill: not before the owner's S5 runs pass) and the owner tools
+ * (src/debug: the census, W, the canary, the stream check). The trials ([trials]) only in the #12
+ * trial preview ("debug and preview only; the release never reads them"), which
  * also shows every detail; the release and #12 normal are quiet (30 (v)).
  */
 fun com.android.build.api.dsl.ApplicationBuildType.releaseMaster(recipeKey: String, recipeUrl: String, trials: Boolean) {
@@ -219,6 +230,8 @@ fun com.android.build.api.dsl.ApplicationBuildType.releaseMaster(recipeKey: Stri
     buildConfigField("boolean", "YOUTUBE_ROUTE_B_TRIAL", trials.toString())
     buildConfigField("boolean", "SOCIAL_LADDER", "true")
     buildConfigField("boolean", "SOCIAL_TRIAL", trials.toString())
+    // S6 (B+ and L2): off until the owner's S5 runs pass.
+    buildConfigField("boolean", "SOCIAL_FILL", "false")
     buildConfigField("boolean", "INSTAGRAM_TAB_RUNG", "false")
     buildConfigField("boolean", "AV1_MERGE_SWITCH", "false")
     buildConfigField("String", "MASTER_RECIPE_KEY", "\"$recipeKey\"")
@@ -250,6 +263,8 @@ android {
         buildConfigField("boolean", "YOUTUBE_ROUTE_B_TRIAL", "false")
         buildConfigField("boolean", "SOCIAL_LADDER", "false")
         buildConfigField("boolean", "SOCIAL_TRIAL", "false")
+        // Social plan S6: B+ and L2, a social-ladder debug build's only (yft.socialFill).
+        buildConfigField("boolean", "SOCIAL_FILL", "false")
         buildConfigField("String", "MASTER_RECIPE_KEY", "\"$masterRecipeKey\"")
         buildConfigField("String", "MASTER_RECIPE_URL", "\"$masterRecipeUrl\"")
         // Social plan S2d (decision 28): Instagram's tab-fetch rung, a social-ladder debug build's
@@ -328,6 +343,11 @@ android {
                 (masterCapture == "true" && socialLadder == "true" && socialTrial == "true").toString(),
             )
             buildConfigField("boolean", "INSTAGRAM_TAB_RUNG", (masterCapture == "true" && socialLadder == "true").toString())
+            // Social plan S6: B+ and L2 with the social ladder (on unless yft.socialFill=false).
+            buildConfigField(
+                "boolean", "SOCIAL_FILL",
+                (masterCapture == "true" && socialLadder == "true" && socialFill == "true").toString(),
+            )
             // v1.0.2 item 26: AV1 merges as a test switch (off until the census screen's box is on).
             buildConfigField("boolean", "AV1_MERGE_SWITCH", "true")
             // Owner tools (src/debug, e.g. the N2 stream check): a launcher entry only when both

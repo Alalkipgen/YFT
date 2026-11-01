@@ -1,5 +1,6 @@
 package com.alal.yft.extractor.master.social
 
+import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.extractor.master.MasterPolicy
 import com.alal.yft.extractor.master.MasterRequest
 import com.alal.yft.extractor.master.MasterStage
@@ -40,7 +41,13 @@ interface SocialStage {
      * the engine's media checks (V) of [snapshot]'s rows, whether any passed (false when the
      * engine stopped before or V refused them all), so a rung keeps a healed value only after V
      * passed its rows (VK's V2). It never changes the answer; one that throws is ignored. Null for
-     * every other rung, as before.
+     * every other rung, as before. L2 (S6): [pick] — the rows V passed (each with its file's own
+     * total and length, [SocialRowCheck]) in the order the answer offers them, or fewer
+     * (Instagram's rungs: each height's best first, [RowPick]); it may only choose among them, else
+     * (or when it keeps none) they stay as V passed them. S6 (B+,
+     * [SocialFill]): [admit] — whether a row goes to V at all (B+'s run: only a row that may fill
+     * what main's answer lacks; another is never read). Null for every other rung and run: every
+     * row passed is kept and every row is checked, as before.
      */
     class Staged(
         val stage: MasterStage,
@@ -48,7 +55,13 @@ interface SocialStage {
         val request: MasterRequest,
         val last: Boolean = false,
         val checked: ((Boolean) -> Unit)? = null,
-    )
+        val pick: ((List<MediaCandidate>) -> List<MediaCandidate>)? = null,
+        val admit: ((MediaCandidate) -> Boolean)? = null,
+    ) {
+        /** This answer with [admit] (S6, B+'s run), everything else as it is. */
+        fun admitting(admit: (MediaCandidate) -> Boolean): Staged =
+            Staged(stage, snapshot, request, last, checked, pick, admit)
+    }
 }
 
 /**

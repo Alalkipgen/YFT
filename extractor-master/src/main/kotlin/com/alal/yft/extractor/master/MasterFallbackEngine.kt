@@ -157,19 +157,25 @@ class MasterFallbackEngine(
             rung.report(false)
             // S1a (3): a social rung's snapshot is read for the video it asked about.
             var read = request
+            // L2, S6: the claimed rung's order of its passed rows and B+'s rule of which go to V (null: all).
+            var pick: ((List<MediaCandidate>) -> List<MediaCandidate>)? = null
+            var admit: ((MediaCandidate) -> Boolean)? = null
             val stage = when (index) {
                 0 -> if (claimed) {
                     checkNotNull(social).stage(request, policy, details)?.let { staged ->
                         read = staged.request
                         last = staged.last
                         rung.expect(staged.checked)
+                        pick = staged.pick
+                        admit = staged.admit
                         staged.stage to staged.snapshot
                     }
                 } else {
                     contract(request, details)
                 }
                 1 -> request.snapshot?.let { MasterStage.PAGE_DATA to it }
-                else -> {
+                // S6 (B+): the run for a page main found asks no capture of the tab (no line).
+                else -> if (!policy.capture) null else {
                     // Social plan S4: the claimed lookup's capture rung off in the signed config:
                     // no capture asked, the ladder's lines end the answer (as F4's last word).
                     val off = if (claimed) checkNotNull(social).captureOff(request) else null
@@ -236,6 +242,8 @@ class MasterFallbackEngine(
             val valid = mutableListOf<MediaCandidate>()
             for (candidate in selected) {
                 coroutineContext.ensureActive()
+                // S6 (B+): a row the run's rule keeps out is never read (nor counted against the budget).
+                if (admit?.invoke(candidate) == false) continue
                 if (probes.exhausted) {
                     details += "master: budget limits additional media checks"
                     break
@@ -254,9 +262,11 @@ class MasterFallbackEngine(
             // D: V's checks of this stage's rows are done: the claimed rung learns whether any passed.
             rung.report(valid.isNotEmpty())
             if (valid.isNotEmpty()) {
+                // L2: the rung's order of the rows V passed (Instagram's: each height's best first).
+                val kept = pick?.let { picked(it, valid, details) } ?: valid
                 details += "master: ${valid.size} checked candidates via ${name.name}"
                 return MasterResult.Success(
-                    SiteExtractionResult.Success(valid, DiagnosticTextSanitizer.details(details)),
+                    SiteExtractionResult.Success(kept, DiagnosticTextSanitizer.details(details)),
                     name,
                 )
             }
@@ -272,12 +282,38 @@ class MasterFallbackEngine(
             lastFailure != null -> failure(checkNotNull(lastFailure), details)
             ambiguous -> MasterResult.NeedsSelection(safeDetails)
             // F4: the ladder's last word asked for no capture, so its lines end the answer (S4: so
-            // does a capture rung the signed config turned off).
-            last -> MasterResult.NeedsPlayback(safeDetails)
+            // does a capture rung the signed config turned off; S6: so does B+'s run, which asks none).
+            last || !policy.capture -> MasterResult.NeedsPlayback(safeDetails)
             else -> MasterResult.NeedsPlayback(
                 safeDetails + "Open the page, play its video, and supply a fresh capture.",
             )
         }
+    }
+
+    /**
+     * L2: [valid] as the rung's [pick] offers it (Instagram's: each height's best first), with a line
+     * when it moved or set aside a row (`master: each height's best first` or `master: rows picked:
+     * K of N`). A pick that returns no row, a row V did not pass or one twice, or throws, leaves
+     * [valid] as it is: it may only order and choose among the rows V passed.
+     */
+    private fun picked(
+        pick: (List<MediaCandidate>) -> List<MediaCandidate>,
+        valid: List<MediaCandidate>,
+        details: MutableList<String>,
+    ): List<MediaCandidate> {
+        val chosen = try {
+            pick(valid)
+        } catch (_: Exception) {
+            return valid
+        }
+        val known = chosen.isNotEmpty() && chosen.all { row -> valid.any { it === row } } &&
+            chosen.indices.all { at -> chosen.indices.none { other -> other < at && chosen[other] === chosen[at] } }
+        if (!known) return valid
+        when {
+            chosen.size < valid.size -> details += "master: rows picked: ${chosen.size} of ${valid.size}"
+            chosen.indices.any { chosen[it] !== valid[it] } -> details += "master: each height's best first"
+        }
+        return chosen
     }
 
     /**
