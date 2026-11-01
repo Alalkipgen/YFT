@@ -134,6 +134,11 @@ Old records stay in git history. Feature names follow [GLOSSARY.md](GLOSSARY.md)
 - **Promotion runs.** Per site three census runs, 6 h apart, first and last 24 h apart, on the final
   code; a change to the site's pack, the engine or main restarts it. Pass: 0 wrong rows, no
   regression. Why: proof over days. (2026-10-23)
+- **Promotion runs for 1.0.2.** Facebook, Instagram, VK, X and TikTok all start again at run 1.
+  TikTok gets one more run after a 403 or 429; a second one skips TikTok, and 1.0.2 then does not
+  count TikTok's backup steps (main's TikTok reader stays as it is). Why: one session runs every
+  site, so X and TikTok cost little; TikTok's embed player answered 429 on 2026-10-29 and
+  2026-11-01. (2026-11-01)
 - **Census lists.** The owner's public posts, kept on the phone only. Why: privacy. (2026-10-20)
 - **Census order.** Main first, then the backup route, then the trials; one baseline per site, VPN
   and session; TikTok's VPN runs use New York. Why: like with like. (2026-10-21, New York 2026-10-22)

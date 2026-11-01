@@ -21,7 +21,8 @@ risks. Decisions already made are in [DECISIONS.md](DECISIONS.md). Tests and run
    owner may reuse `yft-vk-census-854bee67.apk` if this passes:
    `python3 scripts/check-comment-only.py 854bee67 HEAD --allow scripts/check-comment-only.py --allow extractor-master/src/main/kotlin/com/alal/yft/extractor/master/social/SiteWeekly.kt --allow extractor-master/src/test/kotlin/com/alal/yft/extractor/master/social/SiteWeeklyTest.kt --allow scripts/own-solver-canary.sh --allow scripts/own-solver-canary.mjs`.
    That APK still prints the weekly check's old walled note text.
-4. Promotion runs for Facebook, Instagram and VK (and X and TikTok if the owner says so).
+4. Promotion runs for Facebook, Instagram, VK, X and TikTok. The rules are in
+   [TESTING.md](TESTING.md), "Promotion runs".
 5. The phone checklist on the two preview APKs ([TESTING.md](TESTING.md)).
 6. The release commit: `yft.versionName=1.0.2` and `yft.versionCode=1000200` in
    `gradle.properties`; `docs/release/1.0.2.md` (like `1.0.1.md`, with a "From 1.0.1" part); and
@@ -39,7 +40,6 @@ risks. Decisions already made are in [DECISIONS.md](DECISIONS.md). Tests and run
 
 ## Open owner decisions
 
-- **Promotion runs for X and TikTok:** start them again for 1.0.2, or not.
 - **Weak-answer fill in the release and previews:** only after promotion runs pass. Today
   `releaseMaster` sets `SOCIAL_FILL` to false. The same goes for the best-first order.
 - **Weak-answer fill rules to confirm:**
