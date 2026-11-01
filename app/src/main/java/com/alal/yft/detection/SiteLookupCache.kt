@@ -8,8 +8,8 @@ import javax.inject.Singleton
 import kotlinx.coroutines.Deferred
 
 /**
- * P17: what a site adapter answered for one video, kept in memory for a few minutes so Home, the
- * browser and a reopened sheet share one lookup instead of asking the site again.
+ * Lookup reuse: what a site adapter answered for one video, kept in memory for a few minutes so
+ * Home, the browser and a reopened sheet share one lookup instead of asking the site again.
  *
  * An entry is the video's site and content ID plus whether the user's session was used; at most
  * [MAX_ENTRIES] are kept, each until the earliest expiry its links state or [MAX_AGE_MS],
@@ -88,7 +88,7 @@ class SiteLookupCache @Inject constructor() {
     }
 
     /**
-     * Item 7 Track B3, Reset YouTube session: every remembered answer of the site [siteId], read
+     * Reset YouTube session: every remembered answer of the site [siteId], read
      * with the session that was reset, goes; other sites' answers stay.
      */
     fun forgetSite(siteId: String) {
@@ -151,7 +151,9 @@ class SiteLookupCache @Inject constructor() {
     }
 }
 
-/** P17: one video's lookup as the cache keeps it; [session] is whether cookies were sent. */
+/**
+ * Lookup reuse: one video's lookup as the cache keeps it; [session] is whether cookies were sent.
+ */
 internal data class SiteLookupKey(
     val siteId: String,
     val contentId: String,

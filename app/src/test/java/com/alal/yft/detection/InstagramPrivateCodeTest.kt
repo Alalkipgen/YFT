@@ -14,11 +14,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * v1.0.2 item 70b: an Instagram lookup that ends unread (RESPONSE_CHANGED) on a link whose code is
- * a private post's (longer than 11 characters) shows the private words the app gives every site's
- * private or removed post, with Try again as those words have it; an 11-character code keeps
- * today's words and the login wall its own. Fix F2: a private post's code behind the login wall
- * (Instagram's answer to a private post) shows the private words too. Main's real adapter through the coordinator; every
+ * Instagram adapter: a lookup that ends unread (RESPONSE_CHANGED) on a link whose code is a private
+ * post's (longer than 11 characters) shows the private words the app gives every site's private or
+ * removed post, with Try again as those words have it; an 11-character code keeps today's words and
+ * the login wall its own. A private post's code behind the login wall (Instagram's answer to a
+ * private post) shows the private words too. Main's real adapter through the coordinator; every
  * request answers as Instagram answers a post it does not show (404, or the login status).
  */
 class InstagramPrivateCodeTest {
@@ -59,7 +59,7 @@ class InstagramPrivateCodeTest {
 
     @Test
     fun `a private post's code behind the login wall shows the private words with Try again`() = runTest {
-        // v1.0.2 fix F2 (phone test 70b): Instagram answers a private post with its login wall.
+        // Instagram answers a private post with its login wall.
         val http = Answers(ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 401))
 
         val private = lookUp(http, PRIVATE_REEL)

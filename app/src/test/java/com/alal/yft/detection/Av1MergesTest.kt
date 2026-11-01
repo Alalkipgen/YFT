@@ -22,7 +22,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * v1.0.2 item 26: AV1 merges as a debug build's test switch (the census screen's box), off by
+ * AV1 merge switch: AV1 merges as a debug build's test switch (the census screen's box), off by
  * default and absent from the release and the previews. While it is on, Android 14 or newer keeps
  * AV1 + AAC rows on the sheet (named with "AV1"), plans them as one MP4 merge and names the phone's
  * AV1 decoders in a merged download's Details; switched off, or in a build without it, everything

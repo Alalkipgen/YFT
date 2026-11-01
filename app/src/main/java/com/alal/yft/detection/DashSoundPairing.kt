@@ -11,15 +11,14 @@ import com.alal.yft.core.model.media.VariantSupport
 import java.util.Locale
 
 /**
- * v1.0.2 item 59: on a page without a site reader, a DASH manifest whose qualities are single
- * files (`SegmentBase`, [MediaVariant.dashOneFile]) offers each video quality with the
- * manifest's sound, merged as the other merges are ([DeviceMergeSupport]: AVC with AAC into an
- * MP4; VP9 with Opus into a WebM from Android 10; AV1 only with the debug build's test switch,
- * item 26). The sound is the manifest's first language at its highest bitrate the phone merges
- * with that video. A video the phone merges with none of the sounds stays as it was: "No sound".
- * v1.0.2 fix R3: so does a manifest whose qualities are in pieces (`SegmentTemplate` or
- * `SegmentList`, [MediaVariant.dashPieces]); `bbb_30fps.mpd`'s videos were all "No sound" beside
- * its own M4A.
+ * Sound pairing: on a page without a site reader, a DASH manifest whose qualities are single files
+ * (`SegmentBase`, [MediaVariant.dashOneFile]) offers each video quality with the manifest's sound,
+ * merged as the other merges are ([DeviceMergeSupport]: AVC with AAC into an MP4; VP9 with Opus
+ * into a WebM from Android 10; AV1 only with the debug build's AV1 merge switch). The sound is the
+ * manifest's first language at its highest bitrate the phone merges with that video. A video the
+ * phone merges with none of the sounds stays as it was: "No sound". So does a manifest whose
+ * qualities are in pieces (`SegmentTemplate` or `SegmentList`, [MediaVariant.dashPieces]);
+ * `bbb_30fps.mpd`'s videos were all "No sound" beside its own M4A.
  *
  * A site reader's rows ([MediaCandidate.videoId]) are left as they are, and so is a live
  * manifest's: only the generic page path changes.

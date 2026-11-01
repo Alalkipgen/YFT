@@ -19,7 +19,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** P4: AV1 merges are offered only where Android 14's muxer writes them and a decoder plays. */
+/** Merge: AV1 merges are offered only where Android 14's muxer writes them and a decoder plays. */
 class MergeSupportTest {
     private val file = candidate("file", listOf("avc1.42001e", "mp4a.40.2"), merged = false)
     private val avc = candidate("avc", listOf("avc1.64001f"))
@@ -45,7 +45,7 @@ class MergeSupportTest {
 
     @Test
     fun av1MergesAreOffUntilAPhoneProvesThem() {
-        // The API 34 emulator's muxer failed the AV1 merge (P4 CI), so no phone offers it.
+        // The API 34 emulator's muxer failed the AV1 merge (in CI), so no phone offers it.
         val android15 = DeviceMergeSupport(sdkInt = 35, hasDecoder = { true })
 
         assertFalse(android15.canMerge(av1))
@@ -55,7 +55,7 @@ class MergeSupportTest {
 
     @Test
     fun vp9WebmWithOpusMergesFromAndroid10() {
-        // P6: YouTube's 2K and 4K are VP9 WebM, merged with the Opus WebM track into one WebM.
+        // Merge: YouTube's 2K and 4K are VP9 WebM, merged with the Opus WebM track into one WebM.
         val webm = webmCandidate(listOf("vp9"), listOf("opus"))
         val android9 = DeviceMergeSupport(sdkInt = 28, hasDecoder = { true })
         val android10 = DeviceMergeSupport(sdkInt = 29, hasDecoder = { false })
@@ -71,7 +71,7 @@ class MergeSupportTest {
 
     @Test
     fun vp9HlsWithAacMergesIntoOneMp4FromAndroid10() {
-        // Backlog item 5: YouTube's HLS 1440p and 2160p are VP9 with the AAC HLS sound, merged
+        // Merge: YouTube's HLS 1440p and 2160p are VP9 with the AAC HLS sound, merged
         // into one MP4 by YFT's own stream copy (Android's MP4 muxer takes no VP9).
         val hls = vp9.copy(kind = MediaKind.HLS, mimeType = "application/x-mpegURL")
 
@@ -102,7 +102,7 @@ class MergeSupportTest {
     }
 
     /**
-     * v1.0.2 item 26: the AV1 merge switch (a debug build's census box) is read at each row, so
+     * AV1 merge switch: the AV1 merge switch (a debug build's census box) is read at each row, so
      * the sheet keeps AV1 + AAC rows as soon as it is on, and leaves them out again once it is
      * off; Android 13 never keeps them. By default (no switch read: the release) they stay out.
      */
@@ -123,7 +123,7 @@ class MergeSupportTest {
     }
 
     /**
-     * v1.0.2 item 59: a page's DASH video representation and its manifest's sound take the
+     * Sound pairing: a page's DASH video representation and its manifest's sound take the
      * candidate's gates: AVC with AAC anywhere, VP9 with Opus in WebM from Android 10, AV1 only
      * with the switch, from Android 14 and with a decoder.
      */

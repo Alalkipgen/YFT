@@ -29,7 +29,9 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** P17: one lookup per video for a few minutes, shared by Home, the browser and the sheet. */
+/**
+ * Lookup reuse: one lookup per video for a few minutes, shared by Home, the browser and the sheet.
+ */
 class SiteLookupCacheTest {
     private val cache = SiteLookupCache()
     private val extractor = CountingExtractor()
@@ -73,7 +75,7 @@ class SiteLookupCacheTest {
     }
 
     /**
-     * Phase 1.4 item 7 F2: a route-B lookup's record notes when main's answer reached it without
+     * YouTube backup route: a route-B lookup's record notes when main's answer reached it without
      * main asking in it — the remembered answer, or another caller's running lookup (that caller's
      * record gets main's requests). The lookup that asks notes nothing; the answers are the same.
      */

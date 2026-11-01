@@ -17,9 +17,9 @@ import org.junit.Assert.assertSame
 import org.junit.Test
 
 /**
- * v1.0.2 item 59: on a page without a site reader, a DASH manifest's one-file video qualities
- * (`SegmentBase`) are offered with the manifest's sound, as far as the phone merges them. v1.0.2
- * fix R3: so are its qualities in pieces (`SegmentTemplate` or `SegmentList`).
+ * Sound pairing: on a page without a site reader, a DASH manifest's one-file video qualities
+ * (`SegmentBase`) are offered with the manifest's sound, as far as the phone merges them.
+ * So are its qualities in pieces (`SegmentTemplate` or `SegmentList`).
  */
 class DashSoundPairingTest {
     private val phone = DeviceMergeSupport(sdkInt = 34, hasDecoder = { false }, av1Enabled = { false })
@@ -55,7 +55,7 @@ class DashSoundPairingTest {
 
     @Test
     fun `a manifest's qualities in pieces take its sound as one-file ones do`() {
-        // R3: bbb_30fps.mpd, one SegmentTemplate for each adaptation set; its sound HE-AAC.
+        // bbb_30fps.mpd: one SegmentTemplate for each adaptation set; its sound HE-AAC.
         val high = video("v2160", bitrate = 14_931_538, size = null, oneFile = false, pieces = true)
         val sound = audio("bbb_a64k", bitrate = 67_071, size = null, oneFile = false, pieces = true)
 
@@ -141,7 +141,7 @@ class DashSoundPairingTest {
         assertEquals(MediaTrackType.VIDEO, old.trackType)
         assertNull(old.audioCompanion)
 
-        // AV1: only with the test switch on, from Android 14 and with a decoder (item 26).
+        // AV1: only with the AV1 merge switch on, from Android 14 and with a decoder.
         val av1 = video("av1", codecs = listOf("av01.0.08M.08"))
         fun av1With(switch: Boolean, decoder: Boolean) = pair(
             listOf(av1, aac),

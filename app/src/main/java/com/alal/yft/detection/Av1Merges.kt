@@ -10,8 +10,8 @@ import com.alal.yft.core.download.AudioVideoMuxCompatibility
 import java.util.Locale
 
 /**
- * v1.0.2 item 26 (debug only): AV1 merges as a test switch, off by default. AV1 merges are off
- * ([AudioVideoMuxCompatibility.AV1_MP4_ENABLED], P4: the API 34 emulator's muxer failed AV1 + AAC),
+ * AV1 merge switch (debug only): AV1 merges as a test switch, off by default. AV1 merges are off
+ * ([AudioVideoMuxCompatibility.AV1_MP4_ENABLED]: the API 34 emulator's muxer failed AV1 + AAC),
  * so Facebook's AV1-only sizes and YouTube's AV1-only 2K/4K are not offered. A debug build
  * ([built]) has the census screen's "AV1 merges (test)" box; while it is on, Android 14 or newer
  * ([AudioVideoMuxCompatibility.AV1_MP4_MIN_SDK]) merges AV1 + AAC into one MP4: the sheet keeps
@@ -62,7 +62,7 @@ internal object Av1MergeSwitch {
 }
 
 /**
- * v1.0.2 item 26: whether the phone has an AV1 decoder, from its decoder list (MediaCodecList),
+ * AV1 merge switch: whether the phone has an AV1 decoder, from its decoder list (MediaCodecList),
  * hardware or software, for one Details line: "AV1 decoder: hardware (c2.qti.av1.decoder)",
  * "AV1 decoder: software (c2.android.av1.decoder)", both, or "AV1 decoder: none".
  */

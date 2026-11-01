@@ -20,7 +20,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Phase 1.2 N5b A.8: the app's YouTube reader as [SiteAdapterModule] builds it. A runner that
+ * Own-solver ladder: the app's YouTube reader as [SiteAdapterModule] builds it. A runner that
  * hands over V checks (the own solver's, ownSolver with or without ownSolverNext) gets the reader
  * behind `YouTubeSignatureGuard`; main's runner gets main's reader as is. What V does there is
  * `YouTubeSignatureGuardTest`'s (extractor-master).

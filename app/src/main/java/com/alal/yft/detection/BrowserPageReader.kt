@@ -17,7 +17,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import okhttp3.OkHttpClient
 
-/** P37: what a quiet second read of the browser tab's page gave. */
+/** Fresh link renewal: what a quiet second read of the browser tab's page gave. */
 sealed interface PageReread {
     /** The page's player data: its files, marked [CandidateSource.PAGE_REREAD]. */
     data class Found(
@@ -35,7 +35,7 @@ sealed interface PageReread {
 }
 
 /**
- * P37 (FIX_ADD_PLAN step 3, G7): reads the browser tab's page again in the background when its
+ * Fresh link renewal: reads the browser tab's page again in the background when its
  * links are gone, for the fresh ones the site writes into a new copy of the page.
  */
 interface BrowserPageReader {
@@ -45,7 +45,7 @@ interface BrowserPageReader {
     suspend fun read(pageUrl: String, userAgent: String?): PageReread
 
     companion object {
-        /** G7's default, `REREAD=2`. */
+        /** The default, `REREAD=2`. */
         const val DEFAULT_REREADS = 2
 
         /** No re-read (`REREAD=0`): the sheet offers "Reload page and try again" at once. */
@@ -106,7 +106,7 @@ class TabPageReader internal constructor(
                 candidate.copy(
                     sources = candidate.sources + CandidateSource.PAGE_REREAD,
                     title = candidate.title ?: scan.title,
-                    // P45: as the page's player asks for it, with the WebView's agent.
+                    // Download sheet: as the page's player asks for it, with the WebView's agent.
                     requestContext = BrowserRequestContext.pageLink(
                         pageUrl,
                         candidate.mediaUrl,

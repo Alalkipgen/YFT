@@ -8,7 +8,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Uses the original public constructor so it runs against the actual pre-P10 client. */
+/**
+ * Uses the original public constructor, so it also runs against the client as it was
+ * before the slow-network changes.
+ */
 class ExtractorRetryRegressionTest {
     @Test
     fun aDroppedFirstConnectionSucceedsOnTheSecondRequest() = runBlocking {

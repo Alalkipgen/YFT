@@ -5,9 +5,9 @@ import java.net.URI
 import java.util.Locale
 
 /**
- * P49: Home's lookup of an Instagram link uses the cookies YFT's own browser already has for
- * `instagram.com` (the user's own sign-in there), as the browser's lookup of the same post does.
- * They are sent to www.instagram.com only, never to the CDN, and never logged or stored
+ * Instagram adapter: Home's lookup of an Instagram link uses the cookies YFT's own browser already
+ * has for `instagram.com` (the user's own sign-in there), as the browser's lookup of the same post
+ * does. They are sent to www.instagram.com only, never to the CDN, and never logged or stored
  * elsewhere. Without a sign-in in the browser there is no cookie and Home asks signed out.
  */
 object InstagramHomeSession {

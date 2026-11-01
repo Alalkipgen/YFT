@@ -15,9 +15,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * P39 regression proof. Only the client API P38 already had is used (one constructor argument,
- * `get`, and the interface's `probe`), so these tests also run against the P38 client, where
- * each one fails: a thrown error escaped, a loop read as a changed page, no file checks.
+ * Regression proof for the client fixes the TikTok adapter brought. Only the API the older client
+ * already had is used (one constructor argument, `get`, and the interface's `probe`), so these
+ * tests also run against that older client, where each one fails: a thrown error escaped, a loop
+ * read as a changed page, no file checks.
  */
 class OkHttpExtractorClientRegressionTest {
     private val seen = mutableListOf<Request>()

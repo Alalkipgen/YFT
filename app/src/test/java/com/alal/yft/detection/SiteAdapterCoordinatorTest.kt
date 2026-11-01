@@ -51,7 +51,7 @@ class SiteAdapterCoordinatorTest {
             "https://fixture.test/video/42",
             outcome.candidates.single().requestContext.pageUrl,
         )
-        // Every file of one extraction is one video, so the found lists show one row (P3).
+        // Every file of one extraction is one video, so the found lists show one row.
         assertEquals("fixture:42", outcome.candidates.single().videoId)
     }
 
@@ -198,7 +198,7 @@ class SiteAdapterCoordinatorTest {
             nowEpochMs = 10,
         ) as SiteAdapterOutcome.Failed
 
-        // P39 (R25): a crash is named by its class, never reported as a changed page.
+        // A crash is named by its class, never reported as a changed page.
         assertEquals(SiteExtractionFailure.MALFORMED_RESPONSE, outcome.reason)
         assertTrue(outcome.allowsGenericFallback)
         assertFalse(outcome.message.contains("912"))
