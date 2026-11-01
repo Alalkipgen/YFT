@@ -15,8 +15,8 @@ import java.util.Locale
 import java.util.TimeZone
 
 /**
- * Phase 1.3 D0: the answer classes of the census (MASTER_KEY_PHASE1_3_PLAN.md §3, v2's table),
- * decided from the answer, the HTTP result and the checks, never from the client's name. D2's
+ * Client census: the answer classes of the census (the client table's v2),
+ * decided from the answer, the HTTP result and the checks, never from the client's name. The
  * answer judge refines them (shape kinds, HLS locate).
  */
 internal enum class CensusClass {
@@ -45,12 +45,12 @@ internal enum class CensusClass {
 
     /**
      * A verdict about the video itself (age, sign-in, private, removed, region, DRM, live): no row
-     * may follow and no other client is asked for it (D2; V7 keeps one client's refusal `REFUSED`).
+     * may follow and no other client is asked for it (the Answer judge; V7 keeps one client's refusal `REFUSED`).
      */
     val terminal: Boolean
         get() = this == AGE_CHECK || this == VIDEO_VERDICT
 
-    /** The runbook step (§7) a change to this class points to. */
+    /** The runbook step (docs/TESTING.md) a change to this class points to. */
     val runbookStep: Int
         get() = when (this) {
             DIRECT -> 1
@@ -72,7 +72,7 @@ internal enum class CensusClass {
 internal data class CensusAsk(
     val video: Int,
     val client: String,
-    /** `R0` (as R6 asks it), `S` (with the page's timestamp and visitor data), `A1`/`A2`, `SH`. */
+    /** `R0` (as the Master YouTube module asks it), `S` (with the page's timestamp and visitor data), `A1`/`A2`, `SH`. */
     val step: String,
     /** The public client version sent. */
     val version: String,
@@ -110,9 +110,9 @@ internal data class CensusAsk(
     val shapeFull: String? = null,
     val shapePaths: List<String>? = null,
     val shapeTruncated: Boolean = false,
-    /** D2's `SHAPE_CHANGED` kind: `moved` or `partial` ([AnswerJudge.ShapeKind]), else null. */
+    /** The Answer judge's `SHAPE_CHANGED` kind: `moved` or `partial` ([AnswerJudge.ShapeKind]), else null. */
     val shapeKind: String? = null,
-    /** Phase 1.4 item 3: the paths L located in a `SHAPE_CHANGED` answer ([LocatedShapeMap]; key paths only). */
+    /** The paths L (the YouTube shape reader) located in a `SHAPE_CHANGED` answer ([LocatedShapeMap]; key paths only). */
     val lMap: List<String>? = null,
     val kilobytes: Long = 0,
     val millis: Long = 0,

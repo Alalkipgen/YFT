@@ -603,7 +603,7 @@ class InstagramLadderTest {
     @Test
     fun `L2 - the rung's versions of one height, the best rate first with the flag, the answer's order without it`() = runTest {
         // Best first per height (the owner's slot 5 retest, `rows 3 (DIRECT)`): three versions of the post's video, none
-        // stating its size (F1 gives each the post's 720 x 1280) or its bitrate; V reads each file's total.
+        // stating its size (each takes the post's 720 x 1280) or its bitrate; V reads each file's total.
         val totals = mapOf("v1.mp4" to 918_528L, "v2.mp4" to 1_992_294L, "v3.mp4" to 1_200_000L)
         fun files() = Files { url ->
             val bytes = InitBytes.mp4()

@@ -6,12 +6,12 @@ import com.alal.yft.extractor.api.ExtractorProbeResult
 import java.net.URI
 
 /**
- * Phase 1.3 D6: the **same-lookup memo** (MASTER_KEY_PHASE1_3_PLAN.md guardrail 7, §4 D6). It
+ * YouTube ladder: the **same-lookup memo** (one page per lookup). It
  * wraps the HTTP client of one lookup and has two sides:
  *
  * - [ladder]: the ladder's requests go out unchanged; each successful (2xx) answer of a request
  *   that is not to a media host is kept for this lookup.
- * - [chain]: the R6 chain's requests. A request **byte-identical** to one the ladder made in this
+ * - [chain]: the Master YouTube module's chain's requests. A request **byte-identical** to one the ladder made in this
  *   lookup — the same method, address, body and headers (names, values and order) — is answered
  *   from memory **once**: each kept answer serves at most one chain request and is then dropped.
  *   Every other request goes out unchanged.
@@ -23,7 +23,7 @@ import java.net.URI
  * not served (the request goes out). Bounded: at most [maxEntries] answers and [maxKeptChars]
  * characters. Nothing is logged; [toString] and the counts show no address, body or header.
  *
- * Not wired yet: D6 passes [chain] to the R6 chain and [ladder] to the ladder.
+ * Not wired here: the ladder's wiring passes [chain] to the module's chain and [ladder] to the ladder.
  */
 internal class LookupMemo(
     private val http: ExtractorHttpClient,
@@ -69,7 +69,7 @@ internal class LookupMemo(
         override fun toString(): String = "LookupMemo.ladder"
     }
 
-    /** The client the R6 chain uses in this lookup. */
+    /** The client the module's chain uses in this lookup. */
     val chain: ExtractorHttpClient = object : ExtractorHttpClient {
         override suspend fun get(url: String, headers: Map<String, String>, maxBodyBytes: Long): ExtractorHttpResult =
             take(Key(GET, url, null, headers.toList()), maxBodyBytes) ?: http.get(url, headers, maxBodyBytes)

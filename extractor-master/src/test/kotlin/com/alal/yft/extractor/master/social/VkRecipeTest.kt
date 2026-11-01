@@ -23,9 +23,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * VK-Master plan §4 (V1, V2), Appendix B steps 4–5: VK's recipe ([VkRecipe]) in Master's engine,
- * with the engine's recipes, VK's included (`ContractRecipes.ALL` since wave 2). Its endpoint
- * keeps a placeholder the contract step never fills, so R8 asks VK nothing on its own — also with
+ * VK's recipe ([VkRecipe]) in Master's engine,
+ * with the engine's recipes, VK's included (`ContractRecipes.ALL` since the VK ladder). Its endpoint
+ * keeps a placeholder the contract step never fills, so the site contract reader asks VK nothing on its own — also with
  * VK's ladder outside its lookup's record: VK's asks are main's and V2's ([VkLadderTest]). Its
  * reading of the video's answer [VkReader] writes: the video's files in VK's order with their
  * kinds and sizes, the title, the length, the picture and the expiry; an answer naming another
@@ -109,7 +109,7 @@ class VkRecipeTest {
             "&videos=-100000001_400000001&extended=1"
         val LINK = VkClient.Link(-100000001, 400000001)
 
-        /** The engine's recipes with VK's (step 4's [VkRecipe]). */
+        /** The engine's recipes with VK's ([VkRecipe]). */
         fun contracts(http: ExtractorHttpClient) = SiteContracts(http, ContractRecipes.ALL)
 
         fun identify(url: String): SitePageIdentity = checkNotNull(VkExtractor(FakeExtractorHttpClient()).identify(url))

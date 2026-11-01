@@ -3,7 +3,7 @@ package com.alal.yft.extractor.master.modules.youtube.ladder
 import com.alal.yft.extractor.api.json.JsonValue
 
 /**
- * Phase 1.4 item 3 (MASTER_KEY_PHASE1_3_PLAN.md §10): the shape map L located, recorded only.
+ * YouTube shape reader: the shape map L located, recorded only.
  *
  * The canonical names' key paths L found in one answer — the format lists (where
  * `streamingData.adaptiveFormats[]` sits now), the video object's `lengthSeconds`, the status
@@ -11,7 +11,7 @@ import com.alal.yft.extractor.api.json.JsonValue
  * core hash, [ShapeFingerprint]). Key paths only: never a value, address or ID (a key equal to
  * the video ID is already `*`, [ShapeLocator]). Written to [ClientHealth] when L runs and to the
  * census record (W's report, `lmap`); nothing reads with it, so the whole-answer checks stay as
- * they are (guardrail 9). It shows a moved layout before L step 7 is needed (§10 item 2).
+ * they are. It shows a moved layout before the shape reader's map memory is needed.
  */
 internal object LocatedShapeMap {
     private val PATH = Regex("^[A-Za-z0-9_.*\\[\\]]{1,200}$")

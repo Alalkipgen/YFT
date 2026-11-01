@@ -5,10 +5,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Phase 1.3 D0, guardrail 11: the census and the weekly check run only while their owner tool is
+ * Client census: the census and the weekly check run only while their owner tool is
  * open and after a tap. A static check that their code (the ladder sources and the app's debug
- * census tool) names no API that schedules or keeps work running in the background. Social plan
- * S0c: the site census (Master's `social` sources and the app's debug screen) is held to the same.
+ * census tool) names no API that schedules or keeps work running in the background. The
+ * Site census (Master's `social` sources and the app's debug screen) is held to the same.
  */
 class CensusNoBackgroundTest {
     @Test

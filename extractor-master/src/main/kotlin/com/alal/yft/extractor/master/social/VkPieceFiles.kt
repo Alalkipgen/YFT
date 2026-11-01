@@ -12,14 +12,14 @@ import com.alal.yft.extractor.master.toolkit.UrlPolicy
  * VK's pack proof (the capture step's second retest, of f22c2217, 2026-10-26: the 18+ video, 18 observations, none a
  * row): a VK lookup's capture may hold no page manifest (VK's player fetches it once a document,
  * as it starts), only the pieces the player asked for. Each piece is its file's address with
- * `&bytes=A-B` added (the manifest's `BaseURL`, F1), so that address without its range is the
+ * `&bytes=A-B` added (the manifest's `BaseURL`), so that address without its range is the
  * whole file: one per quality and per sound, the player asks for the start of each.
  *
  * [of] groups a capture's VK pieces (GET, on VK's media hosts ([VkSite.SITE]), a closed `bytes=`
  * range, the page's answer typed `video/…` or `audio/…`) into those whole files: the picture files
  * (MP4's when there is any, else WebM's) and the sound files of the same container, each list in
  * VK's order of quality (the address's `type`, [QUALITY]: the fullest first), then by how many
- * pieces the player asked for. A piece is still never a row (F1): only its whole file is, and only
+ * pieces the player asked for. A piece is still never a row: only its whole file is, and only
  * here, where the selection reads the files' starts ([SocialRowCheck]: V and the init check, each
  * file once, in the lookup's reads) and offers the tallest picture with the fullest sound to merge
  * ([row]), as VK's page manifest's row is ([VkPageDash]).

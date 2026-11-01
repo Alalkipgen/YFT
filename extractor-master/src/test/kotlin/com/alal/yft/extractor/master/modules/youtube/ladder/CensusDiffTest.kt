@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Phase 1.3 D0: the weekly check's diff — each change kind, and identical runs say NO CHANGE. */
+/** Client census: the weekly check's diff — each change kind, and identical runs say NO CHANGE. */
 class CensusDiffTest {
     @Test
     fun `identical runs say NO CHANGE with the days since the last run`() {

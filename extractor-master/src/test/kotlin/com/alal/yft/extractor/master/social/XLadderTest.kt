@@ -47,13 +47,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S2c: X's ladder in Master's engine. X1 replays main's answer from X's widget in this
+ * The X ladder in Master's engine. X1 (`x X1` in Lookup details) replays main's answer from X's widget in this
  * lookup ([MainPages]: its page or its refused GET) with no new ask and judges it: the link's item
  * only (its `/video/N` among the post's own or card's media, else the first; a quoted post's video
  * bound to the link's post), its MP4 files first, its playlist only without them and with a known
- * length; a photo post is final; the widget's 404 (task 0: no proof of removal; the tab's own
+ * length; a photo post is final; the widget's 404 (no proof of removal; the tab's own
  * playback next, main's reason stays), a tombstone (age-limited: the browser; X's notice, removed
- * or protected alike: playback), `{}`, another post, another status and a 429 are never final. A renamed key: main's whole answer by shape, only as one item's rows. S7's
+ * or protected alike: playback), `{}`, another post, another status and a 429 are never final. A renamed key: main's whole answer by shape, only as one item's rows. The Social limits'
  * budget; [SocialStages] gives an X lookup X's ladder; V asks X's media host only and cannot pass
  * a playlist. Main's real X adapter over main's fixtures; Master never asks; no live calls.
  */
@@ -190,7 +190,7 @@ class XLadderTest {
         assertTrue(details.toString(), details.none { "PRIVATE_OR_UNAVAILABLE" in it })
         assertEquals(1, capture.calls)
         assertTrue(validator.seen.isEmpty())
-        // No new widget request, no X2, no token check: Master asks nothing; main asked once.
+        // No new widget request, no widget-token re-ask, no token check: Master asks nothing; main asked once.
         assertTrue(master.requestedUrls.isEmpty())
         assertEquals(1, main.requestedUrls.size)
         // A 404 is no 429: the widget's host does not cool.
@@ -259,7 +259,7 @@ class XLadderTest {
             assertTrue(case.line, validator.seen.isEmpty())
             assertTrue(case.line, master.requestedUrls.isEmpty())
             assertEquals(case.line, 1, case.main.requestedUrls.size)
-            // S7: a 429 to main's ask cools the widget's host from the stage's end.
+            // Social limits: a 429 to main's ask cools the widget's host from the stage's end.
             assertEquals(case.line, "RATE_LIMITED" in case.line, cooldown.cooling(WIDGET_HOST))
             assertBare(details)
         }
@@ -290,7 +290,7 @@ class XLadderTest {
                 (staged.result as MasterResult.Success).result.details,
         )
 
-        // V (S6): a playlist has no file start, so no pass, nothing asked; the tab's own playback.
+        // Row check: a playlist has no file start, so no pass, nothing asked; the tab's own playback.
         val files = Files { start() }
         val capture = CountingCapture()
         val checked = lookup(page(HLS_ONLY), main(HLS_ONLY, playlist), validator = SocialRowCheck(RecordingValidator(), files), capture = capture)
@@ -389,7 +389,7 @@ class XLadderTest {
             engine(FakeExtractorHttpClient()).extract(contractRequest(page(VIDEO), identify(page(VIDEO)), SiteExtractionFailure.NO_MEDIA_FOUND))
         }
         assertTrue(elsewhere.toString(), "$X1: none kept for the post; nothing to read" in detailsOf(elsewhere))
-        // Task 12: main's answer remembered (P17), main asked nothing in this lookup: the line says so.
+        // Main's answer remembered (Lookup reuse), main asked nothing in this lookup: the line says so.
         for (reuse in LookupRecord.Reuse.entries) {
             val unasked = withContext(record().also { it.noteReuse(reuse) } + MainPages(site = SITE)) {
                 engine(FakeExtractorHttpClient()).extract(contractRequest(page(VIDEO), identify(page(VIDEO)), SiteExtractionFailure.RESPONSE_CHANGED))
@@ -434,7 +434,7 @@ class XLadderTest {
         assertTrue(detailsOf(onTikTok).any { it.startsWith("master: tiktok") })
         assertFalse(detailsOf(onTikTok).any { it.startsWith("master: x") })
 
-        // Another site's lookup, or an X lookup without the record: not claimed (R8's path).
+        // Another site's lookup, or an X lookup without the record: not claimed (the site contract reader's path).
         val other = SitePageIdentity("vimeo", "100000001", "https://vimeo.com/100000001")
         withContext(record() + MainPages()) {
             assertFalse(stages.claims(contractRequest(other.canonicalPageUrl, other)))
@@ -603,7 +603,7 @@ class XLadderTest {
         const val LADDER = "master: x ladder"
         const val X1 = "master: x X1 main's answer"
 
-        /** Task 0: X1's line for the widget's 404 (never final; the tab's own playback next). */
+        /** X1's line for the widget's 404 (never final; the tab's own playback next). */
         const val NOT_FOUND_LINE = "$X1: NEEDS_PLAYBACK (status 404: no post in the widget's answer, not proof of removal); next: PLAYBACK"
         const val ITEM = "master: x X1 item"
         const val TIKTOK_PAGE = "https://www.tiktok.com/@fixture_user/video/7311234567890123456"

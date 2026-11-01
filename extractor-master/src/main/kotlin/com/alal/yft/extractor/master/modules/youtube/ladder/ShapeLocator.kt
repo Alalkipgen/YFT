@@ -9,7 +9,7 @@ import java.net.URI
 import java.net.URLDecoder
 
 /**
- * Phase 1.3 D5b — rung **L**, step 1 (MASTER_KEY_PHASE1_3_PLAN.md §3 L): the **value-shape scan**
+ * YouTube shape reader — rung **L**, its first step: the **value-shape scan**
  * of one parsed answer. What makes a format is read from values; key names are never trusted:
  *
  * - **Format-like object** ([Candidate]): exactly one YouTube media-server address
@@ -22,13 +22,13 @@ import java.net.URLDecoder
  *   positive integer `lengthSeconds` (number or digits).
  * - **Status object** ([StatusObject]): a direct text from the copied parser's status words.
  * - **HLS addresses**: https on `manifest.googlevideo.com` under `/api/manifest/hls_variant/` or
- *   `/api/manifest/hls_playlist/` (§3 H step 1).
+ *   `/api/manifest/hls_playlist/` (the YouTube HLS rung's first step).
  * - **DRM marker** ([Scan.drm], found at [Scan.drmPath]): one of the copied parser's DRM keys
  *   ([DRM_KEYS]: `drmParams`, `drmSessionId`, `drmFamilies`, `drmTrackType`) with a value under
  *   any container — never weaker than the parser, also when lists or objects are moved or
  *   renamed — or a `WIDEVINE` / `PLAYREADY` / `FAIRPLAY` / `DRM_TRACK_TYPE_…` text inside a
  *   format-like object (a format's renamed DRM key). Other keys and texts are no marker: in the
- *   owner's census (D7, 2026-10-15) L stopped on every live visionOS answer the copied parser
+ *   owner's census (2026-10-15) L stopped on every live visionOS answer the copied parser
  *   read without DRM — the old rule (any `drm…` key, a DRM text anywhere) fired on something
  *   else there, likely a player setting. The normalizer then stops, as the copied parser does on DRM.
  *
@@ -40,7 +40,7 @@ import java.net.URLDecoder
  * part does (so nothing the normalizer judges can hide deeper). An incomplete scan gives no L rows.
  *
  * The scan binds nothing: candidates from every part of the answer are listed (another video's
- * too); binding to the video is ShapeNormalizer's step 2. D2's judge reuses it ([Scan.moved],
+ * too); binding to the video is ShapeNormalizer's step 2. The Answer judge reuses it ([Scan.moved],
  * [Scan.partial], [Scan.hls]). No request, no log; `toString` shows counts and key paths only
  * (a key equal to the video ID or not key-like reads `*`).
  */
@@ -183,16 +183,16 @@ internal object ShapeLocator {
         /** A DRM marker was found: the normalizer stops (DRM_PROTECTED), as the copied parser does. */
         val drm: Boolean get() = drmPath != null
 
-        /** The HLS address when exactly one was located (§3 H step 1), else null. */
+        /** The HLS address when exactly one was located (the HLS rung's first step), else null. */
         val hls: String? get() = hlsAddresses.singleOrNull()
 
         /** Key paths of the format-like objects (the L shape map's located side). */
         val formatPaths: Set<String> get() = candidates.mapTo(LinkedHashSet(), Candidate::path)
 
-        /** `moved` for D2: format-like objects outside the canonical lists. */
+        /** `moved` for the Answer judge: format-like objects outside the canonical lists. */
         val moved: Boolean get() = candidates.any { it.path !in CANONICAL_LISTS }
 
-        /** `partial` for D2: format-like objects in the canonical lists that the copied parser cannot read as they are. */
+        /** `partial` for the Answer judge: format-like objects in the canonical lists that the copied parser cannot read as they are. */
         val partial: Boolean get() = candidates.any { it.path in CANONICAL_LISTS && !it.canonicalKeys }
 
         override fun toString(): String =

@@ -10,12 +10,12 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 
 /*
- * Phase 1.3 rungs on visionOS itself (MASTER_KEY_PHASE1_3_PLAN.md §3, §4 D4 and D5a). This file
- * holds rung Z; A (versions) and S (player script) come with D5a.
+ * YouTube ladder rungs on visionOS itself. This file
+ * holds rung Z; A (versions) and S (player script) are elsewhere.
  */
 
 /**
- * Rung **Z** — sizes from the one-byte probe (guardrail 6, §4 D4; class `INCOMPLETE`, sizes):
+ * Rung **Z** — sizes from the one-byte probe (class `INCOMPLETE`, sizes):
  * the existing one-byte file check's total size (`ExtractorProbeResult.Answered.totalBytes`)
  * replaces a missing `contentLength`.
  *
@@ -143,7 +143,7 @@ internal class ZRung(
     }
 
     companion object {
-        /** Guardrail 7: at most 8 Z probes per lookup. */
+        /** The budget: at most 8 Z probes per lookup. */
         const val MAX_PROBES_PER_LOOKUP = 8
         const val MAX_TIMEOUT_MILLIS = 10_000L
         private const val GRACE_MILLIS = 1_000L

@@ -24,62 +24,62 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
- * Phase 1.3 D6 — the client ladder (MASTER_KEY_PHASE1_3_PLAN.md §3, §4 D3 and D6), Master-only,
+ * The YouTube ladder (the client ladder), Master-only,
  * behind `-Pyft.clientLadder` (debug only; the app passes one only when that flag and
- * masterCapture are on; `null` = R6, unchanged).
+ * masterCapture are on; `null` = the Master YouTube module's normal path, unchanged).
  *
- * Plan adapted (2026-10-15): the ladder works in the R6 chain's HTTP path. R6 (the copied
+ * The ladder works in the module's chain's HTTP path. The module (the copied
  * extractor, unchanged) still asks every client and builds every row, so rows come only from the
  * copied parser — on YouTube's answer or on L's canonical JSON — and the row-builder parity holds by
  * construction. Per lookup ([LadderLookup]):
  *  - every request of the chain goes out through the same-lookup memo ([LookupMemo.chain]);
- *  - a player answer about another video is dropped (F4: `RESPONSE_CHANGED`, the chain goes on);
- *  - each visionOS answer the chain gets (its first request, or R6's `R0+vd` after a bot check;
- *    (က+)) is judged ([AnswerJudge]). On `SHAPE_CHANGED` the chain gets L's canonical JSON holding
+ *  - a player answer about another video is dropped (the Answer change test's F4: `RESPONSE_CHANGED`, the chain goes on);
+ *  - each visionOS answer the chain gets (its first request, or the module's `R0+vd` after a bot check)
+ *    is judged ([AnswerJudge]). On `SHAPE_CHANGED` the chain gets L's canonical JSON holding
  *    only the rows that passed V and the init check in this lookup ([ShapeNormalizer], [LRows],
- *    [InitCheck] on the bytes [MediaStartReader] read; guardrails 6 and 9). On `INCOMPLETE` it
+ *    [InitCheck] on the bytes [MediaStartReader] read). On `INCOMPLETE` it
  *    gets the answer with the offered rows' sizes from the one-byte probe ([ZRung]) and without the
  *    other sizeless formats (they would not be offered). A direct answer (and Z's rows) gets V
  *    when visionOS has no pass in the last hour ([StreamCheck], one per lookup): a list whose
  *    checked row got 403 is refused by address. Anything else reaches the chain as it came;
  *  - after the chain (and the own solver's V): the refused rows are removed (merge rule); a
  *    verdict about the video (age, private, removed, DRM, geo) keeps the chain's result; a complete
- *    result (P22) too; otherwise the H leg ([HlsLeg], at most one per lookup) on the visionOS
- *    answer's HLS address, bound to the video's length, adds one HLS row (merge rule, guardrail 9:
+ *    result too; otherwise the H leg ([HlsLeg], at most one per lookup) on the visionOS
+ *    answer's HLS address, bound to the video's length, adds one HLS row (merge rule:
  *    the chain's rows stay, the ladder adds only a format they lack) with the chain's video key.
- *    In the `h-only` trial (D5c's phone download, debug builds only; [LadderTrial]) the result is
+ *    In the `h-only` trial (the YouTube HLS rung's phone download, debug builds only; [LadderTrial]) the result is
  *    that row alone, or no row.
  *
- * A (D5a, built after the close; §4 D5a "As built (A)"): when visionOS's version is rejected
+ * A (the alternate-version rung): when visionOS's version is rejected
  * (`VERSION_REJECTED`), the chain's request goes out again with only the version changed —
  * learned, then self-healed ([VersionSource]: one read a day of a reference table on
  * `raw.githubusercontent.com` through [sources]), then the bundled alternates — at most
  * [LadderLookup.MAX_A_PER_LOOKUP] player requests, once per lookup, never in cooldown, after a
- * bot check ((က+), guardrail 4) or in a live-check trial. A is provisional: its answer gets L, Z
+ * bot check or in a live-check trial. A is provisional: its answer gets L, Z
  * and V as visionOS's own and reaches the chain only with rows that passed V (or L rows); only then
- * is the version learned (guardrail 5). Otherwise the chain gets its own answer and the H leg may
+ * is the version learned. Otherwise the chain gets its own answer and the H leg may
  * use A's HLS address. Health ([ClientHealth]) records every visionOS class and the rung that
  * repaired it.
  */
 class MasterClientLadder internal constructor(
     internal val health: ClientHealth,
     internal val reader: MediaStartReader?,
-    /** D7's live-check switch (debug builds only; [LadderTrial.NONE] everywhere else). */
+    /** The live-check switch (debug builds only; [LadderTrial.NONE] everywhere else). */
     internal val trial: LadderTrial = LadderTrial.NONE,
     /** A's version-source reader (null: A uses the learned version and the bundled alternates only). */
     internal val sources: VersionSourceReader? = null,
 ) {
-    /** V's day budget for direct answers (guardrail 6: the client ID is the key). */
+    /** V's day budget for direct answers (the client ID is the key). */
     internal val vLedger = StreamCheck.MemoryLedger()
 
-    /** A's versions (D5a): learned, self-healed (today's value in memory), bundled alternates. */
+    /** A's versions: learned, self-healed (today's value in memory), bundled alternates. */
     internal val versions = VersionSource(health, sources)
 
     /**
      * The app's ladder: its health in [healthFile] (null: memory only); L rows read by [reader];
      * A's version sources read by [sources]. With a live-check [trial] the health stays in memory
      * only — the file is never read or written — so the normal build's health never holds what a
-     * changed answer taught (D7); A does not run in a trial.
+     * changed answer taught; A does not run in a trial.
      */
     constructor(
         healthFile: OwnSolverTextFile?,
@@ -98,7 +98,7 @@ class MasterClientLadder internal constructor(
         "MasterClientLadder(reader=${reader != null}, sources=${sources != null}, trial=${trial.label})"
 }
 
-/** Reads the first bytes of a media file: an L row's V and its init check on the same bytes (guardrail 6). */
+/** Reads the first bytes of a media file: an L row's V and its init check on the same bytes. */
 fun interface MediaStartReader {
     /** A GET of [url] with [headers] (no cookie) and `Range: bytes=0-(maxBytes - 1)`. */
     suspend fun read(url: String, headers: Map<String, String>, maxBytes: Int): MediaStart
@@ -123,7 +123,7 @@ sealed interface MediaStart {
     }
 }
 
-/** One lookup of the ladder: [chain] is the R6 chain's HTTP client, [finish] its last step. */
+/** One lookup of the ladder: [chain] is the Master YouTube module's chain's HTTP client, [finish] its last step. */
 internal class LadderLookup(
     private val ladder: MasterClientLadder,
     http: ExtractorHttpClient,
@@ -146,10 +146,10 @@ internal class LadderLookup(
     private var aRequests = 0
     private val pageUrl = YouTubeUrls.watchPageFetchUrl(videoId)
 
-    /** Phase 1.4 item 4: the player ID this lookup's page named (kept after a successful lookup). */
+    /** The player ID this lookup's page named (kept after a successful lookup). */
     private var pagePlayerId: String? = null
 
-    /** Addresses V proved refused in this lookup (merge rule, guardrail 9); memory only, never logged. */
+    /** Addresses V proved refused in this lookup (merge rule); memory only, never logged. */
     private val refused = HashSet<String>()
 
     /** What the ladder did, for the result's details: rungs, counts and reasons; never a value. */
@@ -190,7 +190,7 @@ internal class LadderLookup(
     }
 
     /**
-     * Phase 1.4 item 4: the watch page. When it names no player ID, S gets the one from the last
+     * The watch page. When it names no player ID, S gets the one from the last
      * successful lookup ([PagePlayerId]); never after a bot check. V and the init check stay.
      */
     private fun page(page: ExtractorHttpResult.Success): ExtractorHttpResult {
@@ -228,7 +228,7 @@ internal class LadderLookup(
         return other(client, success, root)
     }
 
-    /** D7's live-check switch on visionOS's answer, in memory before the judge (debug builds only). */
+    /** The live-check switch on visionOS's answer, in memory before the judge (debug builds only). */
     private suspend fun tried(success: ExtractorHttpResult.Success, root: JsonValue?): ExtractorHttpResult {
         val trial = ladder.trial
         if (trial.skip == LadderTrial.SKIP_VISION_OS) {
@@ -250,8 +250,8 @@ internal class LadderLookup(
     }
 
     /**
-     * Another client of the chain (Android, MWEB, embedded: the O rungs R6 asks; Plan adapted):
-     * judged for health, and V on its direct rows (guardrail 9; a provisional client on every
+     * Another client of the chain (Android, MWEB, embedded: the O rungs the module asks):
+     * judged for health, and V on its direct rows (a provisional client on every
      * lookup). Its answer reaches the chain as it came; a refused list is removed by [merge].
      */
     private suspend fun other(client: String, success: ExtractorHttpResult.Success, root: JsonValue?): ExtractorHttpResult {
@@ -297,7 +297,7 @@ internal class LadderLookup(
             CensusClass.INCOMPLETE -> zSizes(verdict, success.body)?.let { body = it; rung = ClientHealth.Rung.Z }
             else -> Unit
         }
-        // V when needed (guardrail 9): the answer's own addresses, from a client without a pass in the last hour.
+        // V when needed: the answer's own addresses, from a client without a pass in the last hour.
         var recorded = answerClass
         var passed = rung != null || answerClass == CensusClass.DIRECT
         if (answerClass == CensusClass.DIRECT || rung == ClientHealth.Rung.Z) {
@@ -318,7 +318,7 @@ internal class LadderLookup(
     private class Healed(val candidate: VersionSource.Candidate, val success: ExtractorHttpResult.Success, val verdict: AnswerJudge.Verdict)
 
     /**
-     * A (D5a; guardrail 5's order): visionOS's version was rejected. Once per lookup, outside a
+     * A (in the version source's order): visionOS's version was rejected. Once per lookup, outside a
      * live-check trial, when visionOS may be asked (no cooldown, no bot check): the chain's request
      * again with only the version changed — the learned version, then a self-healed one (at most one
      * source read a day), then the bundled alternates — until one is not rejected, at most
@@ -393,10 +393,10 @@ internal class LadderLookup(
     }
 
     /**
-     * A's answer, provisional (guardrail 9: V on every answer): its rungs as for visionOS's own
+     * A's answer, provisional (V on every answer): its rungs as for visionOS's own
      * answer — L on a shape change, Z on missing sizes, V on direct rows (no last-hour skip). It
      * reaches the chain only with rows that passed V (or L rows), and only then is the version
-     * learned (guardrail 5) and A the working variant. Otherwise it is dropped (null): the chain,
+     * learned and A the working variant. Otherwise it is dropped (null): the chain,
      * H and the health get visionOS's own answer, the rejection (its 24 h cooldown).
      */
     private suspend fun healedAnswer(healed: Healed): ExtractorHttpResult? {
@@ -431,12 +431,12 @@ internal class LadderLookup(
     private class VStep(val passed: Boolean, val tokenNeeded: Boolean)
 
     /**
-     * V on a direct answer of client [id] (guardrails 6 and 9; D4 rule): with [hourSkip] skipped
+     * V on a direct answer of client [id] (the Row check's rule): with [hourSkip] skipped
      * when that client passed in the last hour. One target (the best adaptive video row to offer, else a progressive row), one
      * control from the other list. The rows of a list whose checked row got 403 are refused for
-     * this lookup — the chain still gets the answer as it came (its requests stay R6's) and
+     * this lookup — the chain still gets the answer as it came (its requests stay the module's) and
      * [merge] removes them by address (a 403 with an open control: `TOKEN_NEEDED`); any other
-     * `unknown` keeps the rows as R6 shows them, without a pass. Null when no V ran.
+     * `unknown` keeps the rows as the module shows them, without a pass. Null when no V ran.
      */
     private suspend fun vDirect(id: String, video: YouTubeVideo?, hourSkip: Boolean): VStep? {
         video ?: return null
@@ -534,7 +534,7 @@ internal class LadderLookup(
     }
 
     /**
-     * D5c's phone check (the `h-only` trial, debug builds only): the result is H's one HLS row
+     * The YouTube HLS rung's phone check (the `h-only` trial, debug builds only): the result is H's one HLS row
      * alone — the chain's rows are left out, complete or not, and nothing is recorded as repaired —
      * so the owner's download goes through H. Without an H row: no row (the chain's failure, else
      * "no media found"), with H's reason in the notes.
@@ -612,14 +612,14 @@ internal class LadderLookup(
         else -> result
     }
 
-    /** P22: a video merged with its audio track and the audio track itself, or an HLS row. */
+    /** A video merged with its audio track and the audio track itself, or an HLS row. */
     private fun complete(rows: List<MediaCandidate>): Boolean =
         rows.any { it.kind == MediaKind.HLS } || (
             rows.any { it.audioCompanion != null } &&
                 rows.any { it.audioCompanion == null && it.mimeType.orEmpty().startsWith("audio/") }
             )
 
-    /** The download's headers without a cookie (guardrail 6). */
+    /** The download's headers without a cookie. */
     private fun mediaHeaders(): Map<String, String> = buildMap {
         request.requestContext.userAgent?.takeIf(String::isNotBlank)?.let { put("User-Agent", it) }
         put("Referer", YouTubeUrls.canonicalUrl(videoId))

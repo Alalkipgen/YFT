@@ -6,22 +6,22 @@ import com.alal.yft.extractor.api.json.path
 import java.net.URI
 
 /**
- * Phase 1.3 D5a — A's versions, built after the close (MASTER_KEY_PHASE1_3_PLAN.md §3 A, §4 D5a
- * "As built (A)", guardrail 5, §9 items 3 and 13). When YouTube rejects a client's version
- * (`VERSION_REJECTED`), the ladder's A rung asks once more per version, in guardrail 5's order:
+ * Client version source — the A rung's versions.
+ * When YouTube rejects a client's version
+ * (`VERSION_REJECTED`), the ladder's A rung asks once more per version, in this order:
  *
  * 1. the **learned** working version ([learned]; stored in the health only after an answer judged
  *    OK with a row that passed V, dropped when it is rejected or no longer newer than the bundled
  *    one);
- * 2. (a signed version: D8, dropped by the owner, §9 item 4);
+ * 2. (a signed version: dropped by the owner);
  * 3. a **self-healed** version ([selfHealed]): one value read from the client's first live version
  *    source in the table ([MasterClientTable.Entry.versionSources]) with the census's reader
  *    ([CensusSources.DOCUMENTS]): exactly one value, the client's strict pattern, newer than the
- *    bundled one; never code, never invented or counted up. Owner, 2026-10-15 (§9 item 3): only on
+ *    bundled one; never code, never invented or counted up. The owner's rule: only on
  *    [SOURCE_HOSTS] (`raw.githubusercontent.com`), no redirect followed, ≤ 64 KiB, text only, in a
  *    lookup only after `VERSION_REJECTED`, at most once a day per identity (the health's clock,
  *    claimed before the read: a failed read spends the day too); not after a bot check
- *    (guardrail 4); the user's own User-Agent only, no cookie, no token ([VersionSourceReader]);
+ *    (no bypass); the user's own User-Agent only, no cookie, no token ([VersionSourceReader]);
  * 4. ≤ [MAX_ALTERNATES] **bundled alternates** from a public reference ([alternates]; visionOS's
  *    1.05 today, [MasterClientTable.VISION_OS_ALTERNATE]).
  *
@@ -60,7 +60,7 @@ internal class VersionSource(
 
     private class Fetched(val candidate: Candidate, val at: Long)
 
-    /** The value read today per identity: memory only, never stored (guardrail 5). */
+    /** The value read today per identity: memory only, never stored. */
     private val fetched = HashMap<String, Fetched>()
 
     /** The learned working version of [entry], or null; one that no longer qualifies is forgotten. */
@@ -143,7 +143,7 @@ internal class VersionSource(
     override fun toString(): String = "VersionSource(reader=${reader != null})"
 
     companion object {
-        /** Owner, 2026-10-15 (§9 item 3): the only host a lookup may read a version from. */
+        /** The owner's rule: the only host a lookup may read a version from. */
         val SOURCE_HOSTS: Set<String> = setOf("raw.githubusercontent.com")
         const val MAX_ALTERNATES = 2
         const val VERSION_HEADER = "X-YouTube-Client-Version"
@@ -198,7 +198,7 @@ internal class VersionSource(
 }
 
 /**
- * Reads a version source for A (D5a): one GET of [url] with [headers] (the user's User-Agent
+ * Reads a version source for the A rung: one GET of [url] with [headers] (the user's User-Agent
  * only), no cookie, **no redirect followed** (a redirect is a failure), at most [maxBodyBytes]
  * read, as text. The app's reader allows HTTPS on `raw.githubusercontent.com` only; nothing is
  * logged.

@@ -16,34 +16,34 @@ import kotlin.math.abs
 import kotlin.math.roundToLong
 
 /**
- * Phase 1.3 D5b — rung **L**, steps 2–6 (MASTER_KEY_PHASE1_3_PLAN.md §3 L, guardrails 2 and 9):
+ * YouTube shape reader — rung **L**, its steps 2–6:
  * a changed answer → [ShapeLocator]'s scan → bind to the video → canonical JSON → the copied
  * `YouTubePlayerResponseParser.parse` (unchanged) → the offer set (≤ [MAX_OFFER]).
  *
- * 1. Playability (step 4): the answer's own `playabilityStatus.status` is the copied parser's
- *    verdict; without one, exactly one located status object. Anything but `OK` → [Stop] (the R6
+ * 1. Playability: the answer's own `playabilityStatus.status` is the copied parser's
+ *    verdict; without one, exactly one located status object. Anything but `OK` → [Stop] (the Master YouTube module's
  *    chain decides); none, or several that are all `OK` → no L rows.
- * 2. Binding (step 2): the video objects carrying the requested video ID must agree on one length
+ * 2. Binding: the video objects carrying the requested video ID must agree on one length
  *    (Plan adapted: one object, or copies of the same length such as a microformat; different
  *    lengths → ambiguous); a candidate binds when its address's `dur`, else its `approxDurationMs`,
  *    else an integer field of milliseconds lies within ±1.5 s of that length — others are dropped
  *    (another video's formats). All bound candidates must sit in lists or maps under one parent
  *    (`streamingData` and its lists), else ambiguous → no L rows. Duplicates (same address or
  *    cipher) count once.
- * 3. Field mapping (step 3): `itag`, address or cipher and mime come from [ShapeLocator]'s value
+ * 3. Field mapping: `itag`, address or cipher and mime come from [ShapeLocator]'s value
  *    rules. Plan adapted: the other fields are integers or words whose shape alone cannot tell them
  *    apart, so they are read under their canonical names with normalized types (digit text or
  *    number), and by shape only where the shape is distinctive (`1080p60` for `qualityLabel`,
  *    `AUDIO_QUALITY_…` for `audioQuality`). A renamed size stays missing (Z, the init check).
- * 4. Canonical JSON (step 5): `playabilityStatus`, `videoDetails`, `streamingData` (`formats` for
+ * 4. Canonical JSON: `playabilityStatus`, `videoDetails`, `streamingData` (`formats` for
  *    candidates whose codecs name a video and an audio track, else `adaptiveFormats`,
  *    `hlsManifestUrl`, `expiresInSeconds`); a DRM marker or a live flag goes in too, so the copied
  *    parser stops as on the answer itself. Main's row rules apply unchanged.
- * 5. Offer set (step 6): the copied extractor's selection (mirrored; it is private), at most
+ * 5. Offer set: the copied extractor's selection (mirrored; it is private), at most
  *    [MAX_OFFER] rows — companions first, then merged rows by quality, then progressive files.
  *    Every offered row needs V and the init check in this lookup ([LRows]).
  *
- * Steps 7–8 (shape map memory, page signals) are not here yet. No request, no log; outcomes
+ * The shape map memory and the page signals are not here yet. No request, no log; outcomes
  * print reasons and counts only.
  */
 internal object ShapeNormalizer {
@@ -88,7 +88,7 @@ internal object ShapeNormalizer {
                 "located=$located, paths=${paths.size}, hls=${hls != null})"
     }
 
-    /** A verdict that is not `OK` (age check, private, bot check, DRM, live, …): the R6 chain decides. */
+    /** A verdict that is not `OK` (age check, private, bot check, DRM, live, …): the module's chain decides. */
     class Stop internal constructor(val failure: YouTubeParseResult.Failure) : Outcome() {
         override val hls: String? get() = null
         override val lengthSeconds: Long? get() = null
@@ -428,18 +428,18 @@ internal object ShapeNormalizer {
     private const val OK = "OK"
 }
 
-/** V and the init check on one L row, on the same bytes (guardrails 6 and 9; wired by D6). */
+/** V and the init check on one L row, on the same bytes (wired by the ladder). */
 internal fun interface LRowCheck {
     suspend fun check(row: YouTubeStream): StreamCheck.Verdict
 }
 
 /**
- * Phase 1.3 D5b step 6: which offered L rows may be shown. Every row needs a [LRowCheck] `pass` in
+ * Which offered L rows may be shown. Every row needs a [LRowCheck] `pass` in
  * this lookup; `fail` and `unknown` drop it (unknown is never pass). The audio companions are
  * checked first; a merged row is checked only when its companion passed (an MP4 row needs the AAC
  * track, a WebM row the Opus track), so no V is spent on a row that cannot be shown. A row without
  * a direct address (protected: S's work) is not checked here and not shown. At most
- * [ShapeNormalizer.MAX_OFFER] checks. Complete (P22): a merged row and its companion both passed.
+ * [ShapeNormalizer.MAX_OFFER] checks. Complete: a merged row and its companion both passed.
  */
 internal object LRows {
     class Checked internal constructor(

@@ -8,8 +8,8 @@ import java.net.URI
 import kotlinx.coroutines.CancellationException
 
 /**
- * Phase 1.3 D0: the census's H check with the **token step** (MASTER_KEY_PHASE1_3_PLAN.md §4 D0,
- * guardrail 6): the master playlist (≤ [MAX_MASTER_BYTES]) and the highest-resolution variant
+ * Client census: the census's H check with the **token step**:
+ * the master playlist (≤ [MAX_MASTER_BYTES]) and the highest-resolution variant
  * playlist (≤ [MAX_VARIANT_BYTES]; a larger one is `too-large`, never `2xx`) and the first
  * segment of that variant (the one-byte file check), each `2xx` or `403`; the
  * master's variants, highest resolution, audio form and codec families; any `#EXT-X-KEY` or
@@ -18,7 +18,7 @@ import kotlinx.coroutines.CancellationException
  *
  * Every address must be HTTPS on a `googlevideo.com` host, else the step is `host` and nothing is
  * asked. At most 3 requests. The result holds statuses, counts and codec families only, never an
- * address or a playlist line. D4 adds the content-type and container checks of the lookup's H
+ * address or a playlist line. The Row check adds the content-type and container checks of the lookup's H
  * check on top of this.
  */
 internal class HlsCheck(
@@ -224,11 +224,11 @@ internal class HlsCheck(
     }
 
     companion object {
-        /** The master playlist's read cap (guardrail 6): a list of variants, a few KiB in every census run. */
+        /** The master playlist's read cap: a list of variants, a few KiB in every census run. */
         const val MAX_MASTER_BYTES: Long = 256L * 1024
 
         /**
-         * The variant playlist's read cap (guardrail 6; the owner, 2026-10-16; was 256 KiB): it lists
+         * The variant playlist's read cap (was 256 KiB): it lists
          * every segment with its full address, so it grows with the video (census video 10, 1203 s,
          * passed 256 KiB); 1 MiB holds about an hour (an estimate). Over it → `too-large`.
          */

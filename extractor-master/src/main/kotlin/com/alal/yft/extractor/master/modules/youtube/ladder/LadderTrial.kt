@@ -3,13 +3,13 @@ package com.alal.yft.extractor.master.modules.youtube.ladder
 import com.alal.yft.extractor.api.json.JsonValue
 
 /**
- * Phase 1.3 D7 prep (MASTER_KEY_PHASE1_3_PLAN.md §4 D5b, D5c, D6, D7): the owner's live-check
+ * Ladder test switches: the owner's live-check
  * switches, in a debug build only (`-Pyft.ladderSkip`, `-Pyft.ladderMutate`; release and preview:
  * none). Each changes visionOS's live answer in memory before the judge (`h-only`: the lookup's
  * result after the chain), never a request:
  *  - `visionos`: the answer is not used (the chain goes on as after a refusal; O expected);
  *  - `visionos-adaptive`: its adaptive formats are left out (H expected);
- *  - `h-only` (D5c, the owner's order of 2026-10-16): the answer as it came; the lookup's result
+ *  - `h-only` (the YouTube HLS rung): the answer as it came; the lookup's result
  *    is H's one HLS row alone — the chain's rows left out, complete or not — so the owner downloads
  *    through H on the phone (no H row → no row, with H's reason in the notes);
  *  - `L1`, `L2`, `L3`, `L5`, `L7`: the simulator's layout changes of the same names (L expected:
@@ -20,7 +20,7 @@ class LadderTrial private constructor(val skip: String?, val mutation: String?) 
     /** The mode's name for the ladder's notes; never a value. */
     val label: String get() = skip ?: mutation ?: "none"
 
-    /** D5c's phone check: the result keeps only H's row; visionOS's answer is not changed. */
+    /** The YouTube HLS rung's phone check: the result keeps only H's row; visionOS's answer is not changed. */
     val hOnly: Boolean get() = skip == H_ONLY
 
     /** [root] after this trial's change, or null when the trial leaves it as it came. */
@@ -55,7 +55,7 @@ class LadderTrial private constructor(val skip: String?, val mutation: String?) 
         private val LISTS = listOf("formats", "adaptiveFormats")
 
         /**
-         * The layout change [id] (plan §3 L matrix) on a player answer, or null when it changes
+         * The layout change [id] (an Answer change test case) on a player answer, or null when it changes
          * nothing: L1 `streamingData` moved under `playback`; L2 the lists renamed; L3 each address
          * key renamed; L5 each `signatureCipher` renamed; L7 each list made an object keyed by itag.
          */

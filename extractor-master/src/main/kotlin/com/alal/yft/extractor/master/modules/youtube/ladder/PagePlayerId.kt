@@ -3,7 +3,7 @@ package com.alal.yft.extractor.master.modules.youtube.ladder
 import com.alal.yft.extractor.master.modules.youtube.YouTubeUrls
 
 /**
- * Phase 1.4 item 4 (MASTER_KEY_PHASE1_3_PLAN.md §10; the owner's go under guardrail 4): the last
+ * YouTube ladder (no bypass): the last
  * good player ID when the watch page names none.
  *
  * [named] reads the page the way the copied page reader does (`YouTubePlayerResponseParser`'s

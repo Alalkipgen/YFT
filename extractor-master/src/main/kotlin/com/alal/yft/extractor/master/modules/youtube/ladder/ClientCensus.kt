@@ -28,9 +28,9 @@ import java.net.URLDecoder
 import kotlinx.coroutines.CancellationException
 
 /**
- * Phase 1.3 D0: the owner's client census and weekly check (MASTER_KEY_PHASE1_3_PLAN.md §4 D0).
+ * Client census: the owner's client census and weekly check.
  *
- * **Full census**, per video in list order: (1) visionOS as R6 asks it — class, counts, heights,
+ * **Full census**, per video in list order: (1) visionOS as the Master YouTube module asks it — class, counts, heights,
  * V on one AVC row, the shape fingerprint, and the H check with the token step when an HLS
  * address is present; (2)
  * visionOS again with the page's signature timestamp and visitor data, only when (1) carried
@@ -40,18 +40,18 @@ import kotlinx.coroutines.CancellationException
  * as main asks it — class, S through the own solver, V; (6) MWEB — class, S, V. After video 1 the
  * public version sources are read once ([CensusSources]); a new valid value newer than the
  * bundled one is tried once (`SH`: one request and V) on the first video in list order without a
- * bot check and with a watch page (B7, owner 2026-10-15), with MWEB's formats without an address
- * compared between the bundled and the newer version. Every answer is classed by D2's
+ * bot check and with a watch page, with MWEB's formats without an address
+ * compared between the bundled and the newer version. Every answer is classed by the
  * [AnswerJudge].
  *
  * **Weekly check**: videos 1 and 5 visionOS (V on one row, H on video 1), then Android, embedded
  * and MWEB once on video 1 (no S), the version sources only when not read in 24 h, and the
- * version acceptance on video 1; ≤ 60 s, ≤ 2 MB and ≤ 20 requests. When video 1 met a bot check
- * (owner, 2026-10-15): H runs on its `R0+vd` answer when that is `DIRECT` (B5), and video 2 (no bot
- * check in valid runs 1–3) gets the rest under a soft budget ([weeklySecond]): visionOS for H only
- * when no H ran yet, then its watch page, Android and MWEB (B6) and the version acceptance (B7).
+ * version acceptance on video 1; ≤ 60 s, ≤ 2 MB and ≤ 20 requests. When video 1 met a bot check:
+ * H runs on its `R0+vd` answer when that is `DIRECT`, and video 2 (no bot
+ * check in the first valid runs) gets the rest under a soft budget ([weeklySecond]): visionOS for H only
+ * when no H ran yet, then its watch page, Android and MWEB and the version acceptance.
  *
- * **A check** (D5a, owner 2026-10-16, option 2; [aCheck]): video 2 only — visionOS 1.02 as R6 asks
+ * **A check** ([aCheck]): video 2 only — visionOS 1.02 as the module asks
  * it (`R0`, no visitor data) and, only when that answer is `DIRECT`, the same request once more
  * with only the version changed to visionOS's bundled alternate ([A_CHECK_ALTERNATE], 1.05 from
  * the App Store listing since 2026-10-17, NewPipe's 1.04 before; as the ladder's A rung changes it;
@@ -59,26 +59,26 @@ import kotlinx.coroutines.CancellationException
  * on either request stops it at once with no run for 30 min. The run is reported, not kept for
  * the diff.
  *
- * **Bot checks** (owner, 2026-10-15): after a bot check the census never sends a request R6 would
- * not send, and like R6 it answers each lookup (each video) on its own. A bot check on visionOS's
- * first request of a video (no visitor data: R6's own first request) is answered as R6 answers it
+ * **Bot checks**: after a bot check the census never sends a request the module would
+ * not send, and like the module it answers each lookup (each video) on its own. A bot check on visionOS's
+ * first request of a video (no visitor data: the module's own first request) is answered as the module answers it
  * ([answerAsR6]): that video's watch page once and visionOS once more with the page's visitor data
- * (`R0+vd`, R6's `visionOsInChain` request), V on one row of that answer (a one-byte read of a row
- * the download reads) and, when it is `DIRECT`, the H check on its HLS address ((က+), owner
- * 2026-10-15: reads on `manifest.googlevideo.com` and the media host, no YouTube request), nothing
+ * (`R0+vd`, the module's `visionOsInChain` request), V on one row of that answer (a one-byte read of a row
+ * the download reads) and, when it is `DIRECT`, the H check on its HLS address (
+ * reads on `manifest.googlevideo.com` and the media host, no YouTube request), nothing
  * else for that video, and the run goes on with the next video. A
  * bot check on a request that already carried visitor data (`R0+vd`, or a client asked with the
  * page's visitor data) stops the run with no run for 30 min; so does HTTP 429 (no retry). A bot
- * check on any other request without visitor data ends that video only: R6 has no visitor data
+ * check on any other request without visitor data ends that video only: the module has no visitor data
  * to ask again with.
  *
  * Every request is built by the copied request builder (`YouTubeClientProfile.playerRequestBody`)
- * with R6's headers, without a cookie or a token (guardrail 3). V is the shared [StreamCheck]
+ * with the module's headers, without a cookie or a token. V is the shared [StreamCheck]
  * (one-byte read, only on hosts this video's answers returned, the download's User-Agent and
  * Referer). The report and the state hold classes, counts, verdicts, times, bytes, public version
  * strings and key-path fingerprints, never an address, a value, visitor data or a video ID
  * (videos are numbered; [CensusSanitizer] is the last guard). It runs only while its owner tool
- * is open and after a tap (guardrail 11); it schedules nothing.
+ * is open and after a tap; it schedules nothing.
  */
 class ClientCensus(
     private val http: ExtractorHttpClient,
@@ -88,7 +88,7 @@ class ClientCensus(
     private val clock: () -> Long = System::currentTimeMillis,
     private val toolLabel: String = TOOL_LABEL,
 ) {
-    /** [A_CHECK]: D5a's A check (owner, 2026-10-16), whether visionOS's alternate may be bundled; not a census run. */
+    /** [A_CHECK]: the A check, whether visionOS's alternate may be bundled; not a census run. */
     enum class Mode { FULL, WEEKLY, A_CHECK }
 
     /** Wire bytes the census's HTTP client moved so far; negative when nothing measures them. */
@@ -217,13 +217,13 @@ class ClientCensus(
     }
 
     /**
-     * D5b / D7 census L steps on each live `DIRECT` visionOS answer (full census only; in memory,
+     * The census's L steps (the YouTube shape reader) on each live `DIRECT` visionOS answer (full census only; in memory,
      * no request): (1) the L round-trip — the canonical JSON's offer set is the direct parse's;
      * (2) L1, L2, L3, L5 and L7 ([LadderTrial.mutate]) on the answer — L finds the same rows
      * (itag and address) again. L's rows are the direct parse's own addresses, so the answer's V
      * (one row, above) stands for them; the app's ladder checks every L row itself.
      * No rows reads `none (<why>)`, or `none (stop <reason>)` when L stops as the copied parser
-     * would (D7, 2026-10-15); a stop on DRM names where L's DRM marker sits (a key path, never a
+     * would; a stop on DRM names where L's DRM marker sits (a key path, never a
      * value).
      */
     private fun lSteps(session: Session, video: Video, asked: Asked) {
@@ -387,11 +387,11 @@ class ClientCensus(
     }
 
     /**
-     * The weekly check after video 1's bot check (owner, 2026-10-15): video 1 was answered as R6,
-     * so video 2 (no bot check in valid runs 1–3) gets what video 1 could not. visionOS is asked
-     * on it as R6 asks it (V on one row) for the H check only when no `R0+vd` answer gave one (B5);
-     * then its watch page, Android (V) and MWEB (V on a row without a script) — B6 — and the version
-     * acceptance on it (B7). Its own bot check is answered as R6, and then no other client is
+     * The weekly check after video 1's bot check: video 1 was answered as the Master YouTube module answers it,
+     * so video 2 (no bot check in the first valid runs) gets what video 1 could not. visionOS is asked
+     * on it as the module asks it (V on one row) for the H check only when no `R0+vd` answer gave one;
+     * then its watch page, Android (V) and MWEB (V on a row without a script) and the version
+     * acceptance on it. Its own bot check is answered as the module does, and then no other client is
      * asked. Under a soft budget: what does not fit in the 20 requests is not asked, the run goes
      * on (not stopped), and a note names what was left out.
      */
@@ -489,9 +489,9 @@ class ClientCensus(
     private fun startedAgo(at: Long): Long = if (at <= 0) Long.MAX_VALUE else clock() - at
 
     /**
-     * D5a's A check (owner, 2026-10-16, option 2): may visionOS's alternate ([A_CHECK_ALTERNATE]) be bundled as
-     * visionOS's alternate (guardrail 5)? On video 2 only (no bot check in valid runs 1–3):
-     * visionOS 1.02 as R6 asks it (`R0`, no visitor data, no page); only when that answer is
+     * The A check: may visionOS's alternate ([A_CHECK_ALTERNATE]) be bundled as
+     * visionOS's alternate? On video 2 only (no bot check in the first valid runs):
+     * visionOS 1.02 as the Master YouTube module asks it (`R0`, no visitor data, no page); only when that answer is
      * `DIRECT` (YouTube answers this address now), the same request once more with only the
      * version changed (the body's `clientVersion` and `X-YouTube-Client-Version`, as the ladder's
      * A rung changes them), then, when that answer is `DIRECT`, V on one of its rows (the AVC row
@@ -569,14 +569,14 @@ class ClientCensus(
     }
 
     /**
-     * What R6 sends after a bot check on its first request (the copied extractor's watch page GET
+     * What the Master YouTube module sends after a bot check on its first request (the copied extractor's watch page GET
      * and `visionOsInChain`), and nothing more: the watch page once, then visionOS once more with
      * the page's visitor data, in the body and as `X-Goog-Visitor-Id`, otherwise as before the
-     * page; without visitor data R6 does not ask again, and neither does the census. V reads one
+     * page; without visitor data the module does not ask again, and neither does the census. V reads one
      * byte of one row of that answer (a row the download reads) and, when it is `DIRECT`, the H
-     * check reads its HLS address ((က+), B5; no YouTube request). No S, alternate, Android,
+     * check reads its HLS address (no YouTube request). No S, alternate, Android,
      * embedded player or MWEB for this video, and no version is tried on it. A bot check
-     * on that request, which carries visitor data, stops the run ([ask]). R6 answers each lookup
+     * on that request, which carries visitor data, stops the run ([ask]). The module answers each lookup
      * on its own, so this runs for every video whose first request met a bot check (owner,
      * 2026-10-15). Only reached while the run is not stopped.
      */
@@ -657,10 +657,10 @@ class ClientCensus(
         }
         video.hosts += asked.hosts()
         if (asked.record.answerClass == CensusClass.BOT_CHECK) {
-            // R6 answers each lookup on its own (owner, 2026-10-15): a request that already carried
-            // visitor data is where R6's answer ends, so the run stops; visionOS's first request of
-            // a video is answered as R6 answers it (the callers' answerAsR6); any other request
-            // without visitor data ends this video only, as R6 has none to ask again with.
+            // The module answers each lookup on its own: a request that already carried
+            // visitor data is where the module's answer ends, so the run stops; visionOS's first request of
+            // a video is answered as the module answers it (the callers' answerAsR6); any other request
+            // without visitor data ends this video only, as the module has none to ask again with.
             when {
                 // The A check (owner, 2026-10-16): a bot check on either of its requests stops it at once.
                 signals.visitorData != null || session.mode == Mode.A_CHECK -> {
@@ -730,7 +730,7 @@ class ClientCensus(
         return Asked(profile, video, root, parsed, record, verdict.hls)
     }
 
-    /** R6's player headers (the copied extractor's `playerHeaders`), without a cookie. */
+    /** The Master YouTube module's player headers (the copied extractor's `playerHeaders`), without a cookie. */
     private fun playerHeaders(
         profile: YouTubeClientProfile,
         videoId: String,
@@ -1027,13 +1027,13 @@ class ClientCensus(
         }
     }
 
-    /** B7: a video the version acceptance may use — no bot check answered as R6, not closed, a page. */
+    /** A video the version acceptance may use — no bot check answered as the module does, not closed, a page. */
     private fun acceptable(session: Session, video: Video): Boolean =
         video.slot !in session.answeredAsR6 && !video.closed && video.page != null
 
     /**
-     * The version acceptance on [video], the first video without a bot check and with a watch page
-     * (B7, owner 2026-10-15), or a note that none had one; nothing when no source gave a newer value.
+     * The version acceptance on [video], the first video without a bot check and with a watch page,
+     * or a note that none had one; nothing when no source gave a newer value.
      */
     private suspend fun accept(session: Session, video: Video?) {
         if (session.versions.none { it.pattern && it.newer == true && (it.source != APP_STORE || session.mode == Mode.FULL) }) return
@@ -1090,7 +1090,7 @@ class ClientCensus(
     }
 
     /**
-     * §10 item 1, the D0 measurement (FULL runs only, never W): the visionOS App Store listing's
+     * The census's measurement (FULL runs only, never the weekly check): the visionOS App Store listing's
      * two-part form, when newer than the bundled value, asked once on [first] (step `ST`) and
      * marked on the `appstore` fact. A never reads it (the client table's "measured, not active").
      */
@@ -1133,7 +1133,7 @@ class ClientCensus(
         var cooldown = false
         var sourcesRead = false
 
-        /** Videos whose first answer was a bot check, so only R6's next requests were sent for them. */
+        /** Videos whose first answer was a bot check, so only the Master YouTube module's next requests were sent for them. */
         val answeredAsR6 = HashSet<Int>()
         val pages = ArrayList<CensusPage>()
         val asks = ArrayList<CensusAsk>()
@@ -1266,7 +1266,7 @@ class ClientCensus(
         const val TOOL_LABEL: String = "YFT client census"
         const val MAX_VIDEOS: Int = 10
 
-        /** Videos 1–3 of `MASTER_KEY_PLAN.md` §4.3: short progressive, 1080 ladder, a Short. */
+        /** Videos 1–3 of the census list (docs/TESTING.md): short progressive, 1080 ladder, a Short. */
         val FIXED_VIDEOS: Map<Int, String> = mapOf(1 to "jNQXAC9IVRw", 2 to "dQw4w9WgXcQ", 3 to "BGQWPY4IigY")
 
         /** Video 4's default: the 2160p60 video the stream check used (the owner may change it). */
@@ -1310,19 +1310,19 @@ class ClientCensus(
         private const val FIRST_VIDEO = 1
         private const val WEEKLY_SECOND_VIDEO = 5
 
-        /** The weekly H check's video after video 1's bot check: no bot check in valid runs 1–3. */
+        /** The weekly H check's video after video 1's bot check: no bot check in the first valid runs. */
         private const val WEEKLY_HLS_VIDEO = 2
 
-        /** A client's request as R6 first asks it. */
+        /** A client's request as the Master YouTube module first asks it. */
         internal const val R0 = "R0"
 
-        /** visionOS asked again with the page's visitor data, as R6 asks it after a refusal. */
+        /** visionOS asked again with the page's visitor data, as the module asks it after a refusal. */
         internal const val AGAIN = "R0+vd"
 
         /** The A check's alternate request (R0 with only the version changed). */
         internal const val A_CHECK_STEP = "AC"
 
-        /** The A check's video: video 2 (the 1080 ladder), with no bot check in valid runs 1–3. */
+        /** The A check's video: video 2 (the 1080 ladder), with no bot check in the first valid runs. */
         private const val A_CHECK_VIDEO = 2
         private const val A_CHECK_SOURCE_NAME = "App Store"
         private const val HTTP_OK = "200"
@@ -1348,8 +1348,8 @@ class ClientCensus(
         private val ANDROID = YouTubeClientProfiles.ANDROID
 
         /**
-         * The versions step 3 asks on video 1: none. visionOS's one bundled alternate, 1.05 from the
-         * App Store listing ([MasterClientTable.VISION_OS_ALTERNATE], bundled after run 5's full
+         * The versions the census's step (3) asks on video 1: none. visionOS's one bundled alternate, 1.05 from the
+         * App Store listing ([MasterClientTable.VISION_OS_ALTERNATE], bundled after a full
          * census, 2026-10-17; NewPipe's 1.04 before), is asked by the A check ([aCheck], video 2) only, so the weekly census sends
          * no extra request (yt-dlp's 2026.08.19 `_base.py` and YouTube.js's `Constants.ts` list
          * `1.02`, the bundled value, only).
@@ -1357,9 +1357,9 @@ class ClientCensus(
         private val ALTERNATES: List<String> = emptyList()
 
         /**
-         * The A check's version (D5a, owner 2026-10-16, option 2): visionOS's bundled alternate, one
-         * definition, the table's. Since 2026-10-17 (the owner's order) the visionOS App Store
-         * listing's 1.05 (run 5's full census: `DIRECT`, V pass); before it NewPipe Extractor's 1.04
+         * The A check's version: visionOS's bundled alternate, one
+         * definition, the table's. Now the visionOS App Store
+         * listing's 1.05 (a full census: `DIRECT`, V pass); before it NewPipe Extractor's 1.04
          * (`ClientsConstants.java`, 2026-08-06; A check 2026-10-16 15:41 UTC: `DIRECT`, V pass).
          */
         internal val A_CHECK_ALTERNATE: MasterClientTable.Alternate = MasterClientTable.VISION_OS_ALTERNATE
@@ -1369,7 +1369,7 @@ class ClientCensus(
             "${A_CHECK_ALTERNATE.version} once only when 1.02 is DIRECT; ${A_CHECK_ALTERNATE.version} is bundled as visionOS's alternate only when it is DIRECT with a V pass " +
             "(R0 stays 1.02); a bot check or HTTP 429 stops it at once, with no census for 30 min; this run is not kept for the diff."
 
-        /** What R6 asks before the watch page (the copied extractor's `NO_PAGE`). */
+        /** What the Master YouTube module asks before the watch page (the copied extractor's `NO_PAGE`). */
         private val NO_PAGE = YouTubePageSignals(
             playerResponseJson = null,
             playerId = null,
@@ -1438,7 +1438,7 @@ class ClientCensus(
 
         private fun kilobytes(bytes: Long): Long = (bytes + 1023) / 1024
 
-        /** B8: the videos the run asked anything about, e.g. `3 videos (1, 2, 5)` or `10 videos (1–10)`. */
+        /** The videos the run asked anything about, e.g. `3 videos (1, 2, 5)` or `10 videos (1–10)`. */
         private fun videosAsked(run: CensusRun): String {
             val asked = (run.asks.map(CensusAsk::video) + run.pages.map(CensusPage::video) + run.hls.map(CensusHls::video))
                 .toSortedSet().toList()

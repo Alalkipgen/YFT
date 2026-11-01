@@ -7,7 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Phase 1.3 D3: one test per health rule (MASTER_KEY_PHASE1_3_PLAN.md §4 D3; guardrails 4, 5, 7, 8). */
+/** YouTube ladder: one test per health rule. */
 class ClientHealthTest {
     private var now = START
     private val minute = ClientHealth.MINUTE_MILLIS

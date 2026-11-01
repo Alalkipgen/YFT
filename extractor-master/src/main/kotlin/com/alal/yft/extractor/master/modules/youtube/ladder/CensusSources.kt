@@ -7,10 +7,10 @@ import com.alal.yft.extractor.api.json.asStringOrNull
 import com.alal.yft.extractor.api.json.get
 
 /**
- * Phase 1.3 D0: the public version sources the census measures (MASTER_KEY_PHASE1_3_PLAN.md §4 D0
- * table, guardrail 5). Each is read at most once per run, ≤ [MAX_SOURCE_BYTES], with no token and
- * no cookie, as data only: one pattern-matched value, never code. GitHub raw (the owner's yes,
- * §9 item 3) is also read in a lookup by A (D5a, [VersionSource]): only after `VERSION_REJECTED`,
+ * Client version source: the public version sources the census measures (versions only by a
+ * strict pattern). Each is read at most once per run, ≤ [MAX_SOURCE_BYTES], with no token and
+ * no cookie, as data only: one pattern-matched value, never code. GitHub raw (the owner's yes)
+ * is also read in a lookup by the A rung ([VersionSource]): only after `VERSION_REJECTED`,
  * at most once a day per identity, yt-dlp's table first. Apple and Google Play are read by the
  * census tool only.
  */
@@ -23,7 +23,7 @@ internal object CensusSources {
         "https://raw.githubusercontent.com/LuanRT/YouTube.js/main/src/utils/Constants.ts"
 
     /**
-     * The App Store's public lookup for YouTube's visionOS app, a listing of its own (§10 item 1,
+     * The App Store's public lookup for YouTube's visionOS app, a listing of its own (seen
      * 2026-10-17; `com.google.ios.youtube` is the iOS app, which lists no visionOS device).
      * Measured by the census only ([appStoreForms]); A never reads it (the client table's
      * "measured, not active").
@@ -32,7 +32,7 @@ internal object CensusSources {
     const val PLAY_STORE_URL =
         "https://play.google.com/store/apps/details?id=com.google.android.youtube&hl=en_US&gl=US"
 
-    /** The strict version pattern per identity (guardrail 5). */
+    /** The strict version pattern per identity. */
     val VISION_OS_VERSION = Regex("^\\d{1,2}\\.\\d{2}$")
     val ANDROID_VERSION = Regex("^\\d{2}\\.\\d{2}\\.\\d{2,3}$")
     val WEB_VERSION = Regex("^2\\.\\d{8}\\.\\d{2}\\.\\d{2}$")
@@ -86,8 +86,8 @@ internal object CensusSources {
 
     /**
      * The listing's versions in the form visionOS's pattern carries: a store version has three
-     * parts (`1.05.34`), so its first two are the measured form (`1.05`; the D0 measurement of
-     * §10 item 1: does YouTube answer it). Cut, never counted up; any other text stays as it is
+     * parts (`1.05.34`), so its first two are the measured form (`1.05`; the census measured
+     * whether YouTube answers it). Cut, never counted up; any other text stays as it is
      * (and fails the pattern).
      */
     fun appStoreForms(text: String): List<String> = appStoreValues(text).map { appStoreForm(it) ?: it }

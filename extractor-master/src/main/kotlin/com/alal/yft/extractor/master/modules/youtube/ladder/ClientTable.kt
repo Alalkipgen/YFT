@@ -5,28 +5,28 @@ import com.alal.yft.extractor.master.modules.youtube.YouTubeClientProfiles
 import com.alal.yft.extractor.master.modules.youtube.YouTubePageSignals
 
 /**
- * Phase 1.3 D2 — the client table v3 (MASTER_KEY_PHASE1_3_PLAN.md §4 D2, Final plan item 1), data only: the identities
+ * YouTube ladder: the client table v3, data only: the identities
  * the ladder may ask, each with its identity values (the copied profiles, unchanged), where they
  * come from, the class the census measured, its census status with the date (live, provisional:
- * wired as a fallback with V on every row but asked on fewer than 4 distinct videos, §9 item 9, or
+ * wired as a fallback with V on every row but asked on fewer than 4 distinct videos, or
  * measured, not active), the variants it allows (A: a self-healed version; S: the own solver; H:
- * the HLS check), its version pattern and its D0 version-source status.
+ * the HLS check), its version pattern and its version-source status from the census.
  *
- * Guardrail 5 (the test checks it): at most 4 identities (visionOS, Android, embedded, MWEB); at
+ * The Client version source's rule (the test checks it): at most 4 identities (visionOS, Android, embedded, MWEB); at
  * most 2 bundled visionOS alternates, each from a public reference with source and date (one
  * today, [VISION_OS_ALTERNATE]: the visionOS App Store listing's 1.05, bundled after the owner's
- * full census found it `DIRECT` with a V pass, run 5, 2026-10-17; NewPipe's 1.04 before it; yt-dlp 2026.08.19 and YouTube.js list 1.02 only); a version
- * source is live only on raw.githubusercontent.com (owner, 2026-10-15: no redirect, ≤ 64 KiB, text
- * only) or YouTube's own page. Status from the D0 census (valid runs 1–3, weekly checks 1–3; §5); v3 (owner, 2026-10-15):
- * H live after tests 1–3 on `595d259` (§9 item 9's gate met), nothing else changed. A (D5a
- * follow-up, 2026-10-16) is wired for visionOS only ([VersionSource], the first live source):
+ * full census found it `DIRECT` with a V pass on 2026-10-17; NewPipe's 1.04 before it; yt-dlp 2026.08.19 and YouTube.js list 1.02 only); a version
+ * source is live only on raw.githubusercontent.com (no redirect, ≤ 64 KiB, text
+ * only) or YouTube's own page. Status from the Client census (its valid runs and weekly checks); v3:
+ * H live after three tests on `595d259` (its gate met), nothing else changed. A
+ * is wired for visionOS only ([VersionSource], the first live source):
  * still provisional, as no live version change has been seen; Android's A is not wired.
  */
 internal object MasterClientTable {
     const val VERSION: Int = 3
     const val DATE: String = "2026-10-15"
 
-    /** R6's own first request. */
+    /** The Master YouTube module's own first request. */
     const val R0: String = "R0"
 
     /** Another identity, asked after visionOS failed. */
@@ -35,7 +35,7 @@ internal object MasterClientTable {
     enum class Status(val label: String) {
         LIVE("live"),
 
-        /** Wired as a fallback, V on every row, but asked on fewer than 4 distinct videos (§9 item 9). */
+        /** Wired as a fallback, V on every row, but asked on fewer than 4 distinct videos. */
         PROVISIONAL("provisional"),
         NOT_ACTIVE("measured, not active"),
     }
@@ -87,10 +87,10 @@ internal object MasterClientTable {
     )
 
     /**
-     * visionOS's one bundled alternate (guardrail 5; Phase 1.4 item 3; the owner's order of
-     * 2026-10-17): the two-part form of YouTube's visionOS App Store listing
-     * (`com.google.visionosyoutube` 1.05.34, released 2026-09-19; §10 item 1). The owner's full
-     * census (run 5, 2026-10-17, step `ST`) found 1.05 `DIRECT` with a V `PASS`. Before it: NewPipe
+     * visionOS's one bundled alternate (the Client version source's rules):
+     * the two-part form of YouTube's visionOS App Store listing
+     * (`com.google.visionosyoutube` 1.05.34, released 2026-09-19). The owner's full
+     * census (2026-10-17, step `ST`) found 1.05 `DIRECT` with a V `PASS`. Before it: NewPipe
      * Extractor's 1.04 (`ClientsConstants.java`, 2026-08-06; A check 2026-10-16: `DIRECT`, V
      * `PASS`). R0 stays 1.02; only A asks it, after visionOS's answer is judged `VERSION_REJECTED`, after the learned
      * and the self-healed version. The census A check asks the same value.
