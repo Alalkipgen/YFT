@@ -17,7 +17,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan 0.3 fix (A1): main reads Facebook's unavailable page by the page's own route, in any
+ * Main reads Facebook's unavailable page by the page's own route, in any
  * language: the error route with its root's `privacy: true`, or the video's not-found route →
  * `PRIVATE_OR_UNAVAILABLE`, only on a page without playable media and after the English markers,
  * on both of the parser's paths. Anything less keeps today's reason; the lookup's flow is
@@ -79,7 +79,7 @@ class FacebookPageRouteTest {
             "another route's name" to error.replace(ERROR_ROUTE, "comet.fbweb.CometErrorRouteV2"),
             "the name in other case" to error.replace(ERROR_ROUTE, ERROR_ROUTE.lowercase()),
             "a broken route info" to "<script>{\"initialRouteInfo\":{\"route\":{\"canonicalRouteName\":</script>",
-            // A reel's own route with its query's `video: null` stays recoverable (A2, closed).
+            // A reel's own route with its query's `video: null` stays recoverable.
             "the reel's route, video null" to routePage(REELS_ROUTE, title = "") +
                 "<script type=\"application/json\">{\"data\":{\"video\":null},\"extensions\":{\"is_final\":true}}</script>",
         )

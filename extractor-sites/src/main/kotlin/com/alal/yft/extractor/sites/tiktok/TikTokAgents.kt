@@ -3,7 +3,7 @@ package com.alal.yft.extractor.sites.tiktok
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * P39 (TT_AGENT=CHROME, R26): the user agents TikTok's pages are asked with.
+ * The user agents TikTok's pages are asked with (`TT_AGENT=CHROME`).
  *
  * TikTok answers a client it does not recognise as a browser (the headless "YFT/" agent) with a
  * page that holds no post, so the phone page always uses the WebView's own agent: the tab's,

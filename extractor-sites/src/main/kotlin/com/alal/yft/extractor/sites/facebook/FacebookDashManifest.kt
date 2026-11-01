@@ -33,7 +33,7 @@ internal data class FacebookDashTrack(
     val bandwidthBitsPerSecond: Long?,
     /**
      * The manifest's own name for the encoding, such as `1763472604929798v`: every page of one
-     * video lists the same encoding under it at a new address (P23).
+     * video lists the same encoding under it at a new address.
      */
     val representationId: String? = null,
 ) {
@@ -68,7 +68,7 @@ internal object FacebookDashManifests {
         """P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?)?""",
     )
 
-    /** A document type or an entity declaration (R9): refused before any parser reads it. */
+    /** A document type or an entity declaration: refused before any parser reads it. */
     private val DOCUMENT_TYPE = Regex("""<!\s*(?:DOCTYPE|ENTITY)""", RegexOption.IGNORE_CASE)
 
     fun parse(manifest: String): FacebookDashManifest? {
@@ -98,11 +98,11 @@ internal object FacebookDashManifests {
      * A bounded, entity-free XML document, or null. Older pages URL-encode the manifest, so a
      * value that starts with an encoded `<` is decoded once first.
      *
-     * v1.0.2 R9: Android's own parser (`org.apache.harmony.xml.parsers`) throws for
+     * Android's own parser (`org.apache.harmony.xml.parsers`) throws for
      * `isXIncludeAware`, for every feature but namespaces and validation and for every attribute,
      * so asking them all at once left every inline manifest unread on a phone (the JVM's parser
-     * knows them all), as F1's DASH reader did. Each one is asked on its own and one the parser
-     * does not know is skipped; a manifest with a document type is refused before parsing
+     * knows them all), as the DASH download's reader did. Each one is asked on its own and one the
+     * parser does not know is skipped; a manifest with a document type is refused before parsing
      * ([DOCUMENT_TYPE]) on every parser.
      */
     fun document(manifest: String): Document? {
@@ -148,7 +148,7 @@ internal object FacebookDashManifests {
         }.getOrNull()
     }
 
-    /** One hardening setting; a parser that does not know it throws, and it is skipped (R9). */
+    /** One hardening setting; a parser that does not know it throws, and it is skipped. */
     private inline fun ifKnown(setting: () -> Unit) {
         try {
             setting()

@@ -5,7 +5,7 @@ import java.util.Locale
 import kotlin.math.abs
 
 /**
- * Chooses which manifest tracks become download rows (P4).
+ * Chooses which manifest tracks become download rows.
  *
  * A video track is offered merged with the best AAC track; only AVC and AV1 qualify because the
  * phone's MP4 muxer writes nothing else (AV1 only from Android 14, which the app checks). A
@@ -44,11 +44,11 @@ internal object FacebookDashOffers {
         .take(MAX_VIDEO_OFFERS)
 
     /**
-     * Whether Safari's AVC ladder is worth asking (P23): no AVC video at all, an empty list too,
+     * Whether Safari's AVC ladder is worth asking: no AVC video at all, an empty list too,
      * or the best AVC picture smaller than the best one offered in any codec or as a whole file
      * ([fileSides]: the HD/SD files' short sides, from their manifest track or their name). A
      * page with AVC 360p next to AV1 720p and 1080p lost 720p while AV1 merges are off (owner's
-     * phone, R4).
+     * phone).
      */
     fun needsAvcLadder(
         tracks: List<FacebookDashTrack>,
@@ -64,7 +64,7 @@ internal object FacebookDashOffers {
         tracks.any(::isAvc) && audio(tracks) != null
 
     /**
-     * The tracks of every page read for one video, each encoding once (P23). Every page lists an
+     * The tracks of every page read for one video, each encoding once. Every page lists an
      * encoding at a new address, so a track repeats an earlier one with the same address, the
      * same representation ID, or the same codec family, picture height and bandwidth. The page
      * read first keeps its tracks.
@@ -78,7 +78,7 @@ internal object FacebookDashOffers {
     }
 
     /**
-     * The manifest video track an HD/SD file was made from (P23), or null. Facebook serves the
+     * The manifest video track an HD/SD file was made from, or null. Facebook serves the
      * HD file at the path of the DASH video it was made from, sound added: on reel
      * 1545617074260365 (sandbox, 2026-10-06) the HD file's path was the 1280 × 720 AVC track's,
      * and its stated bitrate that track's plus the audio track's. Several picture sizes at one
@@ -153,7 +153,7 @@ internal object FacebookDashOffers {
         minOf(track.width ?: 0, track.height ?: 0)
 
     /**
-     * The standard name the download sheet gives the picture (P3-FIX): the nearest standard
+     * The standard name the download sheet gives the picture: the nearest standard
      * height to its short side, so 1660 × 1078 is "1080p" and 552 × 358 is "360p".
      */
     fun qualityName(track: FacebookDashTrack): String {

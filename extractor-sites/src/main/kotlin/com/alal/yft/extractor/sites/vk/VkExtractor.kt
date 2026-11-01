@@ -18,16 +18,16 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * VK adapter (VK_PLAN v1): public videos and clips through VK's own embed player page.
+ * VK adapter (v1): public videos and clips through VK's own embed player page.
  *
  * Path B asks `video_ext.php` on the embed host that fits the page — vk.ru with a `*.vk.ru`
  * page's cookie, otherwise vk.com (with a `*.vk.com` page's cookie only) — and B2 asks the other
  * host, never with a cookie. VK's SPA shell is not an answer: the same host is asked once more.
  * At most three embed requests, and two manifest reads for an answer without MP4, all inside one
- * 15 s deadline (VK_PLAN §4.3–4.4).
+ * 15 s deadline.
  * No sign-in and no access-control bypass: VK's "Video not found." stays VK's answer.
  *
- * VK5 (path D, VK_PLAN §13): only when the embed answers that the video "may contain adult
+ * Path D (the web client): only when the embed answers that the video "may contain adult
  * content … can't be viewed on external sites" (VK's own site plays it signed out), the lookup
  * asks what vkvideo.ru's own player asks signed out — its anonymous token (login.vk.ru, kept in
  * memory only) and `video.get` on api.vkvideo.ru — inside the same deadline. It never sends the
@@ -41,7 +41,7 @@ class VkExtractor(
 
     override val displayName: String = "VK"
 
-    /** Path D's anonymous token, in memory only (VK_PLAN §13). */
+    /** Path D's anonymous token, in memory only. */
     private val tokens = VkApiTokenCache()
 
     override fun identify(pageUrl: String): SitePageIdentity? = VkUrls.identify(pageUrl)
@@ -64,13 +64,13 @@ class VkExtractor(
 
         data object NotFound : Answer
 
-        /** VK5: the embed's adult-content answer; it opens path D. */
+        /** The embed's adult-content answer; it opens path D. */
         data object Adult : Answer
 
-        /** VK5: VK's API refused path D's token (error 5). */
+        /** VK's API refused path D's token (error 5). */
         data object TokenRefused : Answer
 
-        /** VK5: login.vk.ru gave no token, or VK's API another error (14: a captcha, …). */
+        /** login.vk.ru gave no token, or VK's API another error (14: a captcha, …). */
         data object ApiRefused : Answer
 
         data object NoMedia : Answer
@@ -117,14 +117,14 @@ class VkExtractor(
         }
 
         /**
-         * VK5: the embed's adult answer, on either host, opens path D; no further embed is asked
-         * (both hosts gave the same answer, with and without `list`, at VK5's recon).
+         * The embed's adult answer, on either host, opens path D; no further embed is asked
+         * (both hosts gave the same answer, with and without `list`, when this was checked).
          */
         private suspend fun afterAdult(answer: Answer): SiteExtractionResult? =
             if (answer == Answer.Adult) pathD() else null
 
         /**
-         * Path D (VK5): the anonymous token (kept in memory, else one new token) and `video.get`.
+         * Path D: the anonymous token (kept in memory, else one new token) and `video.get`.
          * A token VK refuses (error 5) is dropped; for a kept one, one new token and one more
          * ask, if time allows. A video or a live video stops as in v1; anything else ends as v1
          * does ([end]: VK's "isn't available" message, or VK's own audio-only renditions).
@@ -359,7 +359,7 @@ class VkExtractor(
                     return success(partial.video)
                 }
             return when {
-                // VK's text, or (VK5) its adult answer when path D found nothing: v1's message.
+                // VK's text, or its adult answer when path D found nothing: v1's message.
                 Answer.NotFound in answers || Answer.Adult in answers -> failure(
                     SiteExtractionFailure.NO_MEDIA_FOUND,
                     message = NOT_FOUND_MESSAGE,
@@ -413,7 +413,7 @@ class VkExtractor(
             return SiteExtractionResult.Success(candidates, details.toList())
         }
 
-        /** Media requests: the canonical page, the user agent, no cookie (VK0: none needed). */
+        /** Media requests: the canonical page, the user agent, no cookie (none needed). */
         private fun mediaContext() = BrowserRequestContext(
             pageUrl = request.identity.canonicalPageUrl,
             userAgent = request.requestContext.userAgent?.takeIf(String::isNotBlank),
@@ -421,7 +421,7 @@ class VkExtractor(
         )
 
         /**
-         * Path D's requests (VK5): the browser's user agent (VK binds the files' `srcAg` to it, so
+         * Path D's requests: the browser's user agent (VK binds the files' `srcAg` to it, so
          * the media requests send the same), VK's web origin; never a cookie.
          */
         private fun apiHeaders(token: VkApiToken?): Map<String, String> = buildMap {
@@ -457,7 +457,7 @@ class VkExtractor(
     private fun notesOf(notes: List<String>): String =
         notes.take(MAX_NOTES).joinToString("") { " · $it" }
 
-    /** One endpoint's HTTP status is not VK's verdict on the video (VK_PLAN §4.3). */
+    /** One endpoint's HTTP status is not VK's verdict on the video. */
     private fun endpointReason(reason: SiteExtractionFailure): SiteExtractionFailure =
         when (reason) {
             SiteExtractionFailure.LOGIN_REQUIRED,

@@ -51,8 +51,8 @@ class SiteNavigationHeadersTest {
             ),
         )
 
-        // Facebook asks its public page as Safari before the page with the browser's identity
-        // (P15); TikTok asks its phone page, then its desktop page as desktop Chrome (P39);
+        // Facebook asks its public page as Safari before the page with the browser's identity;
+        // TikTok asks its phone page, then its desktop page as desktop Chrome;
         // every other site asks one page.
         val asksTwoPages = extractor is FacebookExtractor || extractor is TikTokExtractor
         val pages = http.requestedHeaders

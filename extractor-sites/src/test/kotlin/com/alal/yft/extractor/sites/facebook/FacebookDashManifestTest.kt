@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** P4: Facebook's inline DASH manifest read as whole-file tracks. */
+/** Facebook's inline DASH manifest read as whole-file tracks. */
 class FacebookDashManifestTest {
     @Test
     fun `every representation is a whole file with its picture, codec and bitrate`() {

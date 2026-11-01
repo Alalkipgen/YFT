@@ -34,24 +34,24 @@ import kotlinx.coroutines.sync.withPermit
  * paywall or access-control bypass: a post the user cannot open in the browser fails with a
  * structured reason.
  *
- * P39 (R25–R31): the phone page is read with the WebView's own agent, the desktop page with
+ * The phone page is read with the WebView's own agent, the desktop page with
  * desktop Chrome whenever the phone page fails for a reason another page can change or lists
  * fewer than two qualities, and the answer with more qualities that really open wins. Every
  * listed quality is checked with a one-byte request before it becomes a row, so the sheet never
  * offers a file that answers 403. Each lookup keeps non-sensitive Details lines (page kinds,
  * data keys, file checks, hosts) whether it succeeds or not.
  *
- * P40: given the post's data a page already holds ([SiteExtractionRequest.pageData]: the
+ * Given the post's data a page already holds ([SiteExtractionRequest.pageData]: the
  * user's tab or YFT's hidden page, the way TikTok's own player gets it), the rows come from that
  * data without asking for the page; the page is read only when the data names another post or
  * none of its files opens (never after the hidden page, which comes after the page read).
  *
- * P46: TikTok's status for the post on the phone page ("private" for some public posts the
+ * TikTok's status for the post on the phone page ("private" for some public posts the
  * phone page does not show) no longer ends the lookup: the desktop page is asked too, and
  * Details name the status. A tab's data with fewer than two qualities (TikTok's phone player
  * gets one) is joined by the desktop page's, and the answer with more working files wins.
  *
- * P47: answers are joined instead of one winning: a later answer adds the working files of a
+ * Answers are joined instead of one winning: a later answer adds the working files of a
  * height (and codec) the earlier ones did not list, so the phone page's 540p and the desktop
  * page's 720p are both rows. Files already listed are not checked again.
  */
@@ -62,9 +62,9 @@ class TikTokExtractor(
     /** Whether the desktop page may be asked when the phone page is not enough. */
     private val askDesktopPage: Boolean = true,
     /**
-     * P46 (owner's choice B, `TT_SERVICE=ON`): whether a public download service is asked
+     * `TT_SERVICE=ON`: whether a public download service is asked
      * when TikTok's own pages give no file. Only the post's address goes there. Off in the app
-     * (and its site census) since decision 22 (the owner, 2026-10-22: P46's choice B reversed,
+     * (and its site census) since the owner's decision (2026-10-22,
      * `TT_SERVICE=OFF`); turning it back on is one argument per place, on the owner's go.
      */
     private val askDownloadService: Boolean = false,
@@ -89,7 +89,7 @@ class TikTokExtractor(
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (failure: Exception) {
-            // R25: an unexpected error is named by its class and step, never "changed format".
+            // An unexpected error is named by its class and step, never "changed format".
             val name = failure.javaClass.simpleName.ifEmpty { "Exception" }
             SiteExtractionResult.Failure(
                 reason = SiteExtractionFailure.MALFORMED_RESPONSE,
@@ -102,13 +102,13 @@ class TikTokExtractor(
         PHONE("phone"),
         DESKTOP("desktop"),
 
-        /** P40: the post's data from the user's tab. */
+        /** The post's data from the user's tab. */
         TAB("tab"),
 
-        /** P40: the post's data from YFT's hidden page. */
+        /** The post's data from YFT's hidden page. */
         HIDDEN("hidden page"),
 
-        /** P46: the public download service; its files never get TikTok's cookies. */
+        /** The public download service; its files never get TikTok's cookies. */
         SERVICE(TikTokDownloadService.LABEL),
     }
 
@@ -143,7 +143,7 @@ class TikTokExtractor(
 
     private class Checked(val answer: PageRead.Parsed, val working: List<Working>)
 
-    /** P47: a working file with the answer whose agent and cookies it needs. */
+    /** A working file with the answer whose agent and cookies it needs. */
     private class Row(val answer: PageRead.Parsed, val working: Working)
 
     /** One quality's file check: its addresses tried in order until one answers. */
@@ -163,7 +163,7 @@ class TikTokExtractor(
         var step = "start"
         private val context = request.requestContext
 
-        /** R29: every TikTok cookie this lookup's answers set; a later value replaces older. */
+        /** Every TikTok cookie this lookup's answers set; a later value replaces older. */
         private val jar = LinkedHashMap<Triple<String, String, String>, ResponseCookie>()
         private var checksLeft = MAX_FILE_CHECKS
 
@@ -173,8 +173,8 @@ class TikTokExtractor(
         }
 
         /**
-         * P40: rows from the post's data a page already holds, checked like a page answer's
-         * (P39 step 6) with the lookup's cookies and Referer `https://www.tiktok.com/`. Null when
+         * Rows from the post's data a page already holds, checked like a page answer's
+         * with the lookup's cookies and Referer `https://www.tiktok.com/`. Null when
          * the page should be read instead: the data names another post, cannot be read, or none
          * of its files opens. Data from the hidden page is the last word: the page was read
          * before it, so its failure is the lookup's.
@@ -221,7 +221,7 @@ class TikTokExtractor(
             val answer = PageRead.Parsed(which, post, context.userAgent, cookies = emptyList())
             step = "file check"
             val checked = check(answer)
-            // One working height (P47: H.264 and H.265 of one height are one): the desktop page
+            // One working height (H.264 and H.265 of one height are one): the desktop page
             // may list more (none: the page read below asks it anyway).
             if (!hidden && checked.working.isNotEmpty() && heights(checked.working) < 2) {
                 moreQualities(post, checked)?.let { joined ->
@@ -244,8 +244,8 @@ class TikTokExtractor(
         }
 
         /**
-         * P46: the desktop page for a tab's [post] whose data opened one file ([fromTab]).
-         * P47: the tab's row joined by the desktop page's working files of other heights, or
+         * The desktop page for a tab's [post] whose data opened one file ([fromTab]).
+         * The tab's row joined by the desktop page's working files of other heights, or
          * null when it has none (the tab's row stays).
          */
         private suspend fun moreQualities(post: TikTokPost, fromTab: Checked): List<Row>? {
@@ -283,7 +283,7 @@ class TikTokExtractor(
             if (phone is PageRead.Failed && phone.final) return failure(phone)
 
             val desktopAgent = agents.desktop(phoneAgent)
-            // P47: two codecs of one height are still one quality to the user.
+            // Two codecs of one height are still one quality to the user.
             val wantsDesktop = askDesktopPage && desktopAgent != phoneAgent &&
                 (phone !is PageRead.Parsed || heightsOf(phone.post.qualities) < 2)
             val desktop = if (wantsDesktop) {
@@ -303,7 +303,7 @@ class TikTokExtractor(
                 .sortedByDescending { it.post.qualities.size }
             if (answers.isEmpty()) {
                 val failures = listOfNotNull(phone as? PageRead.Failed, desktop as? PageRead.Failed)
-                // P46: a check on one page says more than TikTok's status on the other: the
+                // A check on one page says more than TikTok's status on the other: the
                 // post may open once the check is answered.
                 val chosen = failures.firstOrNull { it.final }
                     ?: failures.firstOrNull { it.reason == SiteExtractionFailure.BOT_CHECK }
@@ -314,7 +314,7 @@ class TikTokExtractor(
             }
 
             step = "file check"
-            // P47: every answer adds the working files of heights the earlier ones lack.
+            // Every answer adds the working files of heights the earlier ones lack.
             var joined = emptyList<Row>()
             for (answer in answers) {
                 if (answer.post.qualities.all { joined.lists(it) }) continue
@@ -342,7 +342,7 @@ class TikTokExtractor(
         }
 
         /**
-         * P47: [rows] and the working files of [checked] whose height and codec they do not
+         * [rows] and the working files of [checked] whose height and codec they do not
          * list yet, highest first; on a tie the earlier answer's file stays first.
          */
         private fun joinedTo(rows: List<Row>, checked: Checked): List<Row> {
@@ -357,7 +357,7 @@ class TikTokExtractor(
         }
 
         /**
-         * P46: the download service for [identity]'s post when TikTok's own pages gave no file;
+         * The download service for [identity]'s post when TikTok's own pages gave no file;
          * [otherwise] (with this step's Details) when it is off, finds nothing or its files do
          * not open.
          */
@@ -493,7 +493,7 @@ class TikTokExtractor(
         }
 
         /**
-         * R30: rounds of one-byte checks, the first address of every quality first, then the
+         * Rounds of one-byte checks, the first address of every quality first, then the
          * next address of those that were refused, at most [MAX_FILE_CHECKS] per lookup and
          * [MAX_PARALLEL_CHECKS] at a time. One check is kept back for the watermarked file.
          */
@@ -501,7 +501,7 @@ class TikTokExtractor(
             answer: PageRead.Parsed,
             known: List<Row> = emptyList(),
         ): Checked {
-            // P47: a file of a height an earlier answer already lists is not checked again.
+            // A file of a height an earlier answer already lists is not checked again.
             val wanted = answer.post.qualities.filterNot { known.lists(it) }
             val checks = wanted.map(::QualityCheck)
             val reserve = if (answer.post.watermarked != null) 1 else 0
@@ -561,7 +561,7 @@ class TikTokExtractor(
             if (!check.unsupported) check.next += 1
         }
 
-        /** R31 (TT_WATERMARK=HIDE): the download address only when no other file opened. */
+        /** `TT_WATERMARK=HIDE`: the download address only when no other file opened. */
         private suspend fun watermarked(answers: List<PageRead.Parsed>): List<Working> {
             val answer = answers.firstOrNull { it.post.watermarked != null } ?: return emptyList()
             val quality = checkNotNull(answer.post.watermarked)
@@ -624,7 +624,7 @@ class TikTokExtractor(
 
         /**
          * TikTok's media host answers only with the cookies of the page answer that gave the
-         * address (`tt_chain_token`; R20): the tab's cookie header with that answer's cookies a
+         * address (`tt_chain_token`): the tab's cookie header with that answer's cookies a
          * browser would send to [url] put in. The resolver and the downloader send them to the
          * media URL's own origin only and drop them on any cross-origin redirect.
          */
@@ -677,14 +677,14 @@ class TikTokExtractor(
 
     private fun yesNo(value: Boolean) = if (value) "yes" else "no"
 
-    /** P47: how many heights [qualities] list; a file of unknown height counts as one. */
+    /** How many heights [qualities] list; a file of unknown height counts as one. */
     private fun heightsOf(qualities: List<TikTokQuality>): Int =
         qualities.map { it.heightLabel }.distinct().size
 
     private fun heights(working: List<Working>): Int = heightsOf(working.map { it.quality })
 
     /**
-     * P47: whether these rows already list [quality]'s file: the same height and codec (an
+     * Whether these rows already list [quality]'s file: the same height and codec (an
      * unknown codec matches either); a file of unknown height is listed once any row is.
      */
     private fun List<Row>.lists(quality: TikTokQuality): Boolean {
@@ -707,7 +707,7 @@ class TikTokExtractor(
         const val MAX_FILE_CHECKS = 8
         const val MAX_PARALLEL_CHECKS = 3
 
-        /** P47: joined rows as one answer orders them: highest, H.264 first, higher bitrate. */
+        /** Joined rows as one answer orders them: highest, H.264 first, higher bitrate. */
         private val ROW_ORDER = compareByDescending<Row> { it.working.quality.heightLabel ?: 0 }
             .thenBy { it.working.quality.codec.order }
             .thenByDescending { it.working.quality.bitrateBitsPerSecond ?: 0L }

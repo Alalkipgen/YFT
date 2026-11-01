@@ -37,7 +37,7 @@ internal data class TikTokQuality(
     val width: Int?,
     val height: Int?,
     val source: TikTokQualitySource,
-    /** P46: a name the answer gave instead of a height (the download service's "HD"). */
+    /** A name the answer gave instead of a height (the download service's "HD"). */
     val name: String? = null,
 ) {
     /** "1080p H.265", "720p" or "With TikTok watermark"; never an address. */
@@ -93,7 +93,7 @@ internal data class TikTokPageNotes(
     val json: String? = null,
     /** `matches`, `other id` or `missing`. */
     val postId: String = "missing",
-    /** P46: TikTok's own status number for the post when it gave one instead of the post. */
+    /** TikTok's own status number for the post when it gave one instead of the post. */
     val status: Long? = null,
 )
 
@@ -112,7 +112,7 @@ internal sealed interface TikTokParseResult {
         val message: String? = null,
         /**
          * True when another page answer cannot change the outcome (DRM, a photo post or a link
-         * that lands on the home page). P46: TikTok's status for the post on one page is not
+         * that lands on the home page). TikTok's status for the post on one page is not
          * final: the desktop page is still asked.
          */
         val final: Boolean = false,
@@ -122,7 +122,7 @@ internal sealed interface TikTokParseResult {
 /**
  * Reads the JSON TikTok embeds in its own page.
  *
- * P39 (R27, R28): the data script is found by its `id` attribute, never by the first quoted
+ * The data script is found by its `id` attribute, never by the first quoted
  * mention of its name; any `__DEFAULT_SCOPE__` key holding `itemInfo.itemStruct` is a post (the
  * desktop page uses `webapp.video-detail`, the phone page `webapp.reflow.video.detail`, and
  * TikTok renames keys); `SIGI_STATE` is still read; a post with another id is skipped for the
@@ -227,7 +227,7 @@ internal object TikTokPageParser {
         )
         val failure = Outcome(notes)
         return when {
-            // P46: not final, so the extractor still asks the desktop page.
+            // Not final, so the extractor still asks the desktop page.
             statusFailure != null -> TikTokParseResult.Failure(statusFailure, notes)
             urlKind == TikTokPageKind.HOME -> failure.final(
                 SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE,
@@ -256,7 +256,7 @@ internal object TikTokPageParser {
     }
 
     /**
-     * P40: one post's data a page already holds ([json]: the item a page script made from
+     * One post's data a page already holds ([json]: the item a page script made from
      * TikTok's own data, or the item itself under `itemInfo.itemStruct`/`itemStruct`), read
      * like the page's own post. [dataKey] names where it came from in Details; a post with
      * another id than [expectedVideoId] is not used.

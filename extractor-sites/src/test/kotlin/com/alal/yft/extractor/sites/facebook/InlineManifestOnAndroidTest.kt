@@ -22,7 +22,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * v1.0.2 R9: Android's own XML parser knows none of the hardening settings the inline manifest
+ * Android's own XML parser knows none of the hardening settings the inline manifest
  * reader ([FacebookDashManifests.document]) asked all at once, so on a phone Facebook's and
  * Instagram's inline DASH manifests went unread: only the progressive files were left (no merged
  * sizes, no sound file, no heights from the manifest). The JVM's parser knows them all, so the
@@ -77,8 +77,8 @@ class InlineManifestOnAndroidTest {
             """<!doctype MPD SYSTEM "https://dtd.example.test/mpd.dtd">$manifest""",
             URLEncoder.encode("""<!DOCTYPE MPD [<!ENTITY x "y">]>$manifest""", UTF_8),
         )
-        // The JVM's own parser refused them before R9 too; the Android-like one has no hardening
-        // of its own, so only the reader's refusal stands between it and the entities.
+        // The JVM's own parser refused them before the fix too; the Android-like one has no
+        // hardening of its own, so only the reader's refusal stands between it and the entities.
         refused.forEach { xml ->
             assertNull(xml, FacebookDashManifests.parse(xml))
             withAndroidParser { assertNull(xml, FacebookDashManifests.parse(xml)) }

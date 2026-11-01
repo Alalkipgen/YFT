@@ -6,7 +6,7 @@ import java.net.URI
 import java.util.Locale
 
 /**
- * P49: pure, offline URL matching for Instagram posts and reels.
+ * Pure, offline URL matching for Instagram posts and reels.
  *
  * `/p/`, `/reel/`, `/reels/` and `/tv/` addresses, with or without the owner's name in front and
  * with any share parameter (`igsh`, `utm_source`), collapse onto `https://www.instagram.com/p/`
@@ -61,7 +61,7 @@ internal object InstagramUrls {
     }
 
     /**
-     * v1.0.2 item 70b: whether [code] is a private post's code — longer than a public post's 11
+     * Whether [code] is a private post's code — longer than a public post's 11
      * characters (its media ID, [mediaIdOf]): the one hint of a private post a link carries.
      */
     fun isPrivateCode(code: String): Boolean = code.length > MEDIA_ID_CHARS

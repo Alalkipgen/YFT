@@ -15,7 +15,7 @@ import com.alal.yft.extractor.api.SiteExtractor
 import com.alal.yft.extractor.api.SitePageIdentity
 
 /**
- * P48: X (Twitter) adapter for a public post's video.
+ * X (Twitter) adapter for a public post's video.
  *
  * X's own pages build their player with scripts and a signed-in API, so the adapter reads the
  * public answer X's embedded-post widget reads ([XSyndication]): the post's MP4 files (its own
@@ -23,7 +23,7 @@ import com.alal.yft.extractor.api.SitePageIdentity
  * every size X made (320p to 1080p). It sends no X cookie: the answer is public, and its host is
  * not x.com. A post the answer does not show (age-restricted, protected, deleted) or that has
  * photos only fails with a reason that keeps the generic detector, so the browser's own finds
- * still count. v1.0.2 item 51: the rows of the video a link names (`/video/N`), else of the
+ * still count. The rows of the video a link names (`/video/N`), else of the
  * first, carry the post's other videos' rows ([PostVideoItem]), so the sheet offers every one.
  */
 class XExtractor(
@@ -75,7 +75,7 @@ class XExtractor(
         if (post.videos.size < 2) {
             return SiteExtractionResult.Success(candidates, listOf(read, choice))
         }
-        // v1.0.2 item 51: the post's other videos, from the same answer, each under its own name.
+        // The post's other videos, from the same answer, each under its own name.
         val count = post.videos.size
         val others = post.videos.filter { it !== video }.flatMap { other ->
             val item = PostVideoItem(post.videos.indexOf(other) + 1, count)

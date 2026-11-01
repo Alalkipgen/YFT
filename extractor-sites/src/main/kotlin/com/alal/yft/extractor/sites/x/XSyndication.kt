@@ -66,7 +66,7 @@ internal sealed interface XParseResult {
 }
 
 /**
- * P48: X's embed answer for one post (`cdn.syndication.twimg.com/tweet-result`), the public
+ * X's embed answer for one post (`cdn.syndication.twimg.com/tweet-result`), the public
  * JSON its embedded-post widget reads. It needs no session; its [token] is the number the
  * widget's own code computes from the post ID, so the request is the widget's.
  */
@@ -194,7 +194,7 @@ internal object XSyndication {
         }
 
     /**
-     * Social plan 0.1: the videos of the post's own card (`card.binding_values.unified_card`, a
+     * The videos of the post's own card (`card.binding_values.unified_card`, a
      * JSON text, as in the card types `video_website` and `video_multi_dest_carousel_website`),
      * each read as a post's media is. Their order is the card's own media list (its components in
      * order: a `media` component's item, a `swipeable_media` component's items in their order),

@@ -11,7 +11,7 @@ internal enum class VkManifestVerdict(val label: String) {
 }
 
 /**
- * Whether a VK manifest carries video (VK_PLAN §4.2 step 3), asked only when the video's data has
+ * Whether a VK manifest carries video, asked only when the video's data has
  * no MP4.
  *
  * HLS: a master playlist is video when a variant has a `RESOLUTION` or a video codec, audio-only

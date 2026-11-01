@@ -40,7 +40,7 @@ internal data class InstagramPost(
 }
 
 /**
- * P49: reads a post from any of Instagram's answers, in either of its two shapes: the app API's
+ * Reads a post from any of Instagram's answers, in either of its two shapes: the app API's
  * item (`video_versions`, `video_dash_manifest`, `carousel_media`, `user`, `caption`), which the
  * signed-in web page and `/api/v1/media/{id}/info/` give, and the GraphQL `shortcode_media`
  * (`video_url`, `dash_info`, `edge_sidecar_to_children`, `owner`), which the GraphQL query and
@@ -149,7 +149,7 @@ internal object InstagramMedia {
 }
 
 /**
- * P49: the JSON documents an Instagram HTML page carries: its `application/json` scripts (the
+ * The JSON documents an Instagram HTML page carries: its `application/json` scripts (the
  * signed-in page's data), the embed page's `contextJSON` text and `__additionalDataLoaded`
  * object. Only documents that name the post's code or a video are parsed.
  */

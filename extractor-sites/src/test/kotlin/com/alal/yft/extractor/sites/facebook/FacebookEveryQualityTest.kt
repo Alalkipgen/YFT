@@ -15,7 +15,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * P23: every quality of a Facebook video. A page with HD/SD files only, or with AVC video only
+ * Every quality of a Facebook video. A page with HD/SD files only, or with AVC video only
  * below the sizes it shows, asks the video's own page as Safari for the AVC ladder once; the
  * tracks of both pages merge without repeats, and the HD file states the picture and sound of
  * the manifest track it was made from.
@@ -79,7 +79,7 @@ class FacebookEveryQualityTest {
         // The address's own bitrate (video plus sound), never a manifest peak.
         assertEquals(373_059L, hd.bitrateBitsPerSecond)
         assertEquals(31_500L, hd.durationMillis)
-        // No track has the SD file's path: the resolver reads its header (P3).
+        // No track has the SD file's path: the resolver reads its header.
         assertNull(sd.height)
         assertTrue(sd.codecs.isEmpty())
         assertEquals(134_126L, sd.bitrateBitsPerSecond)

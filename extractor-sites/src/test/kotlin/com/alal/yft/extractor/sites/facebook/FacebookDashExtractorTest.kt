@@ -17,7 +17,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * P4: a Facebook video's inline DASH manifest becomes one merged MP4 per picture size plus an
+ * A Facebook video's inline DASH manifest becomes one merged MP4 per picture size plus an
  * audio file, next to the progressive SD/HD files.
  */
 class FacebookDashExtractorTest {
@@ -59,7 +59,7 @@ class FacebookDashExtractorTest {
             assertEquals(1660, fullHd.width)
             assertEquals(1078, fullHd.height)
             assertEquals(30.0, fullHd.framesPerSecond!!, 0.001)
-            // The manifest's bandwidth is a peak: no bitrate without the address's own (P23).
+            // The manifest's bandwidth is a peak: no bitrate without the address's own.
             assertNull(fullHd.bitrateBitsPerSecond)
             assertEquals(31_500L, fullHd.durationMillis)
             // No size: the video bandwidth can be a peak, so the CDN states the file's length.
@@ -94,8 +94,8 @@ class FacebookDashExtractorTest {
     @Test
     fun `a page without AVC video asks Safari's page for the AVC ladder without the session`() =
         runTest {
-            // A share link skips the public page (P15), so its session page comes first; the
-            // ladder is asked on the reel it redirected to (P23).
+            // A share link skips the public page, so its session page comes first; the
+            // ladder is asked on the reel it redirected to.
             val session = page("facebook/reel_inline_dash.html", "$REEL_URL/")
             val http = FakeExtractorHttpClient(
                 responses = mapOf(SHARE_URL to session),

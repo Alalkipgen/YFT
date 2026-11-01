@@ -12,7 +12,7 @@ import java.net.URLEncoder
 import java.util.Locale
 
 /**
- * P46 (owner's choice B): a public TikTok download service, the last way for a post TikTok's
+ * A public TikTok download service (the owner's choice), the last way for a post TikTok's
  * own pages do not give YFT (the phone page shows "This page isn't available — use the app"
  * for some public posts). Only the post's public address is sent, with a plain Chrome agent:
  * never a cookie. Its answer is one post's watermark-free files (HD and normal) and the watermarked

@@ -28,13 +28,13 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 /**
- * P49: Instagram adapter for a post's or reel's video.
+ * Instagram adapter for a post's or reel's video.
  *
  * It asks Instagram's own answers in order and stops at the first that holds the post: the app
  * API (`/api/v1/media/{id}/info/`, only with the browser's Instagram sign-in), the GraphQL post
  * query the web app sends, the post's page (with the browser's cookies, if any) and the public
  * embed page. A post's whole files (`video_versions`, with sound) are rows as they are; its DASH
- * manifest adds every other picture size merged with its best AAC sound, like Facebook's (P4),
+ * manifest adds every other picture size merged with its best AAC sound, like Facebook's,
  * and that sound alone for Audio. The cookie goes to www.instagram.com only, never to the CDN.
  * A post that needs sign-in fails with [SiteExtractionFailure.LOGIN_REQUIRED] and a message that
  * says where to sign in; a photo post with [SiteExtractionFailure.NO_MEDIA_FOUND].
@@ -102,9 +102,9 @@ class InstagramExtractor(
                 message = PHOTOS_MESSAGE,
             )
 
-            // v1.0.2 item 70b: unread on a private post's code (the link's own hint): the
-            // private words instead of "could not be read"; the reason stays. Fix F2 (phone test
-            // 70b): also behind the login wall, which Instagram shows for a private post; only a
+            // Unread on a private post's code (the link's own hint): the
+            // private words instead of "could not be read"; the reason stays. Also
+            // behind the login wall, which Instagram shows for a private post; only a
             // line failure (no answer at all) keeps its own words.
             InstagramUrls.isPrivateCode(code) &&
                 (loginWall || lastFailure == null || lastFailure.reason !in LINE_FAILURES) ->
@@ -196,7 +196,7 @@ class InstagramExtractor(
 
     /**
      * The rows of the item the link names (a carousel's `img_index`), else its first video.
-     * v1.0.2 item 51: on a post with several video items they carry the rows of the post's other
+     * On a post with several video items they carry the rows of the post's other
      * video items, in the post's order, each item under its own name ([PostVideoItem]: its place
      * among the post's video items, and `instagram:{code}:{img_index}`), so the sheet offers every
      * item. Photos are skipped; a video the answer gives no file for is named in Details and not
@@ -299,8 +299,9 @@ class InstagramExtractor(
 
     /**
      * The manifest's picture sizes, each merged with the best AAC sound, and that sound alone
-     * (P4's Facebook rows). A manifest without sound (a silent video) gives its pictures as they
-     * are, without a stated size, so the resolver reads from each file's header that it has none.
+     * (the Facebook adapter's rows). A manifest without sound (a silent video) gives its pictures
+     * as they are, without a stated size, so the resolver reads from each file's header that it has
+     * none.
      */
     private fun trackCandidates(
         tracks: List<FacebookDashTrack>,
@@ -460,12 +461,12 @@ class InstagramExtractor(
         const val PHOTOS_MESSAGE = "This post has photos only, no video."
 
         /**
-         * v1.0.2 item 70b: a lookup that ends unread on a private post's code, in the words the
+         * A lookup that ends unread on a private post's code, in the words the
          * app gives every site's private or removed post.
          */
         const val PRIVATE_MESSAGE = "This Instagram post is private or no longer available."
 
-        /** v1.0.2 item 70b: its Details line; the link itself is never shown. */
+        /** Its Details line; the link itself is never shown. */
         const val PRIVATE_CODE_LINE = "link: a private post's code (longer than 11 characters)"
     }
 }

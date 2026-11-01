@@ -6,9 +6,9 @@ import javax.xml.parsers.ParserConfigurationException
 
 /**
  * Android's own `DocumentBuilderFactory` (`org.apache.harmony.xml.parsers`) as it answers: no
- * XInclude setting, no feature but namespaces and validation, no attribute (as F1's test in
- * `core-media`). The documents themselves come from the JVM's parser, with no hardening of its
- * own, so a document type reaches it.
+ * XInclude setting, no feature but namespaces and validation, no attribute (as
+ * `DashManifestOnAndroidTest` in `core-media`). The documents themselves come from the JVM's
+ * parser, with no hardening of its own, so a document type reaches it.
  */
 class AndroidLikeDocumentBuilderFactory : DocumentBuilderFactory() {
     override fun newDocumentBuilder(): DocumentBuilder =

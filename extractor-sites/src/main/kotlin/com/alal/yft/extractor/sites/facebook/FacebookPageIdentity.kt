@@ -5,7 +5,7 @@ package com.alal.yft.extractor.sites.facebook
  *
  * Facebook answers a phone identity with its mobile page: the video sits in HTML attributes with
  * an inline DASH manifest, and a share link resolves only through a script, so this adapter found
- * no delivery fields and reported a changed page format (owner's phone, P2). A desktop identity
+ * no delivery fields and reported a changed page format (owner's phone). A desktop identity
  * gets the page whose JSON payloads carry the delivery fields, and share links redirect to the
  * reel (sandbox live check, 2026-10-04). Only the page request changes: media requests keep the
  * browser's own identity.
@@ -16,8 +16,8 @@ internal object FacebookPageIdentity {
     private const val DEFAULT_CHROME_VERSION = "130.0.0.0"
 
     /**
-     * Desktop Safari, for the public page asked first without the user's session (P15) and the
-     * page request that reads the AVC ladder (P4).
+     * Desktop Safari, for the public page asked first without the user's session and the
+     * page request that reads the AVC ladder.
      *
      * Facebook picks a video's DASH ladder by browser: a Chromium identity gets AV1 and VP9
      * tracks only, which phones before Android 14 cannot merge into an MP4, while Safari gets

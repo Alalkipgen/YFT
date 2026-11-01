@@ -5,7 +5,7 @@ import java.net.URI
 import java.util.Locale
 
 /**
- * P48: pure, offline URL matching for X (Twitter) posts.
+ * Pure, offline URL matching for X (Twitter) posts.
  *
  * A post's address on x.com or twitter.com, its mobile host, `/i/status/` and `/i/web/status/`
  * all collapse onto one canonical `https://x.com/{user}/status/{id}`. A `/video/N` link keeps its

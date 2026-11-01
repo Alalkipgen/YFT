@@ -21,14 +21,14 @@ class InstagramExtractorTest {
         /** 2023-11-14: after `oe=5F000000` (2020), before `oe=7A000000` (2034). */
         const val NOW = 1_700_000_000_000L
 
-        /** v1.0.2 item 70b: a private post's code, longer than a public post's 11 characters. */
+        /** A private post's code, longer than a public post's 11 characters. */
         const val PRIVATE_CODE = "C9fixtREEL1AbCdEfGhIjKlMnOpQrStUv"
         const val PRIVATE_REEL = "https://www.instagram.com/reel/$PRIVATE_CODE/"
 
         /**
-         * v1.0.2 item 51: a carousel of a video, a photo, a video without files, a video and a
+         * A carousel of a video, a photo, a video without files, a video and a
          * video whose link expired. Here, not under `fixtures/`: Master's offline parity reads
-         * every file there against its own baseline, a Master file item 51 leaves as it is.
+         * every file there against its own baseline, so Master's files stay as they are.
          */
         val MIXED_CAROUSEL = """
             {
@@ -207,7 +207,7 @@ class InstagramExtractorTest {
             assertEquals(15_200L, row.durationMillis)
             assertEquals("https://www.instagram.com/reel/C9fixtREEL1/", row.pageUrl)
             assertNotNull(row.expiresAtEpochMs)
-            // v1.0.2 item 51: a post of one video names no item.
+            // A post of one video names no item.
             assertNull(row.postItem)
         }
         assertEquals("session: none", result.details.first())
@@ -316,9 +316,9 @@ class InstagramExtractorTest {
     }
 
     /**
-     * v1.0.2 item 70b: a lookup that ends unread on a private post's code (longer than 11
+     * A lookup that ends unread on a private post's code (longer than 11
      * characters) says the post is private, with a line saying why; the reason, the other lines
-     * and an 11-character code stay as they were (the login wall: fix F2, below).
+     * and an 11-character code stay as they were (the login wall, below).
      */
     @Test
     fun `a private post's code left unread says the post is private`() = runTest {
@@ -351,7 +351,7 @@ class InstagramExtractorTest {
     }
 
     /**
-     * v1.0.2 fix F2 (phone test 70b): Instagram shows its login wall for a private post, so on a
+     * Instagram shows its login wall for a private post, so on a
      * private post's code the wall says the post is private too (the wall's lines kept, then the
      * code's); an 11-character code keeps the wall's words, and a line failure (no answer) its own.
      */
@@ -424,12 +424,12 @@ class InstagramExtractorTest {
         assertTrue(linked.mediaUrl.contains("side3.mp4"))
         assertEquals(4_000L, linked.durationMillis)
         assertEquals(2 to 2, linked.postItem?.let { it.number to it.count })
-        // v1.0.2 item 51: the post's other video comes with it, under its own name.
+        // The post's other video comes with it, under its own name.
         val other = linked.postItem!!.others.single()
         assertTrue(other.mediaUrl.contains("side2.mp4"))
         assertEquals("instagram:C9fixtSIDE1:2", other.videoId)
         assertEquals(1 to 2, other.postItem?.let { it.number to it.count })
-        // The photo (item 1) names no video: the first video comes first.
+        // The photo names no video: the first video comes first.
         val firstRow = first.candidates.single()
         assertTrue(firstRow.mediaUrl.contains("side2.mp4"))
         assertEquals(1 to 2, firstRow.postItem?.let { it.number to it.count })

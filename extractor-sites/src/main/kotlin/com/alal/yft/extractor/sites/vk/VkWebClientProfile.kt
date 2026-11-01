@@ -1,7 +1,7 @@
 package com.alal.yft.extractor.sites.vk
 
 /**
- * Path D's web client (VK5, the owner's decision under ADR-006 decision 1): what vkvideo.ru's own
+ * Path D's web client (the owner's decision): what vkvideo.ru's own
  * player uses signed out — an anonymous token from login.vk.ru, then `video.get` on
  * api.vkvideo.ru. The identifiers are the web app's own, read from vkvideo.ru's public
  * JavaScript on 2026-10-25 (its vkvideo.ru client, the API version of its config); they belong to

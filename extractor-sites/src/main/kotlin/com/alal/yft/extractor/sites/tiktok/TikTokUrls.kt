@@ -54,7 +54,7 @@ internal object TikTokUrls {
     }
 
     /**
-     * Builds the canonical page address. P36: without the author's handle it is
+     * Builds the canonical page address. Without the author's handle it is
      * `/@/video/<id>`, which TikTok answers with the post (live check 2026-10-08), while
      * `/video/<id>` redirects to its 404 page.
      */
@@ -70,7 +70,7 @@ internal object TikTokUrls {
 
     /** True for `tiktok.com` and its subdomains, the only cookie domains TikTok media may use. */
     /**
-     * P39: whether [requestUrl] is TikTok's own player fetching a video file: a TikTok or
+     * Whether [requestUrl] is TikTok's own player fetching a video file: a TikTok or
      * TikTok-CDN host with a video path (`/video/tos/`, `/aweme/v1/play`) or an MP4 mime type.
      * Only the address is read, offline.
      */
