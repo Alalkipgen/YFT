@@ -6,7 +6,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * VK-Master plan §11 (S8), agent A's draft rules (docs/VK_MASTER_CENSUS.md §8), as main's
+ * Privacy: the VK census's fixture rules (docs/TESTING.md), as main's
  * `VkFixtureHygieneTest`: no fixture of the VK pack holds a real-looking signature, an address of
  * the fetcher, a session or a token answer, a real ID or title, or the web client's own values
  * (they live only in [VkClient], with provenance). Every query value of an address is `FIXTURE`;

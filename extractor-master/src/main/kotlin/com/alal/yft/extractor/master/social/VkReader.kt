@@ -1,5 +1,5 @@
 /*
- * Provenance (VK-Master plan §4 V1, Appendix B step 3; copied, not moved; main 50fb8d0f: "# pending"
+ * Provenance (copied, not moved; main 50fb8d0f: "# pending"
  * rows in toolkit-provenance.tsv's header, as VkClient's):
  *   extractor-sites/.../vk/VkEmbedParser.kt  CACHE_KEY, MAX_CACHES, MAX_SCAN_DEPTH, MP4, HLS, DASH,
  *                                         MP4_KEY, HLS_KEYS, DASH_KEYS, MANIFEST_ORDER,
@@ -29,8 +29,8 @@ import java.net.URI
 import java.util.Locale
 
 /**
- * VK-Master plan §4 (V1, V2): Master's own read of VK's answers for the link's video — main's embed
- * page (`video_ext.php`: its `apiPrefetchCache`) and `video.get`'s answer (main's, or V2's own) —
+ * Master's own read of VK's answers for the link's video — main's embed
+ * page (`video_ext.php`: its `apiPrefetchCache`) and `video.get`'s answer (main's, or the VK ladder's heal step's) —
  * bound to the video by its `owner_id` and `id` ([VkClient.Link]). VK's key table first (the item's
  * `files`: `mp4_{height}`, the HLS and DASH keys), the shape scan second (only when the table finds
  * nothing: files under rendition-like keys, or whose address names its type, inside an object
@@ -116,7 +116,7 @@ internal object VkReader {
         override fun toString(): String = "Read(files=${files.size}, byShape=$byShape, $reading)"
     }
 
-    /** Main's embed page [html] (B, B again, B2) for [link]'s video. */
+    /** Main's embed page [html] (record asks `B`, `B again`, `B2`) for [link]'s video. */
     fun embed(html: String, link: VkClient.Link): Read {
         val caches = prefetchCaches(html)
         val item = caches.firstNotNullOfOrNull { itemOf(it, link) }

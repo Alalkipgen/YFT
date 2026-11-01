@@ -14,7 +14,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** VK Master plan §8: S5's order for one named value (made-up values and texts only). */
+/** The order for one named value (made-up values and texts only). */
 class ValueSourceTest {
     private var now = START
     private val file = MemoryFile()

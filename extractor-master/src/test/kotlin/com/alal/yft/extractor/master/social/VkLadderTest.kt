@@ -38,7 +38,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * VK-Master plan §4 (V1–V3), Appendix B step 3: VK's ladder in Master's engine, after main's real
+ * The VK ladder (`vk V1`–`vk V3` in Lookup details) in Master's engine, after main's real
  * VK adapter (`extractor-sites`, as the app builds it) failed in the same lookup over made-up
  * answers (`fixtures/vk-pack/`). V1 re-reads main's kept answers with no new ask: rows bound to the
  * video (a renamed key by the shape scan; never the trailer, a picture or another video's file)
@@ -47,10 +47,10 @@ import org.junit.Test
  * token held in memory and one `video.get`, with the lookup's user agent and no cookie, within VK's
  * budget and the lookup's time, under route B's rules (main's identical token answer replayed,
  * main's `video.get` never asked again). Rungs off by the config; claims and guards; every line
- * short labels that the sanitizer keeps whole. Step 4: in a record labelled with VK's labels
+ * short labels that the sanitizer keeps whole. In a record labelled with VK's labels
  * ([VkLabels]) main's token ask is read by its mark — VK's captcha stops VK and cools login.vk.ru,
- * an answer without a value is a refused value (V2) — also when main asks with other values. Step 5:
- * a build without VK's recipe checks none of main's rows (V1 says so). Agent A's census: VK's
+ * an answer without a value is a refused value (V2) — also when main asks with other values. Also:
+ * a build without VK's recipe checks none of main's rows (V1 says so). The VK census: VK's
  * region limit (API error 13300) final in V1 and V2; login.vk.ru checks the client id, not the
  * secret, so the heal's value is a rotated client id (a new secret alone heals nothing); VK's
  * budget fits main's most (6 asks), V2 and V's reads. JVM only, no network; VK's recipe is step
@@ -1060,13 +1060,13 @@ class VkLadderTest {
 
         /**
          * The owner's debug hook: one value changed, the client id (login.vk.ru checks it, not the
-         * secret: agent A's census §3.2a), as after VK rotated it ([rotated]).
+         * secret: the VK census), as after VK rotated it ([rotated]).
          */
         val HEALED: VkClient.Values = VkClient.BUNDLED.copy(clientId = NEW_CLIENT_ID, source = VkClient.Source.DEBUG)
         val HEAL: VkClientValues = VkClientValues.bundled { it.copy(clientId = NEW_CLIENT_ID) }
 
         /**
-         * login.vk.ru after VK rotated the web client's id (agent A's census §3.2a): main's id refused
+         * login.vk.ru after VK rotated the web client's id (the VK census): main's id refused
          * (`invalid_client`, a 401), any other id answered with a token, whatever the secret.
          */
         val rotated: (String) -> ExtractorHttpResult = { body ->
@@ -1112,10 +1112,10 @@ class VkLadderTest {
         /** Main's other values (a token version of VK's shape that is not the bundled one). */
         val OTHER: VkClient.Values = VkClient.BUNDLED.copy(tokenVersion = "2")
 
-        /** The engine's recipes, VK's included (step 4's [VkRecipe], in `ContractRecipes.ALL` since wave 2). */
+        /** The engine's recipes, VK's included ([VkRecipe], in `ContractRecipes.ALL` since the VK ladder). */
         fun contracts(http: ExtractorHttpClient) = SiteContracts(http, ContractRecipes.ALL)
 
-        /** The recipes of a build without VK's (`ContractRecipes.ALL` before wave 2). */
+        /** The recipes of a build without VK's (`ContractRecipes.ALL` before the VK ladder). */
         fun withoutVk(http: ExtractorHttpClient) =
             SiteContracts(http, ContractRecipes.ALL.filterNot { it.site == VkClient.SITE_ID })
 

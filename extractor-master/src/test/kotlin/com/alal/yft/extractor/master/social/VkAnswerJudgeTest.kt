@@ -12,8 +12,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * VK-Master plan §5, Appendix B step 2: VK's answers to the shared classes, final only on evidence
- * (agent A's census §3: VK's region limit, API error 13300, final; 15, 17 and 204 never).
+ * VK's answers to the shared classes, final only on evidence
+ * (the VK census: VK's region limit, API error 13300, final; 15, 17 and 204 never).
  */
 class VkAnswerJudgeTest {
     @Test

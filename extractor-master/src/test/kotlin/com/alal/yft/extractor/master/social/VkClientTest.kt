@@ -10,7 +10,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** VK-Master plan Appendix B step 1: the web client's values, checked, and their asks' parts. */
+/** The web client's values, checked, and their asks' parts. */
 class VkClientTest {
     @Test
     fun `main's values are bundled and every one has VK's shape`() {

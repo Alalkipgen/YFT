@@ -28,7 +28,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S1a (7): the rows bound to the Facebook video ID only when the answer holds one
+ * Social ladders: the rows bound to the Facebook video ID only when the answer holds one
  * video under it ([FacebookIdentity]). Real shapes (the plugin player, a comet page's video
  * object with its delivery copies and a copy in another script, related videos with their own
  * IDs) keep the video's rows; a missing or renamed ID, a related video's files under the video's

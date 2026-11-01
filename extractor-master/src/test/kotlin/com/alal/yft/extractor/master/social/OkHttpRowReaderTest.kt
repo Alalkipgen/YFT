@@ -23,18 +23,18 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * Social plan S1a (6), S6: V's read of a row's file. One GET with a `Range` of the asked bytes and
+ * Row check: the read of a row's file. One GET with a `Range` of the asked bytes and
  * the headers given (never a cookie or a credential), HTTPS on one of Facebook's media hosts only,
  * no redirect followed, at most the asked bytes read; a non-2xx answer is a failure with its
- * status, no answer one without. Task 9: one reader for every site, each read on its own site's
- * hosts ([RowReadSite], as S6 gives it; a read without one sends nothing). A local HTTPS server
+ * status, no answer one without. One reader for every site, each read on its own site's
+ * hosts ([RowReadSite], as the Row check gives it; a read without one sends nothing). A local HTTPS server
  * under Facebook's (and X's) media host names; no live calls.
  */
 class OkHttpRowReaderTest {
     private lateinit var server: MockWebServer
     private lateinit var client: OkHttpClient
 
-    /** Task 9: the reader as S6 asks it in a Facebook lookup (each read carries Facebook as its site). */
+    /** The reader as the Row check asks it in a Facebook lookup (each read carries Facebook as its site). */
     private lateinit var reader: MediaStartReader
 
     @Before
@@ -169,7 +169,7 @@ class OkHttpRowReaderTest {
     private fun url(host: String, path: String = "/v/file.mp4"): String =
         "https://$host:${server.port}$path?oe=F2A52380&oh=fixture"
 
-    /** [this] reader with each read in a lookup of [site]'s (its [RowReadSite], as S6 reads). */
+    /** [this] reader with each read in a lookup of [site]'s (its [RowReadSite], as the Row check reads). */
     private fun MediaStartReader.readingFor(site: Site) = MediaStartReader { url, headers, maxBytes ->
         withContext(RowReadSite(site)) { read(url, headers, maxBytes) }
     }

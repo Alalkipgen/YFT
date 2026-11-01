@@ -8,8 +8,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S1a (10): a file's length from the first bytes V read of it ([StartDuration]), for
- * the rows that state none (the plugin player's answer names no length, so on step 6's first run
+ * A file's length from the first bytes the Row check read of it ([StartDuration]), for
+ * the rows that state none (the plugin player's answer names no length, so on its first phone run
  * every trial line said "duration within 1 s: unknown"). The movie header of a progressive file
  * whose `moov` the read cuts, a fragmented file's `mehd` over the movie's timescale, else its
  * index (`sidx`); nothing else is a length. MP4 starts made in code ([LengthBytes]).
@@ -86,7 +86,7 @@ class StartDurationTest {
     }
 }
 
-/** MP4 file starts with a length, made in code, for S1a (10)'s tests (the init check's boxes). */
+/** MP4 file starts with a length, made in code, for these tests (the init check's boxes). */
 internal object LengthBytes {
     private fun u32(value: Long): ByteArray = InitBytes.u32(value)
 

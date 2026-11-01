@@ -28,7 +28,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S1a (4): F2, main's pages. When F1 (the plugin player) leaves nothing to read, the
+ * The Facebook ladder's F2 (`facebook F2` in Lookup details), main's pages. When F1 (the plugin player) leaves nothing to read, the
  * pages main's real Facebook adapter read in the lookup are read again, without a request: rows
  * bound to the video on a page whose keys main no longer knows go to the media checks (the page
  * data); the page's own route on main's page (private or removed, in any language: slot 13) is
@@ -82,8 +82,8 @@ class FacebookLadderF2Test {
         val post = identify(POST)
         val share = identify(SHARE)
         val cases = listOf(
-            // Main reads the page's route (§7.4's A1; its English markers are not these words): final
-            // in any language, a post's too (S0d's slot 13); Master is skipped.
+            // Main reads the page's route (the Facebook adapter's access fix; its English markers are not these words): final
+            // in any language, a post's too (census slot 13); Master is skipped.
             Route(WATCH, routePage(FacebookAnswerJudge.ERROR_ROUTE, privacy = true, title = ENGLISH), SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE),
             Route(WATCH, routePage(FacebookAnswerJudge.ERROR_ROUTE, privacy = true, title = BURMESE), SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE),
             Route(POST, routePage(FacebookAnswerJudge.ERROR_ROUTE, privacy = true, title = BURMESE), SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE),
@@ -139,7 +139,7 @@ class FacebookLadderF2Test {
                 REEL, disagreeing, answering(embedUrl(reel) to NO_DATA, contentType = HTML), MainPages(),
                 listOf("$F2: page 1: PRIVATE (route: error (privacy))", "$F2: page 2: SHAPE_CHANGED (no rows; no route)", "$F2: next: PLAYBACK"),
             ),
-            // A watch link's page with the route: main's own final answer (§7.4's A1), as main's
+            // A watch link's page with the route: main's own final answer (the Facebook adapter's access fix), as main's
             // English page; Master is skipped, the plugin player not asked.
             NotFinal(
                 WATCH, answering(watch.canonicalPageUrl to private, contentType = HTML),
@@ -166,7 +166,7 @@ class FacebookLadderF2Test {
                 mainFailure = SiteExtractionFailure.HTTP_STATUS,
             ),
             // A reel: the route on main's public page alone (its session page a 500), the plugin
-            // player without the video: not final (§7.4 step 3: the public page alone never ends
+            // player without the video: not final (the public page alone never ends
             // the lookup).
             NotFinal(
                 REEL, publicOnly(), answering(embedUrl(reel) to NO_DATA, contentType = HTML), MainPages(),

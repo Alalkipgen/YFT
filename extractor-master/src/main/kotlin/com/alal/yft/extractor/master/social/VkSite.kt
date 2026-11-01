@@ -6,16 +6,16 @@ import com.alal.yft.extractor.api.SiteExtractionFailure.NO_MEDIA_FOUND
 import com.alal.yft.extractor.api.SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE
 
 /**
- * VK-Master plan §6, §7: VK's own values for the shared tables (agent D registers them:
+ * VK's own values for the shared tables (registered in
  * `SocialBudget.VK` in SocialStops.kt, `SiteWays.ALL`).
  */
 object VkSite {
     /**
-     * VK's budget per lookup (§6), counted as the four sites' are (`SocialStops`: the lookup's whole
+     * VK's budget per lookup, counted as the four sites' are (`SocialStops`: the lookup's whole
      * record — main's asks, the ladder's and V's reads). The worst case, both values healed after
-     * main's most (agent D's wiring, the owner's numbers with the live check's changes):
+     * main's most (the owner's numbers with the live check's changes):
      * - main: at most 6 asks in a lookup it fails — the embed on its own host, once more after VK's
-     *   shell, on the other host; path D's `video.get` with the token in memory, one new token and
+     *   shell, on the other host; the web-client path's `video.get` with the token in memory, one new token and
      *   one more `video.get`. Main reads a manifest (at most 2 an answer) only for an answer it
      *   answers with, so Master never runs after one.
      * - V1: none (main's answers re-read).
@@ -23,7 +23,7 @@ object VkSite {
      *   lookup ask however many redirects it takes, and its common script, which carries both
      *   values), one token and two `video.get`s (the second after error 8, its API version healed
      *   from the same script, no new read).
-     * - V: at most 8 reads ([SocialRowCheck.MAX_READS]); V2 asks only while they still fit.
+     * - Row check: at most 8 reads ([SocialRowCheck.MAX_READS]); V2 asks only while they still fit.
      *
      * So 6 + 2 + 1 + 2 + 8 = 19 requests (one value broken: 18). Bytes, each ask at its bound: the
      * page ([VkClientSource.PAGE_MAX_BYTES], 1 MiB), the common script
@@ -32,7 +32,7 @@ object VkSite {
      * each): 7,356,416 (the owner's 6,569,984 counted `error_monitoring`'s 256 KiB, which the live
      * check dropped: today's client id is in the common script, and a second `video.get`, 1 MiB).
      * Time: main's one 15 s deadline (`VkExtractor.DEADLINE_MS`; a Master lookup is never slower
-     * than main's, A's census §6), so V2 asks only in what main left of it; out of time or bytes,
+     * than main's, VK census), so V2 asks only in what main left of it; out of time or bytes,
      * V2 stops and V3 answers.
      */
     val BUDGET = SocialBudget(
@@ -50,17 +50,17 @@ object VkSite {
     const val VIDEO_GET_ASKS = 2
 
     /**
-     * VK in the census's site table (§7, §10): main's name for it (`VkExtractor.displayName`),
-     * main's ways in main's order (the embed page; after its adult answer, path D's token and
+     * VK in the census's site table: main's name for it (`VkExtractor.displayName`),
+     * main's ways in main's order (the embed page; after its adult answer, the web-client path's token and
      * `video.get`), Master's own (V2's `video.get`), VK's labels ([VkLabels]), and the media hosts
-     * V may ask: VK's video servers only (`vk{N}-{N}.vkuser.net`, `vkvd{N}.okcdn.ru`,
+     * the Row check may ask: VK's video servers only (`vk{N}-{N}.vkuser.net`, `vkvd{N}.okcdn.ru`,
      * [VkClient.mediaFile]), never okcdn.ru's image host (the poster, the trailer's pictures).
-     * In `SiteWays.ALL` (agent D), so a VK lookup's row check asks VK's hosts only.
+     * In `SiteWays.ALL`, so a VK lookup's row check asks VK's hosts only.
      *
-     * The slots are A's census kinds (`docs/VK_MASTER_CENSUS.md` §7.1; the owner's own public links,
-     * kept on the phone only; slot 1 is W's [SiteWeekly.MASTER_SLOT]): two 18+ videos linked with
+     * The slots are the VK census's kinds (docs/TESTING.md; the owner's own public links,
+     * kept on the phone only; slot 1 is the Weekly site check's [SiteWeekly.MASTER_SLOT]): two 18+ videos linked with
      * `list=` and one without, two videos, a clip and a finished live (`postlive`); removed is VK's
-     * final answer (Master's deleted icon) or main's "isn't available" (`NO_MEDIA_FOUND`, VK5's
+     * final answer (Master's deleted icon) or main's "isn't available" (`NO_MEDIA_FOUND`, the web-client path's
      * end); private or sign-in-only downloads with VK's session (`remixsid`) and answers sign-in
      * without it — signed out, VK's embed says "not found" for deleted, private and list-only alike,
      * so main's "isn't available" and a private answer say nothing about it then ("ambiguous (no

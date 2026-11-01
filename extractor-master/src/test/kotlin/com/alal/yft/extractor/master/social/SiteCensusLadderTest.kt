@@ -45,9 +45,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Task 6b (`MASTER_KEY_SOCIAL_PLAN.md` §7.3): the site census's ladder. In a social-ladder build a
+ * The Site census's ladder. In a social-ladder build a
  * ladder site's Master parts run the site's pack (its ladder on main's pages from the census's own
- * main lookup, S6's file check, S7's stops and budgets) instead of R8's way; each part names its
+ * main lookup, the Row check, the Social limits' stops and budgets) instead of the site contract reader's way; each part names its
  * rungs and compares Master's rows with main's (wrong rows, unknown rows). Without a pack the
  * census is as before. Synthetic fixtures and made-up IDs only.
  */
@@ -83,7 +83,7 @@ class SiteCensusLadderTest {
             assertEquals(0L, master["wrong"].asLongOrNull)
             assertEquals(0L, master["unknown"].asLongOrNull)
             assertEquals("pass", master["v"]["verdict"].asStringOrNull)
-            // X1 asks nothing (main's answer, kept); S6 reads each file's start once.
+            // X1 asks nothing (main's answer, kept); the Row check reads each file's start once.
             assertEquals(0L, master["replayed"].asLongOrNull)
             assertEquals(master["asks"].asArrayOrEmpty.size.toLong(), master["new"].asLongOrNull)
         }
@@ -100,7 +100,7 @@ class SiteCensusLadderTest {
             assertTrue(line, line.endsWith("; the same item: yes; duration within 1 s: yes; wrong rows 0 (unknown 0)"))
         }
 
-        // Without a pack (every other build): main's parts the same, R8's way, no ladder field or line.
+        // Without a pack (every other build): main's parts the same, the site contract reader's way, no ladder field or line.
         now = NOW_MS
         val plainHttp = xWidget(advance = MAIN_MILLIS)
         val plain = census(AppMain(plainHttp), plainHttp).run(listOf(SiteWays.X), links, null)
@@ -223,7 +223,7 @@ class SiteCensusLadderTest {
         )
         assertEquals(listOf(2, 1), listOf(compared.wrong, compared.unknown))
         assertEquals("Master's rows 5, main's 1; the same video: no; duration within 1 s: no; heights 720 vs 720", compared.trialText())
-        // Task 16 (F6): Facebook's line gives each side's heights, each once, tallest first (Master's,
+        // Facebook's line gives each side's heights, each once, tallest first (Master's,
         // then main's); a side whose rows state none: unknown.
         val sized = TrialCompare.compare(
             listOf(
@@ -437,7 +437,7 @@ class SiteCensusLadderTest {
         assertEquals(true, master["ladder"].asBooleanOrNull)
         assertEquals(0L, master["rows"].asLongOrNull)
         assertTrue(master.toString(), master["reason"].asStringOrNull != SiteExtractionFailure.NETWORK.name)
-        // T1's embed GET is the part's one new ask; S6 sent nothing for the file and counts it refused.
+        // T1's embed GET is the part's one new ask; the Row check sent nothing for the file and counts it refused.
         assertEquals(listOf(1L, 1L), listOf(master["new"].asLongOrNull, master["refused"].asLongOrNull))
         assertEquals(listOf(SiteWays.EMBED_PLAYER), master["asks"].asArrayOrEmpty.map { it["way"].asStringOrNull })
         assertEquals(listOf(TT_EMBED_URL), http.requestedUrls)
@@ -446,7 +446,7 @@ class SiteCensusLadderTest {
         assertTrue(line, line.contains("; replayed 0, new 1, refused 1, checks "))
         assertFalse(outcome.report, outcome.report.lines().any { it.contains(" GET NETWORK ") })
 
-        // The same lookup with the file on TikTok's own host: S6 reads it once (new 2), none refused.
+        // The same lookup with the file on TikTok's own host: the Row check reads it once (new 2), none refused.
         now = NOW_MS
         val own = answering(TT_EMBED_URL to tiktokEmbed(TT_FILE), contentType = "text/html")
         val ownFiles = Files()
@@ -505,7 +505,7 @@ class SiteCensusLadderTest {
     private fun census(main: MainLookup, http: ExtractorHttpClient, pack: SiteCensus.Pack? = null) =
         SiteCensus(main, http, VALID, SiteCensus.Meter.NONE, clock, pack = pack)
 
-    /** The pack as a social-ladder build makes it, over Master's client [http]; S6 reads [files]. */
+    /** The pack as a social-ladder build makes it, over Master's client [http]; the Row check reads [files]. */
     private fun pack(
         http: ExtractorHttpClient,
         cooldown: SocialCooldown = SocialCooldown(),
@@ -597,7 +597,7 @@ class SiteCensusLadderTest {
         override suspend fun lookup(link: String, identity: LinkIdentity): MainAnswer = answer(link, identity)
     }
 
-    /** S6's file reads: an MP4 start for every file; the addresses asked. */
+    /** The Row check's file reads: an MP4 start for every file; the addresses asked. */
     private class Files : MediaStartReader {
         val asked = mutableListOf<String>()
 

@@ -27,7 +27,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S6 (B+, [SocialFill]): a weak answer of main's (no HD row, no sound row) gets only
+ * Weak-answer fill ([SocialFill]): a weak answer of main's (no HD row, no sound row) gets only
  * the rows it lacks; a strong one is never weak (no run); main's rows are never changed; only rows
  * that may fill the need go to V. Made-up posts and files: no real account, link or token.
  */
@@ -187,12 +187,12 @@ class SocialFillTest {
         assertEquals(listOf("big.mp4", "x720.mp4"), (result as MasterResult.Success).result.candidates.map(::name))
         assertEquals(2, need.unread)
         assertEquals(MasterStage.PAGE_DATA, result.stage)
-        // Its time and no capture: the policy B+ runs with.
+        // Its time and no capture: the policy the fill runs with.
         assertEquals(1, rung.policies.size)
         assertFalse(rung.policies.single().capture)
 
-        // Instagram's same item (decision 19 (iv)): the answer offered main's file, so its other
-        // files are main's item; B+ adds the HD ones, the tallest first, under main's video.
+        // Instagram's same item (the tab-fetch step's rule): the answer offered main's file, so its other
+        // files are main's item; the fill adds the HD ones, the tallest first, under main's video.
         assertTrue(need.sharesMainsFile)
         val rows = result.result.candidates
         val fill = SocialFill.added(mains, rows, need.weak, need.sharesMainsFile, video = ::sameVideo)
@@ -269,7 +269,7 @@ class SocialFillTest {
 
     /**
      * A ladder stand-in: claims the lookup or not; its one answer holds [ANSWER]'s four files; [pick]:
-     * its order of the rows V passed (L2), none by default.
+     * its order of the rows V passed (best first per height), none by default.
      */
     private class Rung(
         private val claims: Boolean,

@@ -14,7 +14,7 @@ import org.junit.Test
 import java.net.URI
 
 /**
- * VK-Master plan Appendix B step 1, drift at run time: main's VK adapter (`extractor-sites`, as the
+ * Drift at run time: main's VK adapter (`extractor-sites`, as the
  * app builds it) asks its token and `video.get` exactly as [VkClient] would — the same address,
  * body, headers in the same order and bounds. Main's values rotating, its order of fields or its
  * headers changing fails here, before the copy is trusted (the "# pending" provenance rows are not

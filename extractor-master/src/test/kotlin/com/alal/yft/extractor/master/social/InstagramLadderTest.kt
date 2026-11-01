@@ -46,18 +46,18 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S2d: Instagram's ladder in Master's engine. I2 reads main's own answers in this
+ * The Instagram ladder in Master's engine. I2 (`instagram I2` in Lookup details) reads main's own answers in this
  * lookup ([MainPages]: the app API signed in, GraphQL, the post's page, the embed page; each way's
  * page or refused GET) with no new ask, judges each and gives one answer for the lookup: the link's
  * item's rows bound to the post (main's files, and the 360p file main drops), checked by V; a photo
  * post final with main's reason; a rate limit, a checkpoint, a login wall, no post, a broken embed
  * and the embed's video without files never final, never REMOVED; rows after main's
- * LOGIN_REQUIRED stay unused (the engine's rule). A renamed key: by shape, one item only. Part 2
- * (task 13), the tab-fetch rung: off by its switch, asked once after I2 gave no rows (beside I2's
+ * LOGIN_REQUIRED stay unused (the engine's rule). A renamed key: by shape, one item only. The
+ * Instagram tab-fetch step: off by its switch, asked once after I2 gave no rows (beside I2's
  * rows only by its proof) and only signed out, recorded as Master's ask (a 429 stops the site, a
  * checkpoint cools it), said in one line; its rows bound to the post (its code or its pk) and to
  * the link's item go to V and the init check (at most 8) as the tab's own answer; a wall, another
- * post, a rejected value, a too-big answer, photos: no row, never final, main's reason. S7's
+ * post, a rejected value, a too-big answer, photos: no row, never final, main's reason. The Social limits'
  * budget; SocialStages gives an Instagram lookup Instagram's ladder. Main's real Instagram adapter
  * over main's fixtures (one made-up embed without files); Master's client is never asked; no live
  * calls.
@@ -188,7 +188,7 @@ class InstagramLadderTest {
         val renamedBody = carousel.replace("video_url", "video_link")
         val renamed = lookup("$SIDECAR?img_index=3", main(SiteWays.GRAPHQL to json(renamedBody)), validator = validator)
         val details = (renamed.result as MasterResult.NeedsPlayback).details
-        // Task 15 (F2): the shape change says what it read (counts and marks only).
+        // The shape change says what it read (counts and marks only).
         assertTrue(
             details.toString(),
             "$I2: SHAPE_CHANGED (GraphQL: a video, no files read; the answer: ${renamedBody.length} characters; " +
@@ -256,7 +256,7 @@ class InstagramLadderTest {
                 main(SiteWays.EMBED_PAGE to html(fixture("embed_no_video.html"))), SiteExtractionFailure.RESPONSE_CHANGED,
                 "$I2: NEEDS_PLAYBACK (embed page: not embeddable: removed, private or not embeddable alike); next: PLAYBACK",
             ),
-            // Task 13 (observation d): the embed signed out names the video, no file: the tab-fetch
+            // The embed signed out names the video, no file: the tab-fetch
             // rung's (none in this lookup: the user's own playback), never a shape change.
             Never(
                 embedNoFiles(), SiteExtractionFailure.RESPONSE_CHANGED,
@@ -278,8 +278,8 @@ class InstagramLadderTest {
             assertEquals(case.line, 1, capture.calls)
             assertTrue(case.line, validator.seen.isEmpty())
             assertNothingAsked(master)
-            // S7: a rate limit cools Instagram's web host from the stage's end; main's checkpoint is a
-            // sign-in wall (main's rule, §6.3): the browser, no stop.
+            // Social limits: a rate limit cools Instagram's web host from the stage's end; main's checkpoint is a
+            // sign-in wall (main's rule): the browser, no stop.
             assertEquals(case.line, case.cools, cooldown.cooling(WEB_HOST))
             assertBare(details)
         }
@@ -301,7 +301,7 @@ class InstagramLadderTest {
 
     @Test
     fun `the real embed page signed out - I2 reads main's post, a video without files as main says, and a shape change says what it read`() = runTest {
-        // Task 15 (F2, the phone session of 2026-10-23: slot 5 signed out, the rung off): main's
+        // Seen in the phone session of 2026-10-23 (slot 5 signed out, the rung off): main's
         // Details called the real embed page (about 227k characters) "video without files", I2's
         // "SHAPE_CHANGED (no video read)": I2's first node naming the code was the embed's own
         // context (a camelCase video mark), not the post. A page's post is now main's (a Master copy
@@ -319,7 +319,7 @@ class InstagramLadderTest {
         assertBare(details)
 
         // Main's rule finds no post (the post's node gone) while the embed's context still names
-        // the code. L3 (the retest of 2026-10-23): main's "no post", so too I2's — needs playback,
+        // the code. In the retest of 2026-10-23: main's "no post", so too I2's — needs playback,
         // never a shape change — saying what it read, counts and marks only; on the post's own page
         // the same (the retest's page).
         val contextOnly = realEmbed(post = false)
@@ -442,7 +442,7 @@ class InstagramLadderTest {
         }
         assertTrue(elsewhere.toString(), "$I2: none kept for the post; nothing to read" in detailsOf(elsewhere))
         assertTrue(elsewhere is MasterResult.NeedsPlayback)
-        // Task 12: main's answer remembered (P17), main asked nothing in this lookup: the line says so.
+        // Main's answer remembered (Lookup reuse), main asked nothing in this lookup: the line says so.
         for (reuse in LookupRecord.Reuse.entries) {
             val unasked = withContext(record().also { it.noteReuse(reuse) } + MainPages(site = SITE)) {
                 engine(FakeExtractorHttpClient()).extract(contractRequest(REEL, identify(REEL), SiteExtractionFailure.RESPONSE_CHANGED))
@@ -559,7 +559,7 @@ class InstagramLadderTest {
         assertEquals(1, proof.asked.size)
         assertEquals(1, record.masterAsks)
 
-        // Task 15 (F4): signed in, the proof sets I2's rows aside and the rung is not asked (the
+        // Signed in, the proof sets I2's rows aside and the rung is not asked (the
         // signed-out query): no row — no capture of the tab after it (signed in, the tab's playback
         // gave the phone's row, its file none of main's: "the same item: no") — and the proof's
         // stop says why, the lookup's last line (no "supply a fresh capture").
@@ -586,7 +586,7 @@ class InstagramLadderTest {
 
     @Test
     fun `the rung's row states its video's size when its file states none`() = runTest {
-        // Task 15 (F1): the phone's rung row had no height ("Quality unknown"); a file that states no
+        // The phone's rung row had no height ("Quality unknown"); a file that states no
         // size takes its video's own (`original_width`/`original_height`, else `dimensions`), as
         // main's rows and I2's state one; a file's own size stays first.
         for (answer in listOf(PROBE_NO_SIZE, PROBE_NO_SIZE.replace(ORIGINAL_SIZE, "\"dimensions\":{\"width\":720,\"height\":1280},"))) {
@@ -602,7 +602,7 @@ class InstagramLadderTest {
 
     @Test
     fun `L2 - the rung's versions of one height, the best rate first with the flag, the answer's order without it`() = runTest {
-        // L2 (the owner's slot 5 retest, `rows 3 (DIRECT)`): three versions of the post's video, none
+        // Best first per height (the owner's slot 5 retest, `rows 3 (DIRECT)`): three versions of the post's video, none
         // stating its size (F1 gives each the post's 720 x 1280) or its bitrate; V reads each file's total.
         val totals = mapOf("v1.mp4" to 918_528L, "v2.mp4" to 1_992_294L, "v3.mp4" to 1_200_000L)
         fun files() = Files { url ->
@@ -862,7 +862,7 @@ class InstagramLadderTest {
         assertTrue(detailsOf(onX).any { it.startsWith("master: x ") })
         assertFalse(detailsOf(onX).any { it.startsWith("master: instagram") })
 
-        // Another site's lookup, or an Instagram lookup without the record: not claimed (R8's path).
+        // Another site's lookup, or an Instagram lookup without the record: not claimed (the site contract reader's path).
         val other = SitePageIdentity("vimeo", "100000001", "https://vimeo.com/100000001")
         withContext(record() + MainPages()) {
             assertFalse(stages.claims(contractRequest(other.canonicalPageUrl, other)))
@@ -1074,7 +1074,7 @@ class InstagramLadderTest {
         }
     }
 
-    /** A fake file reader (S6's route B): [answer] for each address; the addresses asked, in order. */
+    /** A fake file reader (the Row check's route B): [answer] for each address; the addresses asked, in order. */
     private class Files(private val answer: (String) -> MediaStart) : MediaStartReader {
         val asked = mutableListOf<String>()
 
@@ -1160,14 +1160,14 @@ class InstagramLadderTest {
         val PROBE_VIDEO = """{"data":{"xig_polaris_media":{"if_not_gated_logged_out":{"code":"$REEL_CODE",""" +
             """"video_versions":[{"width":720,"height":1280,"url":"https://instagram.fxyz1-1.fna.fbcdn.net/o1/v/t16/f2/m86/probe.mp4"}]}}},"status":"ok"}"""
 
-        /** Task 15 (F1): the post's sizes in its own fields (the v1 item's), its file stating none. */
+        /** The post's sizes in its own fields (the v1 item's), its file stating none. */
         const val ORIGINAL_SIZE = "\"original_width\":720,\"original_height\":1280,"
 
-        /** Task 15 (F1): the probe's answer whose file states no size; the post states its own. */
+        /** The probe's answer whose file states no size; the post states its own. */
         val PROBE_NO_SIZE = """{"data":{"xig_polaris_media":{"if_not_gated_logged_out":{"code":"$REEL_CODE","media_type":2,$ORIGINAL_SIZE""" +
             """"video_versions":[{"type":101,"url":"https://instagram.fxyz1-1.fna.fbcdn.net/o1/v/t16/f2/m86/probe.mp4"}]}}},"status":"ok"}"""
 
-        /** L2: the probe's answer with three versions of the post's video, none stating its size or bitrate. */
+        /** The probe's answer with three versions of the post's video, none stating its size or bitrate. */
         val PROBE_VERSIONS = """{"data":{"xig_polaris_media":{"if_not_gated_logged_out":{"code":"$REEL_CODE","media_type":2,""" +
             """"video_duration":30.0,$ORIGINAL_SIZE"video_versions":[""" +
             (1..3).joinToString(",") { """{"type":${100 + it},"url":"https://instagram.fxyz1-1.fna.fbcdn.net/o1/v/t16/f2/m86/v$it.mp4"}""" } +
@@ -1192,7 +1192,7 @@ class InstagramLadderTest {
             """{"media_type":2,"video_versions":[{"width":1080,"height":1920,"url":"https://instagram.fxyz1-1.fna.fbcdn.net/o1/v/t16/f2/m86/item2.mp4"}]}""" +
             """]}}},"status":"ok"}"""
 
-        /** The query's answer with ten files for the post's video (more than S6 reads). */
+        /** The query's answer with ten files for the post's video (more than the Row check reads). */
         val PROBE_MANY = """{"data":{"xig_polaris_media":{"if_not_gated_logged_out":{"code":"$REEL_CODE","media_type":2,"video_versions":[""" +
             (1..10).joinToString(",") {
                 """{"width":${700 + it},"height":${1200 + it},"url":"https://instagram.fxyz1-1.fna.fbcdn.net/o1/v/t16/f2/m86/many$it.mp4?oe=7A000000&oh=00_fixture"}"""
@@ -1208,18 +1208,18 @@ class InstagramLadderTest {
         /** The query's answer with errors. */
         const val ERRORS_ANSWER = """{"errors":[{"message":"fixture","severity":"CRITICAL"}],"status":"ok"}"""
 
-        /** Main's embed page signed out: the post a video by its type, its file not listed (decision 24's case). */
+        /** Main's embed page signed out: the post a video by its type, its file not listed (the Instagram tab-fetch step's case). */
         val EMBED_NO_FILES: String = fixture("embed_captioned.html").let { page ->
             val start = page.indexOf("\\\"video_url\\\"")
             check(start > 0) { "embed fixture: no video_url" }
             page.removeRange(start, page.indexOf("\\\",", start) + 3)
         }
 
-        /** A file's size for S6's fake reads (32 KiB). */
+        /** A file's size for the Row check's fake reads (32 KiB). */
         const val TOTAL = 32_768L
 
         /**
-         * Task 15 (F2): a made-up embed page signed out in the real page's shape (about 227k
+         * A made-up embed page signed out in the real page's shape (about 227k
          * characters, as slot 5's on the phone): styles and scripts first, then the embed's data —
          * its own context naming the post's code with a camelCase video mark, then (with [post])
          * the post's GraphQL node, a video by its type, its file not listed.
@@ -1245,7 +1245,7 @@ class InstagramLadderTest {
             }
         }
 
-        /** Task 15 (F2): the real embed page's shape with the post's node. */
+        /** The real embed page's shape with the post's node. */
         val REAL_EMBED: String = realEmbed()
 
 

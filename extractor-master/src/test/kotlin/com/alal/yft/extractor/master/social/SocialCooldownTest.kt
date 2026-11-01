@@ -7,7 +7,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * v1.0.2 (item 18): [SocialCooldown.pace], a rung's asks to a host at least a gap apart across
+ * [SocialCooldown.pace], a rung's asks to a host at least a gap apart across
  * lookups (TikTok's T1): the wait for its turn and the turn taken; null, nothing taken, when the
  * wait is over the rung's room; other hosts and a gap of 0 not paced; the 429 cooldown apart.
  */

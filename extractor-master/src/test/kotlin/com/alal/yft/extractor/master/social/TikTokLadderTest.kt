@@ -47,15 +47,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S2b: TikTok's ladder in Master's engine. A photo post stops the lookup with no
+ * The TikTok ladder in Master's engine. A photo post stops the lookup with no
  * request (the link's or main's resolved address, the address main's page landed on, main's page
  * data); T1, the embed player, is asked once inside the lookup's record (route B's rules: never the
  * user's cookies, nothing new after a 429) and judged: rows bound to the item go to the media
  * checks, a photo post or DRM is final, a 429 or a bot check stops and cools its host; TikTok's
  * status, a login address and no evidence leave it to T2, main's pages read with no request (the
- * page with the most rows; another video's page and a page over the bound are not read). S7's
+ * page with the most rows; another video's page and a page over the bound are not read). The Social limits'
  * budget; a short link through main's resolved link; [SocialStages] gives each lookup its site's
- * ladder; V asks only TikTok's media hosts in a TikTok lookup. Without the lookup's record R8's path
+ * ladder; the Row check asks only TikTok's media hosts in a TikTok lookup. Without the lookup's record the site contract reader's path
  * is unchanged. Main's real TikTok adapter over main's fixtures; no live calls.
  */
 class TikTokLadderTest {
@@ -314,7 +314,7 @@ class TikTokLadderTest {
     }
 
     /**
-     * v1.0.2 (item 18): T1's asks at least 10 s apart across lookups (S5's run 3: the embed
+     * T1's asks at least 10 s apart across lookups (a phone run: the embed
      * player's 429 after one or two asks in a row): a lookup within the gap waits the rest, one
      * whose time would not hold T1's ask after the wait does not ask (T2 reads, no turn taken);
      * the census reads them as T1's rows and "not run (time budget)".
@@ -371,7 +371,7 @@ class TikTokLadderTest {
     }
 
     /**
-     * v1.0.2 (item 18): after T1's 429 T1 is not asked for the 30-minute cooldown (S7),
+     * After T1's 429 T1 is not asked for the 30-minute cooldown (Social limits),
      * then it is.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -431,7 +431,7 @@ class TikTokLadderTest {
     @Test
     fun `without the lookup's record or after a sign-in failure the ladder asks nothing`() = runTest {
         val identity = identify(PAGE)
-        // No record (every build but the social-ladder one): R8's ask, exactly as without a ladder.
+        // No record (every build but the social-ladder one): the site contract reader's ask, exactly as without a ladder.
         val r8Http = answering(EMBED_URL to EMBED, contentType = HTML)
         val r8 = MasterFallbackEngine(
             RecordingValidator(), CountingCapture(), MasterPolicy(enabled = true), contracts = SiteContracts(r8Http),
@@ -443,7 +443,7 @@ class TikTokLadderTest {
         assertEquals(r8Http.requestedUrls, http.requestedUrls)
         assertFalse(plain.result.details.any { it.startsWith(LADDER) || it.startsWith(T1) || it.startsWith(T2) })
 
-        // Main's sign-in failure: the user's own playback, never an ask (as R8).
+        // Main's sign-in failure: the user's own playback, never an ask (as the site contract reader does).
         val signIn = answering(EMBED_URL to EMBED, contentType = HTML)
         val record = record()
         val capture = CountingCapture()
@@ -487,7 +487,7 @@ class TikTokLadderTest {
         assertFalse(onFacebook.details.any { it.startsWith(LADDER) || it.startsWith(T1) || it.startsWith(T2) })
         assertEquals(listOf(EMBED_URL, plugin), http.requestedUrls)
 
-        // Another site's lookup: no ladder claims it (R8's path), even inside a record.
+        // Another site's lookup: no ladder claims it (the site contract reader's path), even inside a record.
         val other = SitePageIdentity("vimeo", "100000001", "https://vimeo.com/100000001")
         withContext(record() + MainPages()) {
             assertFalse(stages.claims(contractRequest(other.canonicalPageUrl, other)))
@@ -511,7 +511,7 @@ class TikTokLadderTest {
         assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, (checked.last() as ValidationResult.Rejected).reason)
         assertEquals(listOf(TIKTOK_FILE), files.asked)
 
-        // A lookup that names no site (built before S2b): the check's own site, Facebook's hosts.
+        // A lookup that names no site : the check's own site, Facebook's hosts.
         val before = withContext(LookupRecord(labels = SiteWays.FACEBOOK.labels()) + MainPages()) {
             check.validate(tiktokRow, NOW)
         }

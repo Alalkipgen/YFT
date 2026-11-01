@@ -9,7 +9,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Test
 
-/** L2 (S6): [RowPick.bestFirst] — of one height's versions, the highest rate first; nothing dropped or changed. */
+/** Best first per height: [RowPick.bestFirst] — of one height's versions, the highest rate first; nothing dropped or changed. */
 class RowPickTest {
     @Test
     fun `one height's versions - the highest rate first, in the places they held, every other row in its place`() {

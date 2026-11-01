@@ -8,7 +8,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** VK Master plan §8: the social sites' health (data only; made-up values). */
+/** The social sites' health (data only; made-up values). */
 class SiteHealthTest {
     private var now = START
     private val clock = { now }

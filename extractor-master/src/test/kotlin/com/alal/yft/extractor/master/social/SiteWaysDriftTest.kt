@@ -51,8 +51,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S0a, drift: the labels name the asks main's four adapters (`extractor-sites`, as the
- * app builds them) and Master's R8 contracts really send, through the recorder the census uses. A
+ * Lookup record, drift: the labels name the asks main's four adapters (`extractor-sites`, as the
+ * app builds them) and Master's site contract reader contracts really send, through the recorder the census uses. A
  * change in main's order of ways, its identities or its addresses fails here, not on the phone.
  */
 class SiteWaysDriftTest {

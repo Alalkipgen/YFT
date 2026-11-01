@@ -31,10 +31,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S1a (8): the simulator world. One made-up Facebook (a video's watch and reel pages
+ * The simulator world. One made-up Facebook (a video's watch and reel pages
  * with a related video beside it, the plugin player, the media host's files) on a fake clock,
  * asked in the app's order: main's real Facebook adapter first, Master's engine after main's
- * failure, each lookup in its own record and main's pages, the ladder, S6's row check and S7's
+ * failure, each lookup in its own record and main's pages, the ladder, the Row check and the Social limits'
  * cooldown built once and shared by the world's lookups (as the app holds them). Mutations: a
  * renamed key, a moved block, a 429, a sign-in wall, the unavailable page in two languages.
  * Every lookup keeps the world's rules ([assertRules]): rows only the video's files, bound to its
@@ -219,7 +219,7 @@ class FacebookWorldTest {
             assertRules(english, mains)
 
             // Words main does not know (another English, Burmese): main reads the page's route
-            // (§7.4's A1), final as its English words; Master asks nothing.
+            // (the Facebook adapter's access fix), final as its English words; Master asks nothing.
             val routes = listOf(
                 routePage(FacebookAnswerJudge.ERROR_ROUTE, privacy = true, title = ENGLISH),
                 routePage(FacebookAnswerJudge.ERROR_ROUTE, privacy = true, title = BURMESE),
@@ -336,7 +336,7 @@ class FacebookWorldTest {
         assertEquals(name, pages.size - pages.distinct().size, lookup.record.repeatedAsks)
         assertEquals(name, lookup.record.repeatedAsks, lookup.record.variantAsks)
         assertEquals(name, 0, lookup.record.asksAfterStop)
-        // The engine's own check is never asked in a Facebook lookup: S6's is.
+        // The engine's own check is never asked in a Facebook lookup: the Row check is.
         assertTrue(name, world.validator.seen.isEmpty())
         assertBare(lookup.details)
     }
@@ -406,7 +406,7 @@ class FacebookWorldTest {
      * The world: Facebook's pages ([page]: main's page for the video's addresses, by whether the
      * session went with the ask), the plugin player ([player]) and the media host ([file]), on a
      * fake clock ([now]; each ask takes its time). The engine's parts are built once, as the app
-     * holds them: S7's cooldown and S6's row check are shared by the world's lookups.
+     * holds them: the Social limits cooldown and the Row check are shared by the world's lookups.
      */
     private class World(shape: Shape = Shape.MAIN) {
         var now = START
