@@ -24,21 +24,21 @@ import com.alal.yft.extractor.master.toolkit.UrlPolicy
 import java.net.URI
 
 /**
- * L3 (Phase 1 R3): key-name-independent search for media-shaped JSON in delivered material.
+ * Shape search: key-name-independent search for media-shaped JSON in delivered material.
  *
- * It reads more places than L4 (every JSON script by its own type/id, objects assigned in
+ * It reads more places than the Recipe reader (every JSON script by its own type/id, objects assigned in
  * scripts, JSON inside strings, entity-encoded JSON attributes, API responses) and accepts an
  * address by its shape: a known key from [MediaKeyTable], a media file extension, a sibling
  * MIME type, or a media-hinted key next to file facts (width, bitrate, …). Every node is
- * **anchored to the expected content ID** ([AnchoredMediaWalk]); without one, nothing L3 finds
+ * **anchored to the expected content ID** ([AnchoredMediaWalk]); without one, nothing Shape search finds
  * is named the page's main video, so only the playing file (or its group) can select it.
- * Social plan task 18 (O1): never a player's stand-in file ([MediaKeyTable.STAND_IN_HINTS] on its
+ * Never a player's stand-in file ([MediaKeyTable.STAND_IN_HINTS] on its
  * key, its object's or its list's: the Facebook plugin player's `abortDummy`, anchored by the
  * config's own video ID) nor a site's build resource ([UrlPolicy.buildResource]).
  *
- * Additive: [LayerStack] drops what an earlier layer already found, and L3 rows are
- * [CandidateConfidence.MEDIUM], so they never displace L1/L2/L4 rows under the candidate cap.
- * Never on a YouTube host, never inside `streamingData` (R2: only the YouTube module answers).
+ * Additive: [LayerStack] drops what an earlier layer already found, and Shape search rows are
+ * [CandidateConfidence.MEDIUM], so they never displace the other layers' rows under the candidate cap.
+ * Never on a YouTube host, never inside `streamingData` (only the Master YouTube module answers).
  */
 internal class ShapeLayer : MasterLayer {
     override val id = LayerId.L3_SHAPE
@@ -56,7 +56,7 @@ internal class ShapeLayer : MasterLayer {
         return Evidence(search.candidates, details, search.terminalFailure)
     }
 
-    /** JSON documents in reading order: what L4 reads first, then the wider finders. */
+    /** JSON documents in reading order: what the Recipe reader reads first, then the wider finders. */
     private fun documents(snapshot: PageSnapshot): Sequence<String> = sequence {
         val html = snapshot.html
         val scripts = html?.let(PageScripts::scripts).orEmpty()
@@ -223,7 +223,7 @@ internal class ShapeLayer : MasterLayer {
             visit: AnchoredMediaWalk.Visit,
             listParent: String?,
         ): String? {
-            // Known keys first: L3 must find what L4 finds.
+            // Known keys first: Shape search must find what the Recipe reader finds.
             MediaKeyTable.ADDRESS_KEYS[name]?.let { return it }
             if (name in MediaKeyTable.ADDRESS_KEYS) {
                 return sibling(visit.node) ?: ""
@@ -236,7 +236,7 @@ internal class ShapeLayer : MasterLayer {
             }
             if (MediaKeyTable.hinted(name, MediaKeyTable.IMAGE_HINTS)) return null
             if (MediaKeyTable.AD_HINTS.containsMatchIn(name)) return null
-            // Task 18 (O1): a player's stand-in file (its key, its object's or its list's says so)
+            // A player's stand-in file (its key, its object's or its list's says so)
             // or a site's build resource is no video's file, anchored or not.
             if (listOf(name, visit.key, listParent).any { MediaKeyTable.hinted(it, MediaKeyTable.STAND_IN_HINTS) }) {
                 return null
@@ -284,7 +284,7 @@ internal class ShapeLayer : MasterLayer {
     }
 
     private companion object {
-        /** Marks a MIME type L3 inferred from a hinted key next to file facts. */
+        /** Marks a MIME type Shape search inferred from a hinted key next to file facts. */
         const val GUESSED_MP4 = "video/mp4;guessed"
         const val MAX_DOCUMENTS = 40
         const val MAX_VISITED_NODES = 120_000

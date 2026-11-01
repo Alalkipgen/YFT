@@ -6,30 +6,30 @@ import com.alal.yft.extractor.api.json.get
 import com.alal.yft.extractor.master.solver.OwnSolverLocator.appendLocator
 
 /**
- * Phase 1.1 S5: the JSON job and reply of Master's own solver worker
+ * YouTube own solver: the JSON job and reply of Master's own solver worker
  * (`extractor-master-android/src/main/assets/yft-own-solver/own-solver-worker.js`).
  *
  * ```
  * job    {"type":"player","keep_prepared":true,"player":"…","n":[…],"sig":[…]}
  *        {"type":"prepared","program":"…","n":[…],"sig":[…]}
- *        N5b (ownSolverNext only): "strategy":"B","hint":false (player text only),
- *        "tripwire":true (worker only), "deadline_ms":40000 (A.2) and "locator":{} or
- *        {"v":1,"n":{…},"sig":{…}} (A.4, worker only), see [Options]
+ *        Own-solver ladder (ownSolverNext only): "strategy":"B","hint":false (player text only),
+ *        "tripwire":true (worker only), "deadline_ms":40000 and "locator":{} or
+ *        {"v":1,"n":{…},"sig":{…}} (worker only), see [Options]
  * reply  {"type":"result","n":{input:output},"sig":{…},"failed":"sig:disagree","prepared_program":"…",
  *         "init_errors":0,"init_error_classes":["TypeError"],
  *         "locator":{"v":1,"n":{…},"sig":{…}},"locator_hit":["n","sig"]}
  *        {"type":"error","error":"<error class>"}
  * ```
  *
- * `init_errors` (Phase 1.2 N5a) counts the player's guarded top-level statements that threw and
+ * `init_errors` counts the player's guarded top-level statements that threw and
  * `init_error_classes` names their classes; a run that never instantiated has neither, which
  * decodes as an unknown count (null): the ladder (OwnSolverLadderRule) does not trust it.
  *
- * N5b A.2: at its deadline the core keeps only the kinds whose requested checks all finished; the
+ * At its deadline the core keeps only the kinds whose requested checks all finished; the
  * others fail as `n:budget` / `sig:budget` (B's own screen cap fails the run as `budget`), see
  * [Decoded.Solved.budget]. A top level the deadline cut has no init count.
  *
- * N5b A.4: a job with a locator ([Options.locator], data only, see [OwnSolverLocator]) asks the
+ * A job with a locator ([Options.locator], data only, see [OwnSolverLocator]) asks the
  * core for its parts: the reply's `locator` holds a part per kind it answered cleanly and
  * `locator_hit` the kinds a sent part answered. A reply locator not exactly of the core's form is
  * ignored.
@@ -54,7 +54,7 @@ internal object OwnSolverProtocol {
     /** One kind refused by SelfCheck: `n:<reason>` or `sig:<reason>`. */
     private val KIND_FAILURE = Regex("(n|sig):[a-z-]{1,32}")
 
-    /** N5b A.2: the failure class of a run (or a kind) that ran out of time. */
+    /** The failure class of a run (or a kind) that ran out of time. */
     private const val BUDGET = "budget"
 
     sealed interface Player {
@@ -88,20 +88,20 @@ internal object OwnSolverProtocol {
             val signature: Map<String, String>,
             val preparedProgram: String?,
             val failures: List<String>,
-            /** Init errors of the run (N5a); null when the reply has no count: unknown, untrusted. */
+            /** Init errors of the run; null when the reply has no count: unknown, untrusted. */
             val initErrors: Int? = null,
             /** Their classes (`TypeError`), at most nine names; never a message. */
             val initErrorClasses: List<String> = emptyList(),
-            /** N5b A.4: the core's parts (locate mode only); null: none, or not of the core's form. */
+            /** The core's parts (locate mode only); null: none, or not of the core's form. */
             val locator: OwnSolverLocator.Parts? = null,
-            /** N5b A.4: the kinds a sent part answered (the core's `locator_hit`). */
+            /** The kinds a sent part answered (the core's `locator_hit`). */
             val locatorHits: Set<OwnSolverLadderRule.Kind> = emptySet(),
         ) : Decoded {
             /** A failure that is not one kind's: the run as a whole produced nothing usable. */
             val failedWhole: Boolean get() = failures.any { !KIND_FAILURE.matches(it) }
 
             /**
-             * N5b A.2: the run ran out of time: a kind (`sig:budget`) or the whole run (`budget`,
+             * The run ran out of time: a kind (`sig:budget`) or the whole run (`budget`,
              * B's screen cap). Not a broken program: the ladder keeps it and its budget memory
              * decides whether the step runs again.
              */
@@ -122,11 +122,11 @@ internal object OwnSolverProtocol {
     }
 
     /**
-     * Phase 1.2 N5b: what the ladder asks of one job (ownSolverNext only; Phase 1.1 sends none):
+     * Own-solver ladder: what the ladder asks of one job (ownSolverNext only; the single-worker run sends none):
      * strategy B with or without P's hint (from the player text only, nothing kept), the
-     * environment tripwire (the worker checks it; the page skips it) and (A.2) the job's
+     * environment tripwire (the worker checks it; the page skips it) and the job's
      * deadline in milliseconds, min(the step's cap, the time left in the lookup); it counts from
-     * the job's arrival in the worker or the page. A.4: [locator] (worker steps only; the page
+     * the job's arrival in the worker or the page. [locator] (worker steps only; the page
      * refuses the field) asks for the core's parts and sends the cached ones, of the job's
      * strategy; empty parts: locate only.
      */
@@ -220,7 +220,7 @@ internal object OwnSolverProtocol {
         }.toMap()
     }
 
-    /** N5b A.4: the kinds named in `locator_hit` ("n", "sig"); anything else names none. */
+    /** The kinds named in `locator_hit` ("n", "sig"); anything else names none. */
     private fun hitsOf(node: JsonValue?): Set<OwnSolverLadderRule.Kind> {
         val items = (node as? JsonValue.Array)?.items ?: return emptySet()
         if (items.size > MAX_HITS) return emptySet()

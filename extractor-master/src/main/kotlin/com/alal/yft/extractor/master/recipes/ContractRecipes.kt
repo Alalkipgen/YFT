@@ -1,5 +1,5 @@
 /*
- * Provenance (Master R8, copied, not moved; main 34a41890):
+ * Provenance (Site contract reader, copied, not moved; main 34a41890):
  *   extractor-sites/.../vimeo/VimeoConfigParser.kt  ACCESS_MARKERS (access phrases, read only
  *                                                   when the answer has no files), renditions
  *                                                   (progressive by height, then HLS/DASH with
@@ -39,10 +39,10 @@
  *                                                   (no cookie for the embed), displayTitle
  *                                                   (the caption, else the owner's name)
  * Adapted: the same endpoints, headers and keys as data that ContractLayer interprets.
- * Reviewed (social plan 0.1, main's X card fix on this branch): main's XSyndication.parse now also
+ * Reviewed (main's X card fix on this branch): main's XSyndication.parse now also
  *   reads the post's own card (`card.binding_values.unified_card`, JSON in a string) after its own
  *   media and before the quoted post. The X recipe stays as it is (the `mediaDetails` items, then
- *   the quoted post): under route B Master runs only after main fails, and its shape layer (L3)
+ * the quoted post): under route B Master runs only after main fails, and its Shape search
  *   reads JSON inside strings. The table's rows keep their base hashes (34a41890).
  */
 package com.alal.yft.extractor.master.recipes
@@ -52,7 +52,7 @@ import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.master.social.VkRecipe
 
 /**
- * R8: one entry of a contract key table: where one site's own answer lists files. Data only;
+ * Site contract reader: one entry of a contract key table: where one site's own answer lists files. Data only;
  * [com.alal.yft.extractor.master.layers.ContractLayer] reads it. A renamed key is a one-line edit.
  */
 internal data class ContractMedia(
@@ -87,7 +87,7 @@ internal data class ContractMedia(
 )
 
 /**
- * R8: one entry's own field names (dotted paths, first present wins). An empty list reads
+ * Site contract reader: one entry's own field names (dotted paths, first present wins). An empty list reads
  * nothing (a watermarked file has no bitrate of its own).
  */
 internal data class ContractFields(
@@ -102,7 +102,7 @@ internal data class ContractFields(
 internal enum class ContractOrder { LISTED, HEIGHT_DESC, BITRATE_DESC }
 
 /**
- * R8: one site's public player endpoint for one identified video (L2 contract), as its own
+ * Site contract reader: one site's public player endpoint for one identified video, as its own
  * player or embed widget asks it. Endpoint placeholders: `{id}` content ID, `{hashQuery}` an
  * unlisted Vimeo hash as `?h=`, `{token}` X's widget token, `{href}` the encoded page address.
  */
@@ -394,7 +394,7 @@ internal object ContractRecipes {
     )
 
     /**
-     * Task 15 (F1): where an Instagram file states its size — its own `width`/`height`, else its
+     * Where an Instagram file states its size — its own `width`/`height`, else its
      * video's (the node's `original_width`/`original_height`, else its `dimensions`).
      */
     private val INSTAGRAM_SIZE = ContractFields(
@@ -435,8 +435,8 @@ internal object ContractRecipes {
         ),
         itemNumber = Regex("[?&]img_index=([0-9]{1,2})(?:&|$)"),
         media = listOf(
-            // Task 15 (F1): a file that states no size (the rung's answer's) takes its video's own
-            // (`original_width`/`original_height`, else `dimensions`), as main's rows and I2's state one.
+            // A file that states no size (the rung's answer's) takes its video's own
+            // (`original_width`/`original_height`, else `dimensions`), as main's rows and the Instagram ladder's I2 (`master: instagram I2` in Lookup details) state one.
             ContractMedia(
                 listOf("video_versions", "*"), mime = MP4, metaPath = emptyList(), fields = INSTAGRAM_SIZE,
             ),
@@ -456,7 +456,7 @@ internal object ContractRecipes {
     )
 
     /**
-     * The engine's recipes. VK Master wave 2 (agent D): VK's ([VkRecipe], agent B's pack) joins
+     * The engine's recipes. VK's ([VkRecipe]) joins
      * last, so a schema-1 config's five sites keep their order (`RemoteRecipeConfig2.SCHEMA_1_SITES`).
      */
     val ALL: List<ContractRecipe> = listOf(VIMEO, X, FACEBOOK, TIKTOK, INSTAGRAM, VkRecipe.RECIPE)

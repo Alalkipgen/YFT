@@ -14,7 +14,7 @@ import com.alal.yft.extractor.api.SitePageIdentity
  * [generation] identifies one tab navigation, including SPA navigation. The browser host must
  * increment it and discard old observations when the focused page changes.
  * [expectedContentId] is supplied by the caller when known; this engine never invents an ID.
- * [identity] (R8) is the video the site adapter identified for the lookup, as the caller's
+ * [identity] (Site contract reader) is the video the site adapter identified for the lookup, as the caller's
  * registry read it; the contract stage asks that site's own endpoint for exactly this video.
  */
 data class MasterRequest(
@@ -55,7 +55,7 @@ data class PageSnapshot(
     val playingMediaUrl: String? = null,
     val authorizedPlayback: Boolean = false,
     val accessFailure: SiteExtractionFailure? = null,
-    /** R8: a site endpoint's answer the engine fetched itself; only L2 reads it. */
+    /** Site contract reader: a site endpoint's answer the engine fetched itself; only the contract layer reads it. */
     val contract: ContractAnswer? = null,
 ) {
     override fun toString(): String =
@@ -65,7 +65,7 @@ data class PageSnapshot(
             "contract=${contract?.site})"
 }
 
-/** R8: one bounded answer of [site]'s own public endpoint for the request's identity. */
+/** Site contract reader: one bounded answer of [site]'s own public endpoint for the request's identity. */
 data class ContractAnswer(val site: String, val body: String, val finalUrl: String) {
     override fun toString(): String = "ContractAnswer(site=$site, chars=${body.length})"
 }
@@ -78,9 +78,9 @@ data class CapturedRequest(
     val observedAtEpochMs: Long = 0,
     val pageRole: PageMediaRole? = null,
     val contentId: String? = null,
-    /** R7: the page's player appended this address's bytes to the focused video's MediaSource. */
+    /** Playback hooks: the page's player appended this address's bytes to the focused video's MediaSource. */
     val fedPlayer: Boolean = false,
-    /** R7: picture size of the init segment the player appended (MSE), when it was read. */
+    /** Playback hooks: picture size of the init segment the player appended (MSE), when it was read. */
     val width: Int? = null,
     val height: Int? = null,
 ) {
@@ -101,19 +101,19 @@ data class MasterPolicy(
     val maxSnapshotChars: Int = 2 * 1024 * 1024,
     val maxObservations: Int = 200,
     val timeoutMillis: Long = 20_000,
-    /** R8: the contract ask's own share, so a slow endpoint still leaves time for capture. */
+    /** The contract ask's own share, so a slow endpoint still leaves time for capture. */
     val contractTimeoutMillis: Long = 6_000,
     /**
-     * Phase 1.4 item 7 (YouTube routing B) R3: Master's YouTube module may answer a page main
+     * YouTube backup route: Master's YouTube module may answer a page main
      * failed with a recoverable reason ([com.alal.yft.extractor.master.policy.TerminalRules.ROUTE_B_RECOVERABLE]),
      * inside the lookup's record. Off (the default here; the app's builds without Master capture,
-     * or made with `-Pyft.youtubeRouteB=false`): P12 exactly, a claimed page main looked up is
-     * skipped. The app turns it on in its Master-capture debug builds (promoted 2026-10-19).
+     * or made with `-Pyft.youtubeRouteB=false`): today's one lookup exactly, a claimed page main looked up is
+     * skipped. The app turns it on in its Master-capture debug builds.
      */
     val youtubeRouteB: Boolean = false,
     /**
-     * Social plan S6 (B+, [com.alal.yft.extractor.master.social.SocialFill]): whether the engine
-     * may ask the visible tab's own playback (one capture, the last stage). Off only in B+'s run
+     * Weak-answer fill (`B+` in Lookup details, [com.alal.yft.extractor.master.social.SocialFill]): whether the engine
+     * may ask the visible tab's own playback (one capture, the last stage). Off only in the fill's run
      * for a page main found (main's answer stands, Master adds only what it lacks: no capture of
      * the tab, no line); on (the default): every other engine, as before.
      */
@@ -129,12 +129,12 @@ data class MasterPolicy(
 }
 
 enum class MasterStage {
-    /** R8: the site's own public player endpoint for the identified video (L2 contract). */
+    /** Site contract reader: the site's own public player endpoint for the identified video. */
     CONTRACT,
     PAGE_DATA,
     PLAYBACK_CAPTURE,
 
-    /** R6: a Master site module's own answer; its rows are the module's, not probed again. */
+    /** A Master site module's own answer (the Master YouTube module); its rows are the module's, not probed again. */
     SITE_MODULE,
 }
 

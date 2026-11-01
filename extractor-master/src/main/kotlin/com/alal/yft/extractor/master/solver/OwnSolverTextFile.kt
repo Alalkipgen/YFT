@@ -4,7 +4,7 @@ import java.io.File
 import java.io.FileOutputStream
 
 /**
- * Phase 1.2 N5b A.4/A.5: where a small solver store (the locator cache, the V ledger) keeps its
+ * Own-solver ladder: where a small solver store (the locator cache, the V ledger) keeps its
  * text between process runs. Neither call throws: a store that cannot read starts empty, one that
  * cannot write stays in memory.
  */

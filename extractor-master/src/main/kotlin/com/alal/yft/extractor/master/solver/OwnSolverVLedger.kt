@@ -5,13 +5,13 @@ import com.alal.yft.extractor.api.json.JsonValue
 import com.alal.yft.extractor.master.solver.OwnSolverProtocol.appendJsonString
 
 /**
- * Phase 1.2 N5b A.5: the V passes (ownSolverNext only): the keys ([PendingCheck.cacheKey]:
+ * Own-solver ladder: the V passes (ownSolverNext only): the keys ([PendingCheck.cacheKey]:
  * player version, step, the player text's SHA-256 and the hash of the locator part the run used,
  * `-` for none) whose signatures passed the live check. A lookup whose key passed needs no V; any
  * other player text or part is another key, so V runs again (a poisoned locator entry never rides
  * on an earlier pass).
  *
- * At most [maxKeys] keys, the oldest go first. Without [file] it lives in memory (Phase 1.2 N5a's
+ * At most [maxKeys] keys, the oldest go first. Without [file] it lives in memory (as the old
  * `passed` set); with one (the app's `files/own-solver/v-ledger.json`) it is read on first use and
  * written whole after each new pass. A file that cannot be read or is not exactly this format
  * gives an empty ledger (V runs again); IO never throws.

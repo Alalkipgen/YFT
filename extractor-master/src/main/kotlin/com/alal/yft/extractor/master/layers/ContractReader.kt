@@ -1,5 +1,5 @@
 /*
- * Provenance (Master R8, copied, not moved; main 34a41890):
+ * Provenance (Site contract reader, copied, not moved; main 34a41890):
  *   extractor-sites/.../x/XExtractor.kt  displayTitle, TRAILING_LINK, MAX_TITLE (a post's
  *                                        first line without its trailing link, 80 characters)
  *   extractor-sites/.../facebook/FacebookPageParser.kt  drmAssessment (a flag counts only when
@@ -47,14 +47,14 @@ import com.alal.yft.extractor.master.toolkit.PageScripts
 import com.alal.yft.extractor.master.toolkit.UrlPolicy
 
 /**
- * R8, L2: reads one site's contract answer with that site's key table. The answer was asked for
+ * Site contract reader: reads one site's contract answer with that site's key table. The answer was asked for
  * the request's identity, so its files are that video's: rows carry the app's key
  * ("site:contentId") and form one page video. When the key table finds nothing (a renamed key),
- * L4 + L3 read the same answer; access phrases count only when no file was found at all.
+ * the Recipe reader and Shape search read the same answer; access phrases count only when no file was found at all.
  */
 /**
- * Social plan S4: the end of a contract's line when its key table read no file and its open read
- * found them by shape (`<label>: N files by shape (key table changed)`): a renamed key, R9's data
+ * Signed recipe config: the end of a contract's line when its key table read no file and its open read
+ * found them by shape (`<label>: N files by shape (key table changed)`): a renamed key, the signed config's data
  * fix (the drill's `drill-key-change` config). A social-ladder build's notice of rows shows it.
  */
 const val KEY_TABLE_CHANGED = "files by shape (key table changed)"
@@ -342,9 +342,9 @@ internal class ContractReader(
         recipe.mediaHosts?.let { SiteContracts.hostIn(row.mediaUrl, it) } != false
 
     /**
-     * L4 + L3 over the whole answer when the key table found nothing (a renamed key). A JSON
+     * The Recipe reader and Shape search over the whole answer when the key table found nothing (a renamed key). A JSON
      * answer is one video's; a page may also list others, so only rows anchored to the
-     * identified video count there. Social plan task 18 (O1): nor the video's own page on the
+     * identified video count there. Nor the video's own page on the
      * answer's host ([pageOfAnswer]).
      */
     private fun openRead(): Evidence {
@@ -368,7 +368,7 @@ internal class ContractReader(
     }
 
     /**
-     * Social plan task 18 (O1, S4's phone session of 2026-10-23): the video's own page on one of
+     * Seen on the phone on 2026-10-23: the video's own page on one of
      * the answer's hosts — its ID a path segment, no media file's extension — is no file: the
      * plugin player's `video_url` (the key Instagram's file has), read twice by the open read
      * ("5 files by shape": its 2 files, the page twice and the player's stand-in file). Left out,

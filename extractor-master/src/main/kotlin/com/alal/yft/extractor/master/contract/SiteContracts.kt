@@ -1,5 +1,5 @@
 /*
- * Provenance (Master R8, copied, not moved; main 34a41890):
+ * Provenance (Site contract reader, copied, not moved; main 34a41890):
  *   extractor-sites/.../vimeo/VimeoUrls.kt  unlistedHashOf, UNLISTED_HASH, configUrl (the
  *                                           player configuration address keeps the hash)
  *   extractor-sites/.../instagram/InstagramUrls.kt  isLoginWall (a login or checkpoint path
@@ -21,9 +21,9 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 /**
- * R8: asks one site's own public player endpoint for the identified video, once, through the
+ * Site contract reader: asks one site's own public player endpoint for the identified video, once, through the
  * caller's bounded client (HTTPS, redirect limit, timeouts, body cap). The answer is handed to
- * L2 ([com.alal.yft.extractor.master.layers.ContractLayer]) as a snapshot only the engine can
+ * the contract layer ([com.alal.yft.extractor.master.layers.ContractLayer]) as a snapshot only the engine can
  * build; no layer fetches. Nothing is retried, signed beyond the widget's own token, or logged.
  */
 class SiteContracts internal constructor(
@@ -33,13 +33,13 @@ class SiteContracts internal constructor(
 ) {
     constructor(http: ExtractorHttpClient) : this(http, ContractRecipes.ALL)
 
-    /** R9: the recipes of a signed, data-only config when one applies, else the bundled ones. */
+    /** Signed recipe config: the recipes of a signed, data-only config when one applies, else the bundled ones. */
     constructor(http: ExtractorHttpClient, remote: RemoteRecipes) : this(http, ContractRecipes.ALL, remote)
 
     private val recipes: List<ContractRecipe> get() = remote?.recipes() ?: bundled
 
     /**
-     * Social plan S4: the signed config's one bounded ask when due ([RemoteRecipes.refreshIfDue]:
+     * Signed recipe config: the signed config's one bounded ask when due ([RemoteRecipes.refreshIfDue]:
      * on its own, outside the caller's lookup), so a ladder's lookup reads the config's rungs off
      * ([rungsOff]) before its first rung; nothing without a key.
      */
@@ -47,13 +47,13 @@ class SiteContracts internal constructor(
         remote?.refreshIfDue()
     }
 
-    /** S4: the ladder rungs the signed config in use turns off; none without one. */
+    /** The ladder rungs the signed config in use turns off; none without one. */
     internal fun rungsOff(): Set<String> = remote?.rungsOff().orEmpty()
 
-    /** S4: the config in use, one line ([RemoteRecipes.status]); a build without a key: bundled. */
+    /** The config in use, one line ([RemoteRecipes.status]); a build without a key: bundled. */
     fun status(): String = remote?.status() ?: "recipes: bundled (no key in this build)"
 
-    /** The recipe L2 reads an answer with: the same source the endpoint was asked from. */
+    /** The recipe the contract layer reads an answer with: the same source the endpoint was asked from. */
     internal fun recipeOf(site: String): ContractRecipe? = recipes.firstOrNull { it.site == site }
 
     internal sealed interface Asked {
@@ -67,8 +67,8 @@ class SiteContracts internal constructor(
             recipes.any { it.site == identity.siteId }
 
     internal suspend fun ask(request: MasterRequest): Asked {
-        // R9: at most one bounded config ask every six hours, before the site is asked; never a
-        // cookie (S4: on its own, outside the lookup).
+        // At most one bounded config ask every six hours, before the site is asked; never a
+        // cookie (on its own, outside the lookup).
         remote?.refreshIfDue()
         val identity = request.identity?.takeIf { reads(it) } ?: return Asked.Unanswered(null)
         val recipe = recipeOf(identity.siteId) ?: return Asked.Unanswered(null)

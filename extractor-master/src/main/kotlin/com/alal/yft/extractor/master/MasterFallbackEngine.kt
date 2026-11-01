@@ -43,13 +43,13 @@ typealias MasterCaptureSelection = suspend (
  * [CandidateGate]/[FocusSelection] decide what belongs to the focused video and
  * [ProbeSession] checks it. A successful primary result must never call this engine.
  * Network/rate-limit failures do not launch another lookup. Browser capture is requested at
- * most once per invocation. R6: a page a [MasterSiteModule] claims is answered by that module
- * alone, and only when no site adapter looked the video up first (P12). R8: with [contracts],
- * the identified video's own site endpoint is asked once first (L2 contract); its answer is read
+ * most once per invocation. The Master YouTube module: a page a [MasterSiteModule] claims is answered by that module
+ * alone, and only when no site adapter looked the video up first (the Download sheet's one lookup). Site contract reader: with [contracts],
+ * the identified video's own site endpoint is asked once first; its answer is read
  * like any snapshot and shares the probe budget. It is never asked after a login, bot-check or
- * player-script failure (that answer needs the user's own playback). Phase 1.4 item 7 (YouTube
- * routing B) R3: with [MasterPolicy.youtubeRouteB] the YouTube module also answers a page main
- * failed with a recoverable reason, inside the lookup's record ([routeB]); off, P12 exactly.
+ * player-script failure (that answer needs the user's own playback). YouTube backup route
+ * (`master: route B after …` in Lookup details): with [MasterPolicy.youtubeRouteB] the YouTube module also answers a page main
+ * failed with a recoverable reason, inside the lookup's record ([routeB]); off, today's one lookup exactly.
  */
 class MasterFallbackEngine(
     private val validator: MasterMediaValidator,
@@ -59,8 +59,8 @@ class MasterFallbackEngine(
     private val modules: List<MasterSiteModule> = emptyList(),
     private val contracts: SiteContracts? = null,
     /**
-     * Social plan S1a (3): a social site's ladder ([SocialStage], Facebook's: `FacebookLadder`);
-     * for a lookup it claims it answers the first stage in place of R8's ask. Null (every build
+     * Social ladders: a social site's ladder ([SocialStage], Facebook's: `FacebookLadder`);
+     * for a lookup it claims it answers the first stage in place of the Site contract reader's ask. Null (every build
      * but the social-ladder one): the engine exactly as before.
      */
     private val social: SocialStage? = null,
@@ -81,7 +81,7 @@ class MasterFallbackEngine(
         val claim = modules.firstNotNullOfOrNull { module ->
             module.identify(request.pageUrl)?.let { module to it }
         }
-        // Item 7 R3: route B's run for a claimed page main failed recoverably, else null.
+        // Route B's run for a claimed page main failed recoverably, else null.
         val route = claim?.let { routeB(it.first, request) }
         // A claimed page never reaches layers or capture. The module asks only when no site
         // adapter answered for this page: after the adapter's lookup, its answer stands (route B
@@ -108,8 +108,8 @@ class MasterFallbackEngine(
     }
 
     /**
-     * Agent D's wiring (VK-Master plan §8): [stages] with the claimed rung's V hook
-     * ([SocialStage.Staged.checked]) told once — after V's checks of its rows, else false when the
+     * With [stages], the claimed rung's V hook
+     * ([SocialStage.Staged.checked]) is told once — after V's checks of its rows, else false when the
      * lookup ends or moves on before them.
      */
     private suspend fun run(request: MasterRequest): MasterResult {
@@ -146,18 +146,18 @@ class MasterFallbackEngine(
         var ambiguous = false
         var lastFailure: SiteExtractionFailure? = null
         val probes = ProbeSession(validator, request, policy.maxCandidates)
-        // S1a (3): a lookup a social site's ladder claims (the social-ladder build only, else false).
+        // A lookup a social site's ladder claims (the social-ladder build only, else false).
         val claimed = social != null && social.claims(request)
-        // Task 15 (F4): the ladder's last word (its stage's [SocialStage.Staged.last]): no stage after it.
+        // The ladder's last word (its stage's [SocialStage.Staged.last]): no stage after it.
         var last = false
 
         for (index in 0..2) {
             if (last) break
             // D: a rung's hook not told in its own stage (the stage moved on): none of its rows passed V.
             rung.report(false)
-            // S1a (3): a social rung's snapshot is read for the video it asked about.
+            // A social rung's snapshot is read for the video it asked about.
             var read = request
-            // L2, S6: the claimed rung's order of its passed rows and B+'s rule of which go to V (null: all).
+            // The claimed rung's order of its passed rows and the Weak-answer fill's (`B+` in Lookup details) rule of which go to V (null: all).
             var pick: ((List<MediaCandidate>) -> List<MediaCandidate>)? = null
             var admit: ((MediaCandidate) -> Boolean)? = null
             val stage = when (index) {
@@ -174,10 +174,10 @@ class MasterFallbackEngine(
                     contract(request, details)
                 }
                 1 -> request.snapshot?.let { MasterStage.PAGE_DATA to it }
-                // S6 (B+): the run for a page main found asks no capture of the tab (no line).
+                // Weak-answer fill: the run for a page main found asks no capture of the tab (no line).
                 else -> if (!policy.capture) null else {
-                    // Social plan S4: the claimed lookup's capture rung off in the signed config:
-                    // no capture asked, the ladder's lines end the answer (as F4's last word).
+                    // Signed recipe config: the claimed lookup's capture rung off in the signed config:
+                    // no capture asked, the ladder's lines end the answer (as the ladder's last word).
                     val off = if (claimed) checkNotNull(social).captureOff(request) else null
                     if (off != null) {
                         details += off
@@ -228,7 +228,7 @@ class MasterFallbackEngine(
                 request.nowEpochMs,
             )
             if (name == MasterStage.PLAYBACK_CAPTURE) {
-                // Social plan task 12 (observation b): a claimed lookup's capture answer keeps the
+                // Social ladders: a claimed lookup's capture answer keeps the
                 // lines before it (the ladder's, the capture's request and evidence) ahead of its
                 // own, as every other answer here does. Every other lookup: as before.
                 captureSelection?.invoke(request, snapshot, normalized, probes::probe)
@@ -242,7 +242,7 @@ class MasterFallbackEngine(
             val valid = mutableListOf<MediaCandidate>()
             for (candidate in selected) {
                 coroutineContext.ensureActive()
-                // S6 (B+): a row the run's rule keeps out is never read (nor counted against the budget).
+                // Weak-answer fill: a row the run's rule keeps out is never read (nor counted against the budget).
                 if (admit?.invoke(candidate) == false) continue
                 if (probes.exhausted) {
                     details += "master: budget limits additional media checks"
@@ -262,7 +262,7 @@ class MasterFallbackEngine(
             // D: V's checks of this stage's rows are done: the claimed rung learns whether any passed.
             rung.report(valid.isNotEmpty())
             if (valid.isNotEmpty()) {
-                // L2: the rung's order of the rows V passed (Instagram's: each height's best first).
+                // The rung's order of the rows V passed (Instagram's: each height's best first).
                 val kept = pick?.let { picked(it, valid, details) } ?: valid
                 details += "master: ${valid.size} checked candidates via ${name.name}"
                 return MasterResult.Success(
@@ -281,8 +281,8 @@ class MasterFallbackEngine(
         return when {
             lastFailure != null -> failure(checkNotNull(lastFailure), details)
             ambiguous -> MasterResult.NeedsSelection(safeDetails)
-            // F4: the ladder's last word asked for no capture, so its lines end the answer (S4: so
-            // does a capture rung the signed config turned off; S6: so does B+'s run, which asks none).
+            // The ladder's last word asked for no capture, so its lines end the answer (so
+            // does a capture rung the signed config turned off, and so does the Weak-answer fill's run, which asks none).
             last || !policy.capture -> MasterResult.NeedsPlayback(safeDetails)
             else -> MasterResult.NeedsPlayback(
                 safeDetails + "Open the page, play its video, and supply a fresh capture.",
@@ -291,7 +291,7 @@ class MasterFallbackEngine(
     }
 
     /**
-     * L2: [valid] as the rung's [pick] offers it (Instagram's: each height's best first), with a line
+     * [valid] as the rung's [pick] offers it (Instagram's: each height's best first), with a line
      * when it moved or set aside a row (`master: each height's best first` or `master: rows picked:
      * K of N`). A pick that returns no row, a row V did not pass or one twice, or throws, leaves
      * [valid] as it is: it may only order and choose among the rows V passed.
@@ -317,7 +317,7 @@ class MasterFallbackEngine(
     }
 
     /**
-     * Social plan task 12 (observation b): this capture answer with the lookup's earlier [lines]
+     * This capture answer with the lookup's earlier [lines]
      * first, its own last (kept whole within [DiagnosticTextSanitizer.MAX_STEPS]); a skipped
      * answer as is.
      */
@@ -337,7 +337,7 @@ class MasterFallbackEngine(
     }
 
     /**
-     * R8: one bounded ask of the identified video's own endpoint, within its own time share so
+     * Site contract reader: one bounded ask of the identified video's own endpoint, within its own time share so
      * capture keeps time. Unanswered (no recipe, an HTTP failure, a slow endpoint) moves on.
      */
     private suspend fun contract(
@@ -372,8 +372,8 @@ class MasterFallbackEngine(
     }
 
     /**
-     * Phase 1.4 item 7 (YouTube routing B) R3: the route-B run for a page [module] claims, or null
-     * (P12: skipped as before). Only with [MasterPolicy.youtubeRouteB], for the YouTube module,
+     * YouTube backup route: the route-B run for a page [module] claims, or null
+     * (skipped as before). Only with [MasterPolicy.youtubeRouteB], for the YouTube module,
      * after main failed with a recoverable reason ([TerminalRules.ROUTE_B_RECOVERABLE]; final
      * reasons were skipped above), in a lookup whose record ([LookupRecord]) holds main's own
      * requests: one lookup = main + Master, so a lookup without them (no record, one that joined
@@ -386,7 +386,7 @@ class MasterFallbackEngine(
         return RouteBLookup(record)
     }
 
-    /** Item 7 R3: route B's Details line first (`master: route B after <reason>; replayed N; new M`). */
+    /** Route B's Details line first (`master: route B after <reason>; replayed N; new M`). */
     private fun routed(route: RouteBLookup?, request: MasterRequest): List<String> =
         route?.let { listOf("master: route B after ${request.primaryFailure.name}; ${it.summary()}") }.orEmpty()
 
@@ -404,7 +404,7 @@ class MasterFallbackEngine(
         }
         val label = "master: ${module.siteId} module"
         val asked = SiteExtractionRequest(identity, request.requestContext, request.nowEpochMs)
-        // Item 7 R3: the module's requests run inside route B's rules (replay, refusals, counts).
+        // The module's requests run inside route B's rules (replay, refusals, counts).
         val result = if (route == null) module.extract(asked) else withContext(route) { module.extract(asked) }
         return when (result) {
             is SiteExtractionResult.Success -> MasterResult.Success(

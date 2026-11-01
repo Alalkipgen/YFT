@@ -5,7 +5,7 @@ import com.alal.yft.extractor.master.solver.OwnSolverProtocol.appendJsonString
 import java.security.MessageDigest
 
 /**
- * Phase 1.2 N5b A.4: the locator cache's data (ownSolverNext only), as the core gives and takes it
+ * Own-solver ladder: the locator cache's data (ownSolverNext only), as the core gives and takes it
  * (`own.solver.core.js`, "locator"; this is the core's `locatorOk` form check again). A part says
  * where in one player the core found a kind's answer: strategy P the candidate indexes that
  * answered every input (registry.c of the prepared program), strategy B the winning group's
@@ -158,7 +158,7 @@ internal object OwnSolverLocator {
     }
 
     /**
-     * N5b A.5: the V ledger's name for a part a run used (a hit): the first 16 hex digits of the
+     * The V ledger's name for a part a run used (a hit): the first 16 hex digits of the
      * SHA-256 of its JSON form. Another part, another key: V runs again.
      */
     fun hashOf(part: Part): String = sha256Hex(buildString { appendPart(part) }).take(LOCATOR_HASH_CHARS)

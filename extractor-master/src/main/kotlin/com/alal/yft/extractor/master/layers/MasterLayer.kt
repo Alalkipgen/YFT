@@ -9,8 +9,8 @@ import com.alal.yft.extractor.master.recipes.ContractRecipes
 import com.alal.yft.extractor.master.toolkit.UrlPolicy
 
 /**
- * The evidence layers (MASTER_KEY_ARCHITECTURE.md). L3 shape search arrived in Phase 1 R3;
- * L2 contract endpoints come in R8. Layers plug in without touching the engine.
+ * The evidence layers (docs/ARCHITECTURE.md): Browser capture, Site contract reader, Recipe reader
+ * and Shape search. Layers plug in without touching the engine.
  */
 internal enum class LayerId {
     /** Requests the visible browser made while the user played the page. */
@@ -19,7 +19,7 @@ internal enum class LayerId {
     /** Published standards in delivered markup: HTML5 `<video>`, OpenGraph. */
     L2_CONTRACT,
 
-    /** Key-name-independent search for media-shaped JSON (R3). */
+    /** Key-name-independent search for media-shaped JSON (Shape search). */
     L3_SHAPE,
 
     /** Known site key tables from [com.alal.yft.extractor.master.recipes]. */
@@ -42,7 +42,7 @@ internal interface MasterLayer {
 
     /**
      * An additive layer only adds files no earlier layer found: what it repeats is dropped, so
-     * the earlier layers' rows reach the normalizer unchanged (R3: L3 after L1).
+     * the earlier layers' rows reach the normalizer unchanged (Shape search after Browser capture).
      */
     val additive: Boolean get() = false
 
@@ -88,14 +88,14 @@ internal class LayerStack(private val layers: List<MasterLayer>) {
         const val MAX_RAW_CANDIDATES = 200
 
         /**
-         * Delivered markup, known payload keys, captured requests, then (R3) the additive shape
-         * search: L3 only adds files the first three did not find, so their order is unchanged.
+         * Delivered markup, known payload keys, captured requests, then the additive shape
+         * search: Shape search only adds files the first three did not find, so their order is unchanged.
          */
         fun standard(recipeOf: (String) -> ContractRecipe? = ContractRecipes::of) = LayerStack(
             listOf(ContractLayer(recipeOf), RecipeLayer(), CaptureLayer(), ShapeLayer()),
         )
 
-        /** The stack before R3, kept for the parity tests (L3 must only add). */
+        /** The stack before Shape search, kept for the parity tests (Shape search must only add). */
         fun withoutShape() = LayerStack(listOf(ContractLayer(), RecipeLayer(), CaptureLayer()))
     }
 }

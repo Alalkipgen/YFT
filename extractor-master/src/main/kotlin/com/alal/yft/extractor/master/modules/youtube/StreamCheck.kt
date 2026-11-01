@@ -7,9 +7,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * Phase 1.2 N2: live check V. Asks YouTube whether one solved stream URL really opens, so an
- * answer from a new strategy is never trusted on its own (MASTER_KEY_PHASE1_2_PLAN.md §1 item 3
- * and §2 "Live check V in more detail").
+ * Row check (V): asks YouTube whether one solved stream URL really opens, so an
+ * answer from a new strategy is never trusted on its own.
  *
  * - Only for a lookup the user started; never on bot-check, login, age, private or DRM states.
  * - Only on a stream host YouTube returned in this lookup, through the download's own client and
@@ -23,7 +22,7 @@ import kotlinx.coroutines.withTimeoutOrNull
  * - Nothing is logged. Results carry verdict and status classes only, never a URL or a value.
  * - `unknown` is never `pass`.
  *
- * Used by `SignatureGate` for the own solver's signatures (N5b; A.8: with ownSolverNext on or
+ * Used by `SignatureGate` for the own solver's signatures (with ownSolverNext on or
  * off, around Master's reader and the app's).
  */
 internal class StreamCheck(
@@ -41,10 +40,10 @@ internal class StreamCheck(
     enum class LookupState { OK, BOT_CHECK, LOGIN, AGE, PRIVATE, DRM }
 
     /**
-     * How a 2xx speaks for `n`. Set by the owner's phone measurement (N2, plan §2):
+     * How a 2xx speaks for `n`. Set by the owner's phone measurement:
      * - [PENDING]: not measured yet; a 2xx proves the signature only, a refusal still fails.
      * - [JUDGES_N]: a wrong `n` was refused, so V judges `n` like the signature.
-     * - [SIG_ONLY]: a wrong `n` was served (T4), so V never judges `n`.
+     * - [SIG_ONLY]: a wrong `n` was served (the Answer change test's T4), so V never judges `n`.
      */
     enum class NRule { PENDING, JUDGES_N, SIG_ONLY }
 
@@ -128,7 +127,7 @@ internal class StreamCheck(
         fun marksFailed(kind: Kind): Boolean = strategyFailed && verdictFor(kind) == Verdict.FAIL
     }
 
-    /** Spent checks and remembered verdicts. N5 adds a small file behind the same interface. */
+    /** Spent checks and remembered verdicts. The Own-solver ladder adds a small file behind the same interface. */
     interface Ledger {
         /** Takes one check from [key]'s budget for [day]; false when the budget is spent. */
         fun take(key: String, day: Long, max: Int): Boolean

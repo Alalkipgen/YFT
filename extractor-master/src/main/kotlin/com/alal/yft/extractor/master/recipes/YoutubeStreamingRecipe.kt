@@ -12,8 +12,8 @@ import com.alal.yft.extractor.master.toolkit.CandidateFactory
 
 /**
  * YouTube `streamingData` that the page already delivered: addressed formats only, never
- * n/sig work. Since Phase 1 R2 the standard stack reads only its DRM signal ([drm]); rows stay
- * off (never on YouTube hosts) until R6 moves YouTube into its own module.
+ * n/sig work. The standard stack reads only its DRM signal ([drm]), a Backup finder safety rule; rows stay
+ * off (never on YouTube hosts): the Master YouTube module answers YouTube.
  */
 internal object YoutubeStreamingRecipe {
     const val FIELD = "streamingData"

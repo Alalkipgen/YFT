@@ -1,5 +1,5 @@
 /*
- * Provenance (Master R8, copied, not moved; main 34a41890):
+ * Provenance (Site contract reader, copied, not moved; main 34a41890):
  *   extractor-sites/.../x/XSyndication.kt  token, radixString, carry, DIGITS, HALF,
  *                                          MANTISSA_BITS, ZEROS_OR_POINT
  * Adapted: the same arithmetic, as the `{token}` of a contract endpoint.
@@ -10,7 +10,7 @@ import kotlin.math.floor
 import kotlin.math.max
 
 /**
- * R8: X's embed-widget token for one post (`{token}` in X's contract endpoint). The widget's own
+ * Site contract reader: X's embed-widget token for one post (`{token}` in X's contract endpoint). The widget's own
  * code computes it from the post ID, so the request is the widget's; nothing is signed or stored.
  */
 internal object WidgetToken {

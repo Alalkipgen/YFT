@@ -1,5 +1,5 @@
 /*
- * R9 (MASTER_KEY_PHASE1_PLAN.md): Master's recipe config, data only. The bundled recipes
+ * Signed recipe config: Master's recipe config, data only. The bundled recipes
  * ([ContractRecipes]) are the defaults and always work. A config hosted on GitHub replaces their
  * data only when it is signed with the build's key ([RemoteRecipeSignature]), passes the schema
  * ([RemoteRecipeConfig]), is newer than the config in use (no rollback) and has not expired; an
@@ -8,11 +8,11 @@
  * every six hours after an answer (after a failed ask, once an hour; the first lookup after the
  * app starts asks). No code is ever loaded remotely.
  *
- * Social plan S4 (`MASTER_KEY_SOCIAL_PLAN.md` §7.3): the config's rungs off ([rungsOff]), its
+ * For the Social ladders: the config's rungs off ([rungsOff]), its
  * one-line [status] (the census screen's), an ask on demand ([refreshNow]: the census screen on
  * open) and an ask that runs on its own, outside the caller's lookup ([isolated]).
  *
- * VK Master plan §9: v1.0.1 asks for master-recipes-2.json (schema 2, VK included,
+ * Schema 2: v1.0.1 asks for master-recipes-2.json (schema 2, VK included,
  * [RemoteRecipeConfig2]); a schema-1 address keeps v1.0.0's reader and VK's bundled recipe.
  */
 package com.alal.yft.extractor.master.recipes
@@ -57,7 +57,7 @@ class RemoteRecipes internal constructor(
 
     @Volatile private var nextAskAt = 0L
 
-    /** S4: the last ask's outcome ([refreshIfDue]'s words), for [status]; null: not asked yet. */
+    /** The last ask's outcome ([refreshIfDue]'s words), for [status]; null: not asked yet. */
     @Volatile private var lastAsk: String? = null
 
     private val asking = Mutex()
@@ -72,11 +72,11 @@ class RemoteRecipes internal constructor(
 
     internal fun recipeOf(site: String): ContractRecipe? = recipes().firstOrNull { it.site == site }
 
-    /** S4: the ladder rungs the config in use turns off ([RemoteRecipeConfig.RUNGS]); none without one. */
+    /** The ladder rungs the config in use turns off ([RemoteRecipeConfig.RUNGS]); none without one. */
     internal fun rungsOff(): Set<String> = current()?.rungsOff.orEmpty()
 
     /**
-     * S4: the config in use, one line of fixed words (never a link): `recipes: remote version N,
+     * The config in use, one line of fixed words (never a link): `recipes: remote version N,
      * signed` (and the last ask's outcome when it did not confirm it), else `recipes: bundled (why)`.
      */
     fun status(): String {
@@ -115,7 +115,7 @@ class RemoteRecipes internal constructor(
     }
 
     /**
-     * VK Master plan §9: a `-2.json` address ([SCHEMA_2_SUFFIX], v1.0.1 on) carries schema 2, all
+     * Schema 2: a `-2.json` address ([SCHEMA_2_SUFFIX], v1.0.1 on) carries schema 2, all
      * the bundled sites, VK's too ([RemoteRecipeConfig2]); any other (v1.0.0's
      * master-recipes.json) carries schema 1, which never names VK, so it is laid over the bundled
      * recipes minus VK's and VK's bundled recipe stays, in [bundled]'s order.
@@ -145,7 +145,7 @@ class RemoteRecipes internal constructor(
     }
 
     /**
-     * S4: one bounded ask now, whatever the interval (the census screen on open), after an ask
+     * One bounded ask now, whatever the interval (the census screen on open), after an ask
      * under way; returns what happened, or null without a key.
      */
     suspend fun refreshNow(): String? {
@@ -171,7 +171,7 @@ class RemoteRecipes internal constructor(
     }
 
     /**
-     * S4: [block] on its own, outside the caller's lookup: on the caller's dispatcher, as a child
+     * [block] on its own, outside the caller's lookup: on the caller's dispatcher, as a child
      * of its job (cancelled with it), but with none of its context's elements (the lookup's
      * record, route B's rules, a ladder's kept answer, the tab's probe). The config's ask is never
      * one of the lookup's asks, its answer never the lookup's, whichever client asks it.
@@ -191,11 +191,11 @@ class RemoteRecipes internal constructor(
         const val MAX_ENVELOPE_BYTES = 128L * 1024
         const val DAY_MILLIS = 86_400_000L
 
-        /** S4: the next ask after an answer (applied or not): six hours. */
+        /** The next ask after an answer (applied or not): six hours. */
         const val ANSWERED_MILLIS = 6 * 3_600_000L
         const val RETRY_MILLIS = 3_600_000L
 
-        /** VK Master plan §9: the end of a schema-2 config's address (master-recipes-2.json). */
+        /** The end of a schema-2 config's address (master-recipes-2.json). */
         const val SCHEMA_2_SUFFIX = "-2.json"
         val CONFIG_HOSTS = setOf("raw.githubusercontent.com")
         private const val STATUS = "recipes:"
@@ -208,7 +208,7 @@ class RemoteRecipes internal constructor(
         }
 
         /**
-         * S4: the status's words for an ask's [outcome] (null: it applied or confirmed the config
+         * The status's words for an ask's [outcome] (null: it applied or confirmed the config
          * in use, [inUse]): lowercase words, no underscores (the census note keeps them).
          */
         fun whyOf(outcome: String, inUse: Long?): String? {

@@ -1,5 +1,5 @@
 /*
- * R9 (MASTER_KEY_PHASE1_PLAN.md): the data-only recipe config and its schema
+ * Signed recipe config: the data-only recipe config and its schema
  * (extractor-master/recipes/master-recipes.schema.json). A config changes only data a bundled
  * recipe already has:
  *   - `endpoint`: same https host as the bundled one, only the known placeholders;
@@ -12,7 +12,7 @@
  * never come from a config. An unknown site or key, a wrong type or a value out of bounds rejects
  * the whole config, and the bundled recipes stay. No code is ever loaded.
  *
- * Social plan S4 (`MASTER_KEY_SOCIAL_PLAN.md` §7.3): `rungsOff`, optional, turns social ladder
+ * For the Social ladders: `rungsOff`, optional, turns social ladder
  * rungs off by name ([RUNGS]: Facebook's F1–F3, TikTok's T1–T3, X's X1 and X3, Instagram's I2,
  * its tab-fetch rung `probe` and I3), each at most once; a rung off is not run (its line says
  * so) and the next one is. Off only: a config never turns on what a build or a switch leaves off.
@@ -28,7 +28,7 @@ internal object RemoteRecipeConfig {
 
     val TOP_KEYS = setOf("schema", "version", "expires", "sites", "rungsOff")
 
-    /** S4: the ladder rungs a config may turn off (`rungsOff`), in ladder order. */
+    /** The ladder rungs a config may turn off (`rungsOff`), in ladder order. */
     val RUNGS = listOf("F1", "F2", "F3", "T1", "T2", "T3", "X1", "X3", "I2", "probe", "I3")
     val SITE_KEYS = setOf(
         "endpoint", "headers", "agent", "idPaths", "nodeIdFields", "items", "media", "titlePaths",
@@ -94,7 +94,7 @@ internal object RemoteRecipeConfig {
         }
     }
 
-    /** S4: the rungs off, each a known name ([RUNGS]) at most once; anything else rejects the config. */
+    /** The rungs off, each a known name ([RUNGS]) at most once; anything else rejects the config. */
     private fun rungsOff(value: JsonValue): Set<String> {
         val names = list(value, "rungsOff", RUNGS.size).map { text(it, "rungsOff") }
         names.firstOrNull { it !in RUNGS }?.let { reject("rungsOff: unknown rung $it") }

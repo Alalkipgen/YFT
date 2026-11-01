@@ -1,7 +1,7 @@
 package com.alal.yft.extractor.master.solver
 
 /**
- * Phase 1.1 S5: runs Master's own bundled solver (`yft-own-solver/`) over one encoded job.
+ * YouTube own solver: runs Master's own bundled solver (`yft-own-solver/`) over one encoded job.
  *
  * The engine is a sandbox boundary, like main's `SolverEngine`: it receives a JSON job, returns
  * the solver worker's JSON reply and offers the player code nothing else (no network, no
@@ -16,13 +16,13 @@ interface OwnSolverEngine {
     suspend fun run(input: String): String?
 
     /**
-     * Phase 1.2 N5b (ownSolverNext only): whether [run] with events reports [Events.started], so
+     * Own-solver ladder (ownSolverNext only): whether [run] with events reports [Events.started], so
      * the runner can time "ready" (the page loaded and took the job) apart from the job itself.
      */
     val reportsReady: Boolean get() = false
 
     /**
-     * Phase 1.2 N5b: [run], telling [events] when the job reached the solver and when the
+     * Own-solver ladder: [run], telling [events] when the job reached the solver and when the
      * solver's renderer was gone. An engine without these signals runs as [run].
      */
     suspend fun run(input: String, events: Events): String? = run(input)

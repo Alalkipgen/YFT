@@ -1,8 +1,8 @@
 package com.alal.yft.extractor.master.solver
 
 /**
- * Phase 1.2 N5a: which step of the solver ladder may give a kind's answer. Pure; the app wires it
- * in N5b, behind ownSolverNext (default off). Flag off, nothing here runs.
+ * Own-solver ladder: which step of the solver ladder may give a kind's answer. Pure; the app wires it
+ * in behind ownSolverNext (default off). Flag off, nothing here runs.
  *
  * The ladder runs the worker with strategy P, then the worker with strategy B, then the page
  * (strategy E, see [OwnSolverEnvironmentErrors]). The rule is shared with the computer runners
@@ -11,18 +11,18 @@ package com.alal.yft.extractor.master.solver
  *
  * - A worker step answers a kind only when it answered every asked input of that kind and its run
  *   had no init errors (initErrors == 0). An init error means some top-level player code threw,
- *   so the program may be half set up and its answer silently wrong (N4b: worker B answered one
+ *   so the program may be half set up and its answer silently wrong (in a harness test, worker B answered one
  *   mutated signature wrong after 3 init errors). P comes before B.
  * - The page runs only when a worker step needs it ([needsPage]): an environment failure, an init
  *   error, or answers without an init count. Its answer counts only with no init errors of its
  *   own.
- * - N5b: a signature from any step (worker P, worker B or the page) also needs the live check (V)
+ * - A signature from any step (worker P, worker B or the page) also needs the live check (V)
  *   of that step's signature to pass ([candidate] names the step to check), because a wrong
- *   signature breaks playback silently while a wrong n only slows it. M9c-nav: worker B gave a
+ *   signature breaks playback silently while a wrong n only slows it. In the Own-solver harness's M9c-nav mutation worker B gave a
  *   wrong signature with no init error; the environment tripwire (own.solver.core.js) catches it
  *   as an init error, and V is the second line.
  * - Anything else is [Source.NONE]: the kind fails. An answer the rule does not return is never
- *   cached (N5b).
+ *   cached.
  */
 internal object OwnSolverLadderRule {
     enum class Kind { RATE, SIGNATURE }

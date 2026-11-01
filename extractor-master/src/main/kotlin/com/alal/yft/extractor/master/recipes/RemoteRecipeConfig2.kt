@@ -1,5 +1,5 @@
 /*
- * VK Master plan §9 (docs/VK_MASTER_PLAN.md): R9 schema 2, additive
+ * Signed recipe config, schema 2, additive
  * (extractor-master/recipes/master-recipes-2.schema.json). The shipped schema-1 reader
  * ([RemoteRecipeConfig], v1.0.0) rejects a whole config that names an unknown site or rung, so a
  * config that mentions VK would cost every v1.0.0 phone the four sites' fixes and kill switches.
@@ -15,7 +15,7 @@
  * VK's part, as a one-site schema-1 config, with the bundled VK recipe. Anything either rejects
  * rejects the whole config, and the bundled recipes stay. A config that names `vk` in a build
  * without a VK recipe is rejected as an unknown site (the schema-1 rule). No code is ever loaded,
- * and no value of VK's web client is carried (the owner's answer, 2026-10-25, plan §2 and §9:
+ * and no value of VK's web client is carried (the VK ladder's
  * self-heal reads them, `social/VkClientSource.kt`).
  */
 package com.alal.yft.extractor.master.recipes
@@ -27,7 +27,7 @@ internal object RemoteRecipeConfig2 {
     const val SCHEMA = 2L
     const val MAX_CHARS = RemoteRecipeConfig.MAX_CHARS
 
-    /** VK's site ID (agent B's `VkRecipe` and `VkLadder.SITE_ID` must say the same). */
+    /** VK's site ID (`VkRecipe` and `VkLadder.SITE_ID` must say the same). */
     const val VK = "vk"
 
     val TOP_KEYS = RemoteRecipeConfig.TOP_KEYS
