@@ -4,6 +4,7 @@ import com.alal.yft.core.model.download.DirectDownloadPlan
 import com.alal.yft.core.model.download.DirectTransferCheckpoint
 import com.alal.yft.core.model.download.DirectTransferResult
 import com.alal.yft.core.model.download.DownloadFailure
+import com.alal.yft.core.model.download.DownloadFailureDetails
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.DownloadFailureStage
 import com.alal.yft.core.model.download.DownloadProgress
@@ -364,6 +365,41 @@ class DownloadQueueTest {
         )
         assertEquals(task.failure, store.snapshot().single().failure)
         assertFalse(task.failure?.detail.orEmpty().contains("googlevideo"))
+    }
+
+    /**
+     * Task 3 (phase-v102-easy): a YouTube live video not ready yet leads its details with how
+     * much is missing and where; the link's facts follow, cut at the end if they must be.
+     */
+    @Test
+    fun `a youtube live not ready yet leads its details with what is missing`() = runTest {
+        val notReady = DownloadFailure(
+            reason = DownloadFailureReason.LIVE_NOT_READY,
+            stage = DownloadFailureStage.VERIFY,
+            detail = "live: 54 s missing at the end, newest sq 1555 still moving · " +
+                "2h09m39s of 2h10m33s · 1556/1556 pieces",
+        )
+        val queue = DownloadQueue(
+            InMemoryStore(),
+            ScriptedRunner { _, _ -> notReady },
+            backgroundScope,
+            clock = { CLOCK_MS },
+        )
+        val link = "https://rr2---sn-fixture.googlevideo.com/videoplayback?expire=" +
+            "${CLOCK_MS / 1_000 + 3_600}&c=VISIONOS&itag=160&sig=fixture&n=fixture"
+        queue.enqueue(
+            plan("live").copy(sourceUrl = link, expiresAtEpochMs = CLOCK_MS + 30 * 60_000),
+            metadata(),
+            TestDestination(),
+        )
+        runCurrent()
+
+        val task = queue.tasks.value.single()
+        assertEquals(DownloadTaskStatus.FAILED, task.status)
+        val detail = task.failure?.detail.orEmpty()
+        assertTrue(detail, detail.startsWith("${notReady.detail}; VISIONOS itag"))
+        assertTrue(detail, detail.length <= DownloadFailureDetails.MAX_CHARS)
+        assertFalse(detail.contains("googlevideo"))
     }
 
     /**

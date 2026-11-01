@@ -321,6 +321,25 @@ class AudioVideoMuxEngineTest {
         assertTrue(workspace.listFiles().orEmpty().isEmpty())
     }
 
+    /** Task 3 (phase-v102-easy): a live track's Details lines come with the merged file. */
+    @Test
+    fun `the tracks' notes come with the merged file, video first`() = runTest {
+        val runner = FakeDashRunner(
+            notes = { type ->
+                if (type == MediaTrackType.VIDEO) listOf("video line") else listOf("sound line")
+            },
+        )
+        val files = files("notes.mp4")
+
+        val result = engine(runner, FakeMuxer(), directory.newFolder("notes-workspace"))
+            .transfer(
+                plan = plan(),
+                destination = files.destination,
+            ) as AudioVideoMuxResult.Completed
+
+        assertEquals(listOf("video line", "sound line"), result.notes)
+    }
+
     @Test
     fun `retry resumes failed audio without downloading completed video again`() = runTest {
         val runner = FakeDashRunner(failFirstAudio = true)
@@ -518,6 +537,8 @@ class AudioVideoMuxEngineTest {
     private class FakeDashRunner(
         private val failFirstAudio: Boolean = false,
         private val reportTotals: Boolean = false,
+        /** Task 3: each finished track's Details lines. */
+        private val notes: (MediaTrackType) -> List<String> = { emptyList() },
     ) : DashTransferRunner {
         private val calls = ConcurrentHashMap<String, AtomicInteger>()
         val discarded = mutableListOf<String>()
@@ -567,7 +588,11 @@ class AudioVideoMuxEngineTest {
                 completed = true,
             )
             onCheckpoint(checkpoint)
-            return DashTransferResult.Completed(bytes.size.toLong(), checkpoint)
+            return DashTransferResult.Completed(
+                bytesWritten = bytes.size.toLong(),
+                checkpoint = checkpoint,
+                notes = notes(plan.trackType),
+            )
         }
 
         override suspend fun discard(plan: DashDownloadPlan) {

@@ -33,6 +33,7 @@ import java.io.FileDescriptor
 import java.io.IOException
 import java.nio.ByteBuffer
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -888,6 +889,8 @@ class AudioVideoMuxEngine(
             },
             log = log,
         )
+        // Task 3: each track's Details lines (a live track saved a little short), video first.
+        val trackNotes = ConcurrentHashMap<TrackKind, List<String>>()
         try {
             tracker.emit()
             val trackFailures = coroutineScope {
@@ -903,6 +906,7 @@ class AudioVideoMuxEngine(
                                         resumeFrom = initial.video,
                                         tracker = tracker,
                                         starts = starts,
+                                        notes = trackNotes,
                                     )
                                 }
                             },
@@ -919,6 +923,7 @@ class AudioVideoMuxEngine(
                                         resumeFrom = initial.audio,
                                         tracker = tracker,
                                         starts = starts,
+                                        notes = trackNotes,
                                     )
                                 }
                             },
@@ -955,7 +960,12 @@ class AudioVideoMuxEngine(
                     MergeTimes.size(bytesWritten) + merge.detailsSummary(),
             )
             cleanupWorkspace(workspace, strict = false)
-            AudioVideoMuxResult.Completed(bytesWritten, completed)
+            AudioVideoMuxResult.Completed(
+                bytesWritten = bytesWritten,
+                checkpoint = completed,
+                notes = trackNotes[TrackKind.VIDEO].orEmpty() +
+                    trackNotes[TrackKind.AUDIO].orEmpty(),
+            )
         } catch (cancellation: CancellationException) {
             withContext(NonCancellable) {
                 runCatching { tracker.emit() }
@@ -1023,6 +1033,7 @@ class AudioVideoMuxEngine(
         resumeFrom: DashTransferCheckpoint?,
         tracker: MuxCheckpointTracker,
         starts: MuxStartTimes,
+        notes: MutableMap<TrackKind, List<String>>,
     ): DownloadFailure? {
         val trackPlan = if (kind == TrackKind.VIDEO) plan.video else plan.audio
         val result = dashTransfer.transfer(
@@ -1040,6 +1051,7 @@ class AudioVideoMuxEngine(
             is DashTransferResult.Completed -> {
                 tracker.update(kind, result.checkpoint)
                 tracker.markReady(kind)
+                if (result.notes.isNotEmpty()) notes[kind] = result.notes
                 null
             }
             is DashTransferResult.Failure -> {

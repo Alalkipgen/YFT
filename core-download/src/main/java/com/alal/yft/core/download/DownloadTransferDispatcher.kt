@@ -53,11 +53,17 @@ interface DownloadTransferDispatcher {
     suspend fun discard(plan: DownloadPlan)
 }
 
+/**
+ * Sends each plan to its runner. Task 3 (phase-v102-easy): a finished DASH file's or merge's
+ * Details lines (a live video saved a little short, or whose newest piece moved while it came)
+ * go to [onDetail] with the task's id before the result, as an MP3's do (G2).
+ */
 class DefaultDownloadTransferDispatcher(
     private val direct: DirectTransferRunner,
     private val hls: HlsTransferRunner,
     private val dash: DashTransferRunner,
     private val mux: AudioVideoMuxRunner,
+    private val onDetail: (taskId: String, line: String) -> Unit = { _, _ -> },
 ) : DownloadTransferDispatcher {
     override suspend fun transfer(
         plan: DownloadPlan,
@@ -101,8 +107,10 @@ class DefaultDownloadTransferDispatcher(
                 onCheckpoint = onCheckpoint,
             )
         ) {
-            is DashTransferResult.Completed ->
+            is DashTransferResult.Completed -> {
+                result.notes.forEach { line -> onDetail(plan.taskId, line) }
                 QueueTransferResult.Completed(result.bytesWritten, result.checkpoint)
+            }
             is DashTransferResult.Failure ->
                 QueueTransferResult.Failure(result.failure, result.checkpoint)
         }
@@ -115,8 +123,10 @@ class DefaultDownloadTransferDispatcher(
                 onCheckpoint = onCheckpoint,
             )
         ) {
-            is AudioVideoMuxResult.Completed ->
+            is AudioVideoMuxResult.Completed -> {
+                result.notes.forEach { line -> onDetail(plan.taskId, line) }
                 QueueTransferResult.Completed(result.bytesWritten, result.checkpoint)
+            }
             is AudioVideoMuxResult.Failure ->
                 QueueTransferResult.Failure(result.failure, result.checkpoint)
         }

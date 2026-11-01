@@ -587,9 +587,14 @@ data class DashTransferCheckpoint(
 }
 
 sealed interface DashTransferResult {
+    /**
+     * [notes]: Details lines for the finished file (v1.0.2 phase-v102-easy task 3: a live file
+     * saved a little short, or one whose newest piece moved while it came); none for the others.
+     */
     data class Completed(
         val bytesWritten: Long,
         val checkpoint: DashTransferCheckpoint,
+        val notes: List<String> = emptyList(),
     ) : DashTransferResult
 
     data class Failure(
@@ -667,9 +672,11 @@ data class AudioVideoMuxCheckpoint(
 }
 
 sealed interface AudioVideoMuxResult {
+    /** [notes]: its tracks' Details lines ([DashTransferResult.Completed.notes]), video first. */
     data class Completed(
         val bytesWritten: Long,
         val checkpoint: AudioVideoMuxCheckpoint,
+        val notes: List<String> = emptyList(),
     ) : AudioVideoMuxResult
 
     data class Failure(

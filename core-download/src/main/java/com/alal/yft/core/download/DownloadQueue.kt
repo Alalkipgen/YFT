@@ -1047,6 +1047,8 @@ class DownloadQueue(
         }
         val needsRefresh = reported.reason in REFRESH_FAILURES
         // F6 (debug spike): a YouTube media link's facts lead the details, without the link.
+        // Task 3 (phase-v102-easy): a live video not ready yet leads with how much of it is
+        // missing and where; after the facts (about 88 characters) the Details' cut at 120 hid it.
         val failure = plan
             ?.let { known ->
                 GoogleVideoLinkFacts.describe(
@@ -1057,11 +1059,12 @@ class DownloadQueue(
                 )
             }
             ?.let { facts ->
-                reported.copy(
-                    detail = DownloadFailureDetails.sanitize(
-                        listOfNotNull(facts, reported.detail).joinToString("; "),
-                    ),
-                )
+                val parts = if (reported.reason == DownloadFailureReason.LIVE_NOT_READY) {
+                    listOfNotNull(reported.detail, facts)
+                } else {
+                    listOfNotNull(facts, reported.detail)
+                }
+                reported.copy(detail = DownloadFailureDetails.sanitize(parts.joinToString("; ")))
             }
             ?: reported
         val linkDied = needsRefresh || (

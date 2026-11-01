@@ -18,6 +18,7 @@ import com.alal.yft.core.model.download.StreamChunkCheckpoint
 import com.alal.yft.core.model.download.WholeFileTrack
 import com.alal.yft.core.model.media.MediaTrackType
 import java.io.ByteArrayOutputStream
+import java.io.Closeable
 import java.io.EOFException
 import java.io.File
 import java.io.FileOutputStream
@@ -26,6 +27,7 @@ import java.io.InputStream
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 import java.util.Locale
+import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
@@ -114,6 +116,25 @@ class DashTransferEngine(
         /** Attempts for one piece of a live stream ([LivePieces]): thousands are asked. */
         val livePieceAttempts: Int = 5,
         /**
+         * Task 3 (phase-v102-easy, the owner's item 6 after run 4f): a live file shorter than its
+         * video, or with a piece in the middle the server did not serve, waits these times one
+         * after another (2 minutes in all), each time asks for the newest piece again, fetches
+         * the pieces that came out since and asks the missing ones again, until the file is
+         * whole. None: the file is checked once, as before.
+         */
+        val liveSettleWaitsMillis: List<Long> =
+            listOf(5_000, 10_000, 15_000, 20_000, 30_000, 40_000),
+        /** Task 3: a live file's first piece that is not served is asked again after these. */
+        val liveFirstPieceWaitsMillis: List<Long> = listOf(5_000, 10_000),
+        /**
+         * Task 3: a live file whose newest piece stopped while it waited, with every piece up to
+         * it, is saved when it is at most this much shorter than its video (a Details line says
+         * how much and why); 0: never.
+         */
+        val liveShortSaveMillis: Long = 120_000,
+        /** Task 3: the most pieces a live file may lack while it comes; one more fails it. */
+        val liveMaxMissingPieces: Int = 16,
+        /**
          * F8 (D7 run 12): a whole file on YouTube's media hosts whose range is refused with 403
          * asks its ranges one at a time and the refused range again ([MediaHostRefusals]), the
          * first time after [mediaHostRefusalFirstWaitMillis], then twice as long each time up to
@@ -140,6 +161,11 @@ class DashTransferEngine(
             require(mediaHostConcurrentChunks in 1..8)
             require(progressIntervalMillis >= 0)
             require(livePieceAttempts in 1..8)
+            require(liveSettleWaitsMillis.size <= 20 && liveSettleWaitsMillis.all { it >= 0 })
+            require(liveFirstPieceWaitsMillis.size <= 10)
+            require(liveFirstPieceWaitsMillis.all { it >= 0 })
+            require(liveShortSaveMillis >= 0)
+            require(liveMaxMissingPieces >= 0)
             require(mediaHostRefusalWaitMillis >= 0)
             require(mediaHostRefusalFirstWaitMillis > 0)
             require(mediaHostRefusalMaxWaitMillis >= mediaHostRefusalFirstWaitMillis)
@@ -247,7 +273,8 @@ class DashTransferEngine(
             activeTracker.emit()
 
             var pending = parsed.chunks.filterNot { initial.chunks[it.index].completed }
-            val pieces = parsed.chunks.size.takeIf { live }
+            // Task 3: a live file's newest piece, and the pieces its server did not serve yet.
+            val liveState = if (live) LiveState(head = parsed.chunks.size - 1) else null
             val refusals = refusalsFor(plan, credentialOrigin, live)
             val download: suspend (DashDownloadChunk) -> Unit = { chunk ->
                 val opened = firstRange?.takeIf { chunk.index == 0 }?.take()
@@ -260,61 +287,87 @@ class DashTransferEngine(
                         tracker = activeTracker,
                         start = start,
                         opened = opened,
-                        livePieces = pieces,
+                        livePieces = liveState?.pieces,
                         refusals = refusals,
                     )
                 } catch (abort: DashAbort) {
+                    val state = liveState ?: throw abort
                     // The newest pieces may not be served: a missing one ends the file there.
-                    val tail = pieces != null && chunk.index > 0 &&
-                        chunk.index >= pieces - LivePieces.TAIL_PIECES
-                    if (!tail) throw abort
+                    val tail = chunk.index > 0 &&
+                        chunk.index >= state.pieces - LivePieces.TAIL_PIECES
+                    // Task 3: a piece the server does not serve yet is asked again at the end.
+                    val later = chunk.index > 0 && abort.failure.isUnservedPiece() && (
+                        chunk.index in state.missing ||
+                            state.missing.size < policy.liveMaxMissingPieces
+                        )
+                    if (!tail && !later) throw abort
+                    state.missing += chunk.index
                     0L
                 }
+                if (bytes > 0) liveState?.missing?.remove(chunk.index)
                 activeTracker.markCompleted(chunk.index, bytes)
+            }
+            val downloadAll: suspend (List<DashDownloadChunk>) -> Unit = { asked ->
+                if (policy.fastStart) {
+                    // No batch barrier (P41): each worker takes the next range when it is free.
+                    val workers = concurrentChunksFor(plan, credentialOrigin)
+                    val next = AtomicInteger(0)
+                    coroutineScope {
+                        repeat(minOf(workers, asked.size)) {
+                            launch {
+                                while (true) {
+                                    val position = next.getAndIncrement()
+                                    if (position >= asked.size) break
+                                    download(asked[position])
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    asked
+                        .chunked(policy.maxConcurrentChunks)
+                        .forEach { batch ->
+                            coroutineScope {
+                                batch.map { chunk -> async { download(chunk) } }.awaitAll()
+                            }
+                        }
+                }
             }
             if (live) {
                 // Piece 0 first: when it does not start a fragmented MP4, nothing more is asked.
                 pending.firstOrNull { it.index == 0 }?.let { first ->
-                    try {
-                        download(first)
-                    } catch (abort: DashAbort) {
-                        throw abort.notReadyWhenMissing()
-                    }
+                    downloadFirstPiece(first, download)
                 }
                 checkFirstPiece(workspace, plan)
                 pending = pending.filter { it.index != 0 }
             }
-            if (policy.fastStart) {
-                // No batch barrier (P41): each worker takes the next range as soon as it is free.
-                val workers = concurrentChunksFor(plan, credentialOrigin)
-                val next = AtomicInteger(0)
-                coroutineScope {
-                    repeat(minOf(workers, pending.size)) {
-                        launch {
-                            while (true) {
-                                val position = next.getAndIncrement()
-                                if (position >= pending.size) break
-                                download(pending[position])
-                            }
-                        }
-                    }
-                }
-            } else {
-                pending
-                    .chunked(policy.maxConcurrentChunks)
-                    .forEach { batch ->
-                        coroutineScope {
-                            batch.map { chunk -> async { download(chunk) } }.awaitAll()
-                        }
-                    }
-            }
+            downloadAll(pending)
 
+            // Task 3: a live file short of its video, or with a piece missing in the middle,
+            // asks for its newest pieces and the missing ones again first.
+            val settled = liveState?.let { state ->
+                settleLive(
+                    plan = plan,
+                    fileUrl = credentialOrigin,
+                    workspace = workspace,
+                    state = state,
+                    chunks = parsed.chunks,
+                    tracker = activeTracker,
+                    downloadAll = downloadAll,
+                )
+            }
             val completedCheckpoint = activeTracker.snapshot()
-            if (completedCheckpoint.completedChunkCount != parsed.chunks.size) {
+            val finalChunks = settled?.chunks ?: parsed.chunks
+            if (completedCheckpoint.completedChunkCount != finalChunks.size) {
+                settled?.joined?.close()
                 throw DashAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
             }
-            val bytesWritten = if (live) {
-                assembleLive(workspace, parsed.chunks, destination, plan)
+            val bytesWritten = if (settled != null) {
+                try {
+                    writeLive(settled.joined, destination, plan)
+                } finally {
+                    settled.joined.close()
+                }
             } else {
                 val joined = assemble(
                     workspace = workspace,
@@ -330,7 +383,11 @@ class DashTransferEngine(
             cleanupWorkspace(workspace, strict = false)
             activeTracker.finish()
             reportStart()
-            DashTransferResult.Completed(bytesWritten, completedCheckpoint)
+            DashTransferResult.Completed(
+                bytesWritten = bytesWritten,
+                checkpoint = completedCheckpoint,
+                notes = settled?.notes.orEmpty(),
+            )
         } catch (cancellation: CancellationException) {
             withContext(NonCancellable) {
                 runCatching { tracker?.emit() }
@@ -649,22 +706,27 @@ class DashTransferEngine(
                 ),
             )
         }
-        val chunks = List(head + 1) { sq ->
-            DashDownloadChunk(
-                index = sq,
-                url = LivePieces.pieceUrl(fileUrl, sq),
-                byteRange = null,
-                type = DashChunkType.MEDIA,
-            )
-        }
+        val chunks = List(head + 1) { sq -> livePiece(fileUrl, sq) }
         return DashDownloadManifestParser.Result.Parsed(
             chunks = chunks,
-            fingerprint = sha256("live-pieces|${plan.representationId}|${plan.trackType}|$head"),
+            fingerprint = liveFingerprint(plan, head),
             trackType = plan.trackType,
             mimeType = plan.mimeType,
             codecs = plan.codecs,
         )
     }
+
+    /** Piece [sq] of a live file: its address with `sq`, without a range (run 4f). */
+    private fun livePiece(fileUrl: HttpUrl, sq: Int): DashDownloadChunk = DashDownloadChunk(
+        index = sq,
+        url = LivePieces.pieceUrl(fileUrl, sq),
+        byteRange = null,
+        type = DashChunkType.MEDIA,
+    )
+
+    /** A live file's pieces up to [head]: the track and the newest piece, never the address. */
+    private fun liveFingerprint(plan: DashDownloadPlan, head: Int): String =
+        sha256("live-pieces|${plan.representationId}|${plan.trackType}|$head")
 
     /**
      * The newest piece's number: the `X-Head-Seqnum` of a HEAD of the live file's address. A
@@ -770,15 +832,181 @@ class DashTransferEngine(
         )
 
     /**
-     * Joins the downloaded pieces ([LivePieceJoin]), checks the joined track with the merge's
-     * own reader and its length against the video's, and writes it to [destination] (run 4f).
+     * A live file's first piece (run 4f). Task 3: one its server does not serve yet (204, 404,
+     * 416, an empty body) is asked again after each of [Policy.liveFirstPieceWaitsMillis]; then,
+     * or for any other failure, it fails as before: not ready when it is missing.
      */
-    private suspend fun assembleLive(
+    private suspend fun downloadFirstPiece(
+        first: DashDownloadChunk,
+        download: suspend (DashDownloadChunk) -> Unit,
+    ) {
+        val waits = policy.liveFirstPieceWaitsMillis
+        var round = 0
+        while (true) {
+            try {
+                download(first)
+                return
+            } catch (abort: DashAbort) {
+                if (!abort.failure.isUnservedPiece() || round >= waits.size) {
+                    throw abort.notReadyWhenMissing(start = true)
+                }
+                delay(waits[round])
+                round += 1
+            }
+        }
+    }
+
+    /**
+     * Task 3 (phase-v102-easy): a live file whose pieces are all in but which is shorter than its
+     * video, or which misses a piece in the middle, is not checked once and failed: after each
+     * of [Policy.liveSettleWaitsMillis] the newest piece is asked for again (its address's HEAD,
+     * as at the start), the pieces that came out since are fetched and the missing ones asked
+     * again, until the file is whole. On the owner's phone a live that had just ended came down
+     * as all of its 1,556 pieces, 2h09m39s of its 2h10m33s: YouTube's newest piece then was not
+     * its last yet. A file that is whole is returned joined, at once when it is whole from the
+     * start (run 4f's cases ask nothing more). A file whose newest piece stopped (two answers in
+     * a row named no newer one) with every piece up to it, at most [Policy.liveShortSaveMillis]
+     * short, is returned too, with a Details line that says how much is missing and why; any
+     * other one fails, not ready, and its Detail says how much is missing and where.
+     */
+    private suspend fun settleLive(
+        plan: DashDownloadPlan,
+        fileUrl: HttpUrl,
+        workspace: File,
+        state: LiveState,
+        chunks: List<DashDownloadChunk>,
+        tracker: DashCheckpointTracker,
+        downloadAll: suspend (List<DashDownloadChunk>) -> Unit,
+    ): LiveSettled {
+        var all = chunks
+        val measure: suspend () -> LiveMeasure = {
+            if (tracker.snapshot().completedChunkCount != all.size) {
+                throw DashAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
+            }
+            measureLive(workspace, all, plan, state)
+        }
+        var measured = measure()
+        var rounds = 0
+        try {
+            while (!measured.whole && rounds < policy.liveSettleWaitsMillis.size) {
+                measured.close()
+                delay(policy.liveSettleWaitsMillis[rounds])
+                rounds += 1
+                // The pieces missing before this round are asked again after the new ones.
+                val missing = state.missing.toList()
+                val head = askHeadAgain(plan, fileUrl)
+                if (head != null && head > state.head && head < policy.maxChunks) {
+                    val added = (state.head + 1..head).map { sq -> livePiece(fileUrl, sq) }
+                    all = all + added
+                    state.moved(head)
+                    tracker.extend(liveFingerprint(plan, head), all.size)
+                    downloadAll(added)
+                } else if (head != null) {
+                    state.still()
+                }
+                if (missing.isNotEmpty()) downloadAll(missing.map { sq -> all[sq] })
+                measured = measure()
+            }
+        } catch (error: Throwable) {
+            measured.close()
+            throw error
+        }
+        val notes = mutableListOf<String>()
+        if (state.head > state.firstHead) {
+            notes += "Live ${trackWord(plan)}: YouTube's newest piece moved from " +
+                "sq ${state.firstHead} to sq ${state.head} while it came; " +
+                "${state.head - state.firstHead} more pieces were added"
+        }
+        when (val result = measured) {
+            is LiveMeasure.Gap -> throw DashAbort(
+                liveFailure(
+                    DownloadFailureReason.LIVE_NOT_READY,
+                    gapDetail(result, all, plan, rounds),
+                ),
+            )
+            is LiveMeasure.Joined -> {
+                if (result.whole) return LiveSettled(all, result, notes)
+                val expected = plan.expectedDurationMillis
+                    ?: return LiveSettled(all, result, notes)
+                val shortBy = expected - result.durationMillis
+                val where = if (result.startMillis * 2 >= shortBy) {
+                    "at the start (sq 0 starts at ${LivePieces.clock(result.startMillis)})"
+                } else {
+                    "at the end"
+                }
+                val savable = state.stopped && state.missing.isEmpty() &&
+                    shortBy <= policy.liveShortSaveMillis
+                if (savable) {
+                    notes += "Live ${trackWord(plan)} saved ${LivePieces.span(shortBy)} short of " +
+                        "${LivePieces.clock(expected)}, $where: YouTube's newest piece " +
+                        "(sq ${state.head}) stopped; no piece is missing"
+                    log("DASH live ${plan.trackType}: saved short, ${result.summary}")
+                    return LiveSettled(all, result, notes)
+                }
+                result.close()
+                val why = when {
+                    state.missing.isNotEmpty() ->
+                        "sq ${LivePieces.ranges(state.missing.toList())} not served"
+                    state.stopped -> "newest sq ${state.head} stopped"
+                    state.head > state.firstHead -> "newest sq ${state.head} still moving"
+                    else -> "newest sq ${state.head}"
+                }
+                throw DashAbort(
+                    DownloadFailure(
+                        reason = DownloadFailureReason.LIVE_NOT_READY,
+                        stage = VERIFY,
+                        detail = DownloadFailureDetails.sanitize(
+                            "live: ${LivePieces.span(shortBy)} missing $where, $why · " +
+                                result.summary,
+                        ),
+                    ),
+                )
+            }
+        }
+    }
+
+    /** "sq 700–702 missing in the middle (3 pieces, about 15 s), asked 7 times · newest sq 9" */
+    private fun gapDetail(
+        gap: LiveMeasure.Gap,
+        chunks: List<DashDownloadChunk>,
+        plan: DashDownloadPlan,
+        rounds: Int,
+    ): String {
+        val about = plan.expectedDurationMillis
+            ?.let { expected -> expected * gap.middle.size / chunks.size }
+            ?.let { millis -> ", about ${LivePieces.span(millis)}" }
+            .orEmpty()
+        val pieces = if (gap.middle.size == 1) "1 piece" else "${gap.middle.size} pieces"
+        val asked = if (rounds == 0) "asked once" else "asked ${rounds + 1} times"
+        return "sq ${LivePieces.ranges(gap.middle)} missing in the middle ($pieces$about), " +
+            "$asked · newest sq ${chunks.size - 1}"
+    }
+
+    /** The newest piece's number once more; null when the server does not name it now. */
+    private suspend fun askHeadAgain(plan: DashDownloadPlan, fileUrl: HttpUrl): Int? = try {
+        liveHeadOnce(plan, fileUrl)
+    } catch (retry: RetryableDashFailure) {
+        null
+    } catch (abort: DashAbort) {
+        null
+    }
+
+    private fun trackWord(plan: DashDownloadPlan): String =
+        if (plan.trackType == MediaTrackType.AUDIO) "sound" else "video"
+
+    /**
+     * Joins the downloaded pieces ([LivePieceJoin]) and reads the joined track with the merge's
+     * own reader (run 4f): [LiveMeasure.Joined] with its length against the video's, or, when a
+     * piece in the middle is missing ([LiveState.missing]), [LiveMeasure.Gap] without a join.
+     */
+    private fun measureLive(
         workspace: File,
         chunks: List<DashDownloadChunk>,
-        destination: DownloadDestination,
         plan: DashDownloadPlan,
-    ): Long {
+        state: LiveState,
+    ): LiveMeasure {
+        val middle = state.missing.filter { sq -> sq < chunks.size - LivePieces.TAIL_PIECES }
+        if (middle.isNotEmpty()) return LiveMeasure.Gap(middle)
         val kind = trackKind(plan)
         val join = try {
             LivePieceJoin.join(
@@ -788,7 +1016,7 @@ class DashTransferEngine(
         } catch (problem: LivePieceProblem) {
             throw DashAbort(joinFailure(problem.message))
         }
-        join.use {
+        try {
             val track = try {
                 Mp4TrackReader(join, kind).read()
             } catch (problem: StreamCopyUnsupported) {
@@ -801,58 +1029,68 @@ class DashTransferEngine(
             } else {
                 0L
             }
+            val startMillis = if (track.timescale > 0) {
+                track.firstDecodeTime * 1_000 / track.timescale
+            } else {
+                0L
+            }
             val summary = "${LivePieces.clock(durationMillis)}" +
                 (plan.expectedDurationMillis?.let { " of ${LivePieces.clock(it)}" } ?: "") +
                 " · ${join.pieces}/${chunks.size} pieces"
-            plan.expectedDurationMillis?.let { expected ->
-                // A stream not yet whole on YouTube's side: some pieces are not served yet.
+            // A stream not yet whole on YouTube's side: some pieces are not served yet.
+            val short = plan.expectedDurationMillis?.let { expected ->
                 val averagePiece = durationMillis / join.pieces
-                if (durationMillis + 2 * averagePiece + 1_000 < expected) {
-                    throw DashAbort(
-                        DownloadFailure(
-                            reason = DownloadFailureReason.LIVE_NOT_READY,
-                            stage = VERIFY,
-                            detail = DownloadFailureDetails.sanitize("live $summary"),
-                        ),
-                    )
-                }
-            }
-            val totalBytes = join.size
-            // Every call below is on a file, so whatever fails is storage, at the step it reached.
-            var stage = OPEN_FILE
-            try {
-                destination.prepare(totalBytes)
-                val output = destination.open()
-                stage = WRITE_FILE
-                output.use {
-                    val buffer = ByteArray(policy.bufferBytes)
-                    var position = 0L
-                    while (position < totalBytes) {
-                        currentCoroutineContext().ensureActive()
-                        val length = minOf(buffer.size.toLong(), totalBytes - position).toInt()
-                        join.readFully(ByteBuffer.wrap(buffer, 0, length), position)
-                        output.write(position, buffer, 0, length)
-                        position += length
-                    }
-                    output.sync()
-                }
-                stage = VERIFY
-                if (destination.temporaryLength() != totalBytes) {
-                    throw DashAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
-                }
-                stage = PUBLISH
-                destination.commit()
-            } catch (cancellation: CancellationException) {
-                throw cancellation
-            } catch (abort: DashAbort) {
-                throw abort
-            } catch (error: Exception) {
-                if (!error.isStorageError()) throw error
-                throw DashAbort(error.toStorageFailure(stage))
-            }
-            log("DASH live ${plan.trackType}: $summary · $totalBytes bytes")
-            return totalBytes
+                durationMillis + 2 * averagePiece + 1_000 < expected
+            } ?: false
+            return LiveMeasure.Joined(join, durationMillis, startMillis, summary, short)
+        } catch (error: Throwable) {
+            join.close()
+            throw error
         }
+    }
+
+    /** Writes a joined live track ([measureLive]) to [destination] (run 4f). */
+    private suspend fun writeLive(
+        joined: LiveMeasure.Joined,
+        destination: DownloadDestination,
+        plan: DashDownloadPlan,
+    ): Long {
+        val join = joined.join
+        val totalBytes = join.size
+        // Every call below is on a file, so whatever fails is storage, at the step it reached.
+        var stage = OPEN_FILE
+        try {
+            destination.prepare(totalBytes)
+            val output = destination.open()
+            stage = WRITE_FILE
+            output.use {
+                val buffer = ByteArray(policy.bufferBytes)
+                var position = 0L
+                while (position < totalBytes) {
+                    currentCoroutineContext().ensureActive()
+                    val length = minOf(buffer.size.toLong(), totalBytes - position).toInt()
+                    join.readFully(ByteBuffer.wrap(buffer, 0, length), position)
+                    output.write(position, buffer, 0, length)
+                    position += length
+                }
+                output.sync()
+            }
+            stage = VERIFY
+            if (destination.temporaryLength() != totalBytes) {
+                throw DashAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
+            }
+            stage = PUBLISH
+            destination.commit()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (abort: DashAbort) {
+            throw abort
+        } catch (error: Exception) {
+            if (!error.isStorageError()) throw error
+            throw DashAbort(error.toStorageFailure(stage))
+        }
+        log("DASH live ${plan.trackType}: ${joined.summary} · $totalBytes bytes")
+        return totalBytes
     }
 
     /**
@@ -1739,14 +1977,96 @@ class DashTransferEngine(
             stage: DownloadFailureStage? = null,
         ) : this(DownloadFailure(reason, httpStatusCode, stage))
 
-        /** A live stream's first piece that is not served: YouTube is not ready yet (run 4f). */
-        fun notReadyWhenMissing(): DashAbort =
+        /**
+         * A live stream's first piece that is not served: YouTube is not ready yet (run 4f).
+         * Task 3: [start] says so in the Detail ("live: the start is missing, sq 0/3 · 404 …").
+         */
+        fun notReadyWhenMissing(start: Boolean = false): DashAbort =
             if (failure.reason in MISSING_FIRST_PIECE) {
-                DashAbort(failure.copy(reason = DownloadFailureReason.LIVE_NOT_READY))
+                val detail = if (start) {
+                    DownloadFailureDetails.sanitize(
+                        "live: the start is missing, " +
+                            (failure.detail?.removePrefix("live ") ?: "sq 0"),
+                    )
+                } else {
+                    failure.detail
+                }
+                DashAbort(
+                    failure.copy(reason = DownloadFailureReason.LIVE_NOT_READY, detail = detail),
+                )
             } else {
                 this
             }
     }
+
+    /**
+     * Task 3: a live file's newest piece while it comes ([head]; [firstHead] at the start), the
+     * pieces its server did not serve ([missing]) and how many answers in a row since the head
+     * last moved named no newer piece ([unchanged]).
+     */
+    private class LiveState(head: Int) {
+        val firstHead: Int = head
+
+        @Volatile
+        var head: Int = head
+            private set
+
+        val missing: MutableSet<Int> = ConcurrentSkipListSet()
+
+        var unchanged: Int = 0
+            private set
+
+        val pieces: Int get() = head + 1
+
+        /** The head stopped: [STOPPED_ANSWERS] answers in a row named no newer piece. */
+        val stopped: Boolean get() = unchanged >= STOPPED_ANSWERS
+
+        fun moved(to: Int) {
+            head = to
+            unchanged = 0
+        }
+
+        fun still() {
+            unchanged += 1
+        }
+
+        private companion object {
+            const val STOPPED_ANSWERS = 2
+        }
+    }
+
+    /** Task 3: a live file's pieces, joined ([Joined]) or with a piece missing in the middle. */
+    private sealed interface LiveMeasure : Closeable {
+        /** Whole: no piece is missing in the middle and the length is the video's. */
+        val whole: Boolean
+
+        class Gap(val middle: List<Int>) : LiveMeasure {
+            override val whole: Boolean get() = false
+
+            override fun close() = Unit
+        }
+
+        class Joined(
+            val join: LivePieceJoin,
+            val durationMillis: Long,
+            /** Where the first piece starts, as its first `tfdt` says. */
+            val startMillis: Long,
+            /** "2h09m39s of 2h10m33s · 1556/1556 pieces". */
+            val summary: String,
+            val short: Boolean,
+        ) : LiveMeasure {
+            override val whole: Boolean get() = !short
+
+            override fun close() = join.close()
+        }
+    }
+
+    /** Task 3: a live file's final pieces, joined, and its Details lines. */
+    private class LiveSettled(
+        val chunks: List<DashDownloadChunk>,
+        val joined: LiveMeasure.Joined,
+        val notes: List<String>,
+    )
 
     /**
      * A source failure that another attempt may fix: a network error or a 5xx answer (for a live
@@ -1900,6 +2220,21 @@ class DashTransferEngine(
 
         suspend fun snapshot(): DashTransferCheckpoint = gate.withLock { checkpoint }
 
+        /**
+         * Task 3: a live file whose newest piece moved has [count] pieces now, the new ones not
+         * downloaded yet, under its new [fingerprint].
+         */
+        suspend fun extend(fingerprint: String, count: Int) = gate.withLock {
+            val chunks = checkpoint.chunks
+            checkpoint = DashTransferCheckpoint(
+                manifestFingerprint = fingerprint,
+                chunks = chunks + (chunks.size until count).map { index ->
+                    StreamChunkCheckpoint(index = index, downloadedBytes = 0, completed = false)
+                },
+            )
+            onCheckpoint(checkpoint)
+        }
+
         private suspend fun emitProgressLocked(force: Boolean = false) {
             val counted = checkpoint.downloadedBytes + inFlight.get().coerceAtLeast(0)
             val capped = totalBytes?.let { counted.coerceAtMost(it) } ?: counted
@@ -1955,6 +2290,16 @@ class DashTransferEngine(
         )
     }
 }
+
+/**
+ * Task 3: a live piece its server did not serve (yet): a 204, 404 or 416 answer, or a body that
+ * was empty or shorter than it said. Its file may come later; another failure stays a failure.
+ */
+private fun DownloadFailure.isUnservedPiece(): Boolean =
+    httpStatusCode in UNSERVED_PIECE_CODES ||
+        (reason == DownloadFailureReason.INTEGRITY_MISMATCH && stage == READ_SOURCE)
+
+private val UNSERVED_PIECE_CODES = setOf(204, 404, 416)
 
 /** [detail] led by [note] ("live sq 12/2021 · 404 …"), as one clean Detail. */
 private fun notedDetail(note: String, detail: String?): String? =

@@ -154,6 +154,8 @@ object DownloadRuntimeModule {
             hls = hls,
             dash = dash,
             mux = mux,
+            // Task 3 (phase-v102-easy): "Live video saved 54 s short of 2h10m33s, at the end: …".
+            onDetail = sources::note,
         ),
         transcoder = mp3,
         workspaceRoot = File(context.noBackupFilesDir, MP3_WORKSPACE_DIRECTORY),
