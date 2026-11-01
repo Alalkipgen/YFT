@@ -26,7 +26,7 @@ import java.net.URLDecoder
 import java.net.URLEncoder
 import java.util.Locale
 
-/** Phase 1.3 D1: names and addresses of the change simulator's world (all made up). */
+/** Answer change test: names and addresses of the change simulator's world (all made up). */
 internal object Sim {
     const val VIDEO_ID = "Yft0Fixture"
     const val OTHER_VIDEO = "Yft0Decoy00"
@@ -45,7 +45,7 @@ internal object Sim {
     const val PLAYER_ID = "f1x7ure0"
     val BASE_VERSION: String = YouTubeClientProfiles.VISION_OS.clientVersion
 
-    /** The plan's 5 base answers (§4 D1), main's fixtures, read in place. */
+    /** The 5 base answers, main's fixtures, read in place. */
     val BASES = listOf(
         "player_visionos.json",
         "player_visionos_ladder.json",
@@ -91,7 +91,7 @@ internal sealed interface SimReply {
 }
 
 /**
- * V on a case's L rows (plan §4 D1), the files only a layout-aware reader can find (those the
+ * V on a case's L rows, the files only a layout-aware reader can find (those the
  * copied parser cannot read, and with [SimWorld.pageLocated] those that need the moved page
  * signals): the media host answers them (pass), refuses them (fail) or cannot be reached.
  */
@@ -126,7 +126,7 @@ internal class SimHls(private val lengthSeconds: Long, private val maxHeight: In
     var durationSeconds = lengthSeconds.toDouble()
     var key: String? = null
 
-    /** D5c: the sound as its own rendition (`#EXT-X-MEDIA:TYPE=AUDIO` with a URI, as D0 saw live), not muxed. */
+    /** YouTube HLS rung: the sound as its own rendition (`#EXT-X-MEDIA:TYPE=AUDIO` with a URI, as the Client census saw live), not muxed. */
     var separateAudio = false
 
     val masterUrl = "https://${Sim.MANIFEST_HOST}/api/manifest/hls_variant/expire/4102444800/id/sim/source/youtube/yftsim/hls/file/index.m3u8"
@@ -199,7 +199,7 @@ internal class SimHls(private val lengthSeconds: Long, private val maxHeight: In
 }
 
 /**
- * Phase 1.3 D1: one simulated YouTube (MASTER_KEY_PHASE1_3_PLAN.md §4 D1), built from one of main's
+ * Answer change test: one simulated YouTube, built from one of main's
  * base answers. Every identity answers from the same formats, each with its own made-up address:
  * visionOS direct on its host (with an HLS address), the script clients (embedded, MWEB, the
  * page's inline MWEB answer) with `signatureCipher` and `n` (their addresses open only after the
@@ -308,7 +308,7 @@ internal class SimWorld(val baseName: String, val vMode: VMode = VMode.PASS) {
         }
     }
 
-    /** The world's files the copied parser (R6) reads from [text] as usable formats. */
+    /** The world's files the copied parser (the Master YouTube module's) reads from [text] as usable formats. */
     private fun readableKeys(text: String): Set<String> {
         val video = (YouTubePlayerResponseParser.parse(text, Sim.NOW) as? YouTubeParseResult.Success)?.video
             ?: return emptySet()
@@ -427,7 +427,7 @@ internal class SimWorld(val baseName: String, val vMode: VMode = VMode.PASS) {
         else -> SimHttp.Kind.OTHER
     }
 
-    /** The first bytes of a file, for the init check (D4): ISO BMFF or WebM, with an encryption box when protected. */
+    /** The first bytes of a file, for the Row check's init check: ISO BMFF or WebM, with an encryption box when protected. */
     private fun mediaGet(url: String): ExtractorHttpResult {
         val key = Sim.query(url)["yftsim"]
         if (probesDown || key in unreachable) return ExtractorHttpResult.Failure(SiteExtractionFailure.NETWORK)

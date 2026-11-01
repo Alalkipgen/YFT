@@ -4,7 +4,7 @@ import com.alal.yft.extractor.api.json.BoundedJsonParser
 import com.alal.yft.extractor.api.json.JsonValue
 
 /**
- * Phase 1.3 D1: a mutable JSON tree, so the simulator's changes are made in code on main's
+ * Answer change test: a mutable JSON tree, so the simulator's changes are made in code on main's
  * fixtures (no YouTube data captured or committed). Objects keep their key order.
  */
 internal object SimJson {

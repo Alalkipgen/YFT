@@ -6,7 +6,7 @@ import com.alal.yft.extractor.api.ExtractorProbeResult
 import kotlin.coroutines.coroutineContext
 
 /**
- * Phase 1.4 item 7 (YouTube routing B) R1: the client main's site adapters share, recording. The
+ * Lookup record: the client main's site adapters share, recording. The
  * app wraps its shared adapter client in it only in a route-B build (`-Pyft.youtubeRouteB`, debug
  * only). In a lookup whose coroutine context carries a [LookupRecord] each request goes out
  * unchanged and its answer is then recorded there (one that never answers still counts as asked);

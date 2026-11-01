@@ -16,7 +16,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Phase 1.4 item 7 (YouTube routing B) R2: Master's HTTP wrapper for the YouTube module. Main's
+ * YouTube backup route: Master's HTTP wrapper for the YouTube module. Main's
  * identical unauthenticated answers are replayed from the lookup's record, never asked again;
  * authorized requests are refused; after a 429 nothing new goes out; replayed / new / refused are
  * counted. No live calls.
@@ -28,7 +28,7 @@ class RouteBHttpClientTest {
     private val other = """{"context":{"client":{"clientName":"VISIONOS","clientVersion":"2.0"}},"videoId":"Yft0Fixture"}"""
     private val headers = linkedMapOf("Content-Type" to "application/json", "User-Agent" to "YftTest/1.0")
 
-    /** F5: main's watch page GET with the tab's cookie, and the same GET without it (Master's). */
+    /** Main's watch page GET with the tab's cookie, and the same GET without it (Master's). */
     private val signedInPage = linkedMapOf("User-Agent" to "YftTest/1.0", "Cookie" to "SID=fixture", "Accept-Language" to "en", "Accept" to "text/html")
     private val pageHeaders = linkedMapOf("User-Agent" to "YftTest/1.0", "Accept-Language" to "en", "Accept" to "text/html")
 
@@ -370,7 +370,7 @@ class RouteBHttpClientTest {
         val master = RouteBHttpClient(http)
 
         withContext(record + route) {
-            assertTrue(master.get(page, pageHeaders, MAX) is ExtractorHttpResult.Success) // new, as before F5
+            assertTrue(master.get(page, pageHeaders, MAX) is ExtractorHttpResult.Success) // new, as before the record kept main's page
             val other = "https://www.youtube.com/watch?v=Yft1Fixture&bpctr=9999999999&has_verified=1"
             assertEquals(SiteExtractionFailure.NETWORK, (master.get(other, pageHeaders, MAX) as ExtractorHttpResult.Failure).reason)
             assertEquals(SiteExtractionFailure.NETWORK, (master.get("$page&x=1", pageHeaders, MAX) as ExtractorHttpResult.Failure).reason)

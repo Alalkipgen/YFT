@@ -11,7 +11,7 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Phase 1.3 D6: the same-lookup memo (guardrail 7) on a fake client; no live calls. */
+/** YouTube ladder: the same-lookup memo on a fake client; no live calls. */
 class LookupMemoTest {
     private val player = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
     private val page = "https://www.youtube.com/watch?v=Yft0Fixture&bpctr=9999999999&has_verified=1"

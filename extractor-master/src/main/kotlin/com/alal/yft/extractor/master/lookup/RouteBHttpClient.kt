@@ -6,7 +6,7 @@ import com.alal.yft.extractor.api.ExtractorProbeResult
 import kotlin.coroutines.coroutineContext
 
 /**
- * Phase 1.4 item 7 (YouTube routing B) R2: the HTTP client of Master's YouTube module in a
+ * YouTube backup route: the HTTP client of Master's YouTube module in a
  * route-B build (`-Pyft.youtubeRouteB`, debug only). In a run that carries a [RouteBLookup]
  * every request follows its rules — main's identical unauthenticated answer replayed, an
  * authorized request refused, nothing new after a 429, an endpoint asked once — and is counted

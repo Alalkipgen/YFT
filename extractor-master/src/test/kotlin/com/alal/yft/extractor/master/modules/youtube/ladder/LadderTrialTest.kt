@@ -15,11 +15,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Phase 1.3 D7 prep: the owner's live-check switches ([LadderTrial]) — the build's values, each
+ * Ladder test switches: the owner's live-check switches ([LadderTrial]) — the build's values, each
  * layout change on an answer, and every mode over the simulator's B0 videos (own solver off and
  * on): no wrong row ever; L1, L2, L3 and L7 give the normal mode's outcome through L (its offer set);
  * L5 leaves a cipherless answer as it came; skipping visionOS or its adaptive formats is noted;
- * `h-only` (D5c) leaves H's one HLS row alone ([HOnlyTrialTest] for every class).
+ * `h-only` (the YouTube HLS rung) leaves H's one HLS row alone ([HOnlyTrialTest] for every class).
  */
 class LadderTrialTest {
     @Test

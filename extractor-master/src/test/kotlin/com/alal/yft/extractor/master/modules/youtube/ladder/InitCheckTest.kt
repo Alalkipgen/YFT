@@ -10,7 +10,7 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** Phase 1.3 D4: the init check on L rows (guardrail 6), one test per case; bytes made in code. */
+/** Row check: the init check on L rows, one test per case; bytes made in code. */
 class InitCheckTest {
     private val avc = "video/mp4; codecs=\"avc1.640028\""
     private val aac = "audio/mp4; codecs=\"mp4a.40.2\""
@@ -144,7 +144,8 @@ class InitCheckTest {
         val cut = whole.copyOf(whole.size - 40)
 
         assertEquals(InitCheck.Result(Verdict.FAIL, InitCheck.Reason.ENCRYPTED), check(avc, "video/mp4", cut))
-        // The D1 world's encrypted MP4 stand-in (SimWorld at 81388f8): an ftyp start, then box names only.
+        // The Answer change test world's encrypted MP4 stand-in (SimWorld at 81388f8): an ftyp start,
+        // then box names only.
         val standIn = "\u0000\u0000\u0000\u0018ftypdash\u0000\u0000\u0000\u0000iso6moovtrakencvsinfpssh".latin1()
         assertEquals(InitCheck.Result(Verdict.FAIL, InitCheck.Reason.ENCRYPTED), check(avc, "video/mp4", standIn))
         val plain = "\u0000\u0000\u0000\u0018ftypdash\u0000\u0000\u0000\u0000iso6moovtrak".latin1()

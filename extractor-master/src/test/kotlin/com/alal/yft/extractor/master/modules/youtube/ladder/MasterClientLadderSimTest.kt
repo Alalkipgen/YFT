@@ -19,15 +19,15 @@ import org.junit.Assert.fail
 import org.junit.Test
 
 /**
- * Phase 1.3 D1 (MASTER_KEY_PHASE1_3_PLAN.md §4 D1): the change simulator and the R6 baseline.
+ * Answer change test: the change simulator and the Master YouTube module's baseline.
  *
- * Every class of the plan's table is made in code on main's 5 base answers (no YouTube data
- * captured or committed) and run through R6 with the own solver off and on. A row is judged by
+ * Every simulator class is made in code on main's 5 base answers (no YouTube data
+ * captured or committed) and run through the module with the own solver off and on. A row is judged by
  * what the simulated media host would do with its address ([SimWorld.truth]); the result per
- * case is pinned in `src/test/resources/ladder/r6-baseline.txt`, so a change to R6 shows here
- * (flag off must stay R6), and the per-class cells of plan §5's baseline table are written to
- * `build/ladder-sim/`. The ladder columns, the parity gate and the L round-trip need D6's seam
- * and D5b's parser and come with those tasks.
+ * case is pinned in `src/test/resources/ladder/r6-baseline.txt`, so a change to the module shows here
+ * (flag off must stay the module's path), and the per-class cells of the baseline table are written to
+ * `build/ladder-sim/`. The ladder columns, the parity gate and the L round-trip need the YouTube ladder's seam
+ * and the YouTube shape reader's parser, so they are tested with those.
  */
 class MasterClientLadderSimTest {
     @Test
@@ -118,7 +118,7 @@ class MasterClientLadderSimTest {
                 "segment-403" -> assertEquals(case.id, "403", result.segment)
                 "host" -> assertEquals(case.id, HlsCheck.HOST, result.segment)
                 "duration" -> assertEquals(case.id, false, result.durationMatch)
-                // The content type and start bytes are D4's checks on top of D0's.
+                // The content type and start bytes are the Row check's additions to the census's checks.
                 else -> assertEquals(case.id, HlsCheck.OK, result.segment)
             }
         }
@@ -190,8 +190,8 @@ class MasterClientLadderSimTest {
     }
 
     /**
-     * Plan §5's baseline, R6 columns: every case through R6 with the own solver off and on, pinned
-     * line by line. R6 never sends the user's cookie or authorization.
+     * The baseline, the module's columns: every case through the module with the own solver off and on, pinned
+     * line by line. The module never sends the user's cookie or authorization.
      */
     @Test
     fun `R6 baseline over every class in both own-solver columns`() = runTest(timeout = 10.minutes) {

@@ -24,7 +24,7 @@ import org.junit.Assert.fail
 import org.junit.Test
 
 /**
- * Phase 1.3 D5b: rung L (ShapeLocator + ShapeNormalizer + LRows) on the D1 simulator's answers and
+ * YouTube shape reader: rung L (ShapeLocator + ShapeNormalizer + LRows) on the Answer change test's answers and
  * on small answers made here; offline, no live calls. V in the simulator: the world's probe
  * (2xx pass, 403 fail, no answer unknown) and the init check on the first bytes it serves.
  * Test substitution: the world's WebM stand-in is a cut EBML header that the init check reads as
@@ -268,7 +268,7 @@ class ShapeNormalizerTest {
 
     @Test
     fun `a live-like visionOS answer without DRM gives the direct parse's rows, also after L1, L2, L3 and L7`() {
-        // D7 (2026-10-15): the owner's census read every L step on live visionOS answers as
+        // On 2026-10-15 the owner's census read every L step on live visionOS answers as
         // "none (no rows)" (0/9 same) while the copied parser found no DRM: L's old DRM marker
         // (any drm… key, a DRM text anywhere) is wider than the parser's, and DRM-named player
         // settings like these trip it.

@@ -2,13 +2,13 @@ package com.alal.yft.extractor.master.modules.youtube.ladder
 
 import com.alal.yft.extractor.master.modules.youtube.testing.Fixtures
 
-/** The ladder's rungs (plan §3); a case names those through which a checkable complete path exists. */
+/** The YouTube ladder's rungs; a case names those through which a checkable complete path exists. */
 internal enum class Rung { R0, A, S, Z, L, H, O }
 
 /**
- * Phase 1.3 D1: one simulator case, a change class (plan §4 D1) on one base answer with one V
+ * Answer change test: one simulator case, a change class on one base answer with one V
  * mode. [paths] are the rungs through which the simulated world still gives the complete correct
- * rows, checkable by V or the H check (MCF, plan §5.1): empty = a server closure or a fault, where
+ * rows, checkable by V or the H check (for MCF, the Master-caused failure count): empty = a server closure or a fault, where
  * a clean stop is right. [terminal] = a verdict about the video: no row may be offered at all.
  */
 internal class SimCase(
@@ -33,9 +33,9 @@ internal class SimCase(
     override fun toString(): String = id
 }
 
-/** The change classes made in code (plan §4 D1), each on every base answer. */
+/** The change classes made in code, each on every base answer. */
 internal object SimCases {
-    /** The classes in the plan's table order, plus B0 (no change) as the control. */
+    /** The classes in a fixed order, plus B0 (no change) as the control. */
     val CLASSES: List<String> = listOf("B0") + (1..11).map { "V$it" } + (1..16).map { "L$it" } +
         (1..6).map { "Y$it" } + listOf("T1", "T1b", "T1c", "T1d", "T2", "T3") + listOf("H1", "H2") + (1..4).map { "F$it" }
 
@@ -181,14 +181,14 @@ internal object SimCases {
 
         // T: verdicts about the video or the request, from every identity and the page.
         case("T1", emptySet(), terminal = true) { everyone(fixture("player_bot_check.json")) }
-        // T1b (owner, 2026-10-15; the census's runs 1-4, 2026-10-14): only visionOS asked without
-        // visitor data meets the bot check; R6's chain asks it again with the page's visitor data.
-        // Per video: three lookups in a row each meet it, and R6 answers each one on its own.
+        // T1b (seen in the census's first runs, 2026-10-14): only visionOS asked without
+        // visitor data meets the bot check; the Master YouTube module's chain asks it again with the page's visitor data.
+        // Per video: three lookups in a row each meet it, and the module answers each one on its own.
         case("T1b", setOf(Rung.R0, Rung.O), lookups = 3) {
             val check = fixture("player_bot_check.json")
             override = { ask -> if (ask.client == SimClient.VISION_OS && !ask.visitor) SimReply.Json(check) else null }
         }
-        // T1c and T1d ((က+), owner 2026-10-15; plan §9 item 10): the bot check as T1b, and R6's
+        // T1c and T1d: the bot check as T1b, and the module's
         // R0+vd answer (the only visionOS answer built) changed: its formats under a moved key (as
         // L1), or its adaptive formats SABR-only with the HLS address kept (as V4).
         case("T1c", setOf(Rung.L, Rung.O), lookups = 3) {

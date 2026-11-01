@@ -18,7 +18,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Phase 1.4 item 7 (YouTube routing B): the player-script client ([RouteBScriptClient]). The
+ * YouTube backup route: the player-script client ([RouteBScriptClient]). The
  * runners fetch the player script with their own client, outside [LookupRecorder] and
  * [RouteBHttpClient]; a 429 there stops route B like any other 429 in the lookup, and Master's
  * fetches are counted. No live calls.

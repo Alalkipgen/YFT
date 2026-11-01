@@ -29,7 +29,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Phase 1.4 item 7 (YouTube routing B) R3: the engine's claim rule. Flag off = P12 exactly: a
+ * YouTube backup route: the engine's claim rule. Flag off = today's one lookup exactly: a
  * page Master's YouTube module claims is skipped after main's own lookup for every reason except
  * UNSUPPORTED_URL. Flag on: after main failed with a recoverable reason, in a lookup whose record
  * holds main's requests, the module answers inside a route-B run (main's identical answers

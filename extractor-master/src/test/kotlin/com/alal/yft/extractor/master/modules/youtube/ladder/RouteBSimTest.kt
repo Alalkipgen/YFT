@@ -37,23 +37,23 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Phase 1.4 item 7 (YouTube routing B) R2, `MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §4 "Simulator":
+ * YouTube backup route (`master: route B after …` in Lookup details), its simulator:
  * one lookup = main, then Master's YouTube module with the ladder through route B's wrappers, in
  * the same simulated world. Main (`extractor-sites`, called by this test only) asks first and its
  * asks go into the lookup's [LookupRecord]; Master then runs inside a [RouteBLookup] over that
  * record: main's identical unauthenticated answers are replayed, what main asked is not asked
- * again, nothing new goes out after a 429. Master runs after every main result here, as route B
- * R4's debug trial makes it (the engine's claim rule, R3, lets it answer only after a recoverable
+ * again, nothing new goes out after a 429. Master runs after every main result here, as the
+ * YouTube backup trial makes it (the engine's claim rule lets it answer only after a recoverable
  * failure). The lines are written to `build/routeb-sim/routeb-lines.txt` (counts, never an
  * address or value).
  *
- * F5 (`MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §8): with the record naming the lookup's watch page,
+ * Main's watch page for route B: with the record naming the lookup's watch page,
  * main's page GET with the tab's cookie answers Master's cookie-less GET of it once; the same sweep
  * holds (`build/routeb-sim/routeb-f5-lines.txt`), and after a bot-checked visionOS answer Master
  * completes from main's page with no new page, no new player request and nothing that carries a
  * credential or the account's identity.
  *
- * F4 (§8, a failure midway): the same lookup with Master's engine after main (its claim rule, R3):
+ * A failure midway: the same lookup with Master's engine after main (its claim rule):
  * after main's recoverable failure Master's rows come from main's replayed answers and the
  * engine's first line is route B's with the record's counts; when Master finds nothing its failure
  * names route B first; after main's final reason, or with the flag off, nothing of Master's goes
@@ -68,9 +68,9 @@ class RouteBSimTest {
         val route: RouteBLookup,
         /** Requests in the world's log during Master's run. */
         val logged: Int,
-        /** A's version-source reads during Master's run (D5a's own reader, not YouTube). */
+        /** A's version-source reads during Master's run (the Client version source's own reader, not YouTube). */
         val sourceReads: Int,
-        /** F5: Master's requests that reached the world (address, headers, body). */
+        /** Master's requests that reached the world (address, headers, body). */
         val sent: List<Seen.Sent>,
     ) {
         val recoverable: Boolean
@@ -78,7 +78,7 @@ class RouteBSimTest {
 
         /**
          * Whether Master answers this step in the app: after a recoverable failure (route B's gate,
-         * R3) or main's found rows (the debug trial, R4, answers them as `RESPONSE_CHANGED`); after a
+         * the claim rule) or main's found rows (the YouTube backup trial answers them as `RESPONSE_CHANGED`); after a
          * final reason (`LOGIN_REQUIRED`, `BOT_CHECK`...) route B never runs.
          */
         val answered: Boolean
@@ -104,11 +104,11 @@ class RouteBSimTest {
     }
 
     /**
-     * F5: the same sweep with the record naming the lookup's watch page — main's page answers
+     * The same sweep with the record naming the lookup's watch page — main's page answers
      * Master's identical cookie-less GET once; every rule above still holds, Master sends nothing
      * with a credential, and where route B answers in the app ([Step.answered]) it never ends worse
-     * than route B before F5. After a final reason (route B never runs there; this sweep runs Master
-     * after every main result) it may now read the page as the ladder alone does — L9's decoy
+     * than route B did before it read main's page from the record. After a final reason (route B never runs there; this sweep runs Master
+     * after every main result) it may now read the page as the ladder alone does — the Answer change test's L9 decoy
      * stops it as designed — but never ends worse than the ladder alone.
      */
     @Test
@@ -140,7 +140,7 @@ class RouteBSimTest {
 
         assertEquals("wrong rows", emptyList<String>(), names { _, _, step -> step.master.wrong.isNotEmpty() })
         assertEquals("credentials", emptyList<String>(), names { _, _, step -> step.master.credentials > 0 })
-        // Guardrail 7: one watch page per lookup (main's and Master's together), at most three
+        // The YouTube ladder's budget: one watch page per lookup (main's and Master's together), at most three
         // player requests of Master's own, and never more than the ladder alone would send.
         assertEquals("watch pages", emptyList<String>(), names { _, _, step -> step.main.pages + step.master.pages > 1 })
         assertEquals("player requests", emptyList<String>(), names { _, _, step -> step.master.players > MAX_PLAYERS })
@@ -148,7 +148,7 @@ class RouteBSimTest {
             .map { "${it.case.id} ${column(it.solver)}" }
         assertEquals("more player requests than the ladder alone", emptyList<String>(), morePlayers)
         // Every request Master's module sent is a new one of the record (replays and refusals send
-        // nothing); A's version source (D5a, not YouTube) is read through its own reader, outside it.
+        // nothing); A's version source (the Client version source, not YouTube) is read through its own reader, outside it.
         assertEquals(
             "unlisted requests",
             emptyList<String>(),
@@ -160,7 +160,7 @@ class RouteBSimTest {
         val sourceReads = runs.filter { it.sourceReads > (if (it.case.klass in A_CLASSES) 1 else 0) }
             .map { "${it.case.id} ${column(it.solver)}" }
         assertEquals("version source reads", emptyList<String>(), sourceReads)
-        // After a recoverable failure (route B's gate, R3) Master ends no worse than the ladder alone.
+        // After a recoverable failure (route B's gate, the claim rule) Master ends no worse than the ladder alone.
         val worse = names { run, index, step ->
             step.recoverable && rank(step.master.outcome) < rank(run.plain[index].outcome)
         }
@@ -169,10 +169,10 @@ class RouteBSimTest {
     }
 
     /**
-     * F5 (D7 run 8: V2, V3): visionOS meets the bot check — only without visitor data (T1b) or
-     * every time (a V2-like page) — so the module's next step is the watch page main read with the
+     * Main's page from the record (seen on the owner's videos 2 and 3): visionOS meets the bot check — only without visitor data (T1b) or
+     * every time (a page like video 2's) — so the module's next step is the watch page main read with the
      * tab's cookie. With the record naming that page Master reads main's answer (replayed, never
-     * sent) and completes; before F5 the page was refused and Master had no complete rows. Signed
+     * sent) and completes; before this fix the page was refused and Master had no complete rows. Signed
      * in (the page names the account, the cookie holds a session), Master's requests still carry
      * no cookie, no authorization and no account identity.
      */
@@ -223,10 +223,10 @@ class RouteBSimTest {
     }
 
     /**
-     * F5 on a signed-in tab, over every class: the page main read names the account (its data-sync
+     * Main's page from the record on a signed-in tab, over every class: the page main read names the account (its data-sync
      * ID) and the cookie holds a session main's page client asks with. Master reads that page from
      * the record and asks what its ladder asks next, never with the cookie, an authorization, the
-     * session's headers or the account's identity (P22: at most the page's visitor data).
+     * session's headers or the account's identity (as the YouTube adapter: at most the page's visitor data).
      */
     @Test
     fun `F5 - signed in, Master's requests over every class carry no credential and no account identity`() = runTest(timeout = 15.minutes) {
@@ -274,11 +274,11 @@ class RouteBSimTest {
     }
 
     /**
-     * F4 (`MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §8 (1), a failure midway): main asks and then fails
+     * A failure midway (1): main asks and then fails
      * with a recoverable reason, and Master's engine answers in the same lookup, whose record names
      * the page as the app's route-B build does. A moved shape main's parser cannot read, in every
      * identity's answer (L2, L4, L7): Master's L reads main's replayed visionOS answer. After a
-     * bot-checked visionOS answer (F5): every identity asked without the tab's cookie meets the bot
+     * bot-checked visionOS answer (main's page from the record): every identity asked without the tab's cookie meets the bot
      * check, main reads the page with the cookie and its own player-script step fails there (its
      * script fetch: HTTP_STATUS — streams that existed but became no download, a verdict main ranks
      * above the bot check); Master's own solver reads main's replayed page. Master's rows are
@@ -311,7 +311,7 @@ class RouteBSimTest {
     }
 
     /**
-     * F4 (2): when Master's engine finds nothing after main's recoverable failure (F3: H's playlist
+     * A failure midway (2): when Master's engine finds nothing after main's recoverable failure (F3: H's playlist
      * fails its checks; L10 and L13 when V fails or cannot answer), its failure names route B first
      * with its counts and Master's own reason last — the details the browser adds after main's while
      * main's failure stays (`AndroidBrowserMasterFallback`); no wrong row, no second page, nothing
@@ -340,12 +340,12 @@ class RouteBSimTest {
     }
 
     /**
-     * F4 (3): after main's final reason Master's engine skips the page and nothing of Master's goes
+     * A failure midway (3): after main's final reason Master's engine skips the page and nothing of Master's goes
      * out — L11 (a sign-in answer in every identity's answer and the page's), and a moved shape
      * after a bot-checked visionOS answer: main reads the page with the tab's cookie, cannot read
      * its moved answer, and its failure is the bot check (main ranks a bot check as the page's own
-     * verdict, above a changed or empty answer), so route B never runs there (§2). With the
-     * route-B flag off a page main failed recoverably is skipped as today (P12).
+     * verdict, above a changed or empty answer), so route B never runs there. With the
+     * route-B flag off a page main failed recoverably is skipped as today (the Download sheet's one lookup).
      */
     @Test
     fun `F4 - a final reason or the flag off sends nothing of Master's`() = runTest(timeout = 5.minutes) {
@@ -382,7 +382,7 @@ class RouteBSimTest {
     }
 
     /**
-     * F4 (3): a 429 midway — Android's answer in main's lookup — while main's own failure is
+     * A failure midway (3): a 429 midway — Android's answer in main's lookup — while main's own failure is
      * recoverable (L2: main's verdict is the page's moved answer, which ranks above a fallback's
      * 429): Master's engine runs route B and sends nothing new; its line names the refusals.
      */
@@ -410,7 +410,7 @@ class RouteBSimTest {
         }
     }
 
-    /** F4: Master's engine answered after main's recoverable failure, from main's replayed answers. */
+    /** Master's engine answered after main's recoverable failure, from main's replayed answers. */
     private fun assertAnswered(name: String, step: EngineStep) {
         val reason = (step.mainResult as? SiteExtractionResult.Failure)?.reason
         assertTrue("$name: main failed ($reason)", reason in TerminalRules.ROUTE_B_RECOVERABLE)
@@ -427,7 +427,7 @@ class RouteBSimTest {
         assertLine(name, reason!!, step, found!!.result.details.first())
     }
 
-    /** F4: route B's line (`master: route B after <reason>; replayed N; new M[; refused K]`) with the record's counts. */
+    /** Route B's line (`master: route B after <reason>; replayed N; new M[; refused K]`) with the record's counts. */
     private fun assertLine(name: String, reason: SiteExtractionFailure, step: EngineStep, line: String) {
         val counts = "master: route B after ${reason.name}; replayed ${step.record.replayedCount}; new ${step.record.masterAsks}"
         assertTrue("$name: $line", Regex("^${Regex.escape(counts)}(; refused \\d+)?$").matches(line))
@@ -452,7 +452,7 @@ class RouteBSimTest {
     }
 
     /**
-     * One case: main, then Master through route B, per lookup. [page] (F5): the record names the
+     * One case: main, then Master through route B, per lookup. [page]: the record names the
      * lookup's watch page, as the app's route-B build does.
      */
     private suspend fun run(
@@ -490,13 +490,13 @@ class RouteBSimTest {
         return Run(case, solver, steps, plain, reader.reads, reader.segmentReads, sources.reads.size)
     }
 
-    /** F4: main's player-script runner whose script fetch failed with [reason] (Master's own solver is another runner). */
+    /** Main's player-script runner whose script fetch failed with [reason] (Master's own solver is another runner). */
     private class FailedScripts(private val reason: SiteExtractionFailure) : PlayerScriptRunner {
         override val isAvailable: Boolean = true
         override suspend fun resolve(request: PlayerScriptRequest): PlayerScriptResult = PlayerScriptResult.Failed(reason)
     }
 
-    /** F4: one lookup through Master's engine ([viaEngine]). */
+    /** One lookup through Master's engine ([viaEngine]). */
     private class EngineStep(
         val mainResult: SiteExtractionResult,
         val main: SimLookup,
@@ -510,7 +510,7 @@ class RouteBSimTest {
     )
 
     /**
-     * F4: one lookup as the app's route-B build runs it — main (its record names the lookup's watch
+     * One lookup as the app's route-B build runs it — main (its record names the lookup's watch
      * page), then Master's engine with the YouTube module (the ladder through route B's wrappers)
      * after main's failure; [routeB] is the engine's flag, [mainScripts] main's player-script runner
      * (Master's own solver is the world's when [solver]).
@@ -604,15 +604,15 @@ class RouteBSimTest {
         SimOutcome.WRONG -> 0
     }
 
-    /** F5: one bot-checked world for the page check. */
+    /** One bot-checked world for the page check. */
     private class F5World(val name: String, val case: SimCase, val request: SiteExtractionRequest, val change: SimWorld.() -> Unit)
 
-    /** F5: the lookup of a signed-in tab (the cookie holds a session main's page client uses). */
+    /** The lookup of a signed-in tab (the cookie holds a session main's page client uses). */
     private fun signedInRequest(): SiteExtractionRequest = SimMeasure.request().let { request ->
         request.copy(requestContext = request.requestContext.copy(cookie = SIGNED_IN_COOKIE))
     }
 
-    /** F5: what Master's requests carried when they reached the world (never written out). */
+    /** What Master's requests carried when they reached the world (never written out). */
     class Seen(private val http: ExtractorHttpClient) : ExtractorHttpClient {
         data class Sent(val url: String, val headers: Map<String, String>, val body: String?) {
             /** A header that names the user's session or account. */
@@ -640,18 +640,18 @@ class RouteBSimTest {
     }
 
     private companion object {
-        /** F5: a signed-in page's account fields, and a cookie with a session main's page client uses. */
+        /** A signed-in page's account fields, and a cookie with a session main's page client uses. */
         const val SIGNED_IN_PAGE = "\"LOGGED_IN\":true,\"DATASYNC_ID\":\"simaccount||\",\"SESSION_INDEX\":\"0\""
         const val SIGNED_IN_COOKIE = "PREF=sim; SID=sim-session; SAPISID=sim-sapisid; __Secure-3PAPISID=sim-sapisid"
 
-        /** F5: what never leaves in Master's requests — the account's identity and the cookie's values. */
+        /** What never leaves in Master's requests — the account's identity and the cookie's values. */
         val SECRETS = listOf("simaccount", "sim-session", "sim-sapisid")
         val ACCOUNT_HEADERS = setOf(
             "cookie", "authorization", "proxy-authorization", "x-goog-pageid", "x-goog-authuser",
             "x-youtube-bootstrap-logged-in", "x-origin",
         )
 
-        /** Guardrail 7: the ladder's player requests per lookup. */
+        /** The ladder's budget: its player requests per lookup. */
         const val MAX_PLAYERS = 3
 
         /** Layout changes main's parser cannot read and L can (main fails with a recoverable reason). */

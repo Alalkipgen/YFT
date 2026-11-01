@@ -6,7 +6,7 @@ import com.alal.yft.extractor.api.ExtractorProbeResult
 import kotlin.coroutines.coroutineContext
 
 /**
- * Phase 1.4 item 7 (YouTube routing B): the player-script client in a route-B build
+ * YouTube backup route: the player-script client in a route-B build
  * (`-Pyft.youtubeRouteB`, debug only). The runners (the own solver, main's) fetch the player
  * script with it, not with the adapters' client, so neither [LookupRecorder] nor
  * [RouteBHttpClient] sees those fetches. In Master's route-B run (a [RouteBLookup] in the

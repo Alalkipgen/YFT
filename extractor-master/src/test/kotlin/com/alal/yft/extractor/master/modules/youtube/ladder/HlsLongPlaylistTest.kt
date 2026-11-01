@@ -10,14 +10,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Census video 10 (tests 1–3 and run 2's census FULL, 2026-10-15/16): master and variant `2xx`,
+ * Client census video 10 (census FULL runs, 2026-10-15/16): master and variant `2xx`,
  * segment `no-segment`, 0 segments, 2 requests, on the census's longest video (1203 s; video 9,
  * 888 s, passed). The app's client (OkHttpExtractorClient) answers a `2xx` body over the read cap
  * as `Failure(RESPONSE_TOO_LARGE, <that 2xx code>)`, and [HlsCheck.statusOf] read the code before
  * the reason: a variant playlist over 256 KiB read `2xx` with no body, so no segment. Fixed in
  * `7277fd8`; the next census FULL (2026-10-16 05:26 UTC) read `too-large` there, as expected.
  * A long video's variant playlist lists every segment with its full address, so it grows with the
- * video: since the owner's decision (2026-10-16, guardrail 6) the variant's cap is 1 MiB and the
+ * video: by the owner's choice the variant's cap is 1 MiB (a Row check limit) and the
  * master's stays 256 KiB. Here each segment line is about 1.2 KB (an assumption: the census never
  * prints one; with it 888 s fits 256 KiB and 1203 s does not, as on the phone, and 1 MiB holds
  * about 74 min). Offline; no live call.

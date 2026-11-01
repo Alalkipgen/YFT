@@ -23,14 +23,14 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Phase 1.4 item 7 (YouTube routing B) R1: the per-lookup request record; no live calls. */
+/** Lookup record: the per-lookup request record; no live calls. */
 class LookupRecordTest {
     private val player = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
     private val page = "https://www.youtube.com/watch?v=Yft0Fixture&bpctr=9999999999&has_verified=1"
     private val body = """{"context":{"client":{"clientName":"VISIONOS","clientVersion":"1.0"}},"videoId":"Yft0Fixture"}"""
     private val headers = linkedMapOf("Content-Type" to "application/json", "User-Agent" to "YftTest/1.0")
 
-    /** F5: main's watch page GET with the tab's cookie, and the same GET without it (Master's). */
+    /** Main's watch page GET with the tab's cookie, and the same GET without it (Master's). */
     private val signedInPage = linkedMapOf("User-Agent" to "YftTest/1.0", "Cookie" to "SID=fixture", "Accept-Language" to "en", "Accept" to "text/html")
     private val pageHeaders = linkedMapOf("User-Agent" to "YftTest/1.0", "Accept-Language" to "en", "Accept" to "text/html")
 
