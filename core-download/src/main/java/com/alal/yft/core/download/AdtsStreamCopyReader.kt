@@ -4,8 +4,8 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 
 /**
- * Backlog item 5 (VP9 HLS with sound): reads an HLS sound joined as pure ADTS ([HlsPackedAudio])
- * as a stream-copy track (P35): every AAC frame without its ADTS header, 1024 samples each, at
+ * VP9 HLS with sound: reads an HLS sound joined as pure ADTS ([HlsPackedAudio])
+ * as a stream-copy track: every AAC frame without its ADTS header, 1024 samples each, at
  * the rate the headers name, with an `mp4a` sample description whose `esds` holds the matching
  * AudioSpecificConfig. Anything it does not expect — a broken header or size, more than one raw
  * block in a frame, a rate or channel layout an MP4 entry does not hold, a change of profile,
@@ -122,7 +122,7 @@ internal class AdtsTrackReader(
                 start[1].toInt() and SYNC_MASK == SYNC_BITS
         }
 
-        /** `stsd` with one `mp4a` entry and its `esds`, as the P35 writer copies it. */
+        /** `stsd` with one `mp4a` entry and its `esds`, as the fast merge's writer copies it. */
         internal fun sampleDescription(
             objectType: Int,
             frequencyIndex: Int,

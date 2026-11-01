@@ -72,7 +72,7 @@ class AudioVideoMuxEngineTest {
         val avcHeAac = plan().copy(audio = plan().audio.copy(codecs = listOf("mp4a.40.5")))
         val incompatibleVideo = MuxCompatibility.Incompatible(MuxIncompatibilityReason.VIDEO_CODEC)
 
-        // Off by default: the API 34 emulator's muxer failed the AV1 merge (P4 CI).
+        // Off by default: the API 34 emulator's muxer failed the AV1 merge in CI.
         assertFalse(AudioVideoMuxCompatibility.AV1_MP4_ENABLED)
         assertEquals(incompatibleVideo, AudioVideoMuxCompatibility.evaluate(av1, sdkInt = 34))
         assertEquals(incompatibleVideo, AudioVideoMuxCompatibility.evaluate(av1, sdkInt = 35))
@@ -91,7 +91,7 @@ class AudioVideoMuxEngineTest {
         assertTrue(AudioVideoMuxCompatibility.canWriteVideo(" AV01.0.05M.08", 34, true))
         assertFalse(AudioVideoMuxCompatibility.canWriteVideo("av01.0.05M.08", 33, true))
         assertFalse(AudioVideoMuxCompatibility.canWriteVideo("vp09.00.31.08", sdkInt = 35))
-        // Backlog item 5: VP9 only for an HLS video, by the stream copy, from Android 10.
+        // VP9 only for an HLS video, by the stream copy, from Android 10.
         assertTrue(AudioVideoMuxCompatibility.canWriteVideo("vp09.00.51.08", 29, hlsVp9 = true))
         assertFalse(AudioVideoMuxCompatibility.canWriteVideo("vp09.00.51.08", 28, hlsVp9 = true))
         assertFalse(AudioVideoMuxCompatibility.canWriteVideo("vp9", 35, hlsVp9 = true))
@@ -205,7 +205,7 @@ class AudioVideoMuxEngineTest {
 
     @Test
     fun `with the AV1 test switch on Android 14 merges AV1 and AAC and a failed merge says so`() = runTest {
-        // v1.0.2 item 26: a debug build's switch, read at each download (the release: off).
+        // A debug build's switch, read at each download (the release: off).
         val av1 = plan().copy(video = plan().video.copy(codecs = listOf("av01.0.08M.08")))
         var switchOn = true
         val runner = FakeDashRunner()
@@ -227,7 +227,7 @@ class AudioVideoMuxEngineTest {
         assertEquals(DownloadFailureReason.INCOMPATIBLE_TRACKS, old.failure.reason)
         assertEquals(0, oldRunner.totalCalls())
         assertEquals(0, oldMuxer.calls.get())
-        // The phone's muxer fails the AV1 merge (the API 34 emulator's P4 failure): the download
+        // The phone's muxer fails the AV1 merge (the API 34 emulator's failure in CI): the download
         // ends "Incompatible tracks" at the merge, nothing published.
         val failing = FakeMuxer(failure = DownloadFailureReason.INCOMPATIBLE_TRACKS)
         val failedFiles = files("av1-fails.mp4")
@@ -250,7 +250,7 @@ class AudioVideoMuxEngineTest {
     }
 
     /**
-     * v1.0.2 fix R8: today's way ends a track only when MediaExtractor has no sample left (-1 and
+     * Today's way ends a track only when MediaExtractor has no sample left (-1 and
      * no track), not at a time before 0 — a sound's first samples before its edit list's start,
      * as tears-of-steel-av1's AAC (2,048 ticks at 48 kHz: -42,667 and -21,333 µs).
      */
@@ -321,7 +321,7 @@ class AudioVideoMuxEngineTest {
         assertTrue(workspace.listFiles().orEmpty().isEmpty())
     }
 
-    /** Task 3 (phase-v102-easy): a live track's Details lines come with the merged file. */
+    /** A live track's Details lines come with the merged file. */
     @Test
     fun `the tracks' notes come with the merged file, video first`() = runTest {
         val runner = FakeDashRunner(
@@ -490,7 +490,7 @@ class AudioVideoMuxEngineTest {
         suggestedFileName = "movie.mp4",
     )
 
-    /** YouTube's 4K: a VP9 video-only WebM and the Opus WebM sound, merged into WebM (P6). */
+    /** YouTube's 4K: a VP9 video-only WebM and the Opus WebM sound, merged into WebM. */
     private fun webmPlan(): AudioVideoMuxDownloadPlan = plan().let { base ->
         base.copy(
             video = base.video.copy(mimeType = "video/webm", codecs = listOf("vp09.00.51.08")),
@@ -537,7 +537,7 @@ class AudioVideoMuxEngineTest {
     private class FakeDashRunner(
         private val failFirstAudio: Boolean = false,
         private val reportTotals: Boolean = false,
-        /** Task 3: each finished track's Details lines. */
+        /** Each finished track's Details lines. */
         private val notes: (MediaTrackType) -> List<String> = { emptyList() },
     ) : DashTransferRunner {
         private val calls = ConcurrentHashMap<String, AtomicInteger>()

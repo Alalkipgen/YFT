@@ -54,7 +54,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 enum class MuxIncompatibilityReason {
     OUTPUT_CONTAINER,
 
-    /** The phone's Android release has no muxer for this output (P6: WebM with Opus). */
+    /** The phone's Android release has no muxer for this output (WebM with Opus). */
     ANDROID_VERSION,
     VIDEO_CONTAINER,
     AUDIO_CONTAINER,
@@ -71,11 +71,11 @@ sealed interface MuxCompatibility {
 /**
  * Deliberately conservative compatibility gate for Android's platform muxer.
  *
- * YFT does not bundle FFmpeg. Phase 4 therefore accepts only separate AVC/AAC ISO-BMFF tracks
+ * YFT does not bundle FFmpeg. The gate therefore accepts only separate AVC/AAC ISO-BMFF tracks
  * that MediaExtractor can read and MediaMuxer can write on the minimum supported Android API.
- * AV1 video would be accepted from [AV1_MP4_MIN_SDK] (Phase 11 P4: Facebook's desktop ladder is
- * AV1), but [AV1_MP4_ENABLED] keeps it off until a phone proves the merge works. P6 adds WebM:
- * VP9 video with Opus (or Vorbis) sound from WebM files, written as one WebM from
+ * AV1 video would be accepted from [AV1_MP4_MIN_SDK] (Facebook's desktop ladder is
+ * AV1), but [AV1_MP4_ENABLED] keeps it off until a phone proves the merge works. It also takes
+ * WebM: VP9 video with Opus (or Vorbis) sound from WebM files, written as one WebM from
  * [WEBM_OPUS_MIN_SDK], for YouTube's 2K and 4K.
  */
 object AudioVideoMuxCompatibility {
@@ -92,27 +92,27 @@ object AudioVideoMuxCompatibility {
     const val WEBM_OUTPUT_MIME = "video/webm"
 
     /**
-     * Android 14: the first release whose MediaMuxer may write AV1 into MPEG-4. v1.0.2 fix R8: an
+     * Android 14: the first release whose MediaMuxer may write AV1 into MPEG-4. An
      * AV1 merge is a stream copy first (`av01` copied as it is, [StreamCopyTrackKind.VIDEO]), and
      * this MediaMuxer way only when the stream copy does not count.
      */
     const val AV1_MP4_MIN_SDK = 34
 
     /**
-     * AV1 merges are off (P4, 2026-10-05): on the CI emulator (API 34) Android's muxer did not
+     * AV1 merges are off (since 2026-10-05): on the CI emulator (API 34) Android's muxer did not
      * merge the AV1 test track with its AAC sound (`AudioVideoMuxerInstrumentedTest`, emulator
      * smoke #27 and #28: `LocalMuxResult.Failure`). Turn on only after a phone proves it works.
      */
     const val AV1_MP4_ENABLED = false
 
     /**
-     * P35 (G2, `FAST_MERGE=ON`): MP4 merges copy the tracks' samples in large blocks
+     * Fast merge (`FAST_MERGE=ON`): MP4 merges copy the tracks' samples in large blocks
      * ([StreamCopyAudioVideoMuxer]) and fall back to MediaMuxer when that does not count.
      */
     const val FAST_MERGE_ENABLED = true
 
     /**
-     * Backlog item 5: VP9 HLS video and its AAC HLS sound (joined ADTS) go into one MP4 by the
+     * VP9 HLS video and its AAC HLS sound (joined ADTS) go into one MP4 by the
      * stream copy alone — Android's MP4 muxer takes no VP9, so its fallback fails — from Android
      * 10, whose MediaExtractor reads VP9 in MP4 for the stream copy's check.
      */
@@ -193,7 +193,7 @@ object AudioVideoMuxCompatibility {
 
     /**
      * Whether an MP4 video track and its MP4 sound merge into one MP4 on Android [sdkInt]: both
-     * MP4 containers (an HLS track's segments aside, P50: they are read with MediaExtractor, so
+     * MP4 containers (an HLS track's segments aside: they are read with MediaExtractor, so
      * only its codecs decide), the video's codecs named and each one the muxer writes
      * ([canWriteVideo]), the sound's codecs named and each one AAC (`mp4a.40.…`). The one gate for
      * the sheet (the phone's `DeviceMergeSupport`) and the download (`DownloadPlanFactory`): the
@@ -234,7 +234,7 @@ object AudioVideoMuxCompatibility {
     /**
      * Whether the MP4 muxer of Android [sdkInt] writes video in [codec], such as `avc1.64001f`;
      * AV1 only while [av1Enabled] ([AV1_MP4_ENABLED]) and from [AV1_MP4_MIN_SDK]; VP9 only for
-     * an HLS video ([hlsVp9], backlog item 5) and from [VP9_HLS_MP4_MIN_SDK].
+     * an HLS video ([hlsVp9]) and from [VP9_HLS_MP4_MIN_SDK].
      */
     fun canWriteVideo(
         codec: String,
@@ -266,7 +266,7 @@ object AudioVideoMuxCompatibility {
 sealed interface LocalMuxResult {
     data class Completed(val bytesWritten: Long) : LocalMuxResult
 
-    /** [detail]: the exception behind the failure, from [DownloadFailureDetails.of] (P21). */
+    /** [detail]: the exception behind the failure, from [DownloadFailureDetails.of]. */
     data class Failure(
         val reason: DownloadFailureReason,
         val detail: String? = null,
@@ -285,27 +285,27 @@ interface LocalAudioVideoMuxer {
 
 /**
  * Platform-only remuxer. Inputs must already be complete, unencrypted tracks: ISO-BMFF for an
- * MP4 output, WebM for a WebM output (P6).
+ * MP4 output, WebM for a WebM output.
  *
- * P35: an MP4 merge is a stream copy first ([fastMerge], [StreamCopyAudioVideoMuxer]) — the
+ * An MP4 merge is a stream copy first ([fastMerge], [StreamCopyAudioVideoMuxer]) — the
  * tracks' samples copied in large blocks, then read back with MediaExtractor — and today's
  * MediaExtractor → MediaMuxer way only when the stream copy does not count. WebM goes the
- * MediaMuxer way. v1.0.2 fix R6: today's way's MP4 is read back for its length before it counts
- * ([LengthCheckedAudioVideoMuxer]). v1.0.2 fix R8: AV1 video is stream-copied too, so a sound's
+ * MediaMuxer way. Today's way's MP4 is read back for its length before it counts
+ * ([LengthCheckedAudioVideoMuxer]). AV1 video is stream-copied too, so a sound's
  * edit list and every one of its samples stay as in AVC merges.
  *
  * MediaExtractor/MediaMuxer behavior is device-dependent and remains an explicit device test.
  */
 class AndroidMp4AudioVideoMuxer(
     private val maxSampleBufferBytes: Int = DEFAULT_MAX_SAMPLE_BUFFER_BYTES,
-    /** P35: stream-copy MP4 merges first ([AudioVideoMuxCompatibility.FAST_MERGE_ENABLED]). */
+    /** Stream-copy MP4 merges first ([AudioVideoMuxCompatibility.FAST_MERGE_ENABLED]). */
     private val fastMerge: Boolean = AudioVideoMuxCompatibility.FAST_MERGE_ENABLED,
 ) : ProgressAudioVideoMuxer {
     init {
         require(maxSampleBufferBytes in MIN_SAMPLE_BUFFER_BYTES..MAX_SAMPLE_BUFFER_BYTES)
     }
 
-    /** v1.0.2 fix R6: today's way, with its MP4 read back for its length before it counts. */
+    /** Today's way, with its MP4 read back for its length before it counts. */
     private val mediaMuxer = LengthCheckedAudioVideoMuxer(
         muxer = MediaMuxerAudioVideoMuxer(maxSampleBufferBytes),
         outputs = AndroidStreamCopyOutputs,
@@ -331,8 +331,8 @@ class AndroidMp4AudioVideoMuxer(
 
     /**
      * Merges into [output]: a new file, or (Android 8.0+) a seekable read-write descriptor that
-     * this call neither empties nor closes. [onProgress] hears the merge move on (P27): the
-     * stream copy after each chunk, today's way at most every 250 ms (P35).
+     * this call neither empties nor closes. [onProgress] hears the merge move on: the
+     * stream copy after each chunk, today's way at most every 250 ms.
      */
     override fun mux(
         videoFile: File,
@@ -353,7 +353,7 @@ class AndroidMp4AudioVideoMuxer(
 }
 
 /**
- * Today's merge (P6, P27): MediaExtractor reads each sample and MediaMuxer writes it. P35's
+ * Today's merge: MediaExtractor reads each sample and MediaMuxer writes it. Its
  * quick wins: a sample's time and flags are read once, one buffer serves every sample, progress
  * goes out at most every 250 ms, and the time goes to opening, reading, writing and finishing.
  */
@@ -527,7 +527,7 @@ internal class MediaMuxerAudioVideoMuxer(
         MuxAttempt(LocalMuxResult.Failure(reason), samplesWritten = 0)
 
     /**
-     * Phase 1.4 item 1: the Detail names the call that threw and the sizes ([MuxTrace.detail]);
+     * The Detail names the call that threw and the sizes ([MuxTrace.detail]);
      * the log line adds the largest sample per track.
      */
     private fun incompatible(error: Exception, trace: MuxTrace): LocalMuxResult.Failure {
@@ -554,9 +554,9 @@ internal class MediaMuxerAudioVideoMuxer(
 
     /**
      * Writes the samples of both tracks in time order. Each sample costs five platform calls
-     * (P35; it was eight): its time and flags once, read, write, advance; from Android 9 a sixth,
-     * its size, so the buffer grows to a sample larger than it before the read (Phase 1.4 item 1,
-     * [MuxSampleBuffer]: a 2K/4K VP9 keyframe in a WebM track that states no maximum size).
+     * (it was eight): its time and flags once, read, write, advance; from Android 9 a sixth,
+     * its size, so the buffer grows to a sample larger than it before the read
+     * ([MuxSampleBuffer]: a 2K/4K VP9 keyframe in a WebM track that states no maximum size).
      */
     private fun copySamples(
         video: SampleSource,
@@ -620,7 +620,7 @@ internal class MediaMuxerAudioVideoMuxer(
         meter.finished()
     }
 
-    /** Samples written so far, kept when a merge fails part-way (P27), per track (P35). */
+    /** Samples written so far, kept when a merge fails part-way, per track. */
     private class SampleCount {
         var video = 0L
         var audio = 0L
@@ -631,7 +631,7 @@ internal class MediaMuxerAudioVideoMuxer(
         }
     }
 
-    /** Where today's merge spends its time (P35): opening, reading, writing, finishing. */
+    /** Where today's merge spends its time: opening, reading, writing, finishing. */
     private class MuxTiming(private val nanoTime: () -> Long) {
         private val nanos = LongArray(4)
         private var last = nanoTime()
@@ -657,7 +657,7 @@ internal class MediaMuxerAudioVideoMuxer(
 
     /**
      * Turns written samples into progress: sample time of the tracks' duration, or bytes of the
-     * tracks' bytes when the duration is unknown; at most every 250 ms (P35), then the end.
+     * tracks' bytes when the duration is unknown; at most every 250 ms, then the end.
      */
     private class ProgressMeter(
         private val durationUs: Long?,
@@ -743,8 +743,8 @@ internal class MediaMuxerAudioVideoMuxer(
     )
 
     /**
-     * One input track; its current sample's time and flags are read once (P35). v1.0.2 fix R8:
-     * only "no sample" ends the track ([endsTrack]), not a time before 0: Android 11 and newer
+     * One input track; its current sample's time and flags are read once.
+     * Only "no sample" ends the track ([endsTrack]), not a time before 0: Android 11 and newer
      * give a sound's first samples before its edit list's start such a time (gapless AAC, such
      * as a DASH sound whose `elst` starts at 2,048), and their MediaMuxer takes it and writes the
      * edit list again. A time before 0 used to end the sound at its first sample, so the merge
@@ -784,7 +784,7 @@ internal class MediaMuxerAudioVideoMuxer(
 }
 
 /**
- * v1.0.2 fix R8: whether MediaExtractor's [sampleTimeUs] means it has no sample left. It gives -1
+ * Whether MediaExtractor's [sampleTimeUs] means it has no sample left. It gives -1
  * then, and also for a sample at -1 µs, which still has its track ([trackIndex], asked only
  * then); any other time before 0 is a sample (a sound's first ones before its edit list starts).
  */
@@ -807,7 +807,7 @@ interface AudioVideoMuxRunner {
 }
 
 /**
- * Downloads a video track and its sound, then merges them into the destination (P27): on
+ * Downloads a video track and its sound, then merges them into the destination: on
  * Android 8.0+ straight into the destination's own file when it gives a file descriptor, else
  * into app storage and then copied. The merge and the copy report progress in the checkpoint
  * ([AudioVideoMuxCheckpoint.stepDone]); each step's time goes to [log] and into a merge
@@ -817,7 +817,7 @@ class AudioVideoMuxEngine(
     private val dashTransfer: DashTransferRunner,
     private val muxer: LocalAudioVideoMuxer,
     private val workspaceRoot: File,
-    /** The copy buffer of today's path: 1 MiB (P27; it was 64 KiB). */
+    /** The copy buffer of today's path: 1 MiB (it was 64 KiB). */
     private val bufferBytes: Int = DEFAULT_COPY_BUFFER_BYTES,
     private val clock: () -> Long = System::currentTimeMillis,
     private val sdkInt: Int = Build.VERSION.SDK_INT,
@@ -827,12 +827,12 @@ class AudioVideoMuxEngine(
     private val elapsedMillis: () -> Long = { System.nanoTime() / 1_000_000 },
     /** One line per merge with its step times; no addresses. */
     private val log: (String) -> Unit = ::logMergeLine,
-    /** The calling thread's CPU time in milliseconds (P35), or null where it is unknown. */
+    /** The calling thread's CPU time in milliseconds, or null where it is unknown. */
     private val threadCpuMillis: () -> Long? = ::currentThreadCpuMillis,
-    /** The shortest time between two progress updates of the tracks: 4 a second (P41). */
+    /** The shortest time between two progress updates of the tracks: 4 a second. */
     private val progressIntervalMillis: Long = DEFAULT_PROGRESS_INTERVAL_MILLIS,
     /**
-     * v1.0.2 item 26: whether AV1 merges are on, read at each download — the release's
+     * Whether AV1 merges are on, read at each download — the release's
      * [AudioVideoMuxCompatibility.AV1_MP4_ENABLED], or a debug build's test switch.
      */
     private val av1Merges: () -> Boolean = { AudioVideoMuxCompatibility.AV1_MP4_ENABLED },
@@ -889,7 +889,7 @@ class AudioVideoMuxEngine(
             },
             log = log,
         )
-        // Task 3: each track's Details lines (a live track saved a little short), video first.
+        // Each track's Details lines (a live track saved a little short), video first.
         val trackNotes = ConcurrentHashMap<TrackKind, List<String>>()
         try {
             tracker.emit()
@@ -991,12 +991,12 @@ class AudioVideoMuxEngine(
         }
     }
 
-    /** The failure with the tracks' start times (P41), when they have any. */
+    /** The failure with the tracks' start times, when they have any. */
     private fun DownloadFailure.withStart(starts: MuxStartTimes): DownloadFailure =
         starts.summary()?.let { copy(startTimeline = it) } ?: this
 
     /**
-     * The merge failure's details with the step times when the merge was reached (P27), within
+     * The merge failure's details with the step times when the merge was reached, within
      * [DownloadFailureDetails.MAX_CHARS]; the time also goes to the log.
      */
     private fun DownloadFailure.withTimes(times: MergeTimes): DownloadFailure {
@@ -1071,7 +1071,7 @@ class AudioVideoMuxEngine(
         val audioFile = readyFile(workspace, TrackKind.AUDIO)
         val videoReady = checkpoint.videoReady && videoFile.isNonEmptyFile()
         val audioReady = checkpoint.audioReady && audioFile.isNonEmptyFile()
-        // G3 (Track E): a finished track of another length than the plan states is another file,
+        // A finished track of another length than the plan states is another file,
         // for example after a fresh link; it is downloaded again.
         val videoOther = videoReady && !videoFile.isTrackOf(plan.video)
         val audioOther = audioReady && !audioFile.isTrackOf(plan.audio)
@@ -1095,7 +1095,7 @@ class AudioVideoMuxEngine(
     }
 
     /**
-     * One merge of two downloaded tracks into [destination] (P27): in place when the destination
+     * One merge of two downloaded tracks into [destination]: in place when the destination
      * gives a file descriptor on Android 8.0+, else today's path (a file in app storage, then a
      * copy); an in-place merge that fails before its first sample falls back to today's path
      * once. Each path first checks the free space it needs.
@@ -1115,14 +1115,14 @@ class AudioVideoMuxEngine(
         var path = "copy"
             private set
 
-        /** How the last merge went and the merge thread's CPU time (P35), for the log. */
+        /** How the last merge went and the merge thread's CPU time, for the log. */
         private var details: MuxDetails? = null
         private var cpuMillis: Long? = null
 
         /**
          * "; stream copy: 1800 video + 2600 audio samples, parse 12 ms, …; cpu 1.1 s, wall 1.4 s"
-         * when the muxer said how it merged (P35); a large gap between the CPU and the wall time
-         * means the phone paused YFT (R24).
+         * when the muxer said how it merged; a large gap between the CPU and the wall time
+         * means the phone paused YFT.
          */
         fun detailsSummary(): String {
             val details = details ?: return ""
@@ -1351,7 +1351,7 @@ class AudioVideoMuxEngine(
             storageStep(OPEN_FILE) { destination.open().use { output -> output.setLength(0) } }
         }
 
-        /** Fails early when the merge's path cannot fit (P27): no space is used yet. */
+        /** Fails early when the merge's path cannot fit: no space is used yet. */
         private fun requireSpace(requiredBytes: Long) {
             val free = runCatching(freeBytes).getOrNull() ?: return
             if (free >= requiredBytes) return
@@ -1448,7 +1448,7 @@ class AudioVideoMuxEngine(
     }
 
     /**
-     * The start times of a merged download's tracks (P41): one log line, once every track that
+     * The start times of a merged download's tracks: one log line, once every track that
      * downloads in this run has them, and the failure details.
      */
     private class MuxStartTimes(
@@ -1489,7 +1489,7 @@ class AudioVideoMuxEngine(
      *
      * Progress has a total only once both track lengths are known: a finished track's length is
      * what it downloaded, and a track still downloading reports its length when it knows one.
-     * The bytes count what each track reported as written (P41), at most every
+     * The bytes count what each track reported as written, at most every
      * [progressIntervalMillis] while the tracks download. Until then, when each track has a
      * length or an estimate of it (a live stream's pieces), progress carries their sum as the
      * estimated total.
@@ -1512,7 +1512,7 @@ class AudioVideoMuxEngine(
         private val trackEstimates = mutableMapOf<TrackKind, Long>()
         private var lastProgressAt: Long? = null
 
-        /** Notes a track's progress: its length or estimate and the bytes it wrote (P41). */
+        /** Notes a track's progress: its length or estimate and the bytes it wrote. */
         suspend fun recordProgress(kind: TrackKind, progress: DownloadProgress) =
             gate.withLock {
                 progress.totalBytes?.takeIf { it > 0 }?.let { trackTotals[kind] = it }
@@ -1546,7 +1546,7 @@ class AudioVideoMuxEngine(
             emitLocked()
         }
 
-        /** Moves the merge or the copy on ([AudioVideoMuxCheckpoint.stepDone]) (P27). */
+        /** Moves the merge or the copy on ([AudioVideoMuxCheckpoint.stepDone]). */
         suspend fun setStep(stage: AudioVideoMuxStage, done: Long, total: Long?) =
             gate.withLock {
                 checkpoint = checkpoint.copy(
@@ -1557,7 +1557,7 @@ class AudioVideoMuxEngine(
                 emitLocked()
             }
 
-        /** The tracks were deleted after the merge: a later failure starts over (P27). */
+        /** The tracks were deleted after the merge: a later failure starts over. */
         suspend fun forgetTracks() = gate.withLock { tracksDeleted = true }
 
         suspend fun emit() = gate.withLock { emitLocked() }
@@ -1642,7 +1642,7 @@ class AudioVideoMuxEngine(
 private fun File.isNonEmptyFile(): Boolean = isFile && length() > 0
 
 /**
- * G3: whether this finished track file can be [track]'s: its length is the one [track] states
+ * Whether this finished track file can be [track]'s: its length is the one [track] states
  * for its whole file, or [track] states none (a manifest's or a playlist's track, a live
  * stream's pieces, a length read from the first range).
  */
@@ -1662,6 +1662,6 @@ private fun logMergeLine(message: String) {
     runCatching { Log.i("YftDownloads", message) }
 }
 
-/** This thread's CPU time (P35); null off Android, as in JVM tests. */
+/** This thread's CPU time; null off Android, as in JVM tests. */
 private fun currentThreadCpuMillis(): Long? =
     runCatching { SystemClock.currentThreadTimeMillis() }.getOrNull()

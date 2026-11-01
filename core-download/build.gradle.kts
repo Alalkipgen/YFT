@@ -6,7 +6,7 @@ plugins {
 android {
     namespace = "com.alal.yft.core.download"
     compileSdk = 35
-    // MP3 audio (T18): LAME 3.100 built from source with this NDK; CI installs the same version.
+    // MP3 audio: LAME 3.100 built from source with this NDK; CI installs the same version.
     ndkVersion = "27.3.13750724"
     defaultConfig {
         minSdk = 24

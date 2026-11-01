@@ -10,7 +10,7 @@ import java.nio.ByteBuffer
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
 
-/** Reads a stream-copied file back before it counts (P35); Android's MediaExtractor on phones. */
+/** Reads a stream-copied file back before it counts; Android's MediaExtractor on phones. */
 internal fun interface StreamCopyCheck {
     /** Null when [output] reads back as [layout] says; else why not, in a few fixed words. */
     fun check(
@@ -21,7 +21,7 @@ internal fun interface StreamCopyCheck {
     ): String?
 }
 
-/** Opens a merge's output for the stream copy and empties it for today's way (P35). */
+/** Opens a merge's output for the stream copy and empties it for today's way. */
 internal interface StreamCopyOutputs {
     /** [output] for positioned writes; closing it leaves a descriptor open for its owner. */
     fun open(output: MuxOutput): OpenStreamCopyOutput
@@ -29,7 +29,7 @@ internal interface StreamCopyOutputs {
     /** Empties [output] after a stream copy that did not count: a file is deleted. */
     fun discard(output: MuxOutput)
 
-    /** v1.0.2 fix R6: [output] read back, for its length; closing it leaves a descriptor open. */
+    /** [output] read back, for its length; closing it leaves a descriptor open. */
     fun read(output: MuxOutput): ReadableMergeOutput
 }
 
@@ -84,7 +84,7 @@ internal object ChannelStreamCopyOutputs : StreamCopyOutputs {
 }
 
 /**
- * P35's fast merge (`FAST_MERGE=ON`): an MP4 video track and its MP4 sound are copied into one
+ * Fast merge (`FAST_MERGE=ON`): an MP4 video track and its MP4 sound are copied into one
  * MP4 in large blocks — no call per sample — and the result is read back ([check]) before it
  * counts. A track the stream copy does not support, a failed write or a failed check empties
  * the output and merges once with [fallback], today's MediaMuxer way; the reason goes into the
@@ -169,7 +169,7 @@ internal class StreamCopyAudioVideoMuxer(
                 val video = FileChannelMp4Source(videoInput.channel)
                 val audio = FileChannelMp4Source(audioInput.channel)
                 val videoTrack = Mp4TrackReader(video, StreamCopyTrackKind.VIDEO).read()
-                // Item 5: VP9 HLS video takes its HLS sound as joined ADTS; AVC keeps today's way.
+                // VP9 HLS video takes its HLS sound as joined ADTS; AVC keeps today's way.
                 val audioTrack = if (
                     videoTrack.sampleEntryType == VP9_ENTRY && AdtsTrackReader.isAdts(audio)
                 ) {

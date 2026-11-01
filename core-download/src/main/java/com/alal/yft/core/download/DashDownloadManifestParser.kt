@@ -18,12 +18,12 @@ internal object DashDownloadManifestParser {
         representationId: String,
         expectedTrackType: MediaTrackType,
         maxChunks: Int,
-        /** v1.0.2 fix F1: how a `BaseURL` at an http address under an https manifest is read. */
+        /** How a `BaseURL` at an http address under an https manifest is read. */
         httpBaseUrl: HttpBaseUrl = HttpBaseUrl.REFUSE,
     ): Result {
         require(representationId.isNotBlank())
         require(maxChunks > 0)
-        // v1.0.2 fix F1: no document type, so no entity, on any parser (see the factory).
+        // No document type, so no entity, on any parser (see the factory).
         if (DOCUMENT_TYPE.containsMatchIn(manifest)) return Result.Malformed
         val document = runCatching {
             secureDocumentBuilderFactory()
@@ -124,7 +124,7 @@ internal object DashDownloadManifestParser {
     }
 
     /**
-     * v1.0.2 item 59: a `SegmentBase` representation is one file, named by its own `BaseURL`;
+     * A `SegmentBase` representation is one file, named by its own `BaseURL`;
      * its initialization and its index (the `sidx`) are byte ranges inside it, as the nearest
      * `SegmentBase` states them. The engine asks the file in ranges, as a whole file, so the
      * index is never read for pieces. Still unsupported: a file named by no `BaseURL` of the
@@ -425,7 +425,7 @@ internal object DashDownloadManifestParser {
 
     /**
      * The address the representation's files are under: each level's `BaseURL` resolved
-     * against the one above it, the manifest's own address at the top. v1.0.2 fix F1: a
+     * against the one above it, the manifest's own address at the top. A
      * `BaseURL` at an http address under an https manifest is never asked as it is; as
      * [httpBaseUrl] says, it is refused ([ResolvedBase.cleartext]), read as the same address at
      * https, or left out, so the part below it is resolved against the manifest's own address
@@ -524,7 +524,7 @@ internal object DashDownloadManifestParser {
     }
 
     /**
-     * v1.0.2 fix F1: Android's own parser (`org.apache.harmony.xml.parsers`) throws for
+     * Android's own parser (`org.apache.harmony.xml.parsers`) throws for
      * `isXIncludeAware`, for every feature but namespaces and validation and for every attribute,
      * so asking them all at once made every manifest unreadable on a phone (the JVM's parser
      * knows them all). Each one is asked on its own and one the parser does not know is skipped;
@@ -679,7 +679,7 @@ internal object DashDownloadManifestParser {
         ) : Result
 
         /**
-         * v1.0.2 item 59: a `SegmentBase` representation, one file at [url]; its
+         * A `SegmentBase` representation, one file at [url]; its
          * [initialization] and its [index] (the `sidx`) are byte ranges inside it, null where
          * the manifest states none.
          */
@@ -723,14 +723,14 @@ internal object DashDownloadManifestParser {
         data object Malformed : Result
 
         /**
-         * v1.0.2 fix F1: the representation's files are under a `BaseURL` at an http address
+         * The representation's files are under a `BaseURL` at an http address
          * while the manifest is at https; nothing was resolved. Read the manifest again as
          * [HttpBaseUrl.SAME_AS_HTTPS] or [HttpBaseUrl.UNDER_MANIFEST].
          */
         data object HttpBaseUrlRefused : Result
     }
 
-    /** v1.0.2 fix F1: how a `BaseURL` at an http address under an https manifest is read. */
+    /** How a `BaseURL` at an http address under an https manifest is read. */
     enum class HttpBaseUrl {
         /** Not at all: the parse answers [Result.HttpBaseUrlRefused]. */
         REFUSE,
@@ -745,7 +745,7 @@ internal object DashDownloadManifestParser {
     private data class ResolvedBase(
         val url: HttpUrl,
         val representationSpecific: Boolean,
-        /** v1.0.2 fix F1: a `BaseURL` at http was refused ([HttpBaseUrl.REFUSE]). */
+        /** A `BaseURL` at http was refused ([HttpBaseUrl.REFUSE]). */
         val cleartext: Boolean = false,
     )
 
@@ -760,7 +760,7 @@ internal object DashDownloadManifestParser {
     private const val HTTP = "http"
     private const val HTTPS = "https"
 
-    /** v1.0.2 fix F1: a document type or an entity declaration; such a manifest is refused. */
+    /** A document type or an entity declaration; such a manifest is refused. */
     private val DOCUMENT_TYPE = Regex("""<!\s*(?:DOCTYPE|ENTITY)""", RegexOption.IGNORE_CASE)
     private const val PERIOD = "Period"
     private const val ADAPTATION_SET = "AdaptationSet"

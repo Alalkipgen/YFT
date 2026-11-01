@@ -2,7 +2,7 @@ package com.alal.yft.core.download
 
 import java.util.Locale
 
-/** How a download learned its length (P41), for [DownloadStartTimeline]. */
+/** How a download learned its length, for [DownloadStartTimeline]. */
 enum class StartLengthSource(val label: String) {
     /** The plan stated it, such as YouTube's clen. */
     KNOWN("known"),
@@ -21,7 +21,7 @@ enum class StartLengthSource(val label: String) {
 }
 
 /**
- * When a download's first steps happened (P41), in milliseconds after it started: its plan
+ * When a download's first steps happened, in milliseconds after it started: its plan
  * (the manifest or the file layout), its length, its first byte and its first progress update.
  * It holds times only, never an address; [summary] is the log line and the failure Details.
  */

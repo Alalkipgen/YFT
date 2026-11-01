@@ -14,7 +14,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 
-/** Keeps only the sound of a complete local MP4 file (P3). */
+/** Keeps only the sound of a complete local MP4 file. */
 interface LocalAudioExtractor {
     /** Writes [source]'s AAC track to [output] as an M4A; same results as the MP3 transcoder. */
     suspend fun extract(source: File, output: File): Mp3TranscodeResult

@@ -12,7 +12,7 @@ import okhttp3.Response
 
 /**
  * A YouTube live stream's media file, on air or recently ended ([LiveOriginFile]), fetched the
- * way yt-dlp fetches it (owner item 6, run 4f). Its address without `sq` serves only the newest
+ * way yt-dlp fetches it. Its address without `sq` serves only the newest
  * piece (on the owner's phone piece 2021 of a 2:48 stream, 671,325 bytes, then nothing), so the
  * file is asked piece after piece, `sq=0` up to the `X-Head-Seqnum` its server names ([head]),
  * and the pieces, each a fragmented MP4 with its own `moov`, are joined into one
@@ -44,7 +44,7 @@ internal object LivePieces {
         )
     }
 
-    /** Task 3: how much is missing, to the nearest second: "54 s", "9m59s", "1h02m03s". */
+    /** How much is missing, to the nearest second: "54 s", "9m59s", "1h02m03s". */
     fun span(millis: Long): String {
         val seconds = (millis.coerceAtLeast(0) + 500) / 1_000
         return when {
@@ -55,7 +55,7 @@ internal object LivePieces {
     }
 
     /**
-     * Task 3: piece numbers as ranges, "700–702, 900"; after [MAX_RANGES] ranges, how many more
+     * Piece numbers as ranges, "700–702, 900"; after [MAX_RANGES] ranges, how many more
      * ("1–2, 4, 6, 8 and 3 more").
      */
     fun ranges(pieces: Collection<Int>): String {
@@ -83,7 +83,7 @@ internal class LivePieceProblem(message: String, val notReady: Boolean = false) 
     Exception(message)
 
 /**
- * The pieces of a live stream joined into one fragmented MP4 (run 4f) and read at any position
+ * The pieces of a live stream joined into one fragmented MP4 and read at any position
  * ([Mp4Source]), so the merge's own reader checks the joined bytes before they are written: the
  * first piece's `ftyp` and `moov`, then of every piece the bytes from its first `moof` to the end
  * of its last `mdat`. The `ftyp` and `moov` each later piece repeats (the same track) and the

@@ -20,7 +20,7 @@ fun interface Mp3EncoderFactory {
 }
 
 /**
- * LAME 3.100 through JNI (`libmp3lame.so` and `libyft_mp3.so`, T18): constant bitrate, joint
+ * LAME 3.100 through JNI (`libmp3lame.so` and `libyft_mp3.so`): constant bitrate, joint
  * stereo or mono, no Xing tag. Not thread-safe; one instance encodes one file.
  */
 class LameMp3Encoder private constructor(private var handle: Long) : Mp3FrameEncoder {

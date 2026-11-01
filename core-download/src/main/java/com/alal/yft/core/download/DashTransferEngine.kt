@@ -59,7 +59,7 @@ interface DashTransferRunner {
     ): DashTransferResult
 
     /**
-     * [transfer] that hands its start times to [onStartTimeline] once (P41), instead of writing
+     * [transfer] that hands its start times to [onStartTimeline] once, instead of writing
      * them to the log itself: a merged download writes one line for both of its tracks. A runner
      * that does not measure them never calls it.
      */
@@ -81,16 +81,16 @@ interface DashTransferRunner {
  * Chunks are downloaded into deterministic app-private files, checkpointed only after a complete
  * fsync, then assembled in manifest order. The public destination remains unpublished until its
  * final length is verified. Progress counts the bytes of a chunk as they are written, at most
- * every [Policy.progressIntervalMillis] (P41).
+ * every [Policy.progressIntervalMillis].
  */
 class DashTransferEngine(
     client: OkHttpClient,
     private val workspaceRoot: File,
     private val policy: Policy = Policy(),
     private val clock: () -> Long = System::currentTimeMillis,
-    /** A monotonic clock in milliseconds, for the progress pace and the start times (P41). */
+    /** A monotonic clock in milliseconds, for the progress pace and the start times. */
     private val elapsedMillis: () -> Long = { System.nanoTime() / 1_000_000 },
-    /** One line per download with its start times (P41); no addresses. */
+    /** One line per download with its start times; no addresses. */
     private val log: (String) -> Unit = ::logStartLine,
 ) : DashTransferRunner {
     data class Policy(
@@ -104,20 +104,20 @@ class DashTransferEngine(
         val maxConcurrentChunks: Int = 3,
         val bufferBytes: Int = 64 * 1_024,
         /**
-         * FAST_START (P41): a whole file's first range is [firstRangeBytes], its length comes
+         * FAST_START: a whole file's first range is [firstRangeBytes], its length comes
          * from that range's answer instead of a separate request, and a worker takes the next
          * range as soon as it is free. Off: today's equal ranges, length request and batches.
          */
         val fastStart: Boolean = true,
         val firstRangeBytes: Long = 1_024L * 1_024,
-        /** Ranges at once for a whole file on YouTube's media hosts (P41; others: above). */
+        /** Ranges at once for a whole file on YouTube's media hosts (others: above). */
         val mediaHostConcurrentChunks: Int = 4,
-        /** The shortest time between two progress updates: 4 a second (P41). */
+        /** The shortest time between two progress updates: 4 a second. */
         val progressIntervalMillis: Long = 250,
         /** Attempts for one piece of a live stream ([LivePieces]): thousands are asked. */
         val livePieceAttempts: Int = 5,
         /**
-         * Task 3 (phase-v102-easy, the owner's item 6 after run 4f): a live file shorter than its
+         * Live download: a live file shorter than its
          * video, or with a piece in the middle the server did not serve, waits these times one
          * after another (2 minutes in all), each time asks for the newest piece again, fetches
          * the pieces that came out since and asks the missing ones again, until the file is
@@ -125,23 +125,23 @@ class DashTransferEngine(
          */
         val liveSettleWaitsMillis: List<Long> =
             listOf(5_000, 10_000, 15_000, 20_000, 30_000, 40_000),
-        /** Task 3: a live file's first piece that is not served is asked again after these. */
+        /** A live file's first piece that is not served is asked again after these. */
         val liveFirstPieceWaitsMillis: List<Long> = listOf(5_000, 10_000),
         /**
-         * Task 3: a live file whose newest piece stopped while it waited, with every piece up to
+         * A live file whose newest piece stopped while it waited, with every piece up to
          * it, is saved when it is at most this much shorter than its video (a Details line says
          * how much and why); 0: never.
          */
         val liveShortSaveMillis: Long = 120_000,
-        /** Task 3: the most pieces a live file may lack while it comes; one more fails it. */
+        /** The most pieces a live file may lack while it comes; one more fails it. */
         val liveMaxMissingPieces: Int = 16,
         /**
-         * F8 (D7 run 12): a whole file on YouTube's media hosts whose range is refused with 403
+         * A whole file on YouTube's media hosts whose range is refused with 403
          * asks its ranges one at a time and the refused range again ([MediaHostRefusals]), the
          * first time after [mediaHostRefusalFirstWaitMillis], then twice as long each time up to
          * [mediaHostRefusalMaxWaitMillis], while it is within this time of its first refusal in
-         * a row; 0: a 403 fails at once, as before. F8 trim (owner, 2026-10-19, after D7 runs 13
-         * and 13b, where 45 s of asking again never got an answer): 5 s, so a refused range is
+         * a row; 0: a 403 fails at once, as before. 5 s, because in two phone runs
+         * 45 s of asking again never got an answer: a refused range is
          * asked again once, 3 s after the refusal (the next wait, 6 s, would end past it).
          */
         val mediaHostRefusalWaitMillis: Long = 5_000,
@@ -229,11 +229,11 @@ class DashTransferEngine(
         var firstRange: OpenedRange? = null
         try {
             val wholeFile = plan.wholeFile
-            // A live stream's file is asked piece by piece, sq 0 to the newest (run 4f).
+            // A live stream's file is asked piece by piece, sq 0 to the newest.
             val live = wholeFile != null && LiveOriginFile.matches(credentialOrigin)
             // A whole file's length is known before its ranges; so is a SegmentBase file's (59).
             var lengthKnown = wholeFile != null && !live
-            // R7: a manifest's pieces are joined with one index (sidx) for the whole track.
+            // A manifest's pieces are joined with one index (sidx) for the whole track.
             var indexPieces = false
             val parsed = if (live) {
                 start.lengthKnown(StartLengthSource.UNTIL_END)
@@ -275,7 +275,7 @@ class DashTransferEngine(
             activeTracker.emit()
 
             var pending = parsed.chunks.filterNot { initial.chunks[it.index].completed }
-            // Task 3: a live file's newest piece, and the pieces its server did not serve yet.
+            // A live file's newest piece, and the pieces its server did not serve yet.
             val liveState = if (live) LiveState(head = parsed.chunks.size - 1) else null
             val refusals = refusalsFor(plan, credentialOrigin, live)
             val download: suspend (DashDownloadChunk) -> Unit = { chunk ->
@@ -297,7 +297,7 @@ class DashTransferEngine(
                     // The newest pieces may not be served: a missing one ends the file there.
                     val tail = chunk.index > 0 &&
                         chunk.index >= state.pieces - LivePieces.TAIL_PIECES
-                    // Task 3: a piece the server does not serve yet is asked again at the end.
+                    // A piece the server does not serve yet is asked again at the end.
                     val later = chunk.index > 0 && abort.failure.isUnservedPiece() && (
                         chunk.index in state.missing ||
                             state.missing.size < policy.liveMaxMissingPieces
@@ -311,7 +311,7 @@ class DashTransferEngine(
             }
             val downloadAll: suspend (List<DashDownloadChunk>) -> Unit = { asked ->
                 if (policy.fastStart) {
-                    // No batch barrier (P41): each worker takes the next range when it is free.
+                    // No batch barrier: each worker takes the next range when it is free.
                     val workers = concurrentChunksFor(plan, credentialOrigin)
                     val next = AtomicInteger(0)
                     coroutineScope {
@@ -345,7 +345,7 @@ class DashTransferEngine(
             }
             downloadAll(pending)
 
-            // Task 3: a live file short of its video, or with a piece missing in the middle,
+            // A live file short of its video, or with a piece missing in the middle,
             // asks for its newest pieces and the missing ones again first.
             val settled = liveState?.let { state ->
                 settleLive(
@@ -421,7 +421,7 @@ class DashTransferEngine(
         }
     }
 
-    /** Ranges at once: more for a whole file on YouTube's media hosts with FAST_START (P41). */
+    /** Ranges at once: more for a whole file on YouTube's media hosts with FAST_START. */
     private fun concurrentChunksFor(plan: DashDownloadPlan, fileUrl: HttpUrl): Int {
         if (plan.wholeFile == null || !policy.fastStart) return policy.maxConcurrentChunks
         return if (isMediaHost(fileUrl)) {
@@ -432,7 +432,7 @@ class DashTransferEngine(
     }
 
     /**
-     * F8: the refusals of a whole file on YouTube's media hosts, which asks a range refused with
+     * The refusals of a whole file on YouTube's media hosts, which asks a range refused with
      * 403 again ([Policy.mediaHostRefusalWaitMillis]); null: a 403 fails at once.
      */
     private fun refusalsFor(
@@ -504,7 +504,7 @@ class DashTransferEngine(
     }
 
     /**
-     * v1.0.2 fix F1: an https manifest that names its files under a `BaseURL` at http (DASH-IF's
+     * DASH download: an https manifest that names its files under a `BaseURL` at http (DASH-IF's
      * test vectors): nothing is asked in cleartext. Its files are looked for as the same address
      * at https first, then as the part below that `BaseURL` under the manifest's own address;
      * the first whose first file answers as media ([answersAsMedia]) is read. When neither does,
@@ -544,7 +544,7 @@ class DashTransferEngine(
     }
 
     /**
-     * v1.0.2 fix F1: whether [fileUrl] answers one byte at [offset] as media: 200 or 206, not a
+     * Whether [fileUrl] answers one byte at [offset] as media: 200 or 206, not a
      * page, text, XML or JSON. Asked once, as from the manifest; an error (a certificate that
      * does not fit the host, a redirect to http) is a no.
      */
@@ -575,7 +575,7 @@ class DashTransferEngine(
     }
 
     /**
-     * v1.0.2 item 59: a `SegmentBase` representation is one file
+     * A `SegmentBase` representation is one file
      * ([DashDownloadManifestParser.Result.OneFile]), asked in byte ranges as a whole file is
      * ([wholeFileLayout]: its length from the first range's answer, a resume's from a one-byte
      * request; the checkpoint's ranges kept while the file's length and its manifest's byte
@@ -622,7 +622,7 @@ class DashTransferEngine(
      *
      * The fingerprint names the track and its length, never the address: a refreshed address
      * for the same file keeps the chunks already downloaded. With FAST_START the first range is
-     * small (P41) and the layout has its own fingerprint; a checkpoint saved with the equal
+     * small and the layout has its own fingerprint; a checkpoint saved with the equal
      * ranges of before keeps them. A stated length needs no request; an unknown one comes from
      * the first range's answer, or from a one-byte request when finished ranges are resumed.
      */
@@ -679,7 +679,7 @@ class DashTransferEngine(
     }
 
     /**
-     * A live stream's file as pieces (run 4f): the newest piece's number from a HEAD of its
+     * A live stream's file as pieces: the newest piece's number from a HEAD of its
      * address ([liveHead]), then one chunk per piece, `sq` 0 up to it, as yt-dlp asks them. WebM
      * pieces are not joined. The fingerprint names the track and the newest piece, never the
      * address: a resume keeps the pieces while the stream has not grown.
@@ -718,7 +718,7 @@ class DashTransferEngine(
         )
     }
 
-    /** Piece [sq] of a live file: its address with `sq`, without a range (run 4f). */
+    /** Piece [sq] of a live file: its address with `sq`, without a range. */
     private fun livePiece(fileUrl: HttpUrl, sq: Int): DashDownloadChunk = DashDownloadChunk(
         index = sq,
         url = LivePieces.pieceUrl(fileUrl, sq),
@@ -834,7 +834,7 @@ class DashTransferEngine(
         )
 
     /**
-     * A live file's first piece (run 4f). Task 3: one its server does not serve yet (204, 404,
+     * A live file's first piece. One its server does not serve yet (204, 404,
      * 416, an empty body) is asked again after each of [Policy.liveFirstPieceWaitsMillis]; then,
      * or for any other failure, it fails as before: not ready when it is missing.
      */
@@ -859,14 +859,14 @@ class DashTransferEngine(
     }
 
     /**
-     * Task 3 (phase-v102-easy): a live file whose pieces are all in but which is shorter than its
+     * Live download: a live file whose pieces are all in but which is shorter than its
      * video, or which misses a piece in the middle, is not checked once and failed: after each
      * of [Policy.liveSettleWaitsMillis] the newest piece is asked for again (its address's HEAD,
      * as at the start), the pieces that came out since are fetched and the missing ones asked
      * again, until the file is whole. On the owner's phone a live that had just ended came down
      * as all of its 1,556 pieces, 2h09m39s of its 2h10m33s: YouTube's newest piece then was not
      * its last yet. A file that is whole is returned joined, at once when it is whole from the
-     * start (run 4f's cases ask nothing more). A file whose newest piece stopped (two answers in
+     * start (such a file asks nothing more). A file whose newest piece stopped (two answers in
      * a row named no newer one) with every piece up to it, at most [Policy.liveShortSaveMillis]
      * short, is returned too, with a Details line that says how much is missing and why; any
      * other one fails, not ready, and its Detail says how much is missing and where.
@@ -998,7 +998,7 @@ class DashTransferEngine(
 
     /**
      * Joins the downloaded pieces ([LivePieceJoin]) and reads the joined track with the merge's
-     * own reader (run 4f): [LiveMeasure.Joined] with its length against the video's, or, when a
+     * own reader: [LiveMeasure.Joined] with its length against the video's, or, when a
      * piece in the middle is missing ([LiveState.missing]), [LiveMeasure.Gap] without a join.
      */
     private fun measureLive(
@@ -1051,7 +1051,7 @@ class DashTransferEngine(
         }
     }
 
-    /** Writes a joined live track ([measureLive]) to [destination] (run 4f). */
+    /** Writes a joined live track ([measureLive]) to [destination]. */
     private suspend fun writeLive(
         joined: LiveMeasure.Joined,
         destination: DownloadDestination,
@@ -1150,8 +1150,8 @@ class DashTransferEngine(
     }
 
     /**
-     * Asks for a whole file's first range and reads the file's length from its Content-Range
-     * (P41); the open answer is then written as the first chunk. Network errors and 5xx answers
+     * Asks for a whole file's first range and reads the file's length from its Content-Range;
+     * the open answer is then written as the first chunk. Network errors and 5xx answers
      * are tried again, as for any range.
      */
     private suspend fun openFirstRange(
@@ -1412,8 +1412,8 @@ class DashTransferEngine(
 
     /**
      * Downloads one chunk, trying a network error or a 5xx answer again. The bytes an attempt
-     * counted in the progress are taken back when it fails (P41). [opened] is the first range's
-     * answer that is already open, for the first attempt. With [refusals] (F8: a whole file on
+     * counted in the progress are taken back when it fails. [opened] is the first range's
+     * answer that is already open, for the first attempt. With [refusals] (a whole file on
      * YouTube's media hosts) the chunk is asked in the file's turn and a 403 is asked again
      * while the file may wait; then it fails with the refusals' Detail.
      */
@@ -1796,11 +1796,11 @@ class DashTransferEngine(
         }
     }
 
-    /** A joined track: its file's length, and how many of those bytes are its pieces' (R7). */
+    /** A joined track: its file's length, and how many of those bytes are its pieces'. */
     private class Joined(val fileBytes: Long, val pieceBytes: Long)
 
     /**
-     * Joins the chunks in order. v1.0.2 fix R7: with [indexPieces], a manifest's pieces after
+     * Joins the chunks in order. With [indexPieces], a manifest's pieces after
      * their initialization piece get one index for the whole track ([DashPieceIndex]), written
      * before the first piece's first moof; pieces it does not read are joined as they are.
      */
@@ -1888,8 +1888,8 @@ class DashTransferEngine(
 
     private fun prepareWorkspace(plan: DashDownloadPlan): File {
         val root = workspaceRoot.canonicalFile
-        // R7: a merge's picture and sound start at once; when the other one made the folder
-        // first, mkdirs() is false and the folder is there (R6's CI emulator run 200).
+        // A merge's picture and sound start at once; when the other one made the folder
+        // first, mkdirs() is false and the folder is there (seen in a CI emulator run).
         if (!root.mkdirs() && !root.isDirectory) {
             throw IOException("Cannot create DASH workspace")
         }
@@ -1980,8 +1980,8 @@ class DashTransferEngine(
         ) : this(DownloadFailure(reason, httpStatusCode, stage))
 
         /**
-         * A live stream's first piece that is not served: YouTube is not ready yet (run 4f).
-         * Task 3: [start] says so in the Detail ("live: the start is missing, sq 0/3 · 404 …").
+         * A live stream's first piece that is not served: YouTube is not ready yet.
+         * [start] says so in the Detail ("live: the start is missing, sq 0/3 · 404 …").
          */
         fun notReadyWhenMissing(start: Boolean = false): DashAbort =
             if (failure.reason in MISSING_FIRST_PIECE) {
@@ -2002,7 +2002,7 @@ class DashTransferEngine(
     }
 
     /**
-     * Task 3: a live file's newest piece while it comes ([head]; [firstHead] at the start), the
+     * A live file's newest piece while it comes ([head]; [firstHead] at the start), the
      * pieces its server did not serve ([missing]) and how many answers in a row since the head
      * last moved named no newer piece ([unchanged]).
      */
@@ -2037,7 +2037,7 @@ class DashTransferEngine(
         }
     }
 
-    /** Task 3: a live file's pieces, joined ([Joined]) or with a piece missing in the middle. */
+    /** A live file's pieces, joined ([Joined]) or with a piece missing in the middle. */
     private sealed interface LiveMeasure : Closeable {
         /** Whole: no piece is missing in the middle and the length is the video's. */
         val whole: Boolean
@@ -2063,7 +2063,7 @@ class DashTransferEngine(
         }
     }
 
-    /** Task 3: a live file's final pieces, joined, and its Details lines. */
+    /** A live file's final pieces, joined, and its Details lines. */
     private class LiveSettled(
         val chunks: List<DashDownloadChunk>,
         val joined: LiveMeasure.Joined,
@@ -2117,7 +2117,7 @@ class DashTransferEngine(
         val oneFile: Boolean = false,
     )
 
-    /** The open answer to a whole file's first range (P41), written by the first worker. */
+    /** The open answer to a whole file's first range, written by the first worker. */
     private class OpenedRange(
         private val response: Response,
         val totalBytes: Long,
@@ -2131,7 +2131,7 @@ class DashTransferEngine(
         }
     }
 
-    /** The bytes one attempt at a chunk wrote, counted in the progress as they come (P41). */
+    /** The bytes one attempt at a chunk wrote, counted in the progress as they come. */
     private class RangeCounter(
         private val tracker: DashCheckpointTracker,
         private val start: StartTimelineRecorder,
@@ -2145,7 +2145,7 @@ class DashTransferEngine(
             tracker.advance(bytes)
         }
 
-        /** A failed attempt takes back what it counted; the progress shown stays (P41). */
+        /** A failed attempt takes back what it counted; the progress shown stays. */
         fun takeBack() {
             if (counted > 0) tracker.takeBack(counted)
             counted = 0
@@ -2156,7 +2156,7 @@ class DashTransferEngine(
      * Keeps the checkpoint and the progress of one transfer.
      *
      * The checkpoint marks a chunk done only after its sync. Progress adds the bytes of the
-     * chunks still downloading (P41), never goes back (a failed attempt's bytes are taken back
+     * chunks still downloading, never goes back (a failed attempt's bytes are taken back
      * without lowering what was shown), never passes the total, and comes at most every
      * [progressIntervalMillis]; the first bytes and the end are reported at once.
      *
@@ -2231,7 +2231,7 @@ class DashTransferEngine(
         suspend fun snapshot(): DashTransferCheckpoint = gate.withLock { checkpoint }
 
         /**
-         * Task 3: a live file whose newest piece moved has [count] pieces now, the new ones not
+         * A live file whose newest piece moved has [count] pieces now, the new ones not
          * downloaded yet, under its new [fingerprint].
          */
         suspend fun extend(fingerprint: String, count: Int) = gate.withLock {
@@ -2292,7 +2292,7 @@ class DashTransferEngine(
         const val MEDIA_HOST = "googlevideo.com"
         const val HTTP_FORBIDDEN = 403
 
-        /** v1.0.2 fix F1: the detail when no https copy of an http `BaseURL`'s files answered. */
+        /** The detail when no https copy of an http `BaseURL`'s files answered. */
         const val HTTP_BASE_URL_DETAIL =
             "the manifest names its files at an http address (BaseURL); no https copy answered"
         val MEDIA_ANSWERS = setOf(200, 206)
@@ -2317,7 +2317,7 @@ class DashTransferEngine(
 }
 
 /**
- * Task 3: a live piece its server did not serve (yet): a 204, 404 or 416 answer, or a body that
+ * A live piece its server did not serve (yet): a 204, 404 or 416 answer, or a body that
  * was empty or shorter than it said. Its file may come later; another failure stays a failure.
  */
 private fun DownloadFailure.isUnservedPiece(): Boolean =

@@ -22,14 +22,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Converts direct audio downloads that ask for MP3 (T18) or for the sound of a video only (P3,
- * [DirectDownloadPlan.audioOnly], kept as an M4A by [audioExtractor]); every other plan goes to
+ * Converts direct audio downloads that ask for MP3 or for the sound of a video only
+ * ([DirectDownloadPlan.audioOnly], kept as an M4A by [audioExtractor]); every other plan goes to
  * [delegate].
  *
  * The AAC file is downloaded into a per-task workspace (resumable like any direct download),
  * converted there by [transcoder] and only then copied into the real destination and published,
  * so a failed conversion never leaves a broken MP3 in Downloads. A finished AAC file is kept
- * while a retry can still use it. G2 (v1.0.2): a finished MP3's Details line (its sound's
+ * while a retry can still use it. A finished MP3's Details line (its sound's
  * length, decode and encode times) goes to [onDetail] with the task's id.
  */
 class Mp3ConvertingTransferDispatcher(

@@ -21,10 +21,10 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 
 sealed interface Mp3TranscodeResult {
-    /** G2 (v1.0.2): [detail], the conversion's Details line ([Mp3Times.line]). */
+    /** [detail], the conversion's Details line ([Mp3Times.line]). */
     data class Completed(val bytesWritten: Long, val detail: String? = null) : Mp3TranscodeResult
 
-    /** [detail]: the exception behind the failure, from [DownloadFailureDetails.of] (P21). */
+    /** [detail]: the exception behind the failure, from [DownloadFailureDetails.of]. */
     data class Failure(
         val reason: DownloadFailureReason,
         val detail: String? = null,
@@ -53,7 +53,7 @@ internal object PcmLayout {
     }
 }
 
-/** G2 (v1.0.2): the MP3 conversion's Details line. */
+/** The MP3 conversion's Details line. */
 object Mp3Times {
     /** "MP3: 4:12 of sound, decode 1.2 s, encode 6.8 s". */
     fun line(soundMillis: Long, decodeMillis: Long, encodeMillis: Long): String =
@@ -75,11 +75,11 @@ object Mp3Times {
 
 /**
  * Decodes the AAC track with MediaCodec and encodes MP3 with [encoders] (LAME by default).
- * R5 (v1.0.2): on two threads. The decoder runs in MediaCodec's asynchronous mode on its own
+ * On two threads. The decoder runs in MediaCodec's asynchronous mode on its own
  * thread ([AsyncAacDecoder]): each input it frees is filled at once and each output is copied
  * and given back at once, so it never waits for LAME. LAME encodes on the caller's thread from
  * at most [PCM_QUEUE_BUFFERS] decoded buffers ([PcmHandoff]), so decoding and encoding run at
- * the same time. Before (G2), one thread did both in turn: the decoder got new input only
+ * the same time. Before, one thread did both in turn: the decoder got new input only
  * between LAME's frames, and each of its steps waited for MediaCodec's own thread. The Details
  * line's decode time is now the time LAME waited for sound; decode and encode add up to the
  * whole conversion.
@@ -233,10 +233,10 @@ class AndroidMp3Transcoder(
     }
 
     private companion object {
-        /** R5: how far the decoder may run ahead of LAME, about 0.7 s of 44.1 kHz sound. */
+        /** How far the decoder may run ahead of LAME, about 0.7 s of 44.1 kHz sound. */
         const val PCM_QUEUE_BUFFERS = 32
 
-        /** R5: LAME's wait for sound; 100 of them (5 s) without any is a stuck decoder. */
+        /** LAME's wait for sound; 100 of them (5 s) without any is a stuck decoder. */
         const val TAKE_WAIT_MS = 50L
         const val MAX_IDLE_TAKES = 100
         const val OUTPUT_BUFFER_BYTES = 64 * 1_024
@@ -244,7 +244,7 @@ class AndroidMp3Transcoder(
 }
 
 /**
- * R5 (v1.0.2): MediaCodec's AAC decoder in asynchronous mode, on its own thread. Each input the
+ * MediaCodec's AAC decoder in asynchronous mode, on its own thread. Each input the
  * decoder frees is filled from [extractor] at once (after the last sample, the end of the
  * stream); each output is copied, given back to the decoder and handed to LAME through
  * [handoff]. The thread waits only while [handoff] is full. A failure is handed over as

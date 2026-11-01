@@ -7,7 +7,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Backlog item 5: an HLS sound joined as ADTS, read as a stream-copy track. */
+/** An HLS sound joined as ADTS, read as a stream-copy track. */
 class AdtsStreamCopyReaderTest {
     @Test
     fun `frames become samples without their headers, 1024 ticks each at the header's rate`() {

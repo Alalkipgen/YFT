@@ -60,7 +60,7 @@ class MediaStoreDownloadDestination private constructor(
         return store.open(pendingItemUri)
     }
 
-    /** The pending row's own file (P27): MediaStore gives a regular, seekable file. */
+    /** The pending row's own file: MediaStore gives a regular, seekable file. */
     override fun openFileDescriptorOutput(): FileDescriptorOutput? {
         check(lifecycle == DestinationLifecycle.ACTIVE) {
             "Download destination is not writable"
@@ -86,7 +86,7 @@ class MediaStoreDownloadDestination private constructor(
     }
 
     /**
-     * D1: renames the pending row, its name and its type in one update, so MediaStore never
+     * Renames the pending row, its name and its type in one update, so MediaStore never
      * gives the file an extension its type does not match; returns the name MediaStore chose
      * (it adds " (n)" to a name in use). [renew] still makes a row with the planned name.
      */
@@ -186,7 +186,7 @@ class SafDownloadDestination private constructor(
     /** How the document was made, to make another one ([renew]); null for a reopened one. */
     private val request: TemporaryDocumentRequest? = null,
 ) : DownloadDestination {
-    /** The name [commit] gives the document; [renameExtension] may change it (D1). */
+    /** The name [commit] gives the document; [renameExtension] may change it. */
     @Volatile
     private var finalDisplayName: String = finalDisplayName
 
@@ -220,7 +220,7 @@ class SafDownloadDestination private constructor(
         return store.open(temporaryDocumentUri)
     }
 
-    /** The temporary document, only when its provider gives a seekable file (P27). */
+    /** The temporary document, only when its provider gives a seekable file. */
     override fun openFileDescriptorOutput(): FileDescriptorOutput? {
         check(lifecycle == DestinationLifecycle.ACTIVE) {
             "Download destination is not writable"
@@ -251,7 +251,7 @@ class SafDownloadDestination private constructor(
     }
 
     /**
-     * D1: the name [commit] gives the document, with [extension]. A document's type follows its
+     * The name [commit] gives the document, with [extension]. A document's type follows its
      * name when it is renamed, so [mimeType] is not stored. [renew] keeps the planned name.
      */
     @Synchronized
@@ -364,7 +364,7 @@ internal interface PublicContentStore {
     fun deletePendingMedia(uri: String)
 
     /**
-     * D1: gives the pending item at [uri] the extension [extension] and the type [mimeType];
+     * Gives the pending item at [uri] the extension [extension] and the type [mimeType];
      * returns its new name.
      */
     fun renamePendingMedia(uri: String, extension: String, mimeType: String): String
@@ -385,7 +385,7 @@ internal interface PublicContentStore {
     fun open(uri: String): SeekableDownloadOutput
 
     /**
-     * [uri]'s file as an emptied, seekable read-write descriptor (P27), or null when the
+     * [uri]'s file as an emptied, seekable read-write descriptor, or null when the
      * provider gives none (for example a pipe).
      */
     fun openFileDescriptorOutput(uri: String): FileDescriptorOutput? = null
@@ -529,7 +529,7 @@ internal class AndroidPublicContentStore(
         val descriptor = try {
             resolver.openFileDescriptor(contentUri, "r")
         } catch (_: FileNotFoundException) {
-            // A new pending MediaStore row has no file until its first "rw" open (P20).
+            // A new pending MediaStore row has no file until its first "rw" open.
             return@storageCall lengthOfRowWithoutFile(contentUri)
         }
         descriptor?.use { opened ->
@@ -736,7 +736,7 @@ private fun sanitizePublicFileName(value: String): String {
             )
         }
     }.trim(' ', '.')
-    // D3: cut at a grapheme boundary within the characters and UTF-8 bytes, the extension kept.
+    // Cut at a grapheme boundary within the characters and UTF-8 bytes, the extension kept.
     val fitted = FileNames.fit(sanitized, MAX_PUBLIC_FILE_NAME_CHARS).trim(' ', '.')
     return fitted.ifBlank { "download" }
 }

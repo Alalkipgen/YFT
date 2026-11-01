@@ -6,7 +6,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
- * F8 (D7 run 12): one whole file's 403 answers on YouTube's media hosts. A fresh link may answer
+ * One whole file's 403 answers on YouTube's media hosts. A fresh link may answer
  * its first bytes and refuse its other ranges for a while (yt-dlp waits for the video's ads
  * before it downloads, its `available_at`: "not waiting is likely to throw a 403"), and the
  * download asks four ranges of the file at once where yt-dlp asks one.
@@ -18,9 +18,9 @@ import kotlinx.coroutines.sync.withLock
  * ([mayAskAgain]) while its next turn starts within [limitMillis] of the row's first refusal,
  * at most [MAX_REFUSALS] times for the file. [describe] is the Detail of a file refused for good.
  * It keeps counts and times only, never an address. The download's own times
- * ([DashTransferEngine.Policy], F8 trim, owner 2026-10-19): a refused range is asked again once,
- * 3 s after the refusal; refused again, the file fails (D7 runs 13 and 13b: 45 s of asking again
- * never got an answer).
+ * ([DashTransferEngine.Policy], trimmed by the owner on 2026-10-19): a refused range is asked again
+ * once, 3 s after the refusal; refused again, the file fails (in two phone runs 45 s of asking
+ * again never got an answer).
  */
 internal class MediaHostRefusals(
     private val limitMillis: Long,

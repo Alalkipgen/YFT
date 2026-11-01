@@ -42,7 +42,7 @@ internal class SecureDownloadHttp(
     ): Result {
         var currentUrl = initialUrl
         var redirectCount = 0
-        // Track E: the download and its link this request belongs to, set by the queue.
+        // Fresh link renewal: the download and its link this request belongs to, set by the queue.
         val tag = currentCoroutineContext()[DownloadRequestTag]
         while (true) {
             val request = Request.Builder()

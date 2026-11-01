@@ -307,7 +307,7 @@ class DirectRangeProbe(
         val sanitized = replace(UNSAFE_FILE_NAME_CHARS, "_")
             .trim()
             .trim('.')
-            // D3: cut at a grapheme boundary within the characters and bytes, extension kept.
+            // Cut at a grapheme boundary within the characters and bytes, extension kept.
             .let { FileNames.fit(it, MAX_FILE_NAME_LENGTH) }
             .trim()
             .trim('.')

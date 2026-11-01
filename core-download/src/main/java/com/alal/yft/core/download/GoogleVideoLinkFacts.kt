@@ -12,7 +12,7 @@ import java.net.URI
 import java.net.URLDecoder
 
 /**
- * F6 (debug spike, route B trial): what a failed YouTube media link was, for the download's
+ * What a failed YouTube media link was, for the download's
  * Failure details, for example "WEB itag 136+140 · pot no · sig yes · ends 352 min (app 352) ·
  * 0 KB · 3 s".
  *
@@ -49,11 +49,11 @@ internal object GoogleVideoLinkFacts {
     }
 
     /**
-     * Item 7 Track B1: true when [failure] is YouTube's media host refusing [plan]'s link while
+     * True when [failure] is YouTube's media host refusing [plan]'s link while
      * it still had time left — HTTP 403 while connecting ([DownloadFailureReason.ACCESS_DENIED])
      * with at least a minute left on each link's own `expire` and on the app's end for it, when
      * known. Such a link did not expire: YouTube refused this session's download, so "Link
-     * expired" and "reopen the page" would be wrong (D7 runs 13 / 13b: `ends 359 min (app 358)`).
+     * expired" and "reopen the page" would be wrong (two phone runs: `ends 359 min (app 358)`).
      * False for other servers, a link without its `expire`, and every other failure.
      */
     fun refusedWithTimeLeft(plan: DownloadPlan, failure: DownloadFailure, nowEpochMs: Long): Boolean {

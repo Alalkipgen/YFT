@@ -9,11 +9,11 @@ import java.nio.ByteBuffer
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
 
-/** v1.0.2 fix R6: a merge's output read back from its start; closing leaves a descriptor open. */
+/** A merge's output read back from its start; closing leaves a descriptor open. */
 internal interface ReadableMergeOutput : Mp4Source, Closeable
 
 /**
- * v1.0.2 fix R6: one track's length, as a merge input holds it or as a merged MP4's tables state
+ * One track's length, as a merge input holds it or as a merged MP4's tables state
  * it — its [samples], their summed [durationUs] and the longest one; for a video input also the
  * non-sync samples before its first sync sample, which Android's MP4 writer leaves out.
  */
@@ -26,7 +26,7 @@ internal class MergeTrackLength(
 )
 
 /**
- * v1.0.2 fix R6: whether a merged MP4 holds all of its inputs. Android's MediaMuxer way takes
+ * Whether a merged MP4 holds all of its inputs. Android's MediaMuxer way takes
  * each sample's time from Android's MediaExtractor, whose fragment reader counts a track's time
  * in 32 bits of its ticks and reads no `tfdt`: a DASH video in 10 MHz ticks wraps after 7:09.5,
  * and a merge kept 28 MB of a 10:54 film as if it were whole. The merged file has to hold each
@@ -182,7 +182,7 @@ internal object MergedLength {
 }
 
 /**
- * v1.0.2 fix R6: Android's MediaMuxer way with its MP4 output read back for its length
+ * Android's MediaMuxer way with its MP4 output read back for its length
  * ([MergedLength]). An output that holds less than its inputs is emptied and fails as
  * incompatible tracks, with what it held in the detail ("merged video ends at 7:09 of 10:54,
  * 10298 of 15691 samples"); one that cannot be read keeps today's way. WebM goes through as it

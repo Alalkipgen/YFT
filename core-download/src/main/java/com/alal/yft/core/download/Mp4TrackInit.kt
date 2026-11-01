@@ -1,9 +1,9 @@
 package com.alal.yft.core.download
 
-/** A track's `trex` defaults for its fragments (P35). */
+/** A track's `trex` defaults for its fragments. */
 internal class Trex(val description: Long, val duration: Long, val size: Long, val flags: Int)
 
-/** A merge input's one track as its `moov` describes it (P35). */
+/** A merge input's one track as its `moov` describes it. */
 internal class TrackInit(
     val kind: StreamCopyTrackKind,
     val trackId: Int,
@@ -50,7 +50,7 @@ internal class TrackInit(
     )
 
     companion object {
-        /** [anyCodec] (v1.0.2 fix R6): a sample entry of any codec, for the samples only. */
+        /** [anyCodec]: a sample entry of any codec, for the samples only. */
         fun parse(
             trak: Mp4Box,
             kind: StreamCopyTrackKind,
@@ -93,8 +93,8 @@ internal class TrackInit(
                     width = entry.u16(VISUAL_WIDTH) shl 16
                     height = entry.u16(VISUAL_WIDTH + 2) shl 16
                 }
-                // VP9 frames are copied whole: no avcC and no NAL lengths (item 5); so are AV1's
-                // (R8) and any other codec's that is read only for its length (R6).
+                // VP9 frames are copied whole: no avcC and no NAL lengths; so are AV1's
+                // and any other codec's that is read only for its length.
                 if (entry.type in AVC_ENTRIES) nalLengthSize(entry) else null
             } else {
                 null
@@ -200,7 +200,7 @@ internal class TrackInit(
 }
 
 /**
- * A plain MP4's sample tables (P35): `stsz` or `stz2`, `stco` or `co64`, `stsc`, `stts`, `ctts`
+ * A plain MP4's sample tables: `stsz` or `stz2`, `stco` or `co64`, `stsc`, `stts`, `ctts`
  * and `stss`.
  */
 internal class PlainTables(

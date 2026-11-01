@@ -152,7 +152,7 @@ class DirectTransferEngine(
             supportsByteRanges = canUseRanges,
             preferredSegmentCount = plan.preferredSegmentCount,
         )
-        // P20: a fresh download (no checkpoint, or the queue's empty one) never reads the
+        // A fresh download (no checkpoint, or the queue's empty one) never reads the
         // destination before prepare(): a new MediaStore row has no file until its first "rw"
         // open, so the read failed and every video ended as "Storage unavailable" at 0 B. A
         // resume whose length cannot be read drops its checkpoint and starts again at byte 0.
@@ -266,7 +266,7 @@ class DirectTransferEngine(
                 checkpoint = tracker.snapshot(),
             )
         } catch (failure: IOException) {
-            // P21: every destination call throws a TransferAbort with a storage reason, so an
+            // Every destination call throws a TransferAbort with a storage reason, so an
             // I/O error that gets here is not the file's; it keeps its class in the detail.
             DirectTransferResult.Failure(
                 failure = failure.toNetworkFailure(stage = null),
@@ -283,7 +283,7 @@ class DirectTransferEngine(
 
     /**
      * Runs one call on the destination. Whatever it throws is the file's problem, so it ends the
-     * transfer as a storage failure at [stage] and is never retried as a network error (P21).
+     * transfer as a storage failure at [stage] and is never retried as a network error.
      */
     private inline fun <T> destinationCall(stage: DownloadFailureStage, block: () -> T): T =
         try {
@@ -743,10 +743,10 @@ class DirectTransferEngine(
      * ETag and Last-Modified, each stated or not on both sides, and the same segments), else the
      * planned ones from byte 0.
      *
-     * v1.0.2 R10: a file whose host states neither validator (VK's and Facebook's media hosts)
-     * resumes too, known by its length and segments as a DASH whole file is; it started again at
-     * byte 0 on every resume and on every fresh link (Track E's "started over (the file
-     * changed)"). A validator on one side only, or another one, is still another file; every
+     * A file whose host states neither validator (VK's and Facebook's media hosts)
+     * resumes too, known by its length and segments as a DASH whole file is; before, it started
+     * again at byte 0 on every resume and on every fresh link (the renewal's "started over (the
+     * file changed)"). A validator on one side only, or another one, is still another file; every
      * range answered must state the same length ([validateResponse]).
      */
     private fun reconcileCheckpoint(

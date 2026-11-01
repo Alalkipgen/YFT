@@ -8,7 +8,7 @@ import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 
 /**
- * v1.0.2 fix R7: one index (`sidx`) for a DASH track joined from its manifest's pieces (a
+ * One index (`sidx`) for a DASH track joined from its manifest's pieces (a
  * `SegmentTemplate`, or a `SegmentList` with an initialization piece), so that a player knows
  * the whole length at once and can seek. The initialization piece may state no length (Unified
  * Streaming's `mvhd` states 0, with no `mehd`) and each piece may hold an index of its own, of

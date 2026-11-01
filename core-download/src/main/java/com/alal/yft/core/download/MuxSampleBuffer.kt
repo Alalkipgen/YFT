@@ -3,13 +3,13 @@ package com.alal.yft.core.download
 import com.alal.yft.core.model.download.DownloadFailureDetails
 
 /**
- * Phase 1.4 item 1 — the sample buffer of today's merge (MediaExtractor → MediaMuxer, P6).
+ * The sample buffer of today's merge (MediaExtractor → MediaMuxer).
  *
  * A WebM track states no `KEY_MAX_INPUT_SIZE`, so the buffer was 256 KiB, and a 2K/4K VP9
  * keyframe can be larger: `MediaExtractor.readSampleData` then throws a bare
  * `IllegalArgumentException` (owner's phone, 2026-10-16: 1440p VP9 + Opus failed at MERGE). From
  * Android 9 (`getSampleSize`) the buffer grows to the next sample before it is read, at most
- * [MAX_BYTES]; before Android 9 the sizing stays as it was. The MP4 stream copy (P35) has no
+ * [MAX_BYTES]; before Android 9 the sizing stays as it was. The MP4 stream copy has no
  * such buffer and is not touched.
  */
 internal object MuxSampleBuffer {
@@ -35,7 +35,7 @@ internal object MuxSampleBuffer {
 }
 
 /**
- * Where today's merge is (Phase 1.4 item 1), for a failure's Detail and the log: the platform
+ * Where today's merge is, for a failure's Detail and the log: the platform
  * call under way ([call]: `addTrack video`, `readSampleData audio`, `stop`, …), the current
  * sample's size, the buffer's size, the largest sample read per track and how often the buffer
  * grew. Sizes only: no path, name or address.

@@ -9,7 +9,7 @@ import com.alal.yft.core.model.download.HlsTransferCheckpoint
 import com.alal.yft.core.model.download.HlsTransferResult
 
 /**
- * P50: the track downloads of a merge. A track that is an HLS playlist
+ * The track downloads of a merge. A track that is an HLS playlist
  * ([DashDownloadPlan.hlsPlaylist]: a video quality of a master playlist and its audio
  * rendition) is fetched by [hls], segment by segment like any HLS download, and resumes from
  * the same chunk checkpoint; every other track goes to [dash] as before.

@@ -3,7 +3,7 @@ package com.alal.yft.core.download
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 
-/** Where the stream copy writes the merged file (P35): a file channel, or a test's sink. */
+/** Where the stream copy writes the merged file: a file channel, or a test's sink. */
 internal interface StreamCopyOutput {
     /** Writes all of [source]'s remaining bytes at [position]. */
     fun write(source: ByteBuffer, position: Long)
@@ -25,7 +25,7 @@ internal class FileChannelStreamCopyOutput(private val channel: FileChannel) : S
 }
 
 /**
- * Where each track goes in the merged file (P35): its samples in chunks of about one second,
+ * Where each track goes in the merged file: its samples in chunks of about one second,
  * their times and its edit list. A sample's composition time in the merged file is its decode
  * time since the track's first sample + its composition offset + [compositionShift]; the edit
  * list then presents it at that time + [editOffset], which keeps both tracks where the inputs
@@ -44,10 +44,10 @@ internal class StreamCopyTrackLayout(
     val chunkDecodeTimes: LongArray,
     val chunkCount: Int,
     /**
-     * D1: the composition time of the track's first presented sample, in ticks, when the edit
+     * The composition time of the track's first presented sample, in ticks, when the edit
      * list should start there: a track presented after the start then waits in an empty edit,
      * which every player reads the same way (FFmpeg moves a sample presented after an edit's
-     * media time back to that time). Null for the P35 merge, whose edits are as they were.
+     * media time back to that time). Null for the fast merge, whose edits are as they were.
      */
     private val firstComposition: Long? = null,
 ) {
@@ -69,7 +69,7 @@ internal class StreamCopyTrackLayout(
     }
 
     /**
-     * D1: an empty edit while the track is not yet presented, then the media from [first] on (or
+     * An empty edit while the track is not yet presented, then the media from [first] on (or
      * from where the start is, for a track presented before it).
      */
     private fun editsFrom(first: Long): List<Pair<Long, Long>> {
@@ -116,7 +116,7 @@ internal class StreamCopyTrackLayout(
 }
 
 /**
- * The merged file's layout (P35): `ftyp`, one `mdat` with the chunks of both tracks in time
+ * The merged file's layout: `ftyp`, one `mdat` with the chunks of both tracks in time
  * order, then `moov`. Every size is known before a byte is written, so nothing seeks back.
  */
 internal class StreamCopyLayout(
@@ -198,7 +198,7 @@ internal class StreamCopyLayout(
         }
 
         /**
-         * D1 (the HLS remux): the layouts of [tracks] whose samples are already in the file,
+         * The HLS remux: the layouts of [tracks] whose samples are already in the file,
          * chunk by chunk ([PlacedChunks]), timed as [of] times them: each keeps its own times
          * and the one presented first starts at 0; each edit list starts at the track's first
          * presented sample.
@@ -299,7 +299,7 @@ internal class StreamCopyLayout(
             val compositionEnd: Long
             val startUs: Long
 
-            /** D1: the first presented sample's composition time, in ticks, with [shift]. */
+            /** The first presented sample's composition time, in ticks, with [shift]. */
             val firstComposition: Long
 
             init {
@@ -330,7 +330,7 @@ internal class StreamCopyLayout(
 }
 
 /**
- * D1: a track's chunks as they were written: the first sample, the sample count and the file
+ * A track's chunks as they were written: the first sample, the sample count and the file
  * offset of each of the first [count] chunks.
  */
 internal class PlacedChunks(

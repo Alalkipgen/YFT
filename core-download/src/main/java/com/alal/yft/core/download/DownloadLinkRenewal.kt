@@ -8,8 +8,8 @@ import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
 
 /**
- * Track E: a fresh link for a download whose file link died after it started (401, 403, 410,
- * an expired link; VK's 400 after the link gave bytes). The queue asks, in the task's own job
+ * Fresh link renewal: a fresh link for a download whose file link died after it started (401, 403,
+ * 410, an expired link; VK's 400 after the link gave bytes). The queue asks, in the task's own job
  * and outside its lock; the app looks the page up again and answers with the same file in the
  * same quality, or says why it cannot. The queue never sends a link: the app keeps the page.
  */
@@ -24,7 +24,7 @@ interface DownloadLinkRenewal {
      */
     fun wentOn(taskId: String, bytesKept: Long, firstBytes: Long) = Unit
 
-    /** No renewal source: every failure goes on as it did before Track E. */
+    /** No renewal source: every failure goes on as it would without renewal. */
     object None : DownloadLinkRenewal {
         override suspend fun renew(request: LinkRenewalRequest): LinkRenewal = LinkRenewal.Declined
 
@@ -46,9 +46,9 @@ data class LinkRenewalRequest(
     val bytesKept: Long,
     /** The bytes the link that died gave before it died; 0 when it gave none. */
     val bytesFromThisLink: Long,
-    /** A Retry tap (E-D6): one lookup, not counted in the automatic ones. */
+    /** A Retry tap: one lookup, not counted in the automatic ones. */
     val byUser: Boolean,
-    /** The fresh links this download already got without a tap (at most 3, E-D3). */
+    /** The fresh links this download already got without a tap (at most 3). */
     val automaticRenewals: Int,
 )
 

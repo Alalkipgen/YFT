@@ -2,7 +2,7 @@ package com.alal.yft.core.download
 
 import java.nio.ByteBuffer
 
-/** Buffered, positioned writes of the merged file's boxes (P35). */
+/** Buffered, positioned writes of the merged file's boxes. */
 internal class BoxSink(
     private val output: StreamCopyOutput,
     private val buffer: ByteBuffer,
@@ -63,7 +63,7 @@ internal class BoxSink(
     }
 }
 
-/** A box of the merged file's `moov` (P35), whose size is known before it is written. */
+/** A box of the merged file's `moov`, whose size is known before it is written. */
 internal abstract class OutBox(val type: String) {
     abstract val payloadSize: Long
     val size: Long get() = BOX_HEADER + payloadSize
@@ -105,7 +105,7 @@ private class VerbatimBox(private val box: ByteArray) :
 }
 
 /**
- * Writes the merged file (P35): `ftyp` and the `mdat` header, every sample copied in large
+ * Writes the merged file: `ftyp` and the `mdat` header, every sample copied in large
  * blocks — runs of samples that follow each other in the input go at once — then `moov` with
  * the tables of both tracks.
  */
@@ -189,7 +189,7 @@ internal class StreamCopyWriter(private val buffer: ByteBuffer) {
 }
 
 /**
- * The merged file's `moov` (P35), much as MediaMuxer writes it: `mvhd` (1 ms ticks), then per
+ * The merged file's `moov`, much as MediaMuxer writes it: `mvhd` (1 ms ticks), then per
  * track `tkhd`, `edts` when the track does not start at its first composition time, and `mdia`
  * with the input's timescale, language and `stsd`, and new `stts`, `ctts`, `stss`, `stsc`,
  * `stsz` and `stco` (`co64` past 4 GiB).
@@ -197,7 +197,7 @@ internal class StreamCopyWriter(private val buffer: ByteBuffer) {
 internal object StreamCopyMoov {
     fun build(layout: StreamCopyLayout): OutBox = build(listOf(layout.video, layout.audio))
 
-    /** D1: the `moov` of [tracks] (one or two), numbered 1, 2, … in this order. */
+    /** The `moov` of [tracks] (one or two), numbered 1, 2, … in this order. */
     fun build(tracks: List<StreamCopyTrackLayout>): OutBox {
         require(tracks.isNotEmpty())
         val duration = tracks.maxOf { it.movieDuration }

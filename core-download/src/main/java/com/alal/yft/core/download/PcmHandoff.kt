@@ -3,7 +3,7 @@ package com.alal.yft.core.download
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.TimeUnit
 
-/** R5 (v1.0.2): what the MP3 decoder's thread hands to LAME's, in order. */
+/** What the MP3 decoder's thread hands to LAME's, in order. */
 internal sealed interface PcmItem {
     /** [count] shorts of interleaved 16-bit PCM at the start of [pcm]. */
     class Sound(
@@ -21,7 +21,7 @@ internal sealed interface PcmItem {
 }
 
 /**
- * R5 (v1.0.2): decoded sound between the MP3 decoder's thread and LAME's. At most [capacity]
+ * Decoded sound between the MP3 decoder's thread and LAME's. At most [capacity]
  * items wait, so the decoder runs at most that far ahead of LAME and waits for room ([put]);
  * the arrays LAME is done with come back through [recycle]. [close] ends the hand-off: a
  * waiting [put] returns false, and every later one at once.

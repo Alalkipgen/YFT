@@ -5,7 +5,7 @@ import java.io.IOException
 import java.io.RandomAccessFile
 
 /**
- * D1: what the joined pieces of an HLS download hold, told by the first bytes of its first piece
+ * What the joined pieces of an HLS download hold, told by the first bytes of its first piece
  * (after the ID3 tags of packed audio), and the extension and type a file of it keeps when it is
  * not made into an MP4: MPEG-TS stays a `.ts`, never an `.mp4` by name only.
  */
@@ -26,11 +26,11 @@ internal enum class HlsMediaKind(val keptExtension: String?, val keptMimeType: S
     UNKNOWN(null, null),
 }
 
-/** D1: one downloaded piece of an HLS download, read from [start] (after its ID3 tags) on. */
+/** One downloaded piece of an HLS download, read from [start] (after its ID3 tags) on. */
 internal class HlsPiece(val file: File, val start: Long)
 
 /**
- * D1: makes the pieces of an HLS download one MP4 (an M4A for sound alone) without re-encoding,
+ * Makes the pieces of an HLS download one MP4 (an M4A for sound alone) without re-encoding,
  * written into [output] from byte 0; returns the file's length. Throws [StreamCopyUnsupported]
  * for media it cannot remux (the caller then keeps the file in its own format) and an
  * [IOException] when reading a piece or writing fails.
@@ -44,7 +44,7 @@ internal interface HlsRemuxer {
     ): Long
 }
 
-/** D1: tells [HlsMediaKind] from a piece's first bytes; reads at most about 65 KiB. */
+/** Tells [HlsMediaKind] from a piece's first bytes; reads at most about 65 KiB. */
 internal object HlsMediaSniffer {
     fun of(file: File, start: Long): HlsMediaKind {
         val head = try {

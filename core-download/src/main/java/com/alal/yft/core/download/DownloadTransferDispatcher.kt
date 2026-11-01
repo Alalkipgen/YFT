@@ -26,7 +26,7 @@ sealed interface QueueTransferResult {
 
     /**
      * [publishedAs] is the name and type the file was published under when they are not the
-     * planned ones (D1: an HLS download kept as MPEG-TS); null when they are.
+     * planned ones (an HLS download kept as MPEG-TS); null when they are.
      */
     data class Completed(
         val bytesWritten: Long,
@@ -54,9 +54,9 @@ interface DownloadTransferDispatcher {
 }
 
 /**
- * Sends each plan to its runner. Task 3 (phase-v102-easy): a finished DASH file's or merge's
+ * Sends each plan to its runner. A finished DASH file's or merge's
  * Details lines (a live video saved a little short, or whose newest piece moved while it came)
- * go to [onDetail] with the task's id before the result, as an MP3's do (G2).
+ * go to [onDetail] with the task's id before the result, as an MP3's do.
  */
 class DefaultDownloadTransferDispatcher(
     private val direct: DirectTransferRunner,

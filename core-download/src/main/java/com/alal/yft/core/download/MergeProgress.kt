@@ -4,7 +4,7 @@ import java.io.File
 import java.io.FileDescriptor
 import java.util.Locale
 
-/** Where a merge writes the merged file (P27). */
+/** Where a merge writes the merged file. */
 sealed interface MuxOutput {
     /** A new file in app storage, copied into the destination afterwards (today's path). */
     data class ToFile(val file: File) : MuxOutput
@@ -14,7 +14,7 @@ sealed interface MuxOutput {
 }
 
 /**
- * Called for every sample a merge writes (P27): [done] of [total], in microseconds of the
+ * Called for every sample a merge writes: [done] of [total], in microseconds of the
  * tracks' duration, or in bytes of the tracks when their duration is unknown. It may throw a
  * cancellation to stop the merge.
  */
@@ -23,8 +23,8 @@ fun interface MuxProgressListener {
 }
 
 /**
- * A merge's result and how many samples it wrote before it ended (P27); [details] say how it
- * merged, for the merge's log line (P35).
+ * A merge's result and how many samples it wrote before it ended; [details] say how it
+ * merged, for the merge's log line.
  */
 data class MuxAttempt(
     val result: LocalMuxResult,
@@ -33,7 +33,7 @@ data class MuxAttempt(
 )
 
 /**
- * How a merge went (P35), for its log line: the way it merged ([STREAM_COPY] or [MEDIA_MUXER]),
+ * How a merge went, for its log line: the way it merged ([STREAM_COPY] or [MEDIA_MUXER]),
  * the samples of each track, each phase's time and, when today's way merged after the stream
  * copy could not, why not. No addresses: only counts, times and short fixed words.
  */
@@ -61,7 +61,7 @@ data class MuxDetails(
 }
 
 /**
- * A muxer that reports its progress and can write into a file descriptor (P27). A muxer that
+ * A muxer that reports its progress and can write into a file descriptor. A muxer that
  * is only a [LocalAudioVideoMuxer] merges into app storage without progress.
  */
 interface ProgressAudioVideoMuxer : LocalAudioVideoMuxer {
@@ -74,7 +74,7 @@ interface ProgressAudioVideoMuxer : LocalAudioVideoMuxer {
     ): MuxAttempt
 }
 
-/** The steps of a merged download that [MergeTimes] measures (P27). */
+/** The steps of a merged download that [MergeTimes] measures. */
 enum class MergeStep(val label: String) {
     VIDEO("video"),
     AUDIO("audio"),
@@ -85,7 +85,7 @@ enum class MergeStep(val label: String) {
 }
 
 /**
- * How long each step of a merged download took (P27), for the log and for a merge failure's
+ * How long each step of a merged download took, for the log and for a merge failure's
  * details: "video 1 min 2 s, audio 20 s, merge 35 s, sync 0.2 s, commit 80 ms".
  */
 class MergeTimes(val elapsedMillis: () -> Long) {

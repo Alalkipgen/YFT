@@ -12,7 +12,7 @@ import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import kotlin.math.abs
 
-/** P35: positioned writes into a destination's descriptor through Android's `Os` calls. */
+/** Positioned writes into a destination's descriptor through Android's `Os` calls. */
 internal object AndroidStreamCopyOutputs : StreamCopyOutputs {
     override fun open(output: MuxOutput): OpenStreamCopyOutput = when (output) {
         is MuxOutput.ToFile -> ChannelStreamCopyOutputs.open(output)
@@ -34,7 +34,7 @@ internal object AndroidStreamCopyOutputs : StreamCopyOutputs {
         is MuxOutput.ToDescriptor -> DescriptorInput(output.descriptor)
     }
 
-    /** R6: positioned reads of the descriptor, which stays open for its owner. */
+    /** Positioned reads of the descriptor, which stays open for its owner. */
     private class DescriptorInput(private val descriptor: FileDescriptor) : ReadableMergeOutput {
         override val size: Long = Os.fstat(descriptor).st_size
 
@@ -66,7 +66,7 @@ internal object AndroidStreamCopyOutputs : StreamCopyOutputs {
 }
 
 /**
- * R6: whether a stream-copied track's duration, as Android's MediaExtractor states it, is off.
+ * Whether a stream-copied track's duration, as Android's MediaExtractor states it, is off.
  * [mergedUs] has to be the planned one (every sample's length, [plannedUs]) within [frameUs].
  * The input's stated duration [inputUs] only counts when the merged track is shorter: Android 16
  * states a fragmented input's duration from its track header, which a DASH server may write
@@ -85,7 +85,7 @@ internal fun streamCopyDurationMismatch(
 }
 
 /**
- * Reads a stream-copied file back with Android's MediaExtractor before it counts (P35): two
+ * Reads a stream-copied file back with Android's MediaExtractor before it counts: two
  * tracks with the inputs' formats (MIME, picture size, sample rate, channels), durations within
  * a frame ([streamCopyDurationMismatch]), and the first samples, a few sync samples and every
  * sample from the last sync sample on equal byte for byte and in time to the inputs'; that last

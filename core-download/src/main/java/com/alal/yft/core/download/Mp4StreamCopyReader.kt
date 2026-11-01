@@ -4,7 +4,7 @@ import java.io.EOFException
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 
-/** The bytes of one merge input (P35), read at any position: a file, or a test's virtual one. */
+/** The bytes of one merge input, read at any position: a file, or a test's virtual one. */
 internal interface Mp4Source {
     val size: Long
 
@@ -12,7 +12,7 @@ internal interface Mp4Source {
     fun readFully(target: ByteBuffer, position: Long)
 }
 
-/** A track file read through its channel, without Android (P35). */
+/** A track file read through its channel, without Android. */
 internal class FileChannelMp4Source(private val channel: FileChannel) : Mp4Source {
     override val size: Long = channel.size()
 
@@ -26,23 +26,23 @@ internal class FileChannelMp4Source(private val channel: FileChannel) : Mp4Sourc
     }
 }
 
-/** Why a track is not stream-copied (P35), in a few fixed words; today's way merges instead. */
+/** Why a track is not stream-copied, in a few fixed words; today's way merges instead. */
 internal class StreamCopyUnsupported(reason: String) : Exception(reason)
 
 internal fun unsupported(reason: String): Nothing = throw StreamCopyUnsupported(reason)
 
-/** Which track a merge input holds (P35), with its `hdlr` type and the sample entries copied. */
+/** Which track a merge input holds, with its `hdlr` type and the sample entries copied. */
 internal enum class StreamCopyTrackKind(val handler: String, val sampleEntries: Set<String>) {
     /**
-     * `vp09` only for VP9 HLS with its AAC sound (item 5, [AudioVideoMuxCompatibility]). v1.0.2
-     * fix R8: `av01` while AV1 merges are on (the debug switch, from Android 14): its frames and
+     * `vp09` only for VP9 HLS with its AAC sound ([AudioVideoMuxCompatibility]).
+     * `av01` while AV1 merges are on (the debug switch, from Android 14): its frames and
      * its `av1C` are copied as they are, like VP9's.
      */
     VIDEO("vide", setOf("avc1", "avc3", "vp09", "av01")),
     AUDIO("soun", setOf("mp4a")),
 }
 
-/** A box read into memory (P35): its [type] and its payload, [start] until [end] of [data]. */
+/** A box read into memory: its [type] and its payload, [start] until [end] of [data]. */
 internal class Mp4Box(
     val type: String,
     private val data: ByteBuffer,
@@ -124,7 +124,7 @@ internal fun fourcc(data: ByteBuffer, at: Int): String {
 internal fun List<Mp4Box>.first(type: String): Mp4Box? = firstOrNull { it.type == type }
 
 /**
- * One track of a merge input (P35), with every sample in decode order: where it is in the input
+ * One track of a merge input, with every sample in decode order: where it is in the input
  * ([offsets], [sizes]), how long it lasts ([durations], in [timescale] ticks), its composition
  * offset (null when all are 0) and whether it is a sync sample (null when all are).
  */
@@ -142,7 +142,7 @@ internal class Mp4Track(
     val height: Int,
     val matrix: ByteArray?,
     /**
-     * Where the input's edit list puts the media (P35), in ticks: a sample is presented at its
+     * Where the input's edit list puts the media, in ticks: a sample is presented at its
      * decode time + composition offset + [editShift].
      */
     val editShift: Long,
@@ -155,7 +155,7 @@ internal class Mp4Track(
     val compositionOffsets: IntArray?,
     val sync: BooleanArray?,
     /**
-     * v1.0.2 fix R6: the ticks that fragments' `tfdt` jumps added to the samples before them
+     * The ticks that fragments' `tfdt` jumps added to the samples before them
      * ([durations] hold them); Android's fragment reader leaves them out, as it reads no `tfdt`.
      */
     val gapTicks: Long = 0L,
@@ -169,7 +169,7 @@ internal class Mp4Track(
 
     fun isSync(index: Int): Boolean = sync?.get(index) ?: true
 
-    /** The type of the one sample entry, such as `avc1`, `vp09` or `mp4a` (item 5). */
+    /** The type of the one sample entry, such as `avc1`, `vp09` or `mp4a`. */
     val sampleEntryType: String
         get() = if (sampleDescription.size >= SAMPLE_ENTRY_TYPE_END) {
             String(sampleDescription, SAMPLE_ENTRY_TYPE_END - 4, 4, Charsets.ISO_8859_1)
@@ -184,12 +184,12 @@ internal class Mp4Track(
 }
 
 /**
- * Reads one merge input for the stream copy (P35) in plain Kotlin: its one track's description
+ * Reads one merge input for the stream copy in plain Kotlin: its one track's description
  * and the place, size, duration, composition offset and sync flag of every sample, from a
  * fragmented MP4 (`moof` › `traf` › `tfhd`, `tfdt`, `trun`) or a plain one (`stbl` tables).
  * Anything it does not expect — encryption, more than one track, a codec the merge does not
  * copy, broken sizes, sample data outside an `mdat` — is "not supported"
- * ([StreamCopyUnsupported]). v1.0.2 fix R6: with [anyCodec] a track of any codec is read, for
+ * ([StreamCopyUnsupported]). With [anyCodec] a track of any codec is read, for
  * its samples and their length only (a merge's length check, [MergedLength]).
  */
 internal class Mp4TrackReader(
