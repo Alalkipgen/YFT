@@ -21,7 +21,7 @@ risks. Decisions already made are in [DECISIONS.md](DECISIONS.md). Tests and run
    owner may reuse `yft-vk-census-854bee67.apk` if this passes:
    `python3 scripts/check-comment-only.py 854bee67 HEAD --allow scripts/check-comment-only.py --allow extractor-master/src/main/kotlin/com/alal/yft/extractor/master/social/SiteWeekly.kt --allow extractor-master/src/test/kotlin/com/alal/yft/extractor/master/social/SiteWeeklyTest.kt --allow scripts/own-solver-canary.sh --allow scripts/own-solver-canary.mjs`.
    That APK still prints the weekly check's old walled note text.
-4. Promotion runs for Facebook, Instagram, VK and X. The rules are in
+4. Promotion runs for Facebook, Instagram and X. The rules are in
    [TESTING.md](TESTING.md), "Promotion runs".
 5. The phone checklist on the two preview APKs ([TESTING.md](TESTING.md)).
 6. The release commit: `yft.versionName=1.0.2` and `yft.versionCode=1000200` in
