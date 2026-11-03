@@ -1,7 +1,7 @@
 # Support matrix
 
 What YFT can find, show and save, per site and per feature. It describes the code on this branch
-(1.0.2 in work; 1.0.1 is the newest release). Feature names are the ones in
+(1.0.2 is the newest release). Feature names are the ones in
 [GLOSSARY.md](GLOSSARY.md). How the parts work is in [ARCHITECTURE.md](ARCHITECTURE.md). How they
 are tested is in [TESTING.md](TESTING.md).
 
