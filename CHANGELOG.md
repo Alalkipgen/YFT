@@ -14,6 +14,9 @@ Not dated yet: the date is added when 1.0.2 is published.
 
 ### Added
 
+- With **Backup finder** on, weak Facebook, Instagram and VK browser answers can get missing
+  qualities or sound from the backup finder while keeping the original rows first. Instagram's
+  backup finder also puts the best version of each height first.
 - YFT is in Android's **Share** menu. A link shared from another app (YouTube, Facebook, TikTok, a
   browser…) is looked up as if it was pasted on Home, and its Download sheet opens. Nothing
   downloads until you pick. Shared text without a link says **No link in the shared text**.

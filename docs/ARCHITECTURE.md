@@ -78,7 +78,7 @@ checked by the toolkit drift check.
      the playing video) and the ad filter drops ads.
    - In the browser, `core-browser` watches the page and keeps candidates per page (at most 200 raw
      observations; metadata probes for at most 20 different addresses per page).
-3. **Master may answer** if main fails (see "Main and Master").
+3. **Master may answer** if main fails or fill a weak answer (see "Main and Master").
 4. **The Download sheet** shows the qualities. The row check tests a row's first bytes before it is
    shown. The user picks a row; Lookup details shows how the rows were found.
 5. **The download queue** plans and runs the download in the foreground service: direct, DASH, HLS
@@ -91,8 +91,9 @@ checked by the toolkit drift check.
 
 - **Main** is YFT's normal path: the site adapters, the TikTok page reader, the page video finder,
   the YouTube ejs solver and the YouTube PoToken maker.
-- **Master** is the backup engine. It looks for rows only after main fails with a reason it can
-  recover from, and only while Settings' "Backup finder" is on.
+- **Master** is the backup engine. It looks for rows when main fails with a reason it can recover
+  from, or fills a weak Facebook, Instagram or VK browser answer, and only while Settings'
+  "Backup finder" is on.
   - YouTube: the YouTube backup route (the YouTube ladder, the YouTube own solver, the Master
     YouTube module).
   - Facebook, Instagram, TikTok, X and VK: the social ladders, within the social limits.
@@ -117,7 +118,7 @@ Debug builds read the feature flags below. The release and both previews ignore 
 | `yft.routeBTrial` | `YOUTUBE_ROUTE_B_TRIAL` | false | trial preview only | YouTube backup trial |
 | `yft.socialLadder` | `SOCIAL_LADDER` | false | true | Social ladders (needs `yft.masterCapture`) |
 | `yft.socialTrial` | `SOCIAL_TRIAL` | false | trial preview only | Social backup trial |
-| `yft.socialFill` | `SOCIAL_FILL` | true | false | Weak-answer fill and best-first order (with the social ladders) |
+| `yft.socialFill` | `SOCIAL_FILL` | true | true | Weak-answer fill and best-first order (with the social ladders) |
 | `yft.masterRecipeKey` | `MASTER_RECIPE_KEY` | empty; the committed key in a social-ladder build | the committed key | Signed recipe config |
 | `yft.masterRecipeUrl` | `MASTER_RECIPE_URL` | `https://raw.githubusercontent.com/Alalkipgen/YFT/recipes/master-recipes-2.json` | the same | Signed recipe config |
 

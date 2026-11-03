@@ -88,8 +88,7 @@ import kotlinx.coroutines.withTimeoutOrNull
  * gives the recipe the engine reads with, around [http] (never asked here). Lines: short labels
  * and counts, never a link, an ID or the post's words; nothing is logged.
  *
- * Best first per height ([bestFirst]: the app's `yft.socialFill`, a social-ladder debug build's; off, today's
- * order): of the rows V passes from I2's or the tab-fetch rung's answer, each height's best first
+ * Best first per height ([bestFirst]: the app's `SOCIAL_FILL`; off, the answer's order): of the rows V passes from I2's or the tab-fetch rung's answer, each height's best first
  * ([RowPick.bestFirst]: the answer states no bitrate, so the rate of each file V read; the owner's
  * retest of slot 5 offered the answer's first 720p, 897 KB, where the tab's own was 1.9 MB).
  */

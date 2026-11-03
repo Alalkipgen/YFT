@@ -60,11 +60,11 @@ internal object SocialLadder {
 
     /**
      * Weak-answer fill (docs/ARCHITECTURE.md) and the Instagram tab-fetch step's best-first
-     * order — on only in a debug build with the ladder and Master capture on, unless made with
-     * `-Pyft.socialFill=false` (the census build has it): main's weak answer for a Facebook,
+     * order — on in the release and previews, and in a debug build with the ladder and Master
+     * capture on unless made with `-Pyft.socialFill=false`: main's weak answer for a Facebook,
      * Instagram or VK page in the browser gets the rows Master's ladder finds that it lacks
      * ([AndroidBrowserMasterFallback.fills]), and Instagram's rungs offer each height's best row
-     * first ([stage]). Release, preview and every other build: off, each piece exactly today's.
+     * first ([stage]).
      */
     val fill: Boolean get() = BuildConfig.SOCIAL_FILL
 

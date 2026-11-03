@@ -9,20 +9,21 @@ risks. Decisions already made are in [DECISIONS.md](DECISIONS.md). Tests and run
 - 1.0.1 is released (2026-10-29).
 - 1.0.2 is built on `work/phase-v102-easy`. Its changes are in [CHANGELOG.md](../CHANGELOG.md)
   under `## [1.0.2]`.
-- Main's readers and the Backup finder are in the release. The social ladders' weak-answer fill and
-  best-first order are in owner test APKs only.
+- Main's readers and the Backup finder are in the release. Weak-answer fill and Instagram's
+  best-first order are enabled in release and previews by the owner. The changed release behavior
+  needs final-code proof before release; VK has not passed promotion.
 
 ## Steps to release 1.0.2
 
 1. Confirm CI is green on the last code commit. Commits marked `[skip ci]` start no workflow, so run
    "Work-branch checkpoint validation" by hand on `work/phase-v102-easy` (Actions → Run workflow).
 2. Get the owner's answers to the open decisions below.
-3. Build the census APK from the final head ([TESTING.md](TESTING.md), "Build the census APK"). The
-   owner may reuse `yft-vk-census-854bee67.apk` if this passes:
-   `python3 scripts/check-comment-only.py 854bee67 HEAD --allow scripts/check-comment-only.py --allow extractor-master/src/main/kotlin/com/alal/yft/extractor/master/social/SiteWeekly.kt --allow extractor-master/src/test/kotlin/com/alal/yft/extractor/master/social/SiteWeeklyTest.kt --allow scripts/own-solver-canary.sh --allow scripts/own-solver-canary.mjs`.
-   That APK still prints the weekly check's old walled note text.
-4. Promotion runs for Facebook, Instagram and X. The rules are in
-   [TESTING.md](TESTING.md), "Promotion runs".
+3. Build a census APK from the final head ([TESTING.md](TESTING.md), "Build the census APK").
+   The earlier census APK predates the release flag change; do not assume it proves the final build.
+4. Check promotion for the final configuration, including weak-answer fill. Facebook, Instagram
+   and X passed on the earlier census build. VK has not passed; its blank embed and moved clip host
+   need fixes and fresh promotion runs before VK's fill is released. Follow
+   [TESTING.md](TESTING.md), "Promotion runs"; do not count an old build as final-code proof.
 5. The phone checklist on the two preview APKs ([TESTING.md](TESTING.md)).
 6. The release commit: `yft.versionName=1.0.2` and `yft.versionCode=1000200` in
    `gradle.properties`; `docs/release/1.0.2.md` (like `1.0.1.md`, with a "From 1.0.1" part); and
@@ -40,8 +41,6 @@ risks. Decisions already made are in [DECISIONS.md](DECISIONS.md). Tests and run
 
 ## Open owner decisions
 
-- **Weak-answer fill in the release and previews:** only after promotion runs pass. Today
-  `releaseMaster` sets `SOCIAL_FILL` to false. The same goes for the best-first order.
 - **Weak-answer fill rules to confirm:**
   - sites: Facebook, Instagram and VK only;
   - budget: at most 10 s per lookup, 6 s of checks and 4 file checks; in YFT's browser only, not on

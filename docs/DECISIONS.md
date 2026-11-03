@@ -45,10 +45,10 @@ Old records stay in git history. Feature names follow [GLOSSARY.md](GLOSSARY.md)
 
 ## Backup finder (Master)
 
-- **Only after main fails.** Master answers only when main failed, as site packs in one engine.
-  Why: main stays first and unchanged. (2026-10-17)
-- **No cost for main's answers.** A lookup main answers is no slower and asks no more than main's
-  baseline census run. Why: no regression. (2026-10-23)
+- **Backup and weak-answer fill.** Master answers after main fails, or fills a weak Facebook,
+  Instagram or VK browser answer with missing rows. Main's rows stay first. Weak-answer fill and
+  Instagram's best-first order are on in the release and both previews, by the owner's choice.
+  A weak-answer fill can add requests and time; strong answers stay on main's path.
 - **Lookup record.** Each lookup's requests (main's and Master's) are recorded in memory only.
   Why: Master reads what main asked and never asks twice. (2026-10-17)
 - **Small ladders.** A small, budgeted ladder per site; each new step on the owner's go. Why: each

@@ -327,7 +327,7 @@ Before a release counts a site's backup steps, the site needs three passing cens
 - One session may run all sites.
 - Pass: wrong rows 0, and nothing worse than main's baseline census run.
 - TikTok runs through the VPN's New York exit.
-- For 1.0.2: Facebook, Instagram and X start again at run 1.
+- For 1.0.2: verify the final configuration, including weak-answer fill. VK has not passed.
 
 ## Phone checklist for a release
 
@@ -357,7 +357,7 @@ off). If anything fails, open Details → Copy details and send it.
 - **Pause and Resume:** the download goes on from the same %.
 - **Ended YouTube live:** it saves. If it is up to 2 minutes short, Details says "Live video saved N
   s short of …".
-- **Weak-answer fill** (census APK only, never the previews): lines
+- **Weak-answer fill** (census APK or previews with Show details on): lines
   `master: facebook B+ (main's rows: no HD): Master added N: 720p` or `… added none (…)`. VK rows
   without a height get no such line. Strong answers stay unchanged. The best-first order shows
   `master: each height's best first`.

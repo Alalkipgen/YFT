@@ -4,34 +4,20 @@ Overwrite this file at each checkpoint (40 lines at most). Never append. History
 
 ## Now
 
-- Branch `work/phase-v102-easy`, last code commit `811d86e2`. Version 1.0.2 is not released yet.
-  Its steps are in `docs/PLAN.md`.
-- The cleanup of 2026-11-01 is finished. The docs were rewritten and 51 old Markdown files were
-  deleted (`docs/GLOSSARY.md`, Old documents, says where their facts are now; their old text is at
-  commit `631d05d4`). Code comments in every module now use the feature names in the glossary.
-- Code did not change. Since `854bee67` the only code changes are two strings of the weekly site
-  check (they point to its runbook in `docs/TESTING.md`) and two printed lines of the own-solver
-  canary scripts. The check in `docs/PLAN.md` (step 3) ends "867 code files changed only in
-  comments; 0 failed."
-- So the census APK `yft-vk-census-854bee67.apk` runs the final code. Only its weekly check prints
-  the old walled note text.
+- Branch `work/phase-v102-easy`; 1.0.2 is not released. The owner chose to turn on weak-answer
+  fill and Instagram's best-first order in the release and both previews. `releaseMaster` now
+  enables `SOCIAL_FILL`; debug builds retain their existing flag behavior.
+- Facebook, Instagram and X passed three promotion runs on the earlier census build. VK was
+  dropped from those runs and has not passed. Enabling fill includes VK, so do not publish on
+  the strength of the earlier results. VK's blank embed and moved clip host need fixes and proof.
+- The release version bump and release notes are not done. The changelog remains undated.
 
-## Tests
+## Validation and next steps
 
-- CI on `811d86e2`: Work-branch checkpoint validation, Minified build check, Preview APK and
-  Android emulator smoke all passed. Checkpoint validation ran the tests that read the docs.
-- Toolkit drift check: "256 copied symbols checked against HEAD: 2 drifted" (TikTok `check`,
-  X `extract`), the same as before the cleanup.
-
-## Left as they are
-
-- Old work labels in comments of the `.mjs` and `.js` files, of the five executable scripts in
-  `scripts/` (a push through the GitHub connection would drop their mode) and of the ten YouTube
-  files the drift check compares (main's five and Master's copies).
-- Step names in `.github/workflows/master-optin-debug-apk.yml`; a script test reads one of them.
-- The `source` field of `app/src/androidTest/assets/parity/parity-urls.json` names an old doc.
-
-## Next steps
-
-1. The census and promotion runs with `yft-vk-census-854bee67.apk` (`docs/PLAN.md`, steps 3-4).
-2. Then the rest of `docs/PLAN.md`, "Steps to release 1.0.2".
+- The pre-change comment-only check passed: 867 code files changed only in comments; 0 failed.
+- Script tests: `python3 -m unittest discover -s scripts/tests -p 'test_*.py'` passed (87,
+  4 skipped). Android builds require JDK 17 and the Android SDK; this computer has neither
+  configured. Check CI on this commit; CI must validate and build the previews.
+- Build a census APK from the final code, resolve VK's known failures, and run the required
+  promotion checks. Do the phone checklist on both previews of the final release commit. Follow
+  `docs/PLAN.md`; merging and publishing require the owner's approval.

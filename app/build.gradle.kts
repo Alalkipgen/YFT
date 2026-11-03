@@ -177,8 +177,7 @@ require(socialTrial in setOf("true", "false")) {
 // by an objective signal (no HD row, no sound row) gets the rows Master's ladder finds that it
 // lacks; main's rows stay first, untouched. With it Instagram's rungs offer each height's best row
 // first. Acts only with yft.socialLadder and yft.masterCapture on, and is on there (the census
-// build too) unless this says false; debug builds only, release and preview false until the owner's
-// Promotion runs pass.
+// build too) unless this says false. Release and previews have it on with fixed flags.
 val socialFill = providers.gradleProperty("yft.socialFill").orElse("true").get()
 require(socialFill in setOf("true", "false")) {
     "yft.socialFill must be true or false"
@@ -210,11 +209,11 @@ require(Regex("""https://[A-Za-z0-9./_-]+""").matches(masterRecipeUrl)) {
  * ladder and its version lookup on GitHub raw), the four sites' ladders (Shape search included),
  * the browser's capture and the Signed recipe config with its committed key
  * (`extractor-master/recipes/master-recipes.pub.hex`, each social rung's `rungsOff`). Master acts
- * only after main fails and only while Settings' "Backup finder" is on. Never: the ladder's test
- * hooks (skip, mutate), the Own-solver ladder (not yet), the Instagram tab-fetch step, the
- * AV1 merge switch (AV1 stays off), the Weak-answer fill and Instagram's best-first rows
- * (yft.socialFill: not before the owner's Promotion runs pass) and the owner tools (src/debug: the
- * census, W, the canary, the stream check). The trials ([trials]) only in the Trial preview ("debug
+ * after main fails or, for a weak answer, to fill missing rows, and only while Settings' "Backup
+ * finder" is on. Weak-answer fill and Instagram's best-first order are on. Never: the ladder's test
+ * hooks (skip, mutate), the Own-solver ladder, the Instagram tab-fetch step, the AV1 merge switch
+ * (AV1 stays off), and the owner tools (src/debug: the census, W, the canary, the stream check).
+ * The trials ([trials]) only in the Trial preview ("debug
  * and preview only; the release never reads them"), which also shows every detail; the release and
  * the normal Preview APK are quiet (Quiet details).
  */
@@ -232,8 +231,8 @@ fun com.android.build.api.dsl.ApplicationBuildType.releaseMaster(recipeKey: Stri
     buildConfigField("boolean", "YOUTUBE_ROUTE_B_TRIAL", trials.toString())
     buildConfigField("boolean", "SOCIAL_LADDER", "true")
     buildConfigField("boolean", "SOCIAL_TRIAL", trials.toString())
-    // Weak-answer fill: off until the owner's Promotion runs pass.
-    buildConfigField("boolean", "SOCIAL_FILL", "false")
+    // Weak-answer fill and Instagram best-first order are on in the release and previews.
+    buildConfigField("boolean", "SOCIAL_FILL", "true")
     buildConfigField("boolean", "INSTAGRAM_TAB_RUNG", "false")
     buildConfigField("boolean", "AV1_MERGE_SWITCH", "false")
     buildConfigField("String", "MASTER_RECIPE_KEY", "\"$recipeKey\"")

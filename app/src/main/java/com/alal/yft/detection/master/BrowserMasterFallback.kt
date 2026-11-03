@@ -101,7 +101,7 @@ interface BrowserMasterFallback {
      * fails, docs/DECISIONS.md): whether main's answer [primary] for [lookupUrl], a page main
      * found, still goes through [recover] — a Facebook, Instagram or VK page whose rows are weak by
      * an objective signal (no HD row, no sound row: [SocialFill.weakness]), in a Weak-answer fill
-     * build (`-Pyft.socialFill` with the social ladder, debug only), so Master adds only the rows
+     * build (release, previews or `-Pyft.socialFill` with the social ladder), so Master adds only the rows
      * main's lack and main's rows stay. False in every other build, page and answer: a found page
      * returns at once, as before.
      */
@@ -189,8 +189,8 @@ class AndroidBrowserMasterFallback(
     private val on: () -> Boolean = { true },
     /**
      * Weak-answer fill: the parts of Master's run for a weak answer of main's ([fills], [fill]):
-     * only in a Weak-answer fill build (`-Pyft.socialFill` with [socialLadder], debug only,
-     * [SocialLadder.fill]). Null in every other build: a page main found returns at once, as
+     * only in a Weak-answer fill build (release, previews or `-Pyft.socialFill` with
+     * [socialLadder], [SocialLadder.fill]). Null in every other build: a page main found returns at once, as
      * before.
      */
     private val fillRun: SocialFillRun? = null,
@@ -822,7 +822,7 @@ class AndroidBrowserMasterFallback(
             // only).
             socialTrial: Boolean = SocialLadder.trial,
             // Weak-answer fill and the Instagram tab-fetch step's best-first order
-            // (-Pyft.socialFill with the social ladder, debug only).
+            // (release and previews, or -Pyft.socialFill with the social ladder in debug).
             socialFill: Boolean = SocialLadder.fill,
             // Release build: Settings' Backup finder; off, no lookup asks Master and every one of
             // Master's requests (GitHub raw's config and version tables included) fails unsent.
