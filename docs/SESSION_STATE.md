@@ -4,15 +4,13 @@ Overwrite this file at each checkpoint (40 lines at most). Never append. History
 
 ## Now
 
-- 1.0.2 is published (2026-11-03, tag `v1.0.2`) and merged to `main`. Branch
-  `work/phase-v102-easy` carries the work after it.
-- The README is being rewritten for users, with real app screenshots in `docs/screenshots/`.
-  README screenshots (`readme-screenshots.yml`, `scripts/readme-screenshots.sh`,
-  `ReadmeScreenshotsTest`) takes them on a Pixel 6-sized emulator and commits them to the branch.
+- 1.0.2 is published and merged to `main`. Work continues on `work/phase-v102-easy`.
+- A README rewrite and app screenshots are in progress. The first screenshots run failed when
+  the sample could not be downloaded. The new workflow was also missing from the Gradle memory
+  test's list. This checkpoint adds the workflow to that list and tries more sample pages.
 
 ## Validation and next steps
 
-- Check the README screenshots run on this push and look at each picture before the README
-  links them. A missing picture fails the run and commits nothing.
-- Then push the new `README.md`, open a pull request to `main` and merge it only with the owner's
-  approval and green CI.
+- Check this push's CI and the README screenshots artifact. Inspect every image before using it.
+- Push the README when the screenshots are ready. Open a pull request and merge with green CI;
+  the owner approved the merge. Do not publish a new release for this documentation change.

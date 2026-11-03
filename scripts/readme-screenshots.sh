@@ -35,6 +35,8 @@ adb shell am instrument -w -r -e yft.readmeScreenshots 1 \
   -e class com.alal.yft.smoke.ReadmeScreenshotsTest \
   "$APP_ID.test/androidx.test.runner.AndroidJUnitRunner" | tee "$LOG" || status=$?
 grep -q "FAILURES!!!\|INSTRUMENTATION_FAILED" "$LOG" && status=1
+# The test's own lines only: which sample worked and why a screen was not reached.
+adb logcat -d -s YftReadmeScreens:* >build/readme-screenshots-logcat.txt || true
 
 mkdir -p "$OUT"
 adb pull "$REMOTE/." "$OUT/" >/dev/null || status=1

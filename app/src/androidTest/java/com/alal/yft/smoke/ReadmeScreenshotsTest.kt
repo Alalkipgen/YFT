@@ -32,9 +32,8 @@ import org.junit.runner.RunWith
  * Downloads, Library, Settings and Home in the dark theme, and saves one picture of each
  * ([WIDTH] px wide) for `docs/screenshots/`. Opt-in only (`-e yft.readmeScreenshots 1`), so the
  * emulator smoke test skips it; `scripts/readme-screenshots.sh` runs it on a clean emulator.
- * The sample is the public Big Buck Bunny page on Wikimedia Commons (CC BY 3.0, Blender
- * Foundation). A screen that cannot be reached is named in the failure; the others are still
- * saved.
+ * The sample is Big Buck Bunny (CC BY 3.0, Blender Foundation): the first of [SAMPLES] that
+ * works. A screen that cannot be reached is named in the failure; the others are still saved.
  */
 @RunWith(AndroidJUnit4::class)
 @LargeTest
@@ -80,15 +79,23 @@ class ReadmeScreenshotsTest {
         check(failures.isEmpty()) { "README screenshots not taken: ${failures.distinct()}" }
     }
 
+    /** The first sample page whose video the browser finds. */
     private fun browserFound() {
-        goHome()
-        click("home-open-browser")
-        composeRule.waitUntil(UI_MILLIS) { hasNode("browser-address") }
-        composeRule.onAllNodesWithTag("browser-address").onFirst()
-            .performClick()
-            .performTextReplacement(SAMPLE_PAGE)
-        click("browser-go")
-        composeRule.waitUntil(FIND_MILLIS) { hasNode("media-found-button") }
+        val found = SAMPLES.any { page ->
+            goHome()
+            click("home-open-browser")
+            composeRule.waitUntil(UI_MILLIS) { hasNode("browser-address") }
+            composeRule.onAllNodesWithTag("browser-address").onFirst()
+                .performClick()
+                .performTextReplacement(page)
+            click("browser-go")
+            val shown = runCatching {
+                composeRule.waitUntil(FIND_MILLIS) { hasNode("media-found-button") }
+            }.isSuccess
+            if (!shown) Log.w(LOG_TAG, "The browser found no video on $page")
+            shown
+        }
+        check(found) { "The browser found no video on any sample page" }
         settle(PAGE_SETTLE_MILLIS)
         click("media-found-button")
         composeRule.waitUntil(UI_MILLIS) { hasNode("found-sheet") }
@@ -96,22 +103,37 @@ class ReadmeScreenshotsTest {
         capture("browser-found")
     }
 
+    /** The first sample link whose Download sheet lists qualities. */
     private fun downloadSheet() {
-        goHome()
-        composeRule.onAllNodesWithTag("home-link").onFirst()
-            .performClick()
-            .performTextReplacement(SAMPLE_PAGE)
-        click("home-open-link")
-        composeRule.waitUntil(LOOKUP_MILLIS) {
-            hasNode("quick-sheet") || hasNode("home-view-media")
+        val listed = SAMPLES.any { link ->
+            goHome()
+            editHomeLink()
+            composeRule.onAllNodesWithTag("home-link").onFirst()
+                .performClick()
+                .performTextReplacement(link)
+            click("home-open-link")
+            val rows = runCatching {
+                composeRule.waitUntil(LOOKUP_MILLIS) {
+                    hasNode("quick-sheet") || hasNode("home-view-media") ||
+                        hasNode("home-not-found")
+                }
+                if (!hasNode("quick-sheet") && hasNode("home-view-media")) {
+                    click("home-view-media")
+                    composeRule.waitUntil(UI_MILLIS) { hasNode("quick-sheet") }
+                }
+                if (!hasNode("quick-sheet")) return@runCatching false
+                composeRule.waitUntil(LOOKUP_MILLIS) {
+                    hasNode("quick-error") || hasNode("quick-empty") || (
+                        hasNode("quick-rows") && !hasNode("quick-loading") &&
+                            !hasNode("quick-waiting-rows")
+                        )
+                }
+                hasNode("quick-rows") && !hasNode("quick-error")
+            }.getOrDefault(false)
+            if (!rows) Log.w(LOG_TAG, "The Download sheet listed no qualities for $link")
+            rows
         }
-        if (!hasNode("quick-sheet")) {
-            click("home-view-media")
-            composeRule.waitUntil(UI_MILLIS) { hasNode("quick-sheet") }
-        }
-        composeRule.waitUntil(LOOKUP_MILLIS) {
-            hasNode("quick-rows") && !hasNode("quick-loading") && !hasNode("quick-waiting-rows")
-        }
+        check(listed) { "The Download sheet listed no qualities for any sample" }
         settle(SIZE_SETTLE_MILLIS)
         capture("download-sheet")
     }
@@ -138,6 +160,7 @@ class ReadmeScreenshotsTest {
     }
 
     private fun library() {
+        closeSheets()
         val deadline = SystemClock.uptimeMillis() + DOWNLOAD_MILLIS
         click("nav-library")
         composeRule.waitForIdle()
@@ -157,6 +180,7 @@ class ReadmeScreenshotsTest {
     }
 
     private fun settings() {
+        closeSheets()
         click("nav-settings")
         composeRule.waitUntil(UI_MILLIS) { hasNode("settings-list") }
         settle()
@@ -181,17 +205,39 @@ class ReadmeScreenshotsTest {
     /** Back to Home from a sheet, the browser or another tab. */
     private fun goHome() {
         repeat(GO_HOME_TRIES) {
-            if (hasNode("home-open-browser") && !hasNode("browser-close")) return
             when {
-                hasNode("found-sheet") || hasNode("quick-sheet") -> device.pressBack()
+                hasSheet() -> device.pressBack()
                 hasNode("browser-close") -> click("browser-close")
+                hasNode("home-open-browser") -> return
                 hasNode("nav-home") -> click("nav-home")
                 else -> device.pressBack()
             }
-            composeRule.waitForIdle()
-            SystemClock.sleep(STEP_PAUSE_MILLIS)
+            pause()
         }
-        composeRule.waitUntil(UI_MILLIS) { hasNode("home-open-browser") }
+        composeRule.waitUntil(UI_MILLIS) { hasNode("home-open-browser") && !hasSheet() }
+    }
+
+    private fun closeSheets() {
+        repeat(GO_HOME_TRIES) {
+            if (!hasSheet()) return
+            device.pressBack()
+            pause()
+        }
+    }
+
+    /** A finished lookup shows its result in the link box; Edit link brings the box back. */
+    private fun editHomeLink() {
+        if (hasNode("home-link")) return
+        if (hasNode("home-found")) click("home-found")
+        if (hasNode("home-not-found")) click("home-not-found")
+        composeRule.waitUntil(UI_MILLIS) { hasNode("home-link") }
+    }
+
+    private fun hasSheet(): Boolean = hasNode("found-sheet") || hasNode("quick-sheet")
+
+    private fun pause() {
+        composeRule.waitForIdle()
+        SystemClock.sleep(STEP_PAUSE_MILLIS)
     }
 
     private fun step(name: String, block: () -> Unit) {
@@ -255,12 +301,11 @@ class ReadmeScreenshotsTest {
         const val LOG_TAG = "YftReadmeScreens"
         const val OPT_IN = "yft.readmeScreenshots"
         const val DIRECTORY = "readme-screenshots"
-        const val SAMPLE_PAGE = "https://commons.wikimedia.org/wiki/File:Big_Buck_Bunny_4K.webm"
         const val WIDTH = 720
         const val GO_HOME_TRIES = 5
         const val LAUNCH_MILLIS = 30_000L
         const val UI_MILLIS = 15_000L
-        const val FIND_MILLIS = 60_000L
+        const val FIND_MILLIS = 45_000L
         const val LOOKUP_MILLIS = 90_000L
         const val DOWNLOAD_MILLIS = 300_000L
         const val POLL_MILLIS = 10_000L
@@ -271,6 +316,12 @@ class ReadmeScreenshotsTest {
         const val PROGRESS_SETTLE_MILLIS = 3_000L
         const val THUMBNAIL_SETTLE_MILLIS = 3_000L
         const val THEME_SETTLE_MILLIS = 3_000L
+        /** Big Buck Bunny (CC BY 3.0, Blender Foundation) on public pages, best first. */
+        val SAMPLES = listOf(
+            "https://vimeo.com/1084537",
+            "https://archive.org/details/BigBuckBunny_124",
+            "https://commons.wikimedia.org/wiki/File:Big_Buck_Bunny_4K.webm",
+        )
         val OPTION_ROW = SemanticsMatcher("a Download sheet row") { node ->
             node.config.getOrNull(SemanticsProperties.TestTag)?.startsWith("quick-option-") == true
         }

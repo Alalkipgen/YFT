@@ -74,6 +74,7 @@ jobs:
           path: |
             docs/screenshots/
             build/readme-screenshots-instrument.log
+            build/readme-screenshots-logcat.txt
           retention-days: 14
           if-no-files-found: warn
       - name: Commit changed screenshots
