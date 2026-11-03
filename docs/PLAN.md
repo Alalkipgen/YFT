@@ -73,6 +73,8 @@ risks. Decisions already made are in [DECISIONS.md](DECISIONS.md). Tests and run
 
 Not planned for 1.0.2. Advice in brackets.
 
+- Investigate why the public Wikimedia Commons Big Buck Bunny page returned an invalid address
+  during the README screenshots run.
 - A Download button inside YouTube's page (not now).
 - YFT's own YouTube page (no).
 - Facebook formats from the browser page (only if needed).

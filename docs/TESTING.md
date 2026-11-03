@@ -26,6 +26,7 @@ The checkpoint check runs the first three rows and the last row.
 |---|---|---|---|
 | Checkpoint check (`checkpoint-validation.yml`, "Work-branch checkpoint validation") | Push to `work/**`, pull request to `main`, Run workflow | Lint, unit tests, debug APK; `:extractor-master:test`; script tests; the unsigned release APK and its check | `yft-debug-apk` (14 days) |
 | Emulator smoke test (`emulator-smoke.yml`, "Android emulator smoke") | Push to `work/phase-*` that changes app, core, extractor or Gradle files; Run workflow | `scripts/ci-emulator-smoke.sh` on an API 34 emulator: `:app:connectedDebugAndroidTest` | `yft-emulator-smoke` |
+| README screenshots (`readme-screenshots.yml`, "README screenshots") | Push to `work/phase-*` that changes `ReadmeScreenshotsTest`, its script or the workflow | `scripts/readme-screenshots.sh` on a Pixel 6-sized API 34 emulator; commits changed pictures to `docs/screenshots/` | `yft-readme-screenshots` |
 | Preview APK (`preview-apk.yml`, "Preview APK (test key)") | Push to `work/phase-*` that changes code; Run workflow | `:app:assemblePreview :app:assemblePreviewTrial`, signed with a new test key, checked with `verify-release-apk.sh` | `yft-preview-apk`, `yft-preview-trial-apk` |
 | Shrunk build check (`minified-check.yml`, "Minified build check (release branch)") | Push that changes code on the release work branches listed in the file, `work/phase-v102-easy` among them | The shrunk previews and the debug test APK on an API 34 emulator (`scripts/ci-minified-check.sh`, `MinifiedBuildCheckTest`) | `yft-minified-check` |
 | Owner test APKs (`master-optin-debug-apk.yml`, "Master opt-in debug APK (spike)") | Push to `spike/master-extractor-backup`; Run workflow; label `build-optin-apk` on a pull request | Toolkit drift check, the capture script and own-solver tests, a debug APK with the chosen switches | `yft-master-optin-debug-apk` |
@@ -80,6 +81,9 @@ Keep these files and headings as the tests expect.
 - **Device smoke test:** `bash scripts/device-smoke-test.sh [--fresh] [--upgrade-from OLD.apk] <apk>`
   installs, starts and (with `--upgrade-from`) upgrades the app. Then do the manual checklist in
   [RELEASE.md](RELEASE.md).
+- **README screenshots:** `bash scripts/readme-screenshots.sh` runs `ReadmeScreenshotsTest` on a clean
+  emulator and copies Home, Found on this page, the Download sheet, Downloads, Library, Settings
+  and dark Home to `docs/screenshots/`. The test downloads the public Big Buck Bunny sample.
 - `AudioVideoMuxerInstrumentedTest` checks merges on a device.
 - None of these reports may hold a link, a post ID or an address.
 

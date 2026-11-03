@@ -1,72 +1,110 @@
-# YFT — Video Downloader
+<p align="center">
+  <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" width="96" height="96" alt="YFT app icon">
+</p>
 
-YFT ("Video Downloader") is an ad-free Android app. It finds, previews and downloads the videos and
-audio a user can watch: direct files, HTML5 players, HLS and DASH streams, and videos on YouTube,
-Facebook, Instagram, TikTok, X, Vimeo and VK. It never breaks DRM.
+<h1 align="center">YFT — Video Downloader</h1>
 
-## Status
+<p align="center">
+  An ad-free Android app that finds, previews and saves the videos and audio you can watch.
+</p>
 
-- 1.0.1 is the newest release (2026-10-29). 1.0.0 (2026-10-26) was the first stable release.
-- 1.0.2 is in work on `work/phase-v102-easy`. Its changes are in [CHANGELOG.md](CHANGELOG.md). The
-  steps to release it are in [docs/PLAN.md](docs/PLAN.md).
-- YFT is shared through GitHub Releases only.
+<p align="center">
+  <a href="https://github.com/Alalkipgen/YFT/releases/latest"><img src="https://img.shields.io/github/v/release/Alalkipgen/YFT?label=release&color=14b8a6" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/Android-7.0%2B-3DDC84?logo=android&logoColor=white" alt="Android 7.0 or newer">
+  <img src="https://img.shields.io/badge/ads-none-14b8a6" alt="No ads">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Alalkipgen/YFT?color=blue" alt="MIT license"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/Alalkipgen/YFT/releases/latest"><b>Download the latest APK</b></a>
+  ·
+  <a href="#install">Install</a>
+  ·
+  <a href="#supported-sites">Supported sites</a>
+  ·
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
+
+## Screenshots
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/home.png" width="200" alt="Home with a link box, your sites and recent downloads"><br><sub><b>Home</b></sub></td>
+    <td align="center"><img src="docs/screenshots/download-sheet.png" width="200" alt="Download sheet with video and audio qualities and their sizes"><br><sub><b>Download sheet</b></sub></td>
+    <td align="center"><img src="docs/screenshots/browser-found.png" width="200" alt="In-app browser showing the video found on the page"><br><sub><b>Found on this page</b></sub></td>
+    <td align="center"><img src="docs/screenshots/downloads.png" width="200" alt="Downloads with progress"><br><sub><b>Downloads</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/library.png" width="200" alt="Library of saved videos"><br><sub><b>Library</b></sub></td>
+    <td align="center"><img src="docs/screenshots/settings.png" width="200" alt="Settings"><br><sub><b>Settings</b></sub></td>
+    <td align="center"><img src="docs/screenshots/home-dark.png" width="200" alt="Home in the dark theme"><br><sub><b>Dark theme</b></sub></td>
+    <td></td>
+  </tr>
+</table>
+
+<sub>The screenshots come from the current code on a Pixel 6-sized emulator. They show the public
+sample <i>Big Buck Bunny</i> (© Blender Foundation, CC BY 3.0) from [Internet Archive](https://archive.org/details/BigBuckBunny_124).</sub>
+
+## Features
+
+- **Paste or share a link.** Paste a link on Home, or share one from another app. The Download
+  sheet opens with available qualities and sizes when known.
+- **Built-in browser.** Browse any site. When a page plays a video, tap **Download**. In a feed,
+  YFT can find the video on screen on supported feeds.
+- **Video and audio.** Pick a quality, or save the sound alone as M4A or MP3. Separate video and
+  compatible video and sound tracks are merged on the phone.
+- **Streams, not just files.** Direct files, HTML5 players, HLS and DASH streams. A `blob:`
+  address is never saved as a file: YFT finds the real source behind it.
+- **Reliable downloads.** Downloads run in the background with pause, resume and Retry. An
+  expired link is renewed with Fresh link.
+- **Backup finder.** When a site's own lookup finds no video, the Backup finder looks again.
+- **Library.** Play, share and delete saved files, and choose the folder they are saved to.
+- **Your choice of look.** Light and dark themes that follow the system or your pick.
+- **Updates in the app.** Settings → About → Updates checks for and installs new releases.
+- **No ads, no account.** YFT has no ads and never signs in to a site for you.
+
+## Supported sites
+
+| Site | What YFT saves |
+| --- | --- |
+| YouTube | Videos and Shorts, up to 2160p, and their audio |
+| Facebook | Videos, reels, watch links and posts with video |
+| Instagram | Videos in posts and reels |
+| TikTok | Videos from full and short links |
+| X (Twitter) | Videos and GIFs in posts |
+| Vimeo | Public and unlisted videos |
+| VK | Videos and clips on `vk.com`, `vk.ru` and `vkvideo.ru` |
+| Other sites | The page's own video, found by the Page video finder |
+
+Sites change often, so a site can break between releases. The full list of links, qualities and
+limits is in the [support matrix](docs/SUPPORT_MATRIX.md).
 
 ## Install
 
-YFT needs Android 7.0 (API 24) or newer. It targets Android 15 (API 35).
+YFT needs **Android 7.0 (API 24)** or newer and targets Android 15 (API 35). It is shared only on
+[GitHub Releases](https://github.com/Alalkipgen/YFT/releases).
 
-1. Download `video-downloader-<version>.apk` and `SHA256SUMS` from the repository's Releases page.
-2. Check the file with `sha256sum -c SHA256SUMS` (on Windows, `Get-FileHash`).
-3. Open the APK on the phone. Allow your browser or file manager to install apps when Android asks.
+1. Download `video-downloader-<version>.apk` and `SHA256SUMS` from the
+   [latest release](https://github.com/Alalkipgen/YFT/releases/latest).
+2. Check the file: `sha256sum -c SHA256SUMS` (on Windows, `Get-FileHash`).
+3. Open the APK on your phone. Allow your browser or file manager to install apps when Android
+   asks.
 
-Later releases signed with the same key install over it. YFT can also update itself in Settings →
-About → Updates. Release notes are in [docs/release/](docs/release/).
+New releases install over the old one and keep your files and settings. YFT can also update
+itself in **Settings → About → Updates**. Release notes are in [docs/release/](docs/release/).
 
-Test builds: the "Preview APK (test key)" workflow makes "YFT Preview" (`com.alal.yft.preview`) and
-"YFT Trial" (`com.alal.yft.trial`). They install beside the release app. Each run signs with a new
-test key, so uninstall an older preview first. See [docs/RELEASE.md](docs/RELEASE.md).
+## Privacy and boundaries
 
-## What YFT does
+- YFT shows no ads and has no account.
+- The site adapters never sign in. Your own browser session is sent only to that site's hosts.
+- YFT does not bypass DRM, payment, private access or age checks.
+- A site is listed as supported only when tests back it.
 
-- An in-app browser with a Download button for the page's video, or the video on screen in a feed.
-- Home: paste a link, or share one from another app, and its Download sheet opens.
-- Site adapters for YouTube, Facebook, Instagram, TikTok, X, Vimeo and VK. The Page video finder
-  covers other sites.
-- The Download sheet lists real qualities with sizes, plus Audio (M4A and MP3).
-- Downloads run in the background with pause, resume, Retry and Fresh link renewal. Separate video
-  and sound tracks are merged on the phone.
-- The Backup finder (Master) looks again when a site's own lookup finds no video.
-- A Library that plays, shares and deletes saved files, a save folder you choose, and in-app update.
+The decisions behind these rules are in [docs/DECISIONS.md](docs/DECISIONS.md).
 
-What works on each site: [docs/SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md).
+## For developers
 
-## Boundaries
-
-YFT does not bypass DRM, payment, private access, age checks or account sign-in. For public videos
-the owner allows any method that works: app or device client identities, proof-of-origin tokens,
-bot-check workarounds and the user's own browser session ([docs/DECISIONS.md](docs/DECISIONS.md)).
-Site support is claimed only when tests back it. A `blob:` address is never a file: YFT finds the
-real request, source or manifest behind it.
-
-## Documents
-
-| Document | What it holds |
-| --- | --- |
-| [AGENTS.md](AGENTS.md) | Rules for agents who work in this repository |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Modules, data flow, main and Master, build flags, security |
-| [docs/DESIGN.md](docs/DESIGN.md) | The design system and the rules the screens follow |
-| [docs/DECISIONS.md](docs/DECISIONS.md) | Decisions already made |
-| [docs/PLAN.md](docs/PLAN.md) | What is open: release steps, owner decisions, known issues, backlog, risks |
-| [docs/TESTING.md](docs/TESTING.md) | Test commands, CI workflows, phone tools, runbooks |
-| [docs/RELEASE.md](docs/RELEASE.md) | Release identity, signing, preview builds, publishing |
-| [docs/SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md) | What each site and feature supports |
-| [docs/GLOSSARY.md](docs/GLOSSARY.md) | Feature names, and old work labels mapped to them |
-| [docs/SESSION_STATE.md](docs/SESSION_STATE.md) | Where the current work stands |
-| [docs/THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md) | Third-party code and licenses |
-| [CHANGELOG.md](CHANGELOG.md) | Changes per version |
-| [extractor-master](extractor-master/README.md), [extractor-master-android](extractor-master-android/README.md) | Master's two modules |
-
-## Build and test
+### Build and test
 
 You need JDK 17 and Android SDK 35.
 
@@ -76,12 +114,30 @@ You need JDK 17 and Android SDK 35.
 ```
 
 `./gradlew :app:assembleRelease` builds `app-release-unsigned.apk` unless release signing is set up
-([docs/RELEASE.md](docs/RELEASE.md)). More commands and the CI workflows are in
-[docs/TESTING.md](docs/TESTING.md). On a machine with about 4 GiB of RAM and no swap, run the tests
-and `:app:assembleRelease` as separate Gradle runs. `spikes/phase0-media/` holds the early
-feasibility harness.
+([docs/RELEASE.md](docs/RELEASE.md)). On a machine with about 4 GiB of RAM and no swap, run the
+tests and `:app:assembleRelease` as separate Gradle runs. More commands, the CI workflows and the
+phone tests are in [docs/TESTING.md](docs/TESTING.md). `bash scripts/readme-screenshots.sh` takes
+the screenshots above on an emulator.
 
-## Reference
+### Documents
+
+| Document | What it holds |
+| --- | --- |
+| [AGENTS.md](AGENTS.md) | Rules for agents who work in this repository |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Modules, data flow, main and Master, build flags, security |
+| [docs/DESIGN.md](docs/DESIGN.md) | The design system and the rules the screens follow |
+| [docs/DECISIONS.md](docs/DECISIONS.md) | Decisions already made |
+| [docs/PLAN.md](docs/PLAN.md) | What is open: owner decisions, known issues, backlog, risks |
+| [docs/TESTING.md](docs/TESTING.md) | Test commands, CI workflows, phone tools, runbooks |
+| [docs/RELEASE.md](docs/RELEASE.md) | Release identity, signing, preview builds, publishing |
+| [docs/SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md) | What each site and feature supports |
+| [docs/GLOSSARY.md](docs/GLOSSARY.md) | Feature names, and old work labels mapped to them |
+| [docs/SESSION_STATE.md](docs/SESSION_STATE.md) | Where the current work stands |
+| [docs/THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md) | Third-party code and licenses |
+| [CHANGELOG.md](CHANGELOG.md) | Changes per version |
+| [extractor-master](extractor-master/README.md), [extractor-master-android](extractor-master-android/README.md) | Master's two modules |
+
+### Reference
 
 [AlalDownloader](https://github.com/Alalkipgen/AlalDownloader) (MIT) is a reference for browser
 request context, segmented downloads, queueing, pause, resume and recovery. YFT does not depend on
@@ -89,4 +145,5 @@ it at run time.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+YFT is released under the [MIT License](LICENSE). Third-party code and its licenses are listed in
+[docs/THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md).

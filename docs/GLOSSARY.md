@@ -98,6 +98,7 @@ download sheet's list of lines from the lookup that found the rows; "—" means 
 | Census APK | Owner test APK with the census screens | `master-optin-debug-apk.yml` | `yft.socialLadder` + `yft.masterCapture` | — |
 | Shrunk build check | Builds the shrunk (R8) release and previews and checks them | `minified-check.yml`, `scripts/ci-minified-check.sh` | — | — |
 | Emulator smoke test | Runs the app and its device tests on a CI emulator | `emulator-smoke.yml`, `scripts/ci-emulator-smoke.sh`, `scripts/ci-smoke-diagnostics.py` | — | — |
+| README screenshots | Takes the README's app pictures on an emulator and commits them | `readme-screenshots.yml`, `scripts/readme-screenshots.sh`, `ReadmeScreenshotsTest` | — | — |
 | Checkpoint check | The main CI check: build, tests, lint | `checkpoint-validation.yml`, `scripts/checkpoint.sh` | — | — |
 | Spike validation | CI check for pushes to main of the early spike paths | `phase0-validation.yml` | — | — |
 | CI Gradle memory | Sets the runner's Gradle memory in one place | `scripts/ci-gradle-memory.sh` | — | — |
