@@ -10,7 +10,8 @@ Overwrite this file at each checkpoint (40 lines at most). Never append. History
 - Facebook, Instagram and X passed three promotion runs on the earlier census build. VK was
   dropped from those runs and has not passed. Enabling fill includes VK, so do not publish on
   the strength of the earlier results. VK's blank embed and moved clip host need fixes and proof.
-- The release version bump and release notes are not done. The changelog remains undated.
+- The release commit sets version 1.0.2 / 1000200 and adds `docs/release/1.0.2.md`. The
+  changelog remains undated until publication.
 
 ## Validation and next steps
 
@@ -18,6 +19,7 @@ Overwrite this file at each checkpoint (40 lines at most). Never append. History
 - Script tests: `python3 -m unittest discover -s scripts/tests -p 'test_*.py'` passed (87,
   4 skipped). Android builds require JDK 17 and the Android SDK; this computer has neither
   configured. Check CI on this commit; CI must validate and build the previews.
-- Build a census APK from the final code, resolve VK's known failures, and run the required
+- The owner requested release. Build a census APK from the final code, resolve VK's known failures,
+  and run the required
   promotion checks. Do the phone checklist on both previews of the final release commit. Follow
   `docs/PLAN.md`; merging and publishing require the owner's approval.
