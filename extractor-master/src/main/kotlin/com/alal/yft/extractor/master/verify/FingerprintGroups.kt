@@ -3,7 +3,7 @@ package com.alal.yft.extractor.master.verify
 import com.alal.yft.core.model.media.MediaCandidate
 
 /**
- * R4: groups ranked, already checked files by [MediaFingerprint]. Order is kept: the first group
+ * Media fingerprint: groups ranked, already checked files by [MediaFingerprint]. Order is kept: the first group
  * holds the best-ranked file (main) and every file that is the same video; later groups are other
  * videos. A lone file whose cues disagree with a main that two agreeing files confirm is dropped
  * as an ad, preview or related clip; an ambiguous file (no cues, or a second agreeing ladder)

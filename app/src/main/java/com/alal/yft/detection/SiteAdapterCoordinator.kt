@@ -28,9 +28,9 @@ sealed interface SiteAdapterOutcome {
         val adapterId: String,
         val candidates: List<MediaCandidate>,
         /**
-         * Phase 1.4 item 7 (YouTube routing B) R4: the backup's details of rows it found — only
-         * route B's (its line first: `master: route B after <reason>; replayed N; new M`), so a
-         * route-B build can show them. Every other answer: none.
+         * YouTube backup route: the backup's details of rows it found — only
+         * the route's (its line first: `master: route B after <reason>; replayed N; new M`), so a
+         * build with the route can show them. Every other answer: none.
          */
         val details: List<String> = emptyList(),
     ) : SiteAdapterOutcome
@@ -42,7 +42,7 @@ sealed interface SiteAdapterOutcome {
         val allowsGenericFallback: Boolean,
         val details: List<String> = emptyList(),
         /**
-         * Social plan task 15 (F3b): the answer is final whatever its [reason] — a social ladder's
+         * Social ladders: the answer is final whatever its [reason] — a social ladder's
          * photos-only answer (Instagram, TikTok, X: the post has no video), so asking again cannot
          * change it. Only Master's browser fallback sets it, in a social-ladder build; every other
          * answer: false, as before.
@@ -78,19 +78,19 @@ sealed interface SiteAdapterOutcome {
  * its adapter. Adapter candidates are re-anchored to the URL the browser is actually showing,
  * because the page store groups candidates by the live page address while an adapter reports the
  * canonical one. A merged quality this phone cannot write or play, such as AV1 before Android
- * 14, is left out here so no sheet offers it (P4).
+ * 14, is left out here so no sheet offers it.
  *
- * P17: answers are shared through [SiteLookupCache]: a video found minutes ago is not asked for
- * again, and a second lookup of a video while the first runs waits for it. A lookup with the
- * user's session may take the public answer of one without; never the other way round.
+ * Lookup reuse: answers are shared through [SiteLookupCache]: a video found minutes ago is not
+ * asked for again, and a second lookup of a video while the first runs waits for it. A lookup with
+ * the user's session may take the public answer of one without; never the other way round.
  *
- * P40 (step 5): a lookup runs its steps in order and its Details list each step and its result.
- * In the browser ([inspect]'s tab given): the tab's own data for the post, the adapter's page
- * read with the tab's cookies, then [hiddenPages] only when the tab holds no data for the post
- * (it is read once more first: a loading page may have it by now). On Home: the page read,
- * then the hidden page. The hidden page follows only a failure of YFT's own request (a page it
- * could not read, an HTTP or network error, files that did not open), never the site's own
- * answer about the post or the user (private, sign-in, region, DRM, a check, a rate limit).
+ * TikTok page reader: a lookup runs its steps in order and its Details list each step and its
+ * result. In the browser ([inspect]'s tab given): the tab's own data for the post, the adapter's
+ * page read with the tab's cookies, then [hiddenPages] only when the tab holds no data for the post
+ * (it is read once more first: a loading page may have it by now). On Home: the page read, then the
+ * hidden page. The hidden page follows only a failure of YFT's own request (a page it could not
+ * read, an HTTP or network error, files that did not open), never the site's own answer about the
+ * post or the user (private, sign-in, region, DRM, a check, a rate limit).
  */
 class SiteAdapterCoordinator @Inject constructor(
     private val registry: SiteExtractorRegistry,
@@ -124,8 +124,9 @@ class SiteAdapterCoordinator @Inject constructor(
             lookups.forget(key)
         } else {
             remembered(key, nowEpochMs)?.let {
-                // Phase 1.4 item 7 F2: a route-B lookup's record notes that main did not ask in it
-                // (only a route-B build's YouTube lookup has a record; elsewhere nothing happens).
+                // YouTube backup route: its lookup's record notes that main did not ask in it
+                // (only a YouTube lookup in a build with the route has a record;
+                // elsewhere nothing happens).
                 currentCoroutineContext()[LookupRecord]?.noteReuse(LookupRecord.Reuse.REMEMBERED)
                 return it.anchoredTo(pageUrl)
             }
@@ -139,7 +140,7 @@ class SiteAdapterCoordinator @Inject constructor(
                 extract(matched, pageUrl, requestContext, nowEpochMs, key, tab)
             }
         }
-        // F2: joining another caller's running lookup — main's requests go to that caller's record.
+        // Joining another caller's running lookup — main's requests go to that caller's record.
         if (!started) context[LookupRecord]?.noteReuse(LookupRecord.Reuse.JOINED)
         return try {
             when (val outcome = lookup.work.await()) {
@@ -172,7 +173,7 @@ class SiteAdapterCoordinator @Inject constructor(
         return when (result) {
             is SiteExtractionResult.Success -> SiteAdapterOutcome.Detected(
                 adapterId = matched.extractor.id,
-                // One extraction is one video: its qualities share one download sheet (P3).
+                // One extraction is one video: its qualities share one download sheet.
                 candidates = result.candidates.map { candidate ->
                     candidate.anchoredTo(pageUrl).let { anchored ->
                         if (anchored.videoId != null) {
@@ -214,7 +215,7 @@ class SiteAdapterCoordinator @Inject constructor(
     /** The final result of a lookup's steps and the Details of the steps before it. */
     private class Ordered(val result: SiteExtractionResult, val steps: List<String>)
 
-    /** P40 step 5: tab data → the page read → the hidden page, as far as each is needed. */
+    /** TikTok page reader: tab data → the page read → the hidden page, as far as each is needed. */
     private suspend fun inOrder(
         matched: SiteAdapterSelection.Matched,
         pageUrl: String,
@@ -294,7 +295,7 @@ class SiteAdapterCoordinator @Inject constructor(
         return result
     }
 
-    /** One adapter run; a crash is a failure named by its class (P39, R25). */
+    /** One adapter run; a crash is a failure named by its class. */
     private suspend fun run(
         matched: SiteAdapterSelection.Matched,
         identity: SitePageIdentity,
@@ -323,7 +324,7 @@ class SiteAdapterCoordinator @Inject constructor(
             throw cancellation
         } catch (failure: Exception) {
             // An adapter crash must not take the page down; generic detection still runs.
-            // P39 (R25): it is named by its class, never reported as a changed page format.
+            // It is named by its class, never reported as a changed page format.
             SiteExtractionResult.Failure(
                 reason = SiteExtractionFailure.MALFORMED_RESPONSE,
                 details = listOf(errorLine(failure)),
@@ -383,7 +384,7 @@ class SiteAdapterCoordinator @Inject constructor(
         }
 
     /**
-     * P39 (R25): whether the enabled adapter [adapterId] counts [requestUrl] as its player
+     * Whether the enabled adapter [adapterId] counts [requestUrl] as its player
      * fetching media, on any page of its site (a feed page has no video address of its own).
      */
     fun isPlayerMediaOf(adapterId: String, requestUrl: String): Boolean {
@@ -405,14 +406,14 @@ class SiteAdapterCoordinator @Inject constructor(
 
     /**
      * The video [pageUrl] shows as "site:contentId", the same for every address of it, or null
-     * when no enabled adapter handles the page (P12: one lookup per video).
+     * when no enabled adapter handles the page (one lookup per video).
      */
     fun videoKey(pageUrl: String): String? =
         (registry.select(pageUrl) as? SiteAdapterSelection.Matched)?.identity?.let { identity ->
             "${identity.siteId}:${identity.contentId}"
         }
 
-    /** R8 (Master): the video an enabled adapter identified for [pageUrl], or null. */
+    /** Site contract reader: the video an enabled adapter identified for [pageUrl], or null. */
     fun identity(pageUrl: String): SitePageIdentity? =
         (registry.select(pageUrl) as? SiteAdapterSelection.Matched)?.identity
 
@@ -438,13 +439,13 @@ class SiteAdapterCoordinator @Inject constructor(
 
     private companion object {
         /**
-         * P40: failures of YFT's own request, after which the hidden page may still read the
-         * post. The site's own answers about the post or the user are never in this list.
+         * TikTok page reader: failures of YFT's own request, after which the hidden page may still
+         * read the post. The site's own answers about the post or the user are never in this list.
          */
         /**
-         * P46: "private or unavailable" from the site's status in its page data alone (no HTTP
-         * status, no message of the adapter's own): TikTok's phone and desktop pages say so for
-         * some public posts its own player still gets, so the hidden page is asked too.
+         * TikTok adapter: "private or unavailable" from the site's status in its page data alone
+         * (no HTTP status, no message of the adapter's own): TikTok's phone and desktop pages say
+         * so for some public posts its own player still gets, so the hidden page is asked too.
          */
         private fun SiteExtractionResult.Failure.isStatusOnly(): Boolean =
             reason == SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE &&

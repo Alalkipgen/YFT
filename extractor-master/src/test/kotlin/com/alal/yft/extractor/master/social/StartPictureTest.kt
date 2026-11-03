@@ -8,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan task 16 (F6): a file's picture size from the first bytes V read of it
+ * A file's picture size from the first bytes the Row check read of it
  * ([StartPicture]), for the rows that state none (the plugin player's answer names no size, so on
  * the phone of 2026-10-23 Facebook link 1's Master rows read "Quality unknown"). The picture
  * track's header (`tkhd`, 16.16), else its visual sample entry (`stsd`); a turned track's swapped;
@@ -43,7 +43,7 @@ class StartPictureTest {
     }
 
     /**
-     * VK's pack proof (V3's retest 2): the picture track's sample entry names its codec, so a VK
+     * VK's pack proof (the capture step's second retest): the picture track's sample entry names its codec, so a VK
      * picture file row that states none names its own (the phone's merge gate reads it).
      */
     @Test
@@ -177,7 +177,7 @@ class StartPictureTest {
     }
 }
 
-/** MP4 file starts with a picture size, made in code, for task 16's (F6) tests (the init check's boxes). */
+/** MP4 file starts with a picture size, made in code, for these tests (the init check's boxes). */
 internal object PictureBytes {
     private fun u32(value: Long): ByteArray = InitBytes.u32(value)
 

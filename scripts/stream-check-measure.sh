@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Phase 1.2 N2 phone measurement (MASTER_KEY_PHASE1_2_PLAN.md §2 "Live check V in more detail"):
+# Own-solver ladder phone measurement (live check V):
 # runs the opt-in StreamCheckMeasureTest on a connected phone. One public, embeddable video's
 # stream is read (first 1 MiB at most) with the right n, an unchanged n, a wrong n and a wrong
 # signature; the report gives each status class, bytes and time, and the n rule it suggests

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# R6 / YT-2 canary (owner-run, never in CI): asks YouTube live, as Master's module would, whether
+# Master YouTube module canary (owner-run, never in CI): asks YouTube live, as Master's module would, whether
 # visionOS alone still answers a public video with direct addresses. Exit 0 = pass.
 # A client-table value changes only after this fails.
 # usage: bash scripts/master-youtube-canary.sh <public video id>

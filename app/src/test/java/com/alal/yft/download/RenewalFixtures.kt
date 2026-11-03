@@ -32,6 +32,7 @@ import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.settings.DownloadLocation
+import com.alal.yft.core.model.settings.SaveFolder
 import com.alal.yft.download.RenewalFixtures.MIB
 import com.alal.yft.download.RenewalFixtures.NOW
 import com.alal.yft.download.RenewalFixtures.TOTAL
@@ -47,7 +48,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.TestScope
 
-/** Track E (E2): a task store in memory; with [failure] every save fails, as a full disk. */
+/** Fresh link renewal: a task store in memory; with [failure] every save fails, as a full disk. */
 internal class MemoryTaskStore : DownloadTaskStore {
     private val saved = linkedMapOf<String, StoredDownloadTask>()
     var failure: IOException? = null
@@ -67,13 +68,17 @@ internal class MemoryTaskStore : DownloadTaskStore {
 /** A file probe that answers each plan with its own link's facts, unless told otherwise. */
 internal class RecordingProbe : DirectMetadataProbe {
     val plans = CopyOnWriteArrayList<DirectDownloadPlan>()
+
+    /** Whether each probe asked the HEAD first (not for a file its adapter checked). */
+    val askedHead = CopyOnWriteArrayList<Boolean>()
     var answer: (DirectDownloadPlan) -> DirectProbeResult = { plan ->
         DirectProbeResult.Success(RenewalFixtures.metadata(plan.sourceUrl))
     }
     var thrown: Exception? = null
 
-    override suspend fun probe(plan: DirectDownloadPlan): DirectProbeResult {
+    override suspend fun probe(plan: DirectDownloadPlan, askHead: Boolean): DirectProbeResult {
         plans += plan
+        askedHead += askHead
         thrown?.let { throw it }
         return answer(plan)
     }
@@ -88,6 +93,7 @@ internal class NamingDestinations : DownloadDestinationProvider {
         fileName: String,
         mimeType: String?,
         location: DownloadLocation,
+        folder: SaveFolder?,
     ): PreparedDestination {
         failure?.let { throw it }
         return PreparedDestination(

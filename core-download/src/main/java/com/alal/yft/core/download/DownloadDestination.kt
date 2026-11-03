@@ -30,7 +30,7 @@ interface DownloadDestination {
     fun discard()
 
     /**
-     * Starts over (P21): discards this destination and returns a new, empty one of the same kind
+     * Starts over: discards this destination and returns a new, empty one of the same kind
      * and name, so a Retry that cannot use the old partial file writes again from byte 0.
      *
      * Returns null, without discarding anything, when this destination cannot make a new one
@@ -41,7 +41,7 @@ interface DownloadDestination {
     fun renew(): DownloadDestination? = null
 
     /**
-     * This destination's temporary file as a seekable read-write file descriptor, emptied (P27),
+     * This destination's temporary file as a seekable read-write file descriptor, emptied,
      * for a writer that needs one: Android's MediaMuxer then writes a merged file straight into
      * it, without a second copy. Call after [prepare]; close it before [temporaryLength] and
      * [commit].
@@ -53,7 +53,7 @@ interface DownloadDestination {
     fun openFileDescriptorOutput(): FileDescriptorOutput? = null
 
     /**
-     * D1: gives the file [commit] publishes the extension [extension] and the type [mimeType],
+     * Gives the file [commit] publishes the extension [extension] and the type [mimeType],
      * for a download kept in another format than its name says (an HLS download that cannot be
      * remuxed into an MP4 stays MPEG-TS). Call after the bytes are verified, before [commit].
      *
@@ -64,7 +64,7 @@ interface DownloadDestination {
 }
 
 /**
- * D1: [name] with its extension, a short run of letters and digits after its last dot, replaced
+ * [name] with its extension, a short run of letters and digits after its last dot, replaced
  * by [extension], or with [extension] added when it has none.
  */
 internal fun withExtension(name: String, extension: String): String {
@@ -78,7 +78,7 @@ internal fun withExtension(name: String, extension: String): String {
 
 private const val MAX_EXTENSION_CHARS = 8
 
-/** A destination's file open for reading and writing at any position (P27). */
+/** A destination's file open for reading and writing at any position. */
 interface FileDescriptorOutput : Closeable {
     val fileDescriptor: FileDescriptor
 }
@@ -101,7 +101,7 @@ class FileDownloadDestination(
     private val partialFile: File,
     private val completedFile: File,
 ) : DownloadDestination {
-    /** Where [commit] publishes: [completedFile], or the sibling [renameExtension] chose (D1). */
+    /** Where [commit] publishes: [completedFile], or the sibling [renameExtension] chose. */
     @Volatile
     private var publishedFile: File = completedFile
 
@@ -140,7 +140,7 @@ class FileDownloadDestination(
     }
 
     /**
-     * D1: the completed file's name with [extension], made unique the way the app picks names
+     * The completed file's name with [extension], made unique the way the app picks names
      * (a published file or another download's `.part` reservation takes it): "name (n).ext".
      * [mimeType] is not stored; the extension says it.
      */

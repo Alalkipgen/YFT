@@ -31,13 +31,13 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Social plan task 10 (decision 22, `MASTER_KEY_SOCIAL_PLAN.md` §8; P46's choice B reversed,
- * `TT_SERVICE=OFF`): main's TikTok adapter as [SiteAdapterModule] builds it never asks the
- * public download service (`tikwm.com`). A post TikTok's own pages and the hidden page give no
- * file fails with TikTok's own reason, its Details without a "download service" line; a post
- * TikTok's pages give keeps the rows P46's wiring gave. P46's wiring (the service on) over the
- * same fakes still takes the service's files: the fakes would have answered it. Made-up posts,
- * IDs and addresses; an interceptor answers every request; no live calls.
+ * The download service off (docs/DECISIONS.md, `TT_SERVICE=OFF`): main's TikTok adapter as
+ * [SiteAdapterModule] builds it never asks the public download service (`tikwm.com`). A post
+ * TikTok's own pages and the hidden page give no file fails with TikTok's own reason, its Details
+ * without a "download service" line; a post TikTok's pages give keeps the rows the old wiring gave.
+ * The old wiring (the service on) over the same fakes still takes the service's files: the fakes
+ * would have answered it. Made-up posts, IDs and addresses; an interceptor answers every request;
+ * no live calls.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -57,7 +57,7 @@ class SiteAdapterTikTokServiceTest {
         assertTrue(failed.details.toString(), "hidden page: no data after 20 s" in failed.details)
         assertNoService(network, failed.details)
 
-        // P46's wiring over the same fakes took the service's files.
+        // The old wiring over the same fakes took the service's files.
         val before = FakeNetwork(phone = PRIVATE_PAGE, desktop = PRIVATE_PAGE)
         val found = p46(before, HiddenPages(NO_DATA)).inspect(POST, BROWSER, NOW) as SiteAdapterOutcome.Detected
         assertEquals(listOf(SERVICE_HD, SERVICE_SD), found.candidates.map { it.mediaUrl })
@@ -78,7 +78,7 @@ class SiteAdapterTikTokServiceTest {
         assertTrue(failed.details.toString(), "data: no file opened" in failed.details)
         assertNoService(network, failed.details)
 
-        // P46's wiring over the same fakes took the service's files.
+        // The old wiring over the same fakes took the service's files.
         val before = FakeNetwork(phone = postPage(REFUSED), desktop = postPage(REFUSED))
         val found = p46(before, HiddenPages(found(item(REFUSED)))).inspect(POST, BROWSER, NOW)
             as SiteAdapterOutcome.Detected
@@ -117,7 +117,7 @@ class SiteAdapterTikTokServiceTest {
         return coordinator(extractors, pages)
     }
 
-    /** P46's wiring (the owner's choice B, `TT_SERVICE=ON`): the app's TikTok adapter before decision 22. */
+    /** The old wiring (`TT_SERVICE=ON`): the app's TikTok adapter with the download service. */
     private fun p46(network: FakeNetwork, pages: HiddenPageReader): SiteAdapterCoordinator {
         val tiktok = TikTokExtractor(
             http = SocialLadder.tiktokClient(network.client()),

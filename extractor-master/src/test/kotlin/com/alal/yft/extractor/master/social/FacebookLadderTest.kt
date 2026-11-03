@@ -34,13 +34,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S1a (3): Facebook's ladder in Master's engine, F1 judged. Inside a Facebook
+ * The Facebook ladder in Master's engine, F1 (`facebook F1` in Lookup details) judged. Inside a Facebook
  * lookup's own record the plugin player is asked once (route B's rules: no session, nothing new
  * after a 429), read for the video and judged: rows bound to the video go to the media checks; a
  * final answer only on the page's own route (private or removed, in every language) or DRM;
  * "needs playback", a sign-in wall, a 429, no evidence and another video's page leave it to the
  * tab's own playback. A share link is read through main's resolved link. Without the lookup's
- * record R8's path is unchanged. Synthetic pages; no live calls.
+ * record the site contract reader's path is unchanged. Synthetic pages; no live calls.
  */
 class FacebookLadderTest {
     @Test
@@ -236,7 +236,7 @@ class FacebookLadderTest {
     @Test
     fun `without the lookup's record or after a sign-in failure the ladder asks nothing`() = runTest {
         val identity = identify(WATCH)
-        // No record (every build but the social-ladder one): R8's ask, exactly as without a ladder.
+        // No record (every build but the social-ladder one): the site contract reader's ask, exactly as without a ladder.
         val r8Http = answering(embedUrl(identity) to embed(VIDEO), contentType = HTML)
         val r8 = MasterFallbackEngine(
             RecordingValidator(), CountingCapture(), MasterPolicy(enabled = true), contracts = SiteContracts(r8Http),
@@ -248,7 +248,7 @@ class FacebookLadderTest {
         assertEquals(r8Http.requestedUrls, http.requestedUrls)
         assertFalse(plain.result.details.any { it.startsWith(LADDER) })
 
-        // Main's sign-in failure: the user's own playback, never an ask (as R8).
+        // Main's sign-in failure: the user's own playback, never an ask (as the site contract reader does).
         val signIn = answering(embedUrl(identity) to embed(VIDEO), contentType = HTML)
         val record = record()
         val capture = CountingCapture()
@@ -327,7 +327,7 @@ class FacebookLadderTest {
         assertTrue(RungsOff.captureOff(details))
         assertBare(details)
 
-        // Without the lookup's record (R8's path: no ladder) the config's F3 is never read.
+        // Without the lookup's record (the site contract reader's path: no ladder) the config's F3 is never read.
         val plainCapture = CountingCapture()
         val plain = engine(answering(embedUrl(identity) to embed(VIDEO, files = false), contentType = HTML), capture = plainCapture,
             contractsOf = SignedRecipes.rungsOff("F3"))
@@ -371,7 +371,7 @@ class FacebookLadderTest {
         val docs = File(checkNotNull(System.getProperty("yft.recipeDocs")) { "recipe docs unset" })
         suspend fun lookup(config: String): MasterResult.Success {
             val text = File(docs, "configs/$config.json").readText()
-            // VK Master plan §9: the committed config is schema 2; v1.0.0's file is its schema-1 projection.
+            // Signed recipe config: the committed config is schema 2; v1.0.0's file is its schema-1 projection.
             val composed = text.trim().removeSuffix("}").trimEnd() + ""","version":1,"expires":"2027-12-31"}"""
             val remote = SignedRecipes.applied(checkNotNull(RemoteRecipeConfig2.schema1(composed)))
             val http = answering(embedUrl(identity) to embed(VIDEO), contentType = HTML)

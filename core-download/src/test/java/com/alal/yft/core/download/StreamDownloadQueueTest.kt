@@ -393,13 +393,64 @@ class StreamDownloadQueueTest {
         assertEquals(paused.checkpoint.downloadedBytes, paused.downloadedBytes)
     }
 
+    @Test
+    fun `a live task shows its estimated total while its total is unknown`() =
+        runTest {
+            val dispatcher = ControlledDispatcher(progressBytes = 25, progressEstimate = 40)
+            val queue = DownloadQueue(
+                store = InMemoryStore(),
+                transferDispatcher = dispatcher,
+                scope = backgroundScope,
+                maxConcurrentDownloads = 1,
+            )
+
+            queue.enqueue(muxPlan("ended-live"), RecordingDestination())
+            runCurrent()
+
+            val running = queue.tasks.value.single()
+            assertEquals(DownloadTaskStatus.RUNNING, running.status)
+            assertEquals(25L, running.downloadedBytes)
+            assertEquals(null, running.totalBytes)
+            assertEquals(40L, running.estimatedTotalBytes)
+            // Only the size of the saved file counts once it is done.
+            dispatcher.complete("ended-live")
+            runCurrent()
+            val done = queue.tasks.value.single()
+            assertEquals(DownloadTaskStatus.COMPLETED, done.status)
+            assertEquals(10L, done.totalBytes)
+        }
+
+    @Test
+    fun `a known total wins over an estimated one`() = runTest {
+        val dispatcher = ControlledDispatcher(
+            progressTotal = 40,
+            progressBytes = 25,
+            progressEstimate = 50,
+        )
+        val queue = DownloadQueue(
+            store = InMemoryStore(),
+            transferDispatcher = dispatcher,
+            scope = backgroundScope,
+            maxConcurrentDownloads = 1,
+        )
+
+        queue.enqueue(muxPlan("known"), RecordingDestination())
+        runCurrent()
+
+        val running = queue.tasks.value.single()
+        assertEquals(40L, running.totalBytes)
+        assertEquals(null, running.estimatedTotalBytes)
+    }
+
     private class ControlledDispatcher(
         private val progressTotal: Long? = null,
-        /** Bytes the transfer reports as written after its first checkpoint (P41). */
+        /** Bytes the transfer reports as written after its first checkpoint. */
         private val progressBytes: Long? = null,
-        /** D1: the name and type a completed transfer reports it was published as. */
+        /** The estimated total reported with [progressBytes] (an ended live stream). */
+        private val progressEstimate: Long? = null,
+        /** The name and type a completed transfer reports it was published as. */
         private val publishedAs: PublishedFile? = null,
-        /** D1 follow-ups 3 and 4: the bytes of the file a completed transfer published. */
+        /** The bytes of the file a completed transfer published. */
         private val bytesWritten: Long = 10,
     ) : DownloadTransferDispatcher {
         val active = AtomicInteger()
@@ -420,7 +471,15 @@ class StreamDownloadQueueTest {
             val partial = resumeFrom ?: checkpoint(plan, bytes = 1, complete = false)
             progressTotal?.let { onProgress(DownloadProgress(partial.downloadedBytes, it)) }
             onCheckpoint(partial)
-            progressBytes?.let { onProgress(DownloadProgress(it, progressTotal)) }
+            progressBytes?.let { bytes ->
+                onProgress(
+                    DownloadProgress(
+                        downloadedBytes = bytes,
+                        totalBytes = progressTotal,
+                        estimatedTotalBytes = progressEstimate,
+                    ),
+                )
+            }
             return try {
                 completions.computeIfAbsent(plan.taskId) { CompletableDeferred() }.await()
                 val completed = checkpoint(plan, bytes = 10, complete = true)

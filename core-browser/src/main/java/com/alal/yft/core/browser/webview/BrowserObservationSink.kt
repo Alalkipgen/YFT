@@ -21,13 +21,13 @@ interface BrowserObservationSink {
     fun onMainFrameError(url: String?, description: String)
 
     /**
-     * The page named itself or changed its title (P31), also after a single-page navigation.
+     * The page named itself or changed its title, also after a single-page navigation.
      * Called on the main thread with the page's current address.
      */
     fun onPageTitle(url: String, title: String?) = Unit
 
     /**
-     * P32: the page's navigation or new window was blocked and the page stays. Called on the main
+     * The page's navigation or new window was blocked and the page stays. Called on the main
      * thread, never for an address the user typed or chose.
      */
     fun onNavigationBlocked(blocked: BlockedNavigation) = Unit

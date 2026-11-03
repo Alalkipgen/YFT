@@ -33,7 +33,7 @@ data class SitePageIdentity(
     }
 }
 
-/** P40: where a page's own data for one post came from. New values go at the end. */
+/** Where a page's own data for one post came from. New values go at the end. */
 enum class SitePageDataSource(val label: String) {
     /** The data script of the page open in the user's browser tab. */
     TAB_SCRIPT("tab · page script"),
@@ -46,7 +46,7 @@ enum class SitePageDataSource(val label: String) {
 }
 
 /**
- * P40: the data of one post that a page of the site already holds, as its own player gets it:
+ * The data of one post that a page of the site already holds, as its own player gets it:
  * [json] is the post's JSON text (at most [MAX_BYTES] in UTF-8), [source] where it came from.
  * It can hold signed media addresses, so it is never logged: [toString] names the source and
  * the size only.
@@ -79,7 +79,7 @@ class SitePageData(val json: String, val source: SitePageDataSource) {
  * Everything an adapter may use for one extraction.
  *
  * [requestContext] carries the user's own browser session. Adapters replay it only to the site
- * they matched and never persist or log it. P40: [pageData] is the post's data a page of the
+ * they matched and never persist or log it. [pageData] is the post's data a page of the
  * site already holds (the user's tab or YFT's hidden page); an adapter that reads it may build
  * its rows from it without asking for the page. Like the session, it is never logged.
  */

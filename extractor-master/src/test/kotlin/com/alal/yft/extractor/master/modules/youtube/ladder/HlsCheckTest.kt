@@ -12,7 +12,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Phase 1.3 D0: the H check with the token step, against fake playlists; no live calls. */
+/** YouTube HLS rung: the H check with the token step, against fake playlists; no live calls. */
 class HlsCheckTest {
     private val headers = mapOf("User-Agent" to Census.UA, "Referer" to "https://www.youtube.com/watch?v=${Census.V1}")
 

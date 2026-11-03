@@ -47,14 +47,13 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Social plan S2c: the app's X wiring. Flag off: no stage. Flag on: Master's social rung has X's
- * ladder too, claiming only an X lookup with its record (X's labels, a MainPages naming X, so V
- * asks X's media host); X's Details lines and trial words; X's final words only on X's final
- * line (a photo post in main's words); task 0: the widget's 404 is never final, so after the tab's
- * playback finds nothing the lookup keeps main's reason (Try again stays); the trial compares the
- * item (one video of a post with several); the trial's notice reads X's line. Each case passes the
- * switch explicitly, so it holds whatever the build's flags are. Synthetic rows and made-up IDs;
- * no live calls.
+ * X ladder: the app's X wiring. Flag off: no stage. Flag on: Master's social rung has X's ladder
+ * too, claiming only an X lookup with its record (X's labels, a MainPages naming X, so V asks X's
+ * media host); X's Details lines and trial words; X's final words only on X's final line (a photo
+ * post in main's words); the widget's 404 is never final, so after the tab's playback finds nothing
+ * the lookup keeps main's reason (Try again stays); the trial compares the item (one video of a
+ * post with several); the trial's notice reads X's line. Each case passes the switch explicitly, so
+ * it holds whatever the build's flags are. Synthetic rows and made-up IDs; no live calls.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
@@ -101,11 +100,12 @@ class SocialLadderXTest {
             "This post has photos only, no video.", // main's own for a photo post
             SocialLadder.finalMessage(SiteExtractionFailure.NO_MEDIA_FOUND, KEY, listOf("master: x ladder after NO_MEDIA_FOUND", photo)),
         )
-        // Task 15 (F3b): that photo answer is final (no Try again); the 404's is not.
+        // Download sheet: that photo answer is final (no Try again); the 404's is not.
         assertTrue(SocialLadder.photosOnly(SiteExtractionFailure.NO_MEDIA_FOUND, KEY, listOf(photo)))
         assertFalse(SocialLadder.photosOnly(SiteExtractionFailure.NO_MEDIA_FOUND, KEY, listOf(NOT_FOUND_LINE)))
-        // Task 0: the widget's 404 is never final (X1 names no reason), and no X line ends a lookup
-        // as removed, not even an earlier build's REMOVED line.
+        // X ladder: the widget's 404 is never final (the main's-answer step, `x X1` in
+        // Lookup details, names no reason), and no X line ends a lookup as removed, not even an
+        // earlier build's REMOVED line.
         val removed = "master: x X1 main's answer: REMOVED (status 404: no such post); next: FINAL"
         for (reason in SiteExtractionFailure.entries) {
             assertNull("$reason", SocialLadder.finalMessage(reason, KEY, listOf(NOT_FOUND_LINE)))
@@ -140,8 +140,9 @@ class SocialLadderXTest {
 
     @Test
     fun theWidgets404AfterTheTabsPlaybackFindsNothingKeepsMainsReason() = runTest {
-        // Task 0 (c): main's widget answer is a 404; X1 asks nothing, the tab's own playback finds
-        // nothing, and the lookup keeps main's reason (not final: Try again stays), never "removed".
+        // X ladder: main's widget answer is a 404; the main's-answer step asks nothing, the tab's
+        // own playback finds nothing, and the lookup keeps main's reason (not final: Try again
+        // stays), never "removed".
         val fixture = NotFoundFixture()
 
         val (primary, recovered) = fixture.lookup()
@@ -151,8 +152,8 @@ class SocialLadderXTest {
         val failed = recovered as SiteAdapterOutcome.Failed
         assertEquals(main.reason, failed.reason)
         assertTrue(failed.canRetry)
-        // Task 14 (observation e): no video in the tab (X's "post not found" page), so main's own
-        // words (with Try again), not the playback words; its line says which, before X1's.
+        // No video in the tab (X's "post not found" page), so main's own words (with Try again),
+        // not the playback words; its line says which, before the main's-answer step's.
         assertEquals(XExtractor.HIDDEN_MESSAGE, failed.message)
         assertEquals(main.message, failed.message)
         val words = failed.details.indexOf("master: x words: main's (no video in the tab)")
@@ -160,7 +161,8 @@ class SocialLadderXTest {
         assertTrue(failed.details.toString(), failed.details.any { it.startsWith(NOT_FOUND_LINE) })
         assertTrue(words < failed.details.indexOfFirst { it.startsWith(NOT_FOUND_LINE) })
         assertTrue(failed.details.toString(), failed.details.none { "REMOVED" in it || "next: FINAL" in it })
-        // No new widget request (no X2, no token check): Master asks nothing; main asked once.
+        // No new widget request (no widget token re-ask, no token check): Master asks nothing;
+        // main asked once.
         assertEquals(0, fixture.master.asked.get())
         assertEquals(1, fixture.main.asked.get())
         assertEquals(1, fixture.captures.get())
@@ -169,9 +171,9 @@ class SocialLadderXTest {
 
     @Test
     fun anAgeWallGetsTheSignInWordsAndAVideoInTheTabThePlaybackWords() = runTest {
-        // Task 14 (observation e): X's empty tombstone (X1: AGE_LIMITED, the browser next), the
-        // tab without a video: the sign-in words, main's reason kept (Try again); the same answer
-        // with a video in the tab, and the widget's 404 so too: the playback words.
+        // Social ladders: X's empty tombstone (the main's-answer step: AGE_LIMITED, the browser
+        // next), the tab without a video: the sign-in words, main's reason kept (Try again); the
+        // same answer with a video in the tab, and the widget's 404 so too: the playback words.
         val wall = NotFoundFixture(widget = "{\"__typename\":\"TweetTombstone\",\"tombstone\":{}}")
 
         val (primary, recovered) = wall.lookup()
@@ -216,8 +218,8 @@ class SocialLadderXTest {
         assertTrue(SocialLadder.trialSegment(listOf(row(OFF_HOST, KEY, 9_000)), mains, key).contains("the same item: no"))
         assertTrue(SocialLadder.trialSegment(listOf(row(FILE_720, "x:2", 9_000)), mains, key).contains("the same item: no"))
         assertTrue(SocialLadder.trialSegment(emptyList(), mains, key).contains("the same item: no"))
-        // Facebook's: the same video, as before (no item); task 16 (F6): each side's heights, none stated
-        // here (L1: "not stated", not "unknown").
+        // Facebook's: the same video, as before (no item); Social backup trial: each side's
+        // heights, none stated here ("not stated", not "unknown").
         val facebook = "facebook:1000000000000001"
         assertEquals(
             "; trial: Master's rows 1, main's 1; the same video: yes; duration within 1 s: yes; heights not stated vs not stated",
@@ -234,7 +236,7 @@ class SocialLadderXTest {
         val segment = "; trial: Master's rows 1, main's 1; the same item: yes; duration within 1 s: yes"
         val ladder = "master: x ladder after RESPONSE_CHANGED; main's answer replayed, no new ask"
         assertEquals("master: x$segment", SocialLadder.trialNotice(detected(listOf(ladder, "master: x$segment"))))
-        // Task 15 (F1): without the trial's comparison, X's ladder line alone.
+        // Social ladders: without the trial's comparison, X's ladder line alone.
         assertEquals(ladder, SocialLadder.trialNotice(detected(listOf(ladder))))
         assertNull(SocialLadder.trialNotice(detected(listOf("master: vimeo$segment"))))
     }
@@ -282,7 +284,7 @@ class SocialLadderXTest {
         }
     }
 
-    /** Main's client: every GET a 404 (the widget's answer for the post), or [widget] (task 14). */
+    /** Main's client: every GET a 404 (the widget's answer for the post), or [widget]. */
     private class NotFound(private val widget: String? = null) : ExtractorHttpClient {
         val asked = AtomicInteger()
         override suspend fun get(url: String, headers: Map<String, String>, maxBodyBytes: Long): ExtractorHttpResult {
@@ -300,10 +302,10 @@ class SocialLadderXTest {
     }
 
     /**
-     * One X lookup as the app wires it in a social-ladder build: main's real X adapter over
-     * [main] (the widget's 404), Master's engine with X's ladder over [master] (never asked) and a
-     * tab playback that finds nothing; task 14: main's [widget] answer instead of the 404, and
-     * whether the tab showed a video ([tabVideo]).
+     * One X lookup as the app wires it in a social-ladder build: main's real X adapter over [main]
+     * (the widget's 404), Master's engine with X's ladder over [master] (never asked) and a tab
+     * playback that finds nothing; or main's [widget] answer instead of the 404, and whether the
+     * tab showed a video ([tabVideo]).
      */
     private class NotFoundFixture(widget: String? = null, tabVideo: Boolean = false) {
         val cooldown = SocialCooldown()
@@ -353,7 +355,10 @@ class SocialLadderXTest {
         const val NOW = 1_800_000_000_000L
         const val WIDGET_HOST = "cdn.syndication.twimg.com"
 
-        /** Task 0: X1's line for the widget's 404 (never final; the tab's own playback next). */
+        /**
+         * X ladder: the main's-answer step's line for the widget's 404 (never final;
+         * the tab's own playback next).
+         */
         const val NOT_FOUND_LINE =
             "master: x X1 main's answer: NEEDS_PLAYBACK (status 404: no post in the widget's answer, not proof of removal); next: PLAYBACK"
         const val POST = "https://x.com/fixture_user/status/1000000000000000001"

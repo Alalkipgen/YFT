@@ -30,7 +30,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * P41: a YouTube-like whole file shows progress from its first bytes. The server is local and
+ * A YouTube-like whole file shows progress from its first bytes. The server is local and
  * slowed down per answer, like a VPN; the measured times are printed for the report.
  */
 class DashTransferStartTest {

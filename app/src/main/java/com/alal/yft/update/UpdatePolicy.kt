@@ -6,7 +6,7 @@ import android.content.pm.Signature
 import android.os.Build
 import java.security.MessageDigest
 
-/** Which builds ask GitHub (§4.1). */
+/** Which builds ask GitHub. */
 enum class UpdateMode {
     /** A release signed with another key (CI's, a fork's): never asks; no row, no screen. */
     OFF,

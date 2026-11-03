@@ -257,7 +257,7 @@ class HlsTransferEngineTest {
     @Test
     fun `a playlist the site refused is read by the browser and its pieces downloaded`() =
         runTest {
-            // P45: the CDN refused YFT's request of the playlist (HTTP 410), not the browser's.
+            // The CDN refused YFT's request of the playlist (HTTP 410), not the browser's.
             val piece = "piece-".repeat(20).toByteArray()
             server.dispatcher = object : Dispatcher() {
                 override fun dispatch(request: RecordedRequest): MockResponse =
@@ -495,7 +495,7 @@ class HlsTransferEngineTest {
     @Test
     fun `D1 packed MP3 sound is kept as mp3 and packed AAC remuxed into an M4A`() = runTest {
         val mp3 = byteArrayOf(0xFF.toByte(), 0xFB.toByte(), 0x90.toByte(), 0x64) + ByteArray(413)
-        // MP3 pieces are joined whole, as before D1: only ID3 tags before ADTS are dropped.
+        // MP3 pieces are joined whole, as before the remux: only ID3 tags before ADTS are dropped.
         val mp3Piece = id3Tag(major = 4, body = 20) + mp3
         val aac = Mp4TestFiles.adts(Mp4TestFiles.audio(fragments = 1, perFragment = 8))
         server.dispatcher = object : Dispatcher() {
@@ -540,7 +540,7 @@ class HlsTransferEngineTest {
         assertEquals(8, Mp4Dump(bytes).tracks.single().samples.size)
     }
 
-    /** D1: a VOD playlist at [path] of the [pieces] ([HlsFixtures]), served by name. */
+    /** A VOD playlist at [path] of the [pieces] ([HlsFixtures]), served by name. */
     private fun serve(path: String, vararg pieces: String) {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
@@ -570,7 +570,7 @@ class HlsTransferEngineTest {
         clock = { 100 },
     )
 
-    /** D1: an engine whose remux is [remuxer]. */
+    /** An engine whose remux is [remuxer]. */
     private fun engine(remuxer: HlsRemuxer): HlsTransferEngine = HlsTransferEngine(
         client = OkHttpClient(),
         workspaceRoot = workspaceRoot,

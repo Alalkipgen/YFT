@@ -32,13 +32,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan task 10 (decision 22, `MASTER_KEY_SOCIAL_PLAN.md` §8): the site census's main is
- * the app's ([SiteCensusLookup.registry]), so it asks no download service (`tikwm.com`) either.
- * A post TikTok's pages and the hidden page give no file is main's failure with TikTok's own
- * reason (no ask of the service in the row's record, no "download service" line in main's
- * Details); a post TikTok's pages give keeps the rows P46's census gave. P46's TikTok adapter
- * (the service on) over the same fakes still takes the service's files. Fake clients and made-up
- * posts only; no link of the owner's.
+ * Site census: its main is the app's ([SiteCensusLookup.registry]), so it asks no download service
+ * (`tikwm.com`) either. A post TikTok's pages and the hidden page give no file is main's failure
+ * with TikTok's own reason (no ask of the service in the row's record, no "download service" line
+ * in main's Details); a post TikTok's pages give keeps the rows the old census gave. The old
+ * TikTok adapter (the service on) over the same fakes still takes the service's files. Fake clients
+ * and made-up posts only; no link of the owner's.
  */
 class SiteCensusTikTokServiceTest {
     @Test
@@ -61,7 +60,7 @@ class SiteCensusTikTokServiceTest {
         )
         assertNoService(http, details(FakeHttp(PRIVATE_PAGE, PRIVATE_PAGE), FakePages(NO_DATA)))
 
-        // P46's census over the same fakes took the service's files.
+        // The old census over the same fakes took the service's files.
         val p46Record = LookupRecord(labels = SiteWays.TIKTOK.labels())
         val p46 = withContext(p46Record) {
             p46(FakeHttp(PRIVATE_PAGE, PRIVATE_PAGE), FakePages(NO_DATA)).lookup(POST, identity)
@@ -86,7 +85,7 @@ class SiteCensusTikTokServiceTest {
         assertFalse(SiteWays.DOWNLOAD_SERVICE in record.asks().map { it.way })
         assertNoService(http, details(FakeHttp(postPage(REFUSED), postPage(REFUSED)), FakePages(found(item(REFUSED)))))
 
-        // P46's census over the same fakes took the service's files.
+        // The old census over the same fakes took the service's files.
         val p46 = p46(FakeHttp(postPage(REFUSED), postPage(REFUSED)), FakePages(found(item(REFUSED))))
             .lookup(POST, identity) as MainAnswer.Found
         assertEquals(listOf(SERVICE_HD, SERVICE_SD), p46.rows.map { it.mediaUrl })
@@ -124,7 +123,7 @@ class SiteCensusTikTokServiceTest {
         assertFalse(report, report.contains("${SiteWays.DOWNLOAD_SERVICE} GET"))
         assertNoService(http)
 
-        // P46's census: main's rows from the service, its ask in main's line.
+        // The old census: main's rows from the service, its ask in main's line.
         val before = FakeHttp(PRIVATE_PAGE, PRIVATE_PAGE)
         val p46 = SiteCensus(p46(before, FakePages(NO_DATA)), before, VALID, clock = { NOW })
             .run(listOf(SiteWays.TIKTOK), mapOf("tiktok" to mapOf(9 to POST)), null).report
@@ -144,7 +143,7 @@ class SiteCensusTikTokServiceTest {
         )
     }
 
-    /** P46's census (the owner's choice B, `TT_SERVICE=ON`): its TikTok adapter before decision 22. */
+    /** The old census (`TT_SERVICE=ON`): its TikTok adapter with the download service on. */
     private fun p46(http: FakeHttp, pages: HiddenPageReader): SiteCensusLookup = SiteCensusLookup(
         registry = SiteExtractorRegistry(
             listOf(

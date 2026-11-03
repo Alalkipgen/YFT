@@ -7,7 +7,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** R3 T9: RequestPolicy. */
+/** Master toolkit: RequestPolicy. */
 class RequestPolicyTest {
     private val page = "https://www.site.test/watch/1#t=3"
     private val context = BrowserRequestContext(page, "UA", "sid=secret")

@@ -28,7 +28,7 @@ import com.alal.yft.ui.theme.YftShapes
 import com.alal.yft.ui.theme.YftTheme
 import kotlinx.coroutines.delay
 
-/** How long the notice of a blocked pop-up or redirect stays (P32). */
+/** How long the notice of a blocked pop-up or redirect stays. */
 internal const val BLOCKED_NOTICE_MS = 4_000L
 
 /** What the notice says: a window is a pop-up; a redirect names where it was going. */
@@ -40,8 +40,8 @@ internal fun blockedNoticeText(blocked: BlockedNavigation): String =
     }
 
 /**
- * The page tried to open a window or send the tab elsewhere and the browser kept the page (P32):
- * a small notice for [BLOCKED_NOTICE_MS], with Open to go there in this tab after all.
+ * The page tried to open a window or send the tab elsewhere and the browser kept the page: a small
+ * notice for [BLOCKED_NOTICE_MS], with Open to go there in this tab after all.
  */
 @Composable
 internal fun BrowserBlockedNotice(
@@ -96,7 +96,7 @@ internal fun BrowserBlockedNotice(
     }
 }
 
-/** The browser's sink (P32): blocked navigations also reach the screen's notice. */
+/** The browser's sink: blocked navigations also reach the screen's notice. */
 internal class BlockedNavigationSink(
     private val inner: BrowserObservationSink,
     private val onBlocked: (BlockedNavigation) -> Unit,

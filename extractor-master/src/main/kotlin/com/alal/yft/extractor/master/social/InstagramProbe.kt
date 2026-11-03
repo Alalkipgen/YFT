@@ -1,6 +1,6 @@
 /*
- * Provenance (social plan S2d part 1; data, not code (S9): no row in toolkit-provenance.tsv):
- *   yt-dlp yt_dlp/extractor/instagram.py, commit 1f1101d0 (2026-07-21), read for 0.2 (2026-10-20):
+ * Provenance (data, not code: no row in toolkit-provenance.tsv):
+ *   yt-dlp yt_dlp/extractor/instagram.py, commit 1f1101d0 (2026-07-21), read on 2026-10-20:
  *   the signed-out post query (`POST /api/graphql`: its doc ID, friendly name and caller class, its
  *   form's fields in their order and its headers; the web app's ID and the ASBD ID of its
  *   `_api_headers`; the answer's `data.xig_polaris_media.if_not_gated_logged_out`) and the two
@@ -20,16 +20,16 @@ import java.nio.charset.StandardCharsets
 import kotlin.coroutines.CoroutineContext
 
 /**
- * Social plan S2d part 1 (`MASTER_KEY_SOCIAL_PLAN.md` decision 19, 0.2's verdict (b)): the
+ * The Instagram tab-fetch step's query: the
  * signed-out post query that only the visible tab may send, with its own fetch (the tab's own
- * TLS, cookies and origin: S3 forbids imitating them), as yt-dlp sends it. Data only: the query's
+ * TLS, cookies and origin: the ladders never imitate them), as yt-dlp sends it. Data only: the query's
  * names and values, its form's fields in yt-dlp's order, its headers, and the reading of its
  * answer ([videoInAnswer]). Its values may rotate; the probe's line says whether they still
- * answer (the owner's phone session). Part 2 (decision 24, task 13): the same query is Instagram's
- * tab-fetch rung, whose answer Instagram's ladder reads for rows ([InstagramLadder]).
+ * answer (the owner's phone session). The same query is the Instagram tab-fetch step,
+ * whose answer Instagram's ladder reads for rows ([InstagramLadder]).
  */
 object InstagramProbeQuery {
-    /** Where the query's values were read (S9). */
+    /** Where the query's values were read. */
     const val SOURCE = "yt-dlp yt_dlp/extractor/instagram.py 1f1101d0"
     const val SOURCE_DATE = "2026-07-21"
 
@@ -120,11 +120,12 @@ object InstagramProbeQuery {
 }
 
 /**
- * Social plan S2d (decisions 19 and 24): the visible tab's own fetch of [InstagramProbeQuery],
- * Instagram's tab-fetch rung (part 2, task 13; part 1's debug-only probe was its line alone). The
+ * The visible tab's own fetch of [InstagramProbeQuery],
+ * the Instagram tab-fetch step (`master: instagram probe` in Lookup details; it began as a
+ * debug-only probe that only wrote its line). The
  * app's browser puts one in an Instagram lookup's context (a social-ladder build only); Instagram's
  * ladder ([InstagramLadder]) asks it at most once in a lookup, after main failed and I2 gave no
- * rows, the last request rung: its answer's rows bound to the post go to V and the init check (S6)
+ * rows, the last request rung: its answer's rows bound to the post go to the row check and the init check
  * as the tab's own answer, its line in Details. [on]: the rung's own switch (the census screen's;
  * off by default); [proof]: its debug proof, I2's rows set aside so the rung is asked (off by
  * default).
@@ -189,7 +190,7 @@ interface InstagramTabProbe : CoroutineContext.Element {
         const val NO_ANSWER = "the tab gave no answer"
 
         /**
-         * Task 13: the tab's own cookies for Instagram's web host hold a session (`sessionid`): the
+         * The tab's own cookies for Instagram's web host hold a session (`sessionid`): the
          * rung is the signed-out query, so nothing goes out.
          */
         const val SIGNED_IN = "the tab is signed in"

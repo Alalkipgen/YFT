@@ -58,9 +58,9 @@ import okhttp3.OkHttpClient
 @InstallIn(SingletonComponent::class)
 object SiteAdapterModule {
     /**
-     * The client the site adapters share. Phase 1.4 item 7 (YouTube routing B) R1: in a route-B
+     * The client the site adapters share. Lookup record: in a YouTube backup route
      * build (`-Pyft.youtubeRouteB`, debug only) it records each lookup's requests; otherwise it is
-     * the plain client. Social plan S1a (2): in a social-ladder build (`-Pyft.socialLadder`, debug
+     * the plain client. Social ladders: in a social-ladder build (`-Pyft.socialLadder`, debug
      * only) it records them and keeps main's pages too ([SocialLadder.mainClient]); flag off: as
      * before.
      */
@@ -77,12 +77,12 @@ object SiteAdapterModule {
     @Singleton
     fun provideVideoPlaybackSupport(): VideoPlaybackSupport = DeviceVideoPlaybackSupport()
 
-    /** Decision 30 (i): Settings' "Backup finder", one per process. */
+    /** Release build: Settings' "Backup finder", one per process. */
     @Provides
     @Singleton
     fun provideBackupFinder(@ApplicationContext context: Context): BackupFinder = BackupFinder.get(context)
 
-    /** VK-Master wave 2 (agent D, item 7): the trial's "VK value break", one per process (off elsewhere). */
+    /** VK trial break: the trial's "VK value break", one per process (off elsewhere). */
     @Provides
     @Singleton
     fun provideVkTrialBreak(@ApplicationContext context: Context): VkTrialBreak = VkTrialBreak.get(context)
@@ -97,12 +97,12 @@ object SiteAdapterModule {
      * The YouTube player-script host.
      *
      * Player scripts are larger than adapter pages, so they get their own client with a longer
-     * call timeout; every other transport rule is the same. Master Phase 1.1 S5: with both
+     * call timeout; every other transport rule is the same. YouTube own solver: with both
      * opt-in flags on (`-Pyft.ownSolver`, `-Pyft.masterCapture`) Master's own solver runs instead
-     * of the bundled ejs solver; otherwise this is main's runner, built exactly as on main. Phase
-     * 1.4 item 7 (YouTube routing B): in a route-B build (`-Pyft.youtubeRouteB`, debug only) the
-     * player client follows route B's rules in a route-B run and marks a 429 in the lookup's record
-     * (`YouTubeRouteB.scriptClient`); otherwise it is the plain client. Decision 30 (i): with the
+     * of the bundled ejs solver; otherwise this is main's runner, built exactly as on main.
+     * YouTube backup route: in its build (`-Pyft.youtubeRouteB`, debug only) the player client
+     * follows the route's rules in the route's runs and marks a 429 in the lookup's record
+     * (`YouTubeRouteB.scriptClient`); otherwise it is the plain client. Release build: with the
      * own solver, Settings' Backup finder chooses at each request — on, the own solver; off,
      * main's runner exactly as on main ([BackupFinderPlayerScripts]).
      */
@@ -132,13 +132,13 @@ object SiteAdapterModule {
                         OwnPlayerScriptRunner(
                             http = http,
                             engine = WebViewOwnSolverEngine(context),
-                            // Phase 1.2 N5b: the ladder only with -Pyft.ownSolverNext (debug builds). A.4/A.5:
-                            // the locator cache and the V ledger in app-private files (data only; each
-                            // file is found on first use, off this thread).
+                            // Own-solver ladder: only with -Pyft.ownSolverNext (debug builds), with
+                            // the locator cache and the V ledger in app-private files (data only;
+                            // each file is found on first use, off this thread).
                             next = if (BuildConfig.OWN_SOLVER_NEXT_ENABLED) {
                                 OwnPlayerScriptRunner.Next(
                                     page = WebViewPageSolverEngine(context),
-                                    // N7: the breaker the debug build's owner canary shares (one per process).
+                                    // The breaker the Solver canary shares (one per process).
                                     breaker = OwnSolverAppBreaker.get(context),
                                     locators = OwnSolverLocators(
                                         AtomicTextFile { File(context.filesDir, OWN_SOLVER_LOCATORS_FILE) },
@@ -160,7 +160,7 @@ object SiteAdapterModule {
     }
 
     /**
-     * The YouTube proof-of-origin host (ADR-006).
+     * The YouTube proof-of-origin host.
      *
      * It reads the player script for its attestation key, so it shares the player client's
      * longer call timeout.
@@ -190,32 +190,32 @@ object SiteAdapterModule {
         playerScripts: PlayerScriptRunner,
         poTokens: PoTokenProvider,
     ): List<SiteExtractor> = listOf(
-        // P39 (TT_AGENT=CHROME, TT_HOME_COOKIES=ON): TikTok's pages are asked with the WebView's
-        // own agent and desktop Chrome, and a short link's redirect cookies reach its page.
-        // Social plan S2b: in a social-ladder build its asks and pages are kept in the lookup
-        // (TikTok's ladder reads them, T2); flag off: today's client.
+        // TikTok adapter (TT_AGENT=CHROME, TT_HOME_COOKIES=ON): its pages are asked with the
+        // WebView's own agent and desktop Chrome; a short link's redirect cookies reach its page.
+        // TikTok ladder: in a social-ladder build its asks and pages are kept in the lookup for
+        // its main's-pages step (`tiktok T2` in Lookup details); flag off: today's client.
         TikTokExtractor(
             http = SocialLadder.tiktokClient(client),
             agents = TikTokAgents(webViewAgent = WebViewAgent(context)::get),
-            // Decision 22 (the owner, 2026-10-22; P46's choice B reversed, TT_SERVICE=OFF): the
-            // public download service (tikwm.com) is never asked, flag off and on alike; a post
-            // TikTok's own pages and the hidden page give no file fails with TikTok's own reason.
-            // Back on only on the owner's go (MASTER_KEY_SOCIAL_PLAN.md section 8, decision 22).
+            // TikTok adapter (TT_SERVICE=OFF): the public download service (tikwm.com) is never
+            // asked, flag off and on alike; a post TikTok's own pages and the hidden page give no
+            // file fails with TikTok's own reason.
+            // Back on only on the owner's go (docs/DECISIONS.md).
             askDownloadService = false,
         ),
         FacebookExtractor(http),
         VimeoExtractor(http),
-        // Phase 1.2 N5b A.8: with the own solver (ownSolver, with or without ownSolverNext) its
+        // Own-solver ladder: with the own solver (ownSolver, with or without ownSolverNext) its
         // signatures are used only after the live check V; main's runner gets the reader as is.
         YouTubeSignatureGuard.guard(http, playerScripts) { runner ->
             YouTubeExtractor(http, runner, poTokens)
         },
-        // P48: X's public embed answer for a post's video (whole MP4 files with sound).
+        // X adapter: X's public embed answer for a post's video (whole MP4 files with sound).
         XExtractor(http),
-        // P49: Instagram's own answers (app API when signed in, GraphQL, page, embed page).
+        // Instagram adapter: its own answers (app API when signed in, GraphQL, page, embed page).
         InstagramExtractor(http),
-        // VK-Master wave 2 (agent D, item 7): in #12 trial only, main asks with the value the
-        // trial's VK value break chose broken (before main's record); every other build: http.
+        // VK trial break: in the trial preview only, main asks with the value the break chose
+        // broken (before main's record); every other build: http.
         com.alal.yft.extractor.sites.vk.VkExtractor(VkTrialBreak.client(context, http)),
     )
 
@@ -226,12 +226,12 @@ object SiteAdapterModule {
         flags: SiteAdapterFlags,
     ): SiteExtractorRegistry = SiteExtractorRegistry(extractors, flags)
 
-    /** P40: the owner's answers G3 and G5 (`TT_HOME_COOKIES=ON`, `TT_HIDDEN_PAGE=ON`). */
+    /** TikTok page reader: the owner's choices (`TT_HOME_COOKIES=ON`, `TT_HIDDEN_PAGE=ON`). */
     @Provides
     @Singleton
     fun provideTikTokPageSettings(): TikTokPageSettings = TikTokPageSettings.OWNER
 
-    /** P40 step 4: TikTok's own page in a hidden WebView, for a link no tab shows. */
+    /** TikTok page reader: TikTok's own page in a hidden WebView, for a link no tab shows. */
     @Provides
     @Singleton
     fun provideHiddenPageReader(
@@ -249,7 +249,7 @@ object SiteAdapterModule {
     private const val YOUTUBE_ADAPTER_ID = "youtube"
     private const val PLAYER_FETCH_TIMEOUT_SECONDS = 60L
 
-    /** N5b A.4/A.5 (ownSolverNext only), under `filesDir`: data only, never code. */
+    /** Own-solver ladder (ownSolverNext only): files under `filesDir`, data only, never code. */
     private const val OWN_SOLVER_LOCATORS_FILE = "own-solver/locators.json"
     private const val OWN_SOLVER_V_LEDGER_FILE = "own-solver/v-ledger.json"
 }

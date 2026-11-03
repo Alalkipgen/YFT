@@ -3,7 +3,7 @@ package com.alal.yft.core.model.media
 import kotlin.math.abs
 
 /**
- * P43 (FIX_ADD_PLAN G8): how strictly a file on a page without an adapter must prove that it is
+ * How strictly a file on a page without an adapter must prove that it is
  * the page's own video before the download sheet offers it as the main one.
  */
 enum class AdRule {
@@ -18,12 +18,12 @@ enum class AdRule {
     LENIENT,
 }
 
-/** P43: why a file is the page's own video. */
+/** Why a file is the page's own video. */
 enum class PageVideoReason {
     /** A site adapter named it: its own choice stands. */
     ADAPTER,
 
-    /** The page's player setup or its markup names it ([PageMediaRole.MAIN], P28's keys). */
+    /** The page's player setup or its markup names it ([PageMediaRole.MAIN]). */
     NAMED,
 
     /** Its length matches the length the page states. */
@@ -33,7 +33,7 @@ enum class PageVideoReason {
     FAILED_LENGTH,
 }
 
-/** P43: why a file is an ad, or at least not the page's video. */
+/** Why a file is an ad, or at least not the page's video. */
 enum class AdReason(val label: String) {
     AD_HOST("ad host"),
     AD_ADDRESS("ad address"),
@@ -45,7 +45,7 @@ enum class AdReason(val label: String) {
     LENGTH("not the page's length"),
 }
 
-/** P43: what [PageVideoProof] says about one video. */
+/** What [PageVideoProof] says about one video. */
 sealed interface VideoProof {
     /** The length the verdict used; null when it is unknown. */
     val lengthMillis: Long?
@@ -61,7 +61,7 @@ sealed interface VideoProof {
 }
 
 /**
- * P43 (R34): the one rule for "is this the page's video?" on a site without an adapter, used by
+ * The one rule for "is this the page's video?" on a site without an adapter, used by
  * the sheet's first choice and by every step of its fresh-link chain (the page's newest link,
  * the player's link, the page read again, the next video). Pure, so the rules are unit-tested;
  * its Details lines name lengths and reasons, never addresses.
@@ -171,7 +171,7 @@ data class PageVideoProof(
     }
 
     companion object {
-        /** The owner's answer to G8: none, so the plan's default. */
+        /** The owner chose no other ad rule, so the plan's default. */
         val DEFAULT_RULE: AdRule = AdRule.STRICT
 
         /** An ad is at most a minute long. */
@@ -252,7 +252,7 @@ data class PageVideoProof(
 
         private fun twoDigits(value: Long): String = value.toString().padStart(2, '0')
 
-        /** P28: the page's player setup or its markup names this file as its video. */
+        /** The page's player setup or its markup names this file as its video. */
         private fun isNamed(file: MediaCandidate): Boolean =
             file.pageVideoKey != null || file.pageRole == PageMediaRole.MAIN
 

@@ -31,12 +31,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * VK-Master plan §7, §10, Appendix B step 4: VK's site ([VkSite.SITE], in the census's table
- * since wave 2): V may ask VK's video servers only (`vk{N}-{N}.vkuser.net`, `vkvd{N}.okcdn.ru`),
+ * VK's site ([VkSite.SITE], in the census's table
+ * since the VK ladder): the Row check may ask VK's video servers only (`vk{N}-{N}.vkuser.net`, `vkvd{N}.okcdn.ru`),
  * never okcdn.ru's image host, plain HTTP, user info or another site's host; in a VK lookup the
  * shared row check (V) asks VK's media hosts only, never a manifest, and its reads are no way of
  * VK's (main's manifest reads are, [VkLabelsTest]); the table's placeholder slots (A finalizes);
- * VK's names as agent C's schema 2 reads them (`vk`; `V1`, `V2`, `V3`). JVM only, no network.
+ * VK's names as the Signed recipe config's schema 2 reads them (`vk`; `V1`, `V2`, `V3`). JVM only, no network.
  */
 class VkSiteTest {
     @Test

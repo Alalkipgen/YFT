@@ -50,7 +50,7 @@ class ShippedAdaptersTest {
     @Test
     fun `unclaimed pages fall through to the generic detector`() {
         listOf(
-            // Posts are claimed since P3-FIX (they may hold a video); a photo page is not.
+            // Posts are claimed (they may hold a video); a photo page is not.
             "https://www.facebook.com/photo/?fbid=1234567890123456",
             "https://www.tiktok.com/@fixture_user",
             "https://vimeo.com/ondemand/fixture-film",
@@ -64,8 +64,8 @@ class ShippedAdaptersTest {
     }
 
     /**
-     * Pins the owner decision in ADR-005: YouTube single-video pages are claimed by the YouTube
-     * adapter, while channels, playlists and searches stay on the generic detector.
+     * Pins the owner's decision to ship a YouTube adapter: YouTube single-video pages are claimed
+     * by the YouTube adapter, while channels, playlists and searches stay on the generic detector.
      */
     @Test
     fun `youtube single-video pages are claimed by the youtube adapter`() {

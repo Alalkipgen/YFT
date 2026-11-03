@@ -20,7 +20,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 /**
- * Owner tool, debug build only (Phase 1.2 N2): runs [StreamCheckMeasurement] on the phone without
+ * Owner tool, debug build only: runs [StreamCheckMeasurement] on the phone without
  * a computer. Its launcher entry exists only when the build has `yft.masterCapture` and
  * `yft.ownSolver` on (manifest placeholder `yftOwnerTools`); it starts only on a tap and shows the
  * report, which never holds an address or a value, with a copy button.

@@ -5,7 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** P28: what a page states about its own video, and how a file's length is matched to it. */
+/** What a page states about its own video, and how a file's length is matched to it. */
 class PageVideoFactsTest {
     @Test
     fun aLengthWithinTwoSecondsMatchesAShortVideo() {

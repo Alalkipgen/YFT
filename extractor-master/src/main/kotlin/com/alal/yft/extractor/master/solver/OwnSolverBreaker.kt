@@ -3,7 +3,7 @@ package com.alal.yft.extractor.master.solver
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Phase 1.2 N5b: the ladder's circuit breaker (ownSolverNext only; Phase 1.1 never makes one).
+ * Own-solver ladder: the ladder's circuit breaker (ownSolverNext only; the single-worker run never makes one).
  *
  * - A job timeout or a gone renderer turns that step off until the process restarts, for every
  *   player. On the page (E) both page steps go off together: they share one page engine.

@@ -7,7 +7,7 @@ import com.alal.yft.extractor.api.SiteExtractionResult
 import com.alal.yft.extractor.api.SiteExtractor
 
 /**
- * Phase 1.2 N5b A.8: V on the app's YouTube path. The app reads YouTube with main's reader
+ * Own-solver ladder: V on the app's YouTube path. The app reads YouTube with main's reader
  * (extractor-sites), not with [MasterYouTubeModule], so the module's [SignatureGate] never saw the
  * app's lookups: with the own solver (ownSolver, with or without ownSolverNext) the reader used
  * its signatures with no V. [guard] puts the same gate around any reader: the reader gets the

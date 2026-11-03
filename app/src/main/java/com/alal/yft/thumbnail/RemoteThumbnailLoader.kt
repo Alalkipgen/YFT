@@ -30,7 +30,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okio.Buffer
 
-/** Pictures of videos on the web (P19): the sheet header, the found list, running downloads. */
+/** Pictures of videos on the web: the sheet header, the found list, running downloads. */
 interface RemoteThumbnails {
     /** The picture already in memory for [url], without any work. */
     fun cached(url: String): ImageBitmap?
@@ -66,7 +66,7 @@ fun interface ThumbnailDecoder {
 }
 
 /**
- * Loads video pictures without any new library (P19). HTTPS only, also after redirects; no
+ * Loads video pictures without any new library. HTTPS only, also after redirects; no
  * cookies or session; an `Accept` header for images only; at most [MAX_BYTES] are read, so a
  * larger answer stops the read; two downloads at a time. Pictures are decoded with
  * `inSampleSize` to at most [MAX_WIDTH] px wide and kept in a memory cache (about 8 MB) and a

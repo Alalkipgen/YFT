@@ -57,7 +57,7 @@ internal class CandidateFactory(private val request: MasterRequest) {
         )
     }
 
-    /** R8: the caller's identity names the site exactly; the page host is the fallback. */
+    /** Site contract reader: the caller's identity names the site exactly; the page host is the fallback. */
     private fun videoKey(id: String): String =
         request.identity?.takeIf { it.contentId == id }?.let { "${it.siteId}:$id" }
             ?: UrlPolicy.videoKey(request.pageUrl, id)

@@ -33,11 +33,11 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * P28: on a page without an adapter that states its video's length, Download during the
- * pre-roll ad opens the page's video. When the ad is all the page has shown so far, the sheet
- * waits up to 6 s with the page's title and picture and "Finding the page's video…", then
- * switches to the page's video by itself, or shows the ad with the line that it may be one.
- * All hosts are reserved .test names.
+ * Ad filter: on a page without an adapter that states its video's length, Download during the
+ * pre-roll ad opens the page's video. When the ad is all the page has shown so far, the sheet waits
+ * up to 6 s with the page's title and picture and "Finding the page's video…", then switches to the
+ * page's video by itself, or shows the ad with the line that it may be one. All hosts are reserved
+ * .test names.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -163,7 +163,7 @@ class BrowserPageVideoWaitTest {
 
     @Test
     fun aPageThatStatesNoLengthOpensItsOnlyVideoAtOnce() = runTest {
-        // P24 guard: without the page's word nothing waits.
+        // Guard: without the page's word nothing waits.
         val store = DetectedMediaStore()
         val viewModel = BrowserViewModel(OkHttpClient(), noAdapters(), store)
         viewModel.onPageStarted(page)

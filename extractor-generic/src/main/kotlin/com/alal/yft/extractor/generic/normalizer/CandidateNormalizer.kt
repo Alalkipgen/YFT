@@ -46,7 +46,7 @@ class CandidateNormalizer(
     }
 
     /**
-     * Numbered HLS pieces (`seg-1.ts`, `seg-2.ts`, …) are one stream, not videos (P3-FIX).
+     * Numbered HLS pieces (`seg-1.ts`, `seg-2.ts`, …) are one stream, not videos.
      * Next to the page's HLS or DASH manifest they drop out; without one the series keeps its
      * first piece. Numbered whole files, such as `clip-1.mp4` and `clip-2.mp4`, stay apart.
      */
@@ -64,7 +64,7 @@ class CandidateNormalizer(
     }
 
     private fun sanitize(raw: MediaCandidate): MediaCandidate? {
-        // F1 (VK's pack proof, V3's retest 2026-10-26): an address that names a piece of a file by
+        // VK's pack proof (a retest, 2026-10-26): an address that names a piece of a file by
         // a closed `bytes=A-B` range ([MediaFileUrls.isPiece]) gives that piece only: never a
         // file, and no whole file is made of it (its track may be picture or sound only; the
         // page's manifest is the row).
@@ -112,7 +112,7 @@ class CandidateNormalizer(
     private fun merge(first: MediaCandidate, second: MediaCandidate): MediaCandidate {
         val newest = if (second.observedAtEpochMs >= first.observedAtEpochMs) second else first
         val oldest = if (newest === second) first else second
-        // P37 (R18): the address the page's player asked for beats a link its script names
+        // The address the page's player asked for beats a link its script names
         // again later; the script's copy may be a dead one for this phone.
         val address = when {
             first.isPlayerRequest() && !second.isPlayerRequest() -> first
@@ -146,7 +146,7 @@ class CandidateNormalizer(
             observedAtEpochMs = maxOf(first.observedAtEpochMs, second.observedAtEpochMs),
             pageRole = mergedRole(first.pageRole, second.pageRole),
             pageVideoKey = newest.pageVideoKey ?: oldest.pageVideoKey,
-            // P43: a file that showed it is an ad anywhere stays one; the proof weighs it.
+            // A file that showed it is an ad anywhere stays one; the proof weighs it.
             adSign = newest.adSign ?: oldest.adSign,
         )
     }
@@ -156,7 +156,7 @@ class CandidateNormalizer(
             source == CandidateSource.DOWNLOAD_LISTENER
     }
 
-    /** P24: a file the page names as its own video stays its video wherever else it shows. */
+    /** A file the page names as its own video stays its video wherever else it shows. */
     private fun mergedRole(first: PageMediaRole?, second: PageMediaRole?): PageMediaRole? = when {
         first == PageMediaRole.MAIN || second == PageMediaRole.MAIN -> PageMediaRole.MAIN
         first == PageMediaRole.PREVIEW || second == PageMediaRole.PREVIEW -> PageMediaRole.PREVIEW

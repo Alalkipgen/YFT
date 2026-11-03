@@ -63,7 +63,7 @@ fun AboutScreen(
     onShareCrash: () -> Unit = {},
     onDeleteCrash: () -> Unit = {},
     /**
-     * Decision 30 (v): the hidden Show details of a quiet build (on or off); null in every other
+     * Quiet details: the hidden Show details of a quiet build (on or off); null in every other
      * build, whose version line does nothing on a tap.
      */
     showDetails: Boolean? = null,
@@ -175,7 +175,7 @@ private fun Identity(
                 CrashTestTrigger { trigger ->
                     Text(
                         text = "Version $versionName ($versionCode)",
-                        // Decision 30 (v): taps only, no click role: nothing announces it.
+                        // Quiet details: taps only, no click role: nothing announces it.
                         modifier = trigger
                             .then(
                                 if (onVersionTap != null) {
@@ -346,11 +346,11 @@ private val DOES_NOT = listOf(
     "Show ads, use analytics, require an account or send crash reports automatically.",
 )
 
-/** Decision 30 (v): under the version line while the hidden Show details is on. */
+/** Quiet details: under the version line while the hidden Show details is on. */
 internal const val SHOW_DETAILS_ON = "Show details on"
 
 /**
- * Decision 30 (v): the version line tapped [TAPS] times, each within [WINDOW_MS] of the one
+ * Quiet details: the version line tapped [TAPS] times, each within [WINDOW_MS] of the one
  * before, turns Show details on or off ([tap] says when).
  */
 internal class SevenTaps(private val now: () -> Long = System::currentTimeMillis) {
@@ -374,8 +374,8 @@ internal class SevenTaps(private val now: () -> Long = System::currentTimeMillis
 }
 
 /**
- * The first Privacy line. Decision 30 (ii): it names GitHub raw (the Backup finder's site data);
- * the in-app update plan's section 11: and api.github.com (Check automatically).
+ * The first Privacy line. It names GitHub raw (the Backup finder's site data)
+ * and api.github.com (the In-app update's Check automatically).
  */
 internal const val PRIVACY_CONTACTS =
     "YFT only contacts the sites you open, the media servers they point to and GitHub. With " +

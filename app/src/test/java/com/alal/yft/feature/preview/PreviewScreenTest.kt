@@ -223,6 +223,23 @@ class PreviewScreenTest {
     }
 
     @Test
+    fun `the save line names the chosen folder`() {
+        val video = variant("video", MediaTrackType.AUDIO_VIDEO, "720p", height = 720)
+        setScreen(
+            uiState = {
+                PreviewUiState.Ready(
+                    asset = asset(listOf(video)),
+                    selectedTab = PreviewTab.VIDEO,
+                    selectedVariantId = video.id,
+                )
+            },
+            options = PreviewDownloadOptions(folderName = "Movies"),
+        )
+
+        composeRule.onNodeWithText("Saves to Movies").assertIsDisplayed()
+    }
+
+    @Test
     fun audioTabIsOffWithoutAudioAndAQueuedDownloadLinksToDownloads() {
         val video = variant("video", MediaTrackType.AUDIO_VIDEO, "720p", height = 720)
         var openedDownloads = 0

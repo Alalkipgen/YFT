@@ -52,15 +52,16 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Social plan task 12 (the phone session of 2026-10-22, observations a, b and g). In the trial APK
- * (D7 `social-trial`) a social page's first lookup in the browser could find main's answer
- * remembered (P17's shared lookup: an earlier lookup of the same video, Home's or an earlier
- * page's), so main asked nothing in that lookup and the ladder had none of main's answers to read
- * (Instagram's I2, X's X1: "none kept for the post"); Try again asked main afresh and gave rows.
- * Now the trial's social lookups ask main every time (Try again's way), so the ladder reads main's
- * answer on the first lookup too; and the tab's playback's answer keeps the ladder's lines in
- * Details. Every other build (the ladder alone, the trial without the ladder, Master off): P17 as
- * before. Main's real adapters over synthetic answers with made-up IDs; no live calls.
+ * Social backup trial. In the trial APK (`social-trial`) a social page's first lookup in the
+ * browser could find main's answer remembered (Lookup reuse's shared lookup: an earlier lookup of
+ * the same video, Home's or an earlier page's), so main asked nothing in that lookup and the ladder
+ * had none of main's answers to read (Instagram's main's-answers step, `instagram I2` in
+ * Lookup details, and X's, `x X1`: "none kept for the post"); Try again asked main afresh and gave
+ * rows. Now the trial's social lookups ask main every time (Try again's way), so the ladder reads
+ * main's answer on the first lookup too; and the tab's playback's answer keeps the ladder's lines
+ * in Details. Every other build (the ladder alone, the trial without the ladder, Master off):
+ * Lookup reuse as before. Main's real adapters over synthetic answers with made-up IDs; no live
+ * calls.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -105,7 +106,7 @@ class SocialFirstLookupTest {
             assertTrue(notice, "; trial: Master's rows 1, main's 1; the same item: yes" in notice)
             assertTrue(page, vm.openPageVideo())
             assertEquals(page, listOf(file), store.selection.value!!.candidates.map { it.mediaUrl })
-            assertEquals(page, listOf(file), fixture.reads.toList()) // S6 read Master's row
+            assertEquals(page, listOf(file), fixture.reads.toList()) // Row check read Master's row
             assertEquals(page, 0, fixture.captures.get())
         }
     }
@@ -126,7 +127,7 @@ class SocialFirstLookupTest {
             assertTrue(vm.uiState.value.pageLookupRunning)
             settle { !vm.uiState.value.pageLookupRunning }
 
-            // P17: the remembered answer, main not asked again; Master never asked.
+            // Lookup reuse: the remembered answer, main not asked again; Master never asked.
             assertEquals(1, fixture.main.asked.size)
             assertNull(vm.uiState.value.siteNotice)
             assertTrue(vm.openPageVideo())
@@ -138,8 +139,9 @@ class SocialFirstLookupTest {
 
     @Test
     fun theTabsPlaybackAnswerKeepsTheLaddersLinesInDetails() = runTest {
-        // Main's widget answer is a 404 (X1: not proof of removal, the tab's playback next); the
-        // tab plays and the app's selection asks for a fresh playback (its own line).
+        // Main's widget answer is a 404 (X's main's-answer step: not proof of removal, the tab's
+        // playback next); the tab plays and the app's selection asks for a fresh playback (its own
+        // line).
         for (social in listOf(true, false)) {
             val fixture = Fixture(
                 X_POST,
@@ -171,9 +173,9 @@ class SocialFirstLookupTest {
 
     @Test
     fun aLaddersPhotosOnlyAnswerIsFinalWithoutTryAgain() = runTest {
-        // Social plan task 15 (F3b, the phone session of 2026-10-23: Instagram slot 8, TikTok slot
-        // 6): main's photos-only answer, the ladder's PHOTO_ONLY line ending in FINAL, no request:
-        // main's words and no Try again. Without the ladder (every other build): Try again as before.
+        // Download sheet: main's photos-only answer, the ladder's PHOTO_ONLY line ending in FINAL,
+        // no request: main's words and no Try again. Without the ladder (every other build): Try
+        // again as before.
         for (social in listOf(true, false)) {
             val fixture = Fixture(REEL, socialLadder = social, socialTrial = social, graphQl = photoGraphQl())
             val failed = fixture.lookup() as SiteAdapterOutcome.Failed
@@ -196,6 +198,50 @@ class SocialFirstLookupTest {
         assertEquals(InstagramExtractor.PHOTOS_MESSAGE, mains.message)
         assertFalse(mains.final)
         assertTrue(mains.canRetry)
+    }
+
+    @Test
+    fun aPrivatePostsCodeLeftUnreadKeepsThePrivateWordsAfterTheLadder() = runTest {
+        // Instagram adapter: main ends unread (GraphQL: no post; the pages 404) on a private post's
+        // code (longer than 11 characters). With the ladder (the release), no video in the tab:
+        // main's words, now the private ones, the reason main's, Try again; an 11-character code:
+        // today's words.
+        val private = Fixture(PRIVATE_REEL, socialTrial = false, graphQl = NO_POST).lookup()
+            as SiteAdapterOutcome.Failed
+        assertEquals(SiteExtractionFailure.RESPONSE_CHANGED, private.reason)
+        assertEquals(private.details.toString(), InstagramExtractor.PRIVATE_MESSAGE, private.message)
+        assertTrue(private.canRetry)
+        assertTrue(private.details.toString(), InstagramExtractor.PRIVATE_CODE_LINE in private.details)
+
+        val public = Fixture(REEL, socialTrial = false, graphQl = NO_POST).lookup() as SiteAdapterOutcome.Failed
+        assertEquals(SiteExtractionFailure.RESPONSE_CHANGED, public.reason)
+        assertEquals(
+            public.details.toString(),
+            "Instagram's page could not be read. Tap Details to see why, or Try again.",
+            public.message,
+        )
+        assertTrue(public.canRetry)
+
+        // Instagram adapter: GraphQL's login answer, the wall Instagram shows for a private post:
+        // on a private post's code the private words all the same, Try again; an 11-character code
+        // keeps the wall's words.
+        val walled = Fixture(PRIVATE_REEL, socialTrial = false, graphQl = LOGIN).lookup()
+            as SiteAdapterOutcome.Failed
+        assertEquals(SiteExtractionFailure.RESPONSE_CHANGED, walled.reason)
+        assertEquals(walled.details.toString(), InstagramExtractor.PRIVATE_MESSAGE, walled.message)
+        assertTrue(walled.canRetry)
+        assertTrue(walled.details.toString(), InstagramExtractor.PRIVATE_CODE_LINE in walled.details)
+        val wall = Fixture(REEL, socialTrial = false, graphQl = LOGIN).lookup() as SiteAdapterOutcome.Failed
+        assertEquals(SiteExtractionFailure.LOGIN_REQUIRED, wall.reason)
+        assertEquals(wall.details.toString(), InstagramExtractor.LOGIN_MESSAGE, wall.message)
+
+        // Master without the ladder: its playback words for both codes, as before.
+        for (page in listOf(PRIVATE_REEL, REEL)) {
+            val failed = Fixture(page, socialLadder = false, socialTrial = false, graphQl = NO_POST).lookup()
+                as SiteAdapterOutcome.Failed
+            assertEquals(page, "Play the video on this page, then tap Try again.", failed.message)
+            assertTrue(failed.canRetry)
+        }
     }
 
     /** The engine runs on a background thread; the test thread runs the browser's coroutines. */
@@ -232,7 +278,7 @@ class SocialFirstLookupTest {
      * One social page's lookups as the app wires them in the trial APK ([socialTrial] with
      * [socialLadder]): main's real X and Instagram adapters over [widget] (X's widget answer; null:
      * a 404) and [graphQl] (Instagram's GraphQL answer), Master's ladders over a client never
-     * asked, S6's row check reading each file's start (made in code) on the site's media host, and
+     * asked, the row check reading each file's start (made in code) on the site's media host, and
      * the tab's playback: nothing ([captured] false), or the page playing with the app's
      * [selection] answering.
      */
@@ -309,7 +355,10 @@ class SocialFirstLookupTest {
             socialTrial = socialTrial,
         )
 
-        /** An earlier lookup of the page's video outside the browser's page (Home's way): P17 keeps main's rows. */
+        /**
+         * An earlier lookup of the page's video outside the browser's page (Home's way):
+         * Lookup reuse keeps main's rows.
+         */
         suspend fun remember(): SiteAdapterOutcome = sites.inspect(page, BrowserRequestContext(page, "Browser", null), NOW)
 
         /** The app's lookup in its own record: main's answer (asked afresh), the trial's, then Master's. */
@@ -329,6 +378,16 @@ class SocialFirstLookupTest {
 
         /** Instagram's made-up reel (the code and media ID of the sites' fixtures). */
         const val REEL = "https://www.instagram.com/reel/C9fixtREEL1/"
+
+        /** Instagram adapter: a made-up private post's code (longer than 11 characters). */
+        const val PRIVATE_REEL = "https://www.instagram.com/reel/C9fixtREEL1AbCdEfGhIjKlMnOpQrStUv/"
+
+        /** Instagram's GraphQL answer for a post it does not show. */
+        const val NO_POST = "{\"data\":{\"xdt_shortcode_media\":null},\"status\":\"ok\"}"
+
+        /** Instagram adapter: GraphQL's login answer (Instagram's own words). */
+        const val LOGIN = "{\"message\":\"Please wait a few minutes before you try again.\"," +
+            "\"require_login\":true,\"status\":\"fail\"}"
         const val INSTAGRAM_MEDIA_ID = "3310536259357233439"
         const val INSTAGRAM_FILE = "https://scontent.cdninstagram.com/o1/v/t16/f2/m86/fixture_720.mp4?oe=7A000000"
         const val INSTAGRAM_MILLIS = 15_200L
@@ -338,7 +397,10 @@ class SocialFirstLookupTest {
         const val CAPTURE = "master: one browser-assisted capture requested"
         const val SELECTION = "master: fresh natural playback required"
 
-        /** Task 0: X1's line for the widget's 404 (never final; the tab's own playback next). */
+        /**
+         * X ladder: the main's-answer step's line for the widget's 404 (never final; the tab's own
+         * playback next).
+         */
         const val NOT_FOUND_LINE =
             "master: x X1 main's answer: NEEDS_PLAYBACK (status 404: no post in the widget's answer, not proof of removal); next: PLAYBACK"
 
@@ -357,7 +419,10 @@ class SocialFirstLookupTest {
             "\"video_url\":\"$INSTAGRAM_FILE\",\"video_duration\":15.2,\"dimensions\":{\"height\":1280,\"width\":720}}}," +
             "\"status\":\"ok\"}"
 
-        /** Task 15 (F3b): Instagram's GraphQL answer for a photos-only post (the reel's made-up code). */
+        /**
+         * Download sheet: Instagram's GraphQL answer for a photos-only post (the reel's made-up
+         * code).
+         */
         fun photoGraphQl() = "{\"data\":{\"xdt_shortcode_media\":{\"__typename\":\"XDTGraphImage\"," +
             "\"id\":\"$INSTAGRAM_MEDIA_ID\",\"shortcode\":\"C9fixtREEL1\",\"is_video\":false," +
             "\"display_url\":\"https://scontent.cdninstagram.com/v/fixture.jpg\",\"dimensions\":{\"height\":1080,\"width\":1080}}}," +

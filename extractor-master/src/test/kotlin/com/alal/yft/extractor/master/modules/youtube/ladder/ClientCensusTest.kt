@@ -17,7 +17,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Phase 1.3 D0: the client census and the weekly check against a scripted YouTube; no live calls. */
+/** Client census: the census and the weekly check against a scripted YouTube; no live calls. */
 class ClientCensusTest {
     private var now = START
 
@@ -86,7 +86,7 @@ class ClientCensusTest {
         assertEquals(5, http.probedUrls.size)
         assertEquals(17, run.requests)
         assertTrue(run.notes.any { it.startsWith("alternates: none in step 3 (visionOS 1.05, the bundled alternate, ") })
-        // D7: the L steps on visionOS's DIRECT answer, in memory (no request counted above).
+        // The L steps on visionOS's DIRECT answer, in memory (no request counted above).
         val lLine = run.notes.single { it.startsWith("video 1 L (R0, ") }
         assertTrue(lLine, lLine.endsWith("round-trip same, L1 same, L2 same, L3 same, L5 n/a, L7 same"))
         assertTrue(lLine, ", V PASS): " in lLine)
@@ -301,7 +301,7 @@ class ClientCensusTest {
 
         assertNull(outcome.stopped)
         assertEquals(0L, CensusJson.readState(outcome.stateJson).cooldownUntil)
-        // B7 (owner, 2026-10-15): the newer values are tried on video 2, the first video without a bot check.
+        // The version acceptance: the newer values are tried on video 2, the first video without a bot check.
         assertEquals(
             listOf("VISIONOS", "VISIONOS", "VISIONOS", "ANDROID", "WEB_EMBEDDED_PLAYER", "MWEB", "VISIONOS", "MWEB"),
             http.postedBodies.map(CensusWorld::clientOf),
@@ -314,7 +314,7 @@ class ClientCensusTest {
         val again = ask(run, 1, "visionos", "R0+vd")
         assertEquals(listOf("DIRECT", "PASS"), listOf(again.finalClass.name, again.v))
         assertEquals(1, run.pages.count { it.video == 1 })
-        // B5 ((က+)): the H check on the R0+vd answer, which is DIRECT.
+        // The H check on the R0+vd answer, which is DIRECT.
         assertEquals(listOf(1 to "visionos", 2 to "visionos"), run.hls.map { it.video to it.client })
         assertEquals(listOf("2xx", "2xx", "2xx"), run.hls.first().result.let { listOf(it.master, it.variant, it.segment) })
         assertEquals(
@@ -348,7 +348,7 @@ class ClientCensusTest {
 
         val outcome = census(http).run(Mode.FULL, mapOf(1 to Census.V1, 2 to Census.V2), null)
 
-        // R6 answers each lookup on its own (owner, 2026-10-15), and so does the census.
+        // The Master YouTube module answers each lookup on its own, and so does the census.
         assertNull(outcome.stopped)
         assertEquals(0L, CensusJson.readState(outcome.stateJson).cooldownUntil)
         assertEquals(List(4) { "VISIONOS" }, http.postedBodies.map(CensusWorld::clientOf))
@@ -408,7 +408,7 @@ class ClientCensusTest {
         val outcome = census(http).run(Mode.FULL, mapOf(1 to Census.V1, 2 to Census.V2), null)
 
         assertNull(outcome.stopped)
-        // Video 1 ended at its bot check, so the page's newer MWEB value is tried on video 2 (B7).
+        // Video 1 ended at its bot check, so the page's newer MWEB value is tried on video 2 (the version acceptance).
         assertEquals(
             listOf("VISIONOS", "ANDROID", "VISIONOS", "ANDROID", "WEB_EMBEDDED_PLAYER", "MWEB", "MWEB"),
             http.postedBodies.map(CensusWorld::clientOf),
@@ -445,7 +445,7 @@ class ClientCensusTest {
         assertEquals(CensusClass.BOT_CHECK, ask(run, 5, "visionos", "R0").answerClass)
         assertEquals(CensusClass.DIRECT, ask(run, 5, "visionos", "R0+vd").finalClass)
         assertEquals("FIRST RUN — nothing to compare yet", outcome.firstLine)
-        // B5 ((က+)): H on video 1's R0+vd answer (DIRECT), the run's one H check.
+        // H on video 1's R0+vd answer (DIRECT), the run's one H check.
         assertEquals(listOf(1), run.hls.map(CensusHls::video))
         assertTrue(run.notes.contains("video 1 met a bot check and video 2 is not set, so no other client was asked"))
         assertTrue(
@@ -467,7 +467,7 @@ class ClientCensusTest {
 
         val outcome = census(http).run(Mode.WEEKLY, mapOf(1 to Census.V1, 2 to Census.V2, 5 to Census.V5), null)
 
-        // W 2's case (owner, 2026-10-15): video 1 as R6 with V and H (7), video 5 as R6 (4), the
+        // The weekly check: video 1 as the module asks it with V and H (7), video 5 likewise (4), the
         // sources (4), video 2's page, Android with V, MWEB and the page's newer MWEB value (5).
         assertNull(outcome.stopped)
         val run = lastRun(outcome)
@@ -539,7 +539,7 @@ class ClientCensusTest {
 
     @Test
     fun `when video 2 met a bot check too it is answered as R6, its R0+vd answer gets H and Android and MWEB are not asked`() = runTest {
-        // Video 1's R0+vd answer has no HLS address, so video 2 is asked for H (as R6 asks it).
+        // Video 1's R0+vd answer has no HLS address, so video 2 is asked for H (as the module asks it).
         val world = CensusWorld().standard(Census.V1).standard(Census.V2).sources().visionOsBotCheck(Census.V2)
         val noHls = Census.answer(Census.V1, adaptive = listOf(Census.video(136, 720), Census.audio()), cver = "1.02")
         world.answers[Census.V1 to "VISIONOS"] = { body ->
@@ -844,7 +844,7 @@ class ClientCensusTest {
     @Test
     fun `V7 - video 6's visionOS refusal and the embedded player's 152-18 are REFUSED, not terminal, and the run goes on`() = runTest {
         val world = CensusWorld().standard(V6).standard(V8).standard(V9).sources()
-        // Video 6 (made for kids) as visionOS answered it in valid runs 1-3: no formats, the video's details.
+        // Video 6 (made for kids) as visionOS answered it in the first valid runs: no formats, the video's details.
         world.answer(V6, "VISIONOS", Census.answer(V6, status = "UNPLAYABLE", reason = "This video is not available"))
         world.answer(V6, "WEB_EMBEDDED_PLAYER", embeddedError152(V6))
         world.answer(V9, "VISIONOS", Census.answer(V9, status = "LOGIN_REQUIRED", reason = "Sign in to confirm your age"))
@@ -862,7 +862,7 @@ class ClientCensusTest {
         val embedded = ask(run, 6, "embedded", "R0")
         assertEquals(listOf("REFUSED", "ERROR"), listOf(embedded.answerClass.name, embedded.status))
         assertFalse(embedded.finalClass.terminal)
-        // The other clients answered video 6, as Android and MWEB did in valid runs 1-3, and the run went on.
+        // The other clients answered video 6, as Android and MWEB did in the first valid runs, and the run went on.
         assertEquals(listOf("DIRECT", "PASS"), ask(run, 6, "android", "R0").let { listOf(it.finalClass.name, it.v) })
         assertEquals(listOf("NEEDS_SCRIPT", "ok-n", "PASS"), ask(run, 6, "mweb", "R0").let { listOf(it.answerClass.name, it.solve, it.v) })
         assertEquals(CensusClass.DIRECT, ask(run, 8, "visionos", "R0").finalClass)
@@ -918,7 +918,7 @@ class ClientCensusTest {
 
     @Test
     fun `the L steps read a live-like visionOS answer as its direct parse, and an L stop on DRM names the marker's place`() = runTest {
-        // D7 (2026-10-15): the owner's census read every L step on live visionOS answers as
+        // On 2026-10-15 the owner's census read every L step on live visionOS answers as
         // "none (no rows)" — L stopped, its old DRM marker wider than the copied parser's;
         // DRM-named player settings like these tripped it.
         fun live(formatExtra: Map<String, Any?> = emptyMap()): String {
@@ -945,7 +945,7 @@ class ClientCensusTest {
         assertTrue(line, line.endsWith("round-trip same, L1 same, L2 same, L3 same, L5 n/a, L7 same"))
         assertTrue(plain.contains(L_SUMMARY + "round-trip 1/1 same, L1 1/1 same, L2 1/1 same, L3 1/1 same, L5 0/0 same (1 n/a), L7 1/1 same"))
 
-        // A DRM text in a renamed key of each format (as the simulator's L12), which the copied
+        // A DRM text in a renamed key of each format (as the Answer change test's L12), which the copied
         // parser does not read: L stops, and the note names where its marker sits (no value).
         val drm = notes(live(mapOf("drmFamiliesV2" to mutableListOf<Any?>("WIDEVINE"))))
         val stopped = drm.single { it.startsWith("video 1 L (R0, ") }

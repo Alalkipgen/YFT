@@ -14,7 +14,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import java.util.Locale
 
-/** What Android and the phone allow YFT in the background right now (P34). */
+/** What Android and the phone allow YFT in the background right now. */
 data class BackgroundSystemState(
     /** YFT may run without battery limits (`isIgnoringBatteryOptimizations`). */
     val unrestricted: Boolean = true,
@@ -66,7 +66,7 @@ internal fun isXiaomi(manufacturer: String?): Boolean =
 
 private val XIAOMI_MANUFACTURERS = setOf("xiaomi", "redmi", "poco")
 
-/** The screens the background cards open (P34). Each falls back when a phone lacks one. */
+/** The screens the background cards open. Each falls back when a phone lacks one. */
 object BackgroundSettingsIntents {
     /**
      * Asks Android to let YFT run without battery limits, or opens the closest screen. YFT is

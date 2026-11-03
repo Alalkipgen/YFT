@@ -16,7 +16,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * P15, P23: a reel link is first asked as Safari without the user's session; when that page is
+ * A reel link is first asked as Safari without the user's session; when that page is
  * the requested video with AVC video and an AAC track, it is the whole lookup.
  */
 class FacebookPublicPageTest {
@@ -54,7 +54,7 @@ class FacebookPublicPageTest {
 
     @Test
     fun `a public reel with HD and SD files only goes on to the session page`() = runTest {
-        // P23: such a page offered HD/SD alone, without the sizes and the sound the session
+        // Such a page offered HD/SD alone, without the sizes and the sound the session
         // page's manifest has.
         val http = twoPages(public = page(Fixtures.read(PUBLIC_REEL)), session = page(avcReel()))
 
@@ -141,7 +141,7 @@ class FacebookPublicPageTest {
         val result = FacebookExtractor(http).extract(request(identity))
             as SiteExtractionResult.Success
 
-        // The ladder would ask the public page again, so it is not asked (P23).
+        // The ladder would ask the public page again, so it is not asked.
         assertEquals(List(2) { identity.canonicalPageUrl }, http.requestedUrls)
         assertTrue(result.details.contains("ladder: the public page, already read"))
         assertEquals("Fixture watch video — Full HD", result.candidates.first().title)
@@ -165,7 +165,7 @@ class FacebookPublicPageTest {
             val result = FacebookExtractor(http).extract(request(identity))
                 as SiteExtractionResult.Success
 
-            // P23: the page had HD/SD files only, so the reel it redirected to is asked for the
+            // The page had HD/SD files only, so the reel it redirected to is asked for the
             // AVC ladder, as Safari without the session (this fixture's server has no answer).
             assertEquals(listOf(identity.canonicalPageUrl, REEL_URL), http.requestedUrls)
             val (session, ladder) = http.requestedHeaders

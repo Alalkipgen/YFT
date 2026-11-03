@@ -18,8 +18,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Phase 1.3 D5a's A check (owner, 2026-10-16, option 2) against a scripted YouTube; no live calls:
- * video 2 only, visionOS 1.02 as R6 asks it, 1.05 once only when 1.02 is DIRECT, a stop at once
+ * Client census: the A check against a scripted YouTube; no live calls: video 2 only, visionOS
+ * 1.02 as the Master YouTube module asks it, 1.05 once only when 1.02 is DIRECT, a stop at once
  * on a bot check or HTTP 429, and a run that is reported but not kept for the diff.
  */
 class ClientCensusACheckTest {
@@ -48,7 +48,8 @@ class ClientCensusACheckTest {
         assertEquals("V on 1.05's AVC row only", 1, http.probedUrls.size)
         assertTrue(calls(http) <= ClientCensus.A_CHECK_MAX_REQUESTS)
 
-        // 1.02 is the full census's own R0 request (CensusR6ParityTest: R6's), body and headers.
+        // 1.02 is the full census's own R0 request, body and headers (the Master YouTube module's
+        // request; see CensusR6ParityTest).
         val full = CensusWorld().standard(Census.V2).sources().http()
         census(full).run(Mode.FULL, mapOf(2 to Census.V2), null)
         assertEquals(full.postedBodies.first(), http.postedBodies[0])

@@ -12,6 +12,7 @@ import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import com.alal.yft.testing.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
@@ -27,9 +28,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * P39 (R25): when the TikTok adapter cannot read a page whose player fetched TikTok files, the
- * sheet offers the file the player plays instead of a failure. Fails on the P38 browser, which
- * showed the failure.
+ * When the TikTok adapter cannot read a page whose player fetched TikTok files, the sheet offers
+ * the file the player plays instead of a failure. Fails on the older browser, which showed the
+ * failure.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -58,6 +59,9 @@ class BrowserPlayerFileFallbackTest {
         assertEquals(VIDEO_PAGE, row.pageUrl)
         assertEquals("tt_chain_token=fixture", row.requestContext.cookie)
         assertEquals("https://www.tiktok.com/", row.requestContext.observedHeaders["Referer"])
+        // Download sheet: the failed lookup's own lines go with the player's file to the sheet (its
+        // Lookup details), the same lines its failure shows without a file.
+        assertEquals(failureLines(), store.lookupDetailsOf(store.selection.value))
     }
 
     @Test
@@ -82,6 +86,8 @@ class BrowserPlayerFileFallbackTest {
             store.selection.value?.candidates?.map { it.mediaUrl },
         )
         assertEquals(PlayerFileFallback.NOTICE, viewModel.uiState.value.siteNotice)
+        // Download sheet: the video on screen's file comes with its failed lookup's lines.
+        assertEquals(failureLines(), store.lookupDetailsOf(store.selection.value))
     }
 
     @Test
@@ -112,6 +118,18 @@ class BrowserPlayerFileFallbackTest {
 
     private fun adapters(extractor: SiteExtractor) =
         SiteAdapterCoordinator(SiteExtractorRegistry(listOf(extractor)))
+
+    /** The lines the failed lookup's sheet shows when the page's player fetched no file. */
+    private fun TestScope.failureLines(): List<String> {
+        val store = DetectedMediaStore()
+        val viewModel = BrowserViewModel(OkHttpClient(), adapters(TikTokShapedExtractor()), store)
+        viewModel.onPageStarted(VIDEO_PAGE)
+        viewModel.onPageFinished(VIDEO_PAGE, "Sunrise | TikTok")
+        runCurrent()
+        val lines = store.lookup.value?.details.orEmpty()
+        assertTrue(lines.toString(), lines.containsAll(TikTokShapedExtractor.DETAILS))
+        return lines
+    }
 
     private fun playerRequest(url: String, page: String) = RequestObservation(
         pageUrl = page,

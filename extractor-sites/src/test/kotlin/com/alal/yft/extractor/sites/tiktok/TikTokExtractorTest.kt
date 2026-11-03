@@ -33,7 +33,7 @@ class TikTokExtractorTest {
         val result = TikTokExtractor(http).extract(request(identity))
             as SiteExtractionResult.Success
 
-        // P39: one row per height and codec; the play address is the 540p file's last address
+        // One row per height and codec; the play address is the 540p file's last address
         // and the watermarked download address is kept back while another file opens.
         assertEquals(
             listOf(
@@ -189,7 +189,7 @@ class TikTokExtractorTest {
 
     @Test
     fun `a stale same-named webview cookie loses to the page answer's cookie`() = runTest {
-        // P36 (R20): the media host answers 403 to an old tt_chain_token, 206 to the page's.
+        // The media host answers 403 to an old tt_chain_token, 206 to the page's.
         val identity = identity("7311234567890123456")
         val http = FakeExtractorHttpClient.serving(
             url = identity.canonicalPageUrl,
@@ -218,7 +218,7 @@ class TikTokExtractorTest {
 
     @Test
     fun `the phone page's post is read from its reflow data`() = runTest {
-        // P36 (R20): the page TikTok gives the WebView's user agent has no webapp.video-detail.
+        // The page TikTok gives the WebView's user agent has no webapp.video-detail.
         val identity = identity("7311234567890123456")
         val http = FakeExtractorHttpClient.serving(
             url = identity.canonicalPageUrl,
@@ -228,7 +228,7 @@ class TikTokExtractorTest {
         val result = TikTokExtractor(http).extract(request(identity))
             as SiteExtractionResult.Success
 
-        // P39: one listed quality, so the desktop page is asked too (here it is the same page).
+        // One listed quality, so the desktop page is asked too (here it is the same page).
         assertEquals(
             listOf(identity.canonicalPageUrl, identity.canonicalPageUrl),
             http.requestedUrls,
@@ -276,7 +276,7 @@ class TikTokExtractorTest {
             )
             assertEquals("fixture-agent", http.requestedHeaders[0]["User-Agent"])
             assertEquals(DESKTOP_AGENT, http.requestedHeaders[1]["User-Agent"])
-            // P39 (R29): the lookup's cookie jar carries the phone answer's cookies to the
+            // The lookup's cookie jar carries the phone answer's cookies to the
             // desktop page, as a browser would.
             assertEquals(
                 "sessionid=fixture-cookie; tt_chain_token=chain-fixture; ttwid=wid-fixture; " +
@@ -415,7 +415,7 @@ class TikTokExtractorTest {
             )
 
             cases.forEach { (fixture, expected) ->
-                // P39 skips a post whose id is not the link's, so each link names its post.
+                // The adapter skips a post whose id is not the link's, so each link names its post.
                 val identity = identity(
                     when {
                         fixture.endsWith("photo.html") -> "7311234567890123457"
@@ -497,7 +497,7 @@ class TikTokExtractorTest {
     @Test
     fun `the phone page's height joins the desktop page's other heights`() = runTest {
         val identity = identity("7311234567890123456")
-        // P47: the phone page's file is a height the desktop page does not list.
+        // The phone page's file is a height the desktop page does not list.
         val phone = livePhone()
             .replace("\"height\":1024,\"width\":576", "\"height\":1920,\"width\":1080")
         val http = livePages(identity, phone = phone, probe = ::cdnAnswers)
@@ -531,7 +531,7 @@ class TikTokExtractorTest {
         val result = TikTokExtractor(http).extract(request(identity))
             as SiteExtractionResult.Success
 
-        // P47: 540p H.264 and H.265 are one quality to the user, so the desktop page is read.
+        // 540p H.264 and H.265 are one quality to the user, so the desktop page is read.
         assertEquals(
             listOf("fixture-agent", DESKTOP_AGENT),
             http.requestedHeaders.map { it["User-Agent"] },
@@ -573,6 +573,8 @@ class TikTokExtractorTest {
             )
             assertEquals(listOf(720, 576, 576), result.candidates.map { it.width })
             assertEquals(listOf(1280, 1024, 1024), result.candidates.map { it.height })
+            // v1.0.2: each row's file was got by its one-byte check: its download skips the HEAD.
+            assertEquals(listOf(true, true, true), result.candidates.map { it.fileChecked })
             result.candidates.forEach { candidate ->
                 assertTrue(candidate.mediaUrl.startsWith("https://$TIKTOK_MEDIA_HOST/video/tos/"))
                 assertEquals(DESKTOP_AGENT, candidate.requestContext.userAgent)
@@ -620,6 +622,8 @@ class TikTokExtractorTest {
         )
         assertEquals("post id: missing", result.details[2])
         assertTrue(result.details.contains("file check: not available"))
+        // No file was checked, so no row is marked: each download asks the HEAD first.
+        assertTrue(result.candidates.none { it.fileChecked })
     }
 
     @Test
@@ -681,7 +685,7 @@ class TikTokExtractorTest {
             val failure = TikTokExtractor(http).extract(request(identity))
                 as SiteExtractionResult.Failure
 
-            // P46: both pages say private, so the post is private.
+            // Both pages say private, so the post is private.
             assertEquals(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, failure.reason)
             val later = http.requestedHeaders.drop(1).map { it["User-Agent"] }
             assertEquals(listOf(DESKTOP_AGENT), later)

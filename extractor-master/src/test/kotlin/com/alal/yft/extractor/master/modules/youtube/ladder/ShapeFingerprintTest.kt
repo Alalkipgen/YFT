@@ -9,7 +9,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Phase 1.3 D0: the key-name shape of an answer and its dictionary encoding. */
+/** Client census: the key-name shape of an answer and its dictionary encoding. */
 class ShapeFingerprintTest {
     @Test
     fun `only key names are kept, arrays collapse and odd or redacted keys become a star`() {

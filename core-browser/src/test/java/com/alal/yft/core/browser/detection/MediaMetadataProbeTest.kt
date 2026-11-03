@@ -215,7 +215,7 @@ class MediaMetadataProbeTest {
 
     @Test
     fun aStreamsLengthIsReadFromItsMasterAndItsFirstPlaylistWithThePagesOrigin() = runTest {
-        // P24: a page's HLS stream states its length only in its quality playlists.
+        // A page's HLS stream states its length only in its quality playlists.
         server.enqueue(MockResponse().setBody(MASTER))
         server.enqueue(MockResponse().setBody(PLAYLIST))
         val master = candidate(server.url("/v42/master.m3u8").toString(), requestContext())

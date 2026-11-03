@@ -41,8 +41,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Track E (E3, E-D8): a dead link of a page no adapter reads is renewed by reading the page again
- * once, quietly, as its owner read it (P37's reader: the browser's with the tab's agent, Home's
+ * Fresh link renewal: a dead link of a page no adapter reads is renewed by reading the page again
+ * once, quietly, as its owner read it (the browser's reader with the tab's agent, Home's
  * with Home's agent and no cookie), and taking the same file from it: its address under a fresh
  * signature, else the video of its length (within 2 s). A pasted file link, a page that is the
  * file itself and a file an adapter's page did not name are not renewed; nor is a 400 off VK.
@@ -288,6 +288,40 @@ class PageRereadRenewalTest {
         assertEquals(2, browser.reads.size)
     }
 
+    /**
+     * A page read again without its player data (a notice, a check) leaves "Link
+     * expired" with Retry, and its row says to reopen the page; a read that finds the player
+     * takes that back.
+     */
+    @Test
+    fun `a page read again without its player is marked until a read finds the player`() =
+        runTest {
+            browser.answer = { PageReread.NoPlayer }
+            val transfers = ScriptedTransfers { run -> (41 * MIB).takeIf { run == 0 } }
+            val harness = EnqueueHarness(this, sources, probe, transfers, renewal)
+            val id = download(harness, pageFiles(0)[1]).taskId
+            runCurrent()
+
+            val stopped = harness.queue.tasks.value.single()
+            assertEquals(DownloadTaskStatus.NEEDS_REFRESH, stopped.status)
+            val row = rowOf(harness)
+            assertTrue(row.noPlayerOnPage)
+            assertTrue(DownloadAction.RETRY in row.availableActions)
+            harness.queue.resume(id)
+            runCurrent()
+            val again = harness.queue.tasks.value.single()
+            assertEquals(DownloadTaskStatus.NEEDS_REFRESH, again.status)
+            assertTrue(rowOf(harness).noPlayerOnPage)
+
+            browser.answer = { read -> PageReread.Found(pageFiles(read), facts = null) }
+            harness.queue.resume(id)
+            runCurrent()
+
+            assertEquals(DownloadTaskStatus.COMPLETED, harness.queue.tasks.value.single().status)
+            assertFalse(id in sources.renewals.value.noPlayer)
+            assertEquals(3, browser.reads.size)
+        }
+
     /** What the sheet queues for [candidate]: the file [pick] takes of its resolved ones. */
     private suspend fun download(
         harness: EnqueueHarness,
@@ -358,7 +392,7 @@ class PageRereadRenewalTest {
     private fun clip(name: String, read: Int, host: String = "cdn.example.test") =
         "https://$host/videos/clip-$name.mp4?token=$read"
 
-    /** P37's reader: read n answers [answer] (n), or throws [thrown]; [rereads] as built. */
+    /** The page reader: read n answers [answer] (n), or throws [thrown]; [rereads] as built. */
     private class FakeReader(
         override val rereads: Int = BrowserPageReader.DEFAULT_REREADS,
     ) : BrowserPageReader {

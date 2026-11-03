@@ -22,14 +22,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Converts direct audio downloads that ask for MP3 (T18) or for the sound of a video only (P3,
- * [DirectDownloadPlan.audioOnly], kept as an M4A by [audioExtractor]); every other plan goes to
+ * Converts direct audio downloads that ask for MP3 or for the sound of a video only
+ * ([DirectDownloadPlan.audioOnly], kept as an M4A by [audioExtractor]); every other plan goes to
  * [delegate].
  *
  * The AAC file is downloaded into a per-task workspace (resumable like any direct download),
  * converted there by [transcoder] and only then copied into the real destination and published,
  * so a failed conversion never leaves a broken MP3 in Downloads. A finished AAC file is kept
- * while a retry can still use it.
+ * while a retry can still use it. A finished MP3's Details line (its sound's
+ * length, decode and encode times) goes to [onDetail] with the task's id.
  */
 class Mp3ConvertingTransferDispatcher(
     private val delegate: DownloadTransferDispatcher,
@@ -37,6 +38,7 @@ class Mp3ConvertingTransferDispatcher(
     private val workspaceRoot: File,
     private val bufferBytes: Int = 64 * 1_024,
     private val audioExtractor: LocalAudioExtractor = AndroidAudioExtractor(),
+    private val onDetail: (taskId: String, line: String) -> Unit = { _, _ -> },
 ) : DownloadTransferDispatcher {
     init {
         require(bufferBytes in 1_024..1024 * 1_024)
@@ -167,6 +169,7 @@ class Mp3ConvertingTransferDispatcher(
             return settle(abort.failure, workspace, downloaded, empty)
         }
         workspace.deleteRecursively()
+        (encoded as? Mp3TranscodeResult.Completed)?.detail?.let { onDetail(plan.taskId, it) }
         return QueueTransferResult.Completed(written, downloaded)
     }
 

@@ -4,7 +4,7 @@ import com.alal.yft.extractor.master.fixture
 
 /**
  * The VK pack's made-up fixtures (`fixtures/vk-pack/`, [VkPackFixtureHygieneTest]) as the tests read
- * them. Every query value there is `FIXTURE` (agent A's rule, docs/VK_MASTER_CENSUS.md §8), so a
+ * them. Every query value there is `FIXTURE` (the VK census's rule, docs/TESTING.md), so a
  * test that reads an expiry puts its own number in: [vkPack] gives [name]'s text with every file's
  * `expires` [VK_PACK_EXPIRES].
  */

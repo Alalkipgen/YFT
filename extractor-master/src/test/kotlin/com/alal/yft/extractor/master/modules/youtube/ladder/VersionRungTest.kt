@@ -15,11 +15,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Phase 1.3 D5a — A, the self-healed version rung (MASTER_KEY_PHASE1_3_PLAN.md §4 D5a "As built
- * (A)", guardrail 5, §9 item 3), in the change simulator's worlds: the version cases (V1, Y1–Y6)
+ * YouTube ladder — A, the self-healed version rung (`ladder A` in Lookup details), with the
+ * Client version source, in the change simulator's worlds: the version cases (V1, Y1–Y6)
  * on every base answer, plus the rules A keeps (learned first, one source read a day, only the
- * version changes, kept only after OK + V, quiet after a bot check, none in a trial). Phase 1.4
- * item 3: visionOS's bundled alternate (the App Store's 1.05, [MasterClientTable.VISION_OS_ALTERNATE])
+ * version changes, kept only after OK + V, quiet after a bot check, none in a trial).
+ * visionOS's bundled alternate (the App Store's 1.05, [MasterClientTable.VISION_OS_ALTERNATE])
  * goes last, once, after the learned and the self-healed version.
  */
 class VersionRungTest {
@@ -80,7 +80,7 @@ class VersionRungTest {
         return Ran(world, health, judged, notes, sources.reads, http.posts)
     }
 
-    /** R6 (no ladder) in the same world, for "never worse than R6". */
+    /** The Master YouTube module (no ladder) in the same world, for "never worse than the module". */
     private suspend fun r6(case: SimCase, lookups: Int = case.lookups, setup: SimWorld.() -> Unit = {}): List<SimLookup> {
         val world = case.world().apply(setup)
         val module = MasterYouTubeModule(world.http)

@@ -15,7 +15,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Phase 1.3 D5a — A's version source reader (MASTER_KEY_PHASE1_3_PLAN.md §4 D5a "As built (A)"):
+ * Client version source — the alternate-version rung's version source reader (docs/GLOSSARY.md):
  * the user's User-Agent only, no cookie, no redirect followed, at most the limit read, HTTPS on
  * `raw.githubusercontent.com` only by default. The local TLS server stands in for the host.
  */

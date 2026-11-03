@@ -12,7 +12,7 @@ internal const val MB = 1_048_576L
 /** 1.2 MB/s, as the tracker would measure it. */
 internal const val SPEED_1_2_MB = 1_258_291L
 
-/** A direct download for P34's background tests: 100 MB by default, saved to Download/YFT. */
+/** A direct download for the background tests: 100 MB by default, saved to Download/YFT. */
 internal fun backgroundTask(
     id: String,
     status: DownloadTaskStatus = DownloadTaskStatus.RUNNING,

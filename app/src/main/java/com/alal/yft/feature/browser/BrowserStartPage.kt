@@ -44,7 +44,7 @@ import com.alal.yft.ui.components.YftTonalButton
 import com.alal.yft.ui.theme.YftIcons
 import com.alal.yft.ui.theme.YftTheme
 
-/** The sites "View sites" always offers, each drawn with its bundled logo (T09). */
+/** The sites "View sites" always offers, each drawn with its bundled logo. */
 internal val VIEW_SITES: List<HomeSite> = listOf(
     HomeSite("YouTube", "https://m.youtube.com"),
     HomeSite("Facebook", "https://m.facebook.com"),
@@ -54,11 +54,11 @@ internal val VIEW_SITES: List<HomeSite> = listOf(
 )
 
 /**
- * "Search to download" (T13), the browser's start page. Words in the address field offer a
- * YouTube search and one with [searchEngine], the engine Settings › Browser chose (P30); a link
- * opens as before. The clipboard is read only when Download or
- * Use copied link is tapped. View sites lists the popular sites, and View all the full Your
- * sites list, with Add or edit going to Home where sites are managed.
+ * "Search to download", the browser's start page. Words in the address field offer a YouTube search
+ * and one with [searchEngine], the engine Settings › Browser chose; a link opens as before. The
+ * clipboard is read only when Download or Use copied link is tapped. View sites lists the popular
+ * sites, and View all the full Your sites list, with Add or edit going to Home where sites are
+ * managed.
  */
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
@@ -210,7 +210,7 @@ internal fun BrowserStartPage(
     }
 }
 
-/** P31: the last pages the browser opened; History lists them all. */
+/** The last pages the browser opened; History lists them all. */
 @Composable
 private fun RecentPages(
     pages: List<BrowserHistoryEntry>,

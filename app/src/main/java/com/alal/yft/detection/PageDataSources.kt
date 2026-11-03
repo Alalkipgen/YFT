@@ -4,9 +4,9 @@ import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SitePageData
 
 /**
- * P40: what the user's browser tab holds for one post of a site, read when a lookup starts:
- * [pageData] when the tab has the post's data, [cookie] the site's cookies from the browser's
- * cookie store taken with it (never logged), [details] the step's Details lines.
+ * TikTok page reader: what the user's browser tab holds for one post of a site, read when a lookup
+ * starts: [pageData] when the tab has the post's data, [cookie] the site's cookies from the
+ * browser's cookie store taken with it (never logged), [details] the step's Details lines.
  */
 class TabData(
     val pageData: SitePageData?,
@@ -19,15 +19,17 @@ class TabData(
     }
 }
 
-/** P40: reads the browser tab's own data for a post; the browser's lookups pass one. */
+/**
+ * TikTok page reader: reads the browser tab's own data for a post; the browser's lookups pass one.
+ */
 fun interface TabDataSource {
     /** The tab's data for [postId] of [siteId] (at most about 1 s); null when it has no reader. */
     suspend fun read(siteId: String, postId: String): TabData?
 }
 
 /**
- * P40 (G5, `TT_HIDDEN_PAGE`): opens a site's page in a hidden WebView for a link that is not
- * open in a tab and takes the post's data from it, the way the site's own player gets it.
+ * TikTok page reader (`TT_HIDDEN_PAGE`): opens a site's page in a hidden WebView for a link that is
+ * not open in a tab and takes the post's data from it, the way the site's own player gets it.
  */
 interface HiddenPageReader {
     /** Whether this reader opens pages of [siteId]. */

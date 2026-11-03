@@ -38,9 +38,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * P32 on a real WebView: local fixture pages (inline HTML under an invented address, nothing
- * fetched for them) with the browser's own policy, clients, guard and notice. A page's timer
- * that sends the tab to another site and a tap that opens a window are blocked and the page
+ * Pop-up blocking on a real WebView: local fixture pages (inline HTML under an invented address,
+ * nothing fetched for them) with the browser's own policy, clients, guard and notice. A page's
+ * timer that sends the tab to another site and a tap that opens a window are blocked and the page
  * stays; a tapped link to another site still opens.
  */
 @RunWith(AndroidJUnit4::class)

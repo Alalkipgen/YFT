@@ -25,7 +25,7 @@ object TerminalRules {
     )
 
     /**
-     * Phase 1.4 item 7 (YouTube routing B, `MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §2) R3: the
+     * YouTube backup route (the claim rule): the
      * reasons after which Master's YouTube module may answer a page main already looked up (with
      * the route-B switch on, inside the lookup's record): main's answer was incomplete or changed,
      * not a verdict about the video or the request. Never one of [NEVER_FALLBACK] or
@@ -41,8 +41,8 @@ object TerminalRules {
     )
 
     /**
-     * R2: sites whose bot check, login or player-script answer is final. Their own adapter (or
-     * the future YouTube module) is the only reader; capture never retries past these walls.
+     * Backup finder: sites whose bot check, login or player-script answer is final. Their own adapter (or
+     * the Master YouTube module) is the only reader; capture never retries past these walls.
      * A host matches itself and every subdomain.
      */
     val WALLED_HOSTS: Set<String> = setOf(
@@ -55,11 +55,11 @@ object TerminalRules {
 
     fun blocksFallback(failure: SiteExtractionFailure): Boolean = failure in NEVER_FALLBACK
 
-    /** [blocksFallback], plus R2's walled hosts for the browser-only failures. */
+    /** [blocksFallback], plus the Backup finder's walled hosts for the browser-only failures. */
     fun blocksFallback(failure: SiteExtractionFailure, pageUrl: String?): Boolean =
         blocksFallback(failure) || failure in BROWSER_REQUIRED && walled(pageUrl)
 
-    /** Item 7 R3: whether route B may answer after main's [failure] ([ROUTE_B_RECOVERABLE]). */
+    /** Whether route B may answer after main's [failure] ([ROUTE_B_RECOVERABLE]). */
     fun routeBRecoverable(failure: SiteExtractionFailure): Boolean = failure in ROUTE_B_RECOVERABLE
 
     fun needsAuthorizedPlayback(failure: SiteExtractionFailure): Boolean =

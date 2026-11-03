@@ -15,7 +15,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Phase 1.2 N7: [OwnSolverProbe], the phone canary's solver step, on fake engines. Its jobs are the
+ * Solver canary: [OwnSolverProbe], the phone canary's solver step, on fake engines. Its jobs are the
  * runner's, its timeouts and breaker are the runner's, its time runs from sending the job to its
  * reply, and it keeps locator parts only for kinds found right, per build and worker step.
  */

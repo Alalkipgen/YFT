@@ -27,12 +27,13 @@ import okhttp3.Request
 import okio.BufferedSource
 
 /**
- * Phase 1.3 D6 (MASTER_KEY_PHASE1_3_PLAN.md guardrail 1): Master's client ladder, only in a debug
- * build made with `-Pyft.clientLadder=true` and `-Pyft.masterCapture=true`; otherwise Master's
- * YouTube module is R6 exactly as before. D7: one ladder per process, its health in the app's
+ * YouTube ladder (docs/ARCHITECTURE.md): Master's client ladder, only in a debug build made with
+ * `-Pyft.clientLadder=true` and `-Pyft.masterCapture=true`; otherwise Master's YouTube module runs
+ * its normal path exactly as before. One ladder per process, its health in the app's
  * `files/master/client-health.json` (data only; the file is found on first use, off this thread),
- * and the owner's live-check switch (`-Pyft.ladderSkip` / `-Pyft.ladderMutate`, debug only).
- * D5a's A reads its version source through [OkHttpVersionSourceReader] (at most once a day).
+ * and the owner's live-check switch (Ladder test switches: `-Pyft.ladderSkip` /
+ * `-Pyft.ladderMutate`, debug only). The alternate-version rung reads its Client version source
+ * through [OkHttpVersionSourceReader] (at most once a day).
  */
 internal object MasterLadderSwitch {
     private const val HEALTH_FILE = "master/client-health.json"
@@ -41,14 +42,14 @@ internal object MasterLadderSwitch {
     private var shared: MasterClientLadder? = null
 
     /**
-     * Master's YouTube module. With the ladder, D5a's S (Plan adapted) is the own solver
+     * Master's YouTube module. With the ladder, the signature rung (Plan adapted) is the own solver
      * ([playerScripts], used only when the build's own solver is on — never main's runner) in the
-     * copied extractor's challenge and apply code, behind the module's signature gate (V).
-     * [filesDir] locates the app's files directory for the health file (null: memory only).
-     * Phase 1.4 item 7 route B R2: in a route-B build ([routeB], `-Pyft.youtubeRouteB`, debug only)
-     * the module's client, the own solver's runner and the ladder's media reader are route B's
+     * copied extractor's challenge and apply code, behind the module's signature gate. [filesDir]
+     * locates the app's files directory for the health file (null: memory only).
+     * YouTube backup route: in its build ([routeB], `-Pyft.youtubeRouteB`, debug only) the module's
+     * client, the own solver's runner and the ladder's media reader are the backup route's
      * ([YouTubeRouteB]); they only pass through until the engine runs the module after main's
-     * recoverable failure (R3). Otherwise every piece is as before.
+     * recoverable failure. Otherwise every piece is as before.
      */
     fun youTube(
         http: ExtractorHttpClient,
@@ -66,16 +67,17 @@ internal object MasterLadderSwitch {
     }
 
     /**
-     * Phase 1.4 item 2: the h-only live-check APK (the ladder on, `-Pyft.ladderSkip=h-only`):
-     * a found YouTube page goes through Master, so H's row is what the owner downloads.
+     * Ladder test switches: the h-only live-check APK (the ladder on, `-Pyft.ladderSkip=h-only`): a
+     * found YouTube page goes through Master, so the YouTube HLS rung's row (`ladder H` in
+     * Lookup details) is what the owner downloads.
      */
     val hOnly: Boolean
         get() = BuildConfig.CLIENT_LADDER_ENABLED &&
             LadderTrial.of(BuildConfig.LADDER_SKIP, BuildConfig.LADDER_MUTATE).hOnly
 
     /**
-     * The process's ladder: every tab shares its health (thread-safe), V ledger and switch. Its
-     * reader is made once, as the build's route-B switch says (route B R2).
+     * The process's ladder: every tab shares its health (thread-safe), live-check ledger and
+     * switch. Its reader is made once, as the build's YouTube backup route switch says.
      */
     private fun ladder(client: OkHttpClient, filesDir: (() -> File)?, routeB: Boolean): MasterClientLadder =
         shared ?: synchronized(this) {
@@ -89,9 +91,9 @@ internal object MasterLadderSwitch {
 }
 
 /**
- * The first bytes of an L row's media file (guardrail 6): one GET with `Range: bytes=0-(n - 1)`,
- * HTTPS on a `googlevideo.com` host only (also after redirects), without cookie or credentials,
- * at most [MediaStartReader.read]'s `maxBytes` read. Nothing is logged.
+ * The first bytes of a YouTube shape reader row's media file (Row check): one GET with
+ * `Range: bytes=0-(n - 1)`, HTTPS on a `googlevideo.com` host only (also after redirects), without
+ * cookie or credentials, at most [MediaStartReader.read]'s `maxBytes` read. Nothing is logged.
  */
 internal class OkHttpMediaStartReader(client: OkHttpClient) : MediaStartReader {
     private val http = client.newBuilder()
@@ -148,10 +150,10 @@ internal class OkHttpMediaStartReader(client: OkHttpClient) : MediaStartReader {
 }
 
 /**
- * A's version source (D5a; §9 item 3): one GET of a public source text, HTTPS on
+ * Client version source of the alternate-version rung: one GET of a public source text, HTTPS on
  * `raw.githubusercontent.com` only ([allowed]), with the user's User-Agent and no other header (no
- * cookie, no credentials), **no redirect followed** (a 3xx is a failure), at most
- * `maxBodyBytes` (≤ 64 KiB) read as UTF-8 text, a 10 s call timeout. Nothing is logged.
+ * cookie, no credentials), **no redirect followed** (a 3xx is a failure), at most `maxBodyBytes` (≤
+ * 64 KiB) read as UTF-8 text, a 10 s call timeout. Nothing is logged.
  */
 internal class OkHttpVersionSourceReader(
     client: OkHttpClient,

@@ -62,7 +62,7 @@ fun YftFoundMediaRow(
 }
 
 /**
- * One video of "Found on this page" (P3): every quality and audio file of it is one row, and
+ * One video of "Found on this page": every quality and audio file of it is one row, and
  * Preview opens its download sheet.
  */
 @Composable
@@ -70,7 +70,7 @@ fun YftFoundMediaRow(
     video: MediaGroup,
     onPreview: () -> Unit,
     modifier: Modifier = Modifier,
-    // P19: the video's own picture, the placeholder until it loads.
+    // The video's own picture, the placeholder until it loads.
     thumbnail: ImageBitmap? = rememberRemoteThumbnail(ThumbnailUrls.of(video.candidates)),
     previewTag: String = "preview-candidate",
 ) {
@@ -174,8 +174,8 @@ fun YftAllowedMediaNote(modifier: Modifier = Modifier) {
 }
 
 /**
- * P24: the heading above a page's previews and ads in a found list. The list's count above
- * counts only the page's videos; these follow the heading and stay one tap away.
+ * Page video finder: the heading above a page's previews and ads in a found list. The list's count
+ * above counts only the page's videos; these follow the heading and stay one tap away.
  */
 @Composable
 fun YftOtherVideosHeader(count: Int, modifier: Modifier = Modifier) {
@@ -187,7 +187,7 @@ fun YftOtherVideosHeader(count: Int, modifier: Modifier = Modifier) {
     )
 }
 
-/** P24: the same words as the sheet's "Other videos on this page (N)". */
+/** Page video finder: the same words as the sheet's "Other videos on this page (N)". */
 fun otherVideosLabel(count: Int): String = "Other videos on this page ($count)"
 
 /** Says how many DRM-protected items were left out of a list, or null when none were. */
@@ -227,7 +227,7 @@ fun MediaCandidate.isAudio(): Boolean {
 }
 
 /**
- * "MP4", "M4A", "HLS"; "Auto quality" for adaptive streams; size and length when known. P25: a
+ * "MP4", "M4A", "HLS"; "Auto quality" for adaptive streams; size and length when known. A
  * file's quality and size read as the Download sheet names them ("720p · HD", "~54 MB").
  */
 fun MediaCandidate.factLabels(): List<String> = buildList {
@@ -243,16 +243,21 @@ fun MediaCandidate.factLabels(): List<String> = buildList {
     durationMillis?.takeIf { it > 0 }?.let { add(YftFormat.duration(it)) }
 }
 
-/** P25: the sheet's name for the file's stated picture, "1080p · Full HD" or "480p". */
+/** The Download sheet's name for the file's stated picture, "1080p · Full HD" or "480p". */
 private fun MediaCandidate.qualityName(): String? {
     if (isAudio()) return null
     val picture = height?.takeIf { it > 0 } ?: return null
     val standard = YftQualityNames.standardHeight(width, picture)
-    return YftQualityNames.videoName(standard, framesPerSecond)
+    // AV1 merge switch: an AV1 merge reads as the sheet names it ("1080p · Full HD · AV1").
+    return YftQualityNames.videoName(
+        standard,
+        framesPerSecond,
+        av1 = YftQualityNames.isAv1Merge(codecs, merged = audioCompanion != null),
+    )
 }
 
 /**
- * P25: the size the sheet shows: a lone file's stated size; a merge's two files, or a file's
+ * The size the Download sheet shows: a lone file's stated size; a merge's two files, or a file's
  * bitrate × length, as an estimate ("~54 MB"); nothing when it is not known.
  */
 private fun MediaCandidate.sizeName(): String? {

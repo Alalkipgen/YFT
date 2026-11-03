@@ -36,6 +36,8 @@ import com.alal.yft.extractor.sites.facebook.FacebookExtractor
 import com.alal.yft.extractor.sites.tiktok.TikTokExtractor
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
@@ -45,15 +47,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S2b: TikTok's ladder in Master's engine. A photo post stops the lookup with no
+ * The TikTok ladder in Master's engine. A photo post stops the lookup with no
  * request (the link's or main's resolved address, the address main's page landed on, main's page
  * data); T1, the embed player, is asked once inside the lookup's record (route B's rules: never the
  * user's cookies, nothing new after a 429) and judged: rows bound to the item go to the media
  * checks, a photo post or DRM is final, a 429 or a bot check stops and cools its host; TikTok's
  * status, a login address and no evidence leave it to T2, main's pages read with no request (the
- * page with the most rows; another video's page and a page over the bound are not read). S7's
+ * page with the most rows; another video's page and a page over the bound are not read). The Social limits'
  * budget; a short link through main's resolved link; [SocialStages] gives each lookup its site's
- * ladder; V asks only TikTok's media hosts in a TikTok lookup. Without the lookup's record R8's path
+ * ladder; the Row check asks only TikTok's media hosts in a TikTok lookup. Without the lookup's record the site contract reader's path
  * is unchanged. Main's real TikTok adapter over main's fixtures; no live calls.
  */
 class TikTokLadderTest {
@@ -311,6 +313,92 @@ class TikTokLadderTest {
         assertEquals(20, SocialBudget.TIKTOK.requests)
     }
 
+    /**
+     * T1's asks at least 10 s apart across lookups (a phone run: the embed
+     * player's 429 after one or two asks in a row): a lookup within the gap waits the rest, one
+     * whose time would not hold T1's ask after the wait does not ask (T2 reads, no turn taken);
+     * the census reads them as T1's rows and "not run (time budget)".
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `v1_0_2 - T1's asks are 10 s apart across lookups, within the gap it waits`() = runTest {
+        val cooldown = SocialCooldown({ testScheduler.currentTime })
+        val embed = answering(EMBED_URL to EMBED, contentType = HTML)
+        val ladder = TikTokLadder(embed, ::identifyOrNull, cooldown = cooldown)
+        assertEquals(10_000L, SocialBudget.TIKTOK.gapMillis)
+
+        val first = lookup(PAGE, main(VIDEO_PAGE), embed, ladder = ladder).result
+        assertEquals(MasterStage.CONTRACT, (first as MasterResult.Success).stage)
+        assertFalse(first.result.details.toString(), first.result.details.any { "paced" in it })
+
+        // 3 s later: T1 waits the gap's other 7 s, then asks.
+        delay(3_000)
+        val second = lookup(PAGE, main(VIDEO_PAGE), embed, ladder = ladder).result
+        assertEquals(10_000L, testScheduler.currentTime)
+        val waited = (second as MasterResult.Success).result.details
+        assertEquals(MasterStage.CONTRACT, second.stage)
+        assertTrue(waited.toString(), "$T1: paced, waited 7 s (10 s between its asks)" in waited)
+        assertEquals(listOf(EMBED_URL, EMBED_URL), embed.requestedUrls)
+        assertEquals(
+            listOf("T1 rows", "T2 not reached", "T3 not reached"),
+            LadderRungs.of(SITE, second)?.map { it.text() },
+        )
+
+        // At once again, the lookup's time too short for T1's ask after the wait: not asked.
+        val budget = SocialBudget.TIKTOK.copy(millis = 12_000)
+        val short = TikTokLadder(embed, ::identifyOrNull, cooldown = cooldown, budget = budget)
+        val third = lookup(PAGE, main(VIDEO_PAGE), embed, ladder = short).result
+        val notAsked = (third as MasterResult.Success).result.details
+        assertEquals(MasterStage.PAGE_DATA, third.stage)
+        assertTrue(
+            notAsked.toString(),
+            "$T1: paced (10 s between its asks), its wait over the lookup's time budget; " +
+                "not asked" in notAsked,
+        )
+        assertEquals(2, embed.requestedUrls.size)
+        assertEquals(
+            listOf("T1 not run (time budget)", "T2 rows", "T3 not reached"),
+            LadderRungs.of(SITE, third)?.map { it.text() },
+        )
+
+        // The gap after the second ask (the third took no turn): asked at once.
+        delay(10_000)
+        val fourth = lookup(PAGE, main(VIDEO_PAGE), embed, ladder = ladder).result
+        assertEquals(MasterStage.CONTRACT, (fourth as MasterResult.Success).stage)
+        assertFalse(fourth.result.details.toString(), fourth.result.details.any { "paced" in it })
+        assertEquals(3, embed.requestedUrls.size)
+        assertBare(waited + notAsked)
+    }
+
+    /**
+     * After T1's 429 T1 is not asked for the 30-minute cooldown (Social limits),
+     * then it is.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `v1_0_2 - after T1's 429 T1 is skipped for the cooldown, then asked again`() = runTest {
+        val cooldown = SocialCooldown({ testScheduler.currentTime })
+        val refusal = ExtractorHttpResult.Failure(SiteExtractionFailure.RATE_LIMITED, 429)
+        val limited = FakeExtractorHttpClient(responses = mapOf(EMBED_URL to refusal))
+        val stopped = TikTokLadder(limited, ::identifyOrNull, cooldown = cooldown)
+        lookup(PAGE, main(VIDEO_PAGE), limited, ladder = stopped)
+        assertEquals(listOf(EMBED_URL), limited.requestedUrls)
+        val embed = answering(EMBED_URL to EMBED, contentType = HTML)
+        val ladder = TikTokLadder(embed, ::identifyOrNull, cooldown = cooldown)
+
+        delay(SocialCooldown.COOLDOWN_MILLIS - 1)
+        val cooling = lookup(PAGE, main(VIDEO_PAGE), embed, ladder = ladder).result
+        val details = (cooling as MasterResult.Success).result.details
+        val line = "$T1: cooling down after a 429 or a bot check; not asked"
+        assertTrue(details.toString(), line in details)
+        assertTrue(embed.requestedUrls.isEmpty())
+
+        delay(1)
+        val again = lookup(PAGE, main(VIDEO_PAGE), embed, ladder = ladder).result
+        assertEquals(MasterStage.CONTRACT, (again as MasterResult.Success).stage)
+        assertEquals(listOf(EMBED_URL), embed.requestedUrls)
+    }
+
     @Test
     fun `a short link is read through main's resolved link, else nothing is asked`() = runTest {
         val short = identify(SHORT)
@@ -343,7 +431,7 @@ class TikTokLadderTest {
     @Test
     fun `without the lookup's record or after a sign-in failure the ladder asks nothing`() = runTest {
         val identity = identify(PAGE)
-        // No record (every build but the social-ladder one): R8's ask, exactly as without a ladder.
+        // No record (every build but the social-ladder one): the site contract reader's ask, exactly as without a ladder.
         val r8Http = answering(EMBED_URL to EMBED, contentType = HTML)
         val r8 = MasterFallbackEngine(
             RecordingValidator(), CountingCapture(), MasterPolicy(enabled = true), contracts = SiteContracts(r8Http),
@@ -355,7 +443,7 @@ class TikTokLadderTest {
         assertEquals(r8Http.requestedUrls, http.requestedUrls)
         assertFalse(plain.result.details.any { it.startsWith(LADDER) || it.startsWith(T1) || it.startsWith(T2) })
 
-        // Main's sign-in failure: the user's own playback, never an ask (as R8).
+        // Main's sign-in failure: the user's own playback, never an ask (as the site contract reader does).
         val signIn = answering(EMBED_URL to EMBED, contentType = HTML)
         val record = record()
         val capture = CountingCapture()
@@ -399,7 +487,7 @@ class TikTokLadderTest {
         assertFalse(onFacebook.details.any { it.startsWith(LADDER) || it.startsWith(T1) || it.startsWith(T2) })
         assertEquals(listOf(EMBED_URL, plugin), http.requestedUrls)
 
-        // Another site's lookup: no ladder claims it (R8's path), even inside a record.
+        // Another site's lookup: no ladder claims it (the site contract reader's path), even inside a record.
         val other = SitePageIdentity("vimeo", "100000001", "https://vimeo.com/100000001")
         withContext(record() + MainPages()) {
             assertFalse(stages.claims(contractRequest(other.canonicalPageUrl, other)))
@@ -423,7 +511,7 @@ class TikTokLadderTest {
         assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, (checked.last() as ValidationResult.Rejected).reason)
         assertEquals(listOf(TIKTOK_FILE), files.asked)
 
-        // A lookup that names no site (built before S2b): the check's own site, Facebook's hosts.
+        // A lookup that names no site : the check's own site, Facebook's hosts.
         val before = withContext(LookupRecord(labels = SiteWays.FACEBOOK.labels()) + MainPages()) {
             check.validate(tiktokRow, NOW)
         }

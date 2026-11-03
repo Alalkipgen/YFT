@@ -26,7 +26,7 @@ class MediaFileUrlsTest {
         assertFalse(MediaFileUrls.hasByteRange("https://cdn.test/v.mp4?start=5"))
     }
 
-    /** F1 (VK's pack proof): a closed `bytes=A-B` query value names a piece; nothing else does. */
+    /** VK's pack proof: a closed `bytes=A-B` query value names a piece; nothing else does. */
     @Test
     fun aClosedBytesRangeInTheQueryNamesAPiece() {
         assertTrue(MediaFileUrls.isPiece("https://vkvd1.media.test/?expires=1&type=2&id=7&bytes=0-1427"))

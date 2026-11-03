@@ -9,7 +9,7 @@ import okhttp3.mockwebserver.SocketPolicy
 import okio.Buffer
 
 /**
- * Serves one file in byte ranges for the start tests (P41), like YouTube's media servers: a
+ * Serves one file in byte ranges for the start tests, like YouTube's media servers: a
  * 206 with Content-Range for each range, optionally slowed down per range ([throttle], bytes
  * per period) and with an answer cut off once per range ([cutOnce]).
  */

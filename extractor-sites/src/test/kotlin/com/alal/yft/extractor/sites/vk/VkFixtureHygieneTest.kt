@@ -6,7 +6,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * VK_PLAN §5.5: no fixture holds a real-looking signature, the fetcher's address or a session.
+ * No fixture holds a real-looking signature, the fetcher's address or a session.
  * Failures name counts only, never the value found.
  */
 class VkFixtureHygieneTest {

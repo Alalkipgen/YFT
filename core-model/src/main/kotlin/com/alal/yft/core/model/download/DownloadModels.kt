@@ -29,11 +29,11 @@ data class DirectDownloadPlan(
      * in bounded ranges.
      */
     val maxRequestBytes: Long? = null,
-    /** Set when the downloaded AAC file is converted to MP3 before it is published (T18). */
+    /** Set when the downloaded AAC file is converted to MP3 before it is published. */
     val mp3: Mp3Encoding? = null,
     /**
      * Set when only the sound of the downloaded MP4 is kept: its AAC track is copied into an M4A
-     * before it is published (P3). Ignored when [mp3] is set, which reads the same track.
+     * before it is published. Ignored when [mp3] is set, which reads the same track.
      */
     val audioOnly: Boolean = false,
 ) : DownloadPlan {
@@ -99,7 +99,7 @@ data class HlsDownloadPlan(
     val mimeType: String? = null,
     override val expiresAtEpochMs: Long? = null,
     /**
-     * D1: a download of its own (not a merge's track) is saved as an MP4, or an M4A for sound
+     * A download of its own (not a merge's track) is saved as an MP4, or an M4A for sound
      * alone: MPEG-TS pieces are remuxed on the phone without re-encoding. When that fails, the
      * file is kept in its own format under its own extension (`.ts`), never as an `.mp4`.
      */
@@ -127,7 +127,7 @@ data class HlsDownloadPlan(
 }
 
 /**
- * D1: the name and type a finished file was published under when they are not its plan's, for
+ * The name and type a finished file was published under when they are not its plan's, for
  * example an HLS download kept as MPEG-TS (`.ts`, `video/mp2t`) because the phone could not remux
  * it into an MP4.
  */
@@ -147,7 +147,7 @@ data class PublishedFile(
  * [manifestUrl] is the DASH manifest and [representationId] the representation in it. For a
  * [wholeFile] track, such as one of YouTube's adaptive streams, there is no manifest:
  * [manifestUrl] is the media file itself and [representationId] only names the track.
- * P50: for an [hlsPlaylist] track, [manifestUrl] is an HLS media playlist (a video quality or
+ * For an [hlsPlaylist] track, [manifestUrl] is an HLS media playlist (a video quality or
  * an audio rendition of a master playlist) and the track is its segments in order.
  */
 data class DashDownloadPlan(
@@ -164,7 +164,7 @@ data class DashDownloadPlan(
     val hlsPlaylist: Boolean = false,
     /**
      * How long the video is, as its page states it (YouTube's `lengthSeconds`); null when not
-     * known. A recently ended live stream's track that comes out shorter is not done (run 4f).
+     * known. A recently ended live stream's track that comes out shorter is not done.
      */
     val expectedDurationMillis: Long? = null,
 ) : DownloadPlan {
@@ -271,10 +271,10 @@ enum class DownloadTaskStatus {
     CANCELLED,
 
     /**
-     * Track E: the file's link died after the download started (401, 403, 410, an expired link;
-     * VK's 400 after the link gave bytes) and a fresh lookup of its page runs for the same file
-     * and quality. The task keeps its place in the queue; Pause and Cancel stop the lookup. After
-     * the app was closed it reads back as [NEEDS_REFRESH].
+     * Fresh link renewal: the file's link died after the download started (401, 403, 410, an
+     * expired link; VK's 400 after the link gave bytes) and a fresh lookup of its page runs for the
+     * same file and quality. The task keeps its place in the queue; Pause and Cancel stop the
+     * lookup. After the app was closed it reads back as [NEEDS_REFRESH].
      */
     RENEWING_LINK,
 }
@@ -301,15 +301,15 @@ enum class DownloadFailureReason {
     INTEGRITY_MISMATCH,
 
     /**
-     * A recently ended live stream that YouTube does not serve whole yet (run 4f): no piece
+     * A recently ended live stream that YouTube does not serve whole yet: no piece
      * numbers, a first piece that is not a fragmented MP4 start, or pieces shorter than the video.
      */
     LIVE_NOT_READY,
 
     /**
-     * Item 7 Track B1: YouTube's media host refused the download (HTTP 403 while connecting) while
+     * YouTube's media host refused the download (HTTP 403 while connecting) while
      * its link still had time left, so the link did not expire: YouTube refused this session's
-     * download, and reopening the page with the same session may not help (D7 runs 13 / 13b).
+     * download, and reopening the page with the same session may not help (seen in two phone runs).
      * The download still needs a fresh link.
      */
     YOUTUBE_REFUSED,
@@ -318,7 +318,7 @@ enum class DownloadFailureReason {
 data class DownloadFailure(
     val reason: DownloadFailureReason,
     val httpStatusCode: Int? = null,
-    /** Where the download failed (P21); null when it is not known. */
+    /** Where the download failed; null when it is not known. */
     val stage: DownloadFailureStage? = null,
     /**
      * The exception class and message behind the failure, without addresses or secrets and at
@@ -327,7 +327,7 @@ data class DownloadFailure(
      */
     val detail: String? = null,
     /**
-     * When the download's first steps happened (P41), for example "start: plan 0.0 s · length
+     * When the download's first steps happened, for example "start: plan 0.0 s · length
      * 0.4 s (probe) · first byte 0.9 s · first progress 1.0 s"; times only, null when unknown.
      */
     val startTimeline: String? = null,
@@ -341,7 +341,7 @@ data class DownloadFailure(
             reason == DownloadFailureReason.SERVER_ERROR
 }
 
-/** The step of a download that failed, for the failure details (P21). */
+/** The step of a download that failed, for the failure details. */
 enum class DownloadFailureStage {
     /** Asking the server for the file, or its answer. */
     CONNECT,
@@ -398,6 +398,12 @@ data class DownloadProgress(
     val totalBytes: Long?,
     val bytesPerSecond: Long = 0,
     val activeSegmentCount: Int = 0,
+    /**
+     * A guess at the whole size while [totalBytes] is unknown, shown with a "~" before it. A live
+     * stream that has ended has one: the average size of its pieces so far times the number of
+     * its pieces. Null when there is no honest guess, and whenever [totalBytes] is known.
+     */
+    val estimatedTotalBytes: Long? = null,
 ) {
     init {
         require(downloadedBytes >= 0)
@@ -405,6 +411,7 @@ data class DownloadProgress(
         require(totalBytes == null || downloadedBytes <= totalBytes)
         require(bytesPerSecond >= 0)
         require(activeSegmentCount >= 0)
+        require(estimatedTotalBytes == null || estimatedTotalBytes >= downloadedBytes)
     }
 
     val fraction: Double?
@@ -542,7 +549,7 @@ sealed interface HlsTransferResult {
     data class Completed(
         val bytesWritten: Long,
         val checkpoint: HlsTransferCheckpoint,
-        /** D1: set when the file was published under another name and type than planned. */
+        /** Set when the file was published under another name and type than planned. */
         val publishedAs: PublishedFile? = null,
     ) : HlsTransferResult
 
@@ -587,9 +594,14 @@ data class DashTransferCheckpoint(
 }
 
 sealed interface DashTransferResult {
+    /**
+     * [notes]: Details lines for the finished file (a live file
+     * saved a little short, or one whose newest piece moved while it came); none for the others.
+     */
     data class Completed(
         val bytesWritten: Long,
         val checkpoint: DashTransferCheckpoint,
+        val notes: List<String> = emptyList(),
     ) : DashTransferResult
 
     data class Failure(
@@ -603,7 +615,7 @@ enum class AudioVideoMuxStage {
     READY_TO_MUX,
     MUXING,
 
-    /** The merged file is copied into its destination and checked (P27). */
+    /** The merged file is copied into its destination and checked. */
     SAVING,
     COMPLETED,
 }
@@ -615,7 +627,7 @@ data class AudioVideoMuxCheckpoint(
     val audioReady: Boolean = false,
     val stage: AudioVideoMuxStage = AudioVideoMuxStage.DOWNLOADING_TRACKS,
     /**
-     * How far the step after the download is (P27), out of [stepTotal]: while [stage] is
+     * How far the step after the download is, out of [stepTotal]: while [stage] is
      * [AudioVideoMuxStage.MUXING] the sample time written of the tracks' duration (or the bytes
      * read of the tracks' bytes when the duration is unknown), while it is
      * [AudioVideoMuxStage.SAVING] the bytes saved of the merged file. Kept in memory only: a saved
@@ -667,9 +679,11 @@ data class AudioVideoMuxCheckpoint(
 }
 
 sealed interface AudioVideoMuxResult {
+    /** [notes]: its tracks' Details lines ([DashTransferResult.Completed.notes]), video first. */
     data class Completed(
         val bytesWritten: Long,
         val checkpoint: AudioVideoMuxCheckpoint,
+        val notes: List<String> = emptyList(),
     ) : AudioVideoMuxResult
 
     data class Failure(

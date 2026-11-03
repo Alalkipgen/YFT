@@ -11,14 +11,14 @@ import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 
 /**
- * Decision 30 (i) (`MASTER_KEY_SOCIAL_PLAN.md` section 8): Settings › Browser › "Backup finder",
- * on by default. Off, no lookup asks Master and nothing goes to GitHub raw (R9's signed config,
- * YouTube's version tables): the browser's fallback answers with main's outcome
- * ([AndroidBrowserMasterFallback]), a new tab gets no capture, YouTube's reader runs on main's
- * solver ([BackupFinderPlayerScripts]) and Master's own client refuses every request ([gate]), so
- * a Master run the switch stops halfway asks nothing more. Read synchronously from app
- * preferences, so no lookup runs on a value not loaded yet. Only a build with Master
- * ([available]: the release, the previews, a Master debug build) shows the switch.
+ * Backup finder (docs/DECISIONS.md): Settings › Browser › "Backup finder", on by default. Off, no
+ * lookup asks Master and nothing goes to GitHub raw (the Signed recipe config, YouTube's version
+ * tables): the browser's fallback answers with main's outcome ([AndroidBrowserMasterFallback]), a
+ * new tab gets no capture, YouTube's reader runs on main's solver ([BackupFinderPlayerScripts]) and
+ * Master's own client refuses every request ([gate]), so a Master run the switch stops halfway asks
+ * nothing more. Read synchronously from app preferences, so no lookup runs on a value not loaded
+ * yet. Only a build with Master ([available]: the release, the previews, a Master debug build)
+ * shows the switch.
  */
 class BackupFinder internal constructor(
     private val preferences: SharedPreferences?,

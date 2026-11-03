@@ -7,7 +7,7 @@ package com.alal.yft.core.browser.policy
  *
  * Some sites send an embedded WebView a player its engine cannot play: TikTok answered the
  * WebView identity with a video the page could not load (MEDIA_ERR_SRC_NOT_SUPPORTED) and this
- * one with a playing video (P2 emulator diagnostics).
+ * one with a playing video (seen in emulator diagnostics).
  */
 object BrowserUserAgent {
     private val EMBEDDED_MARK = Regex(""";\s*wv\)""")

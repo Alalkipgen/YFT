@@ -5,7 +5,7 @@ import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStartReader
 import kotlin.coroutines.coroutineContext
 
 /**
- * Phase 1.4 item 7 (YouTube routing B) R2: the ladder's media-start reader (an L row's V and init
+ * YouTube backup route: the ladder's media-start reader (an L row's V and init
  * check, H's first segment) in a route-B build. Under a [RouteBLookup] each read is a new request
  * of Master's (listed in the record, never replayed) and none goes out after a 429 in the lookup
  * or with the user's session; otherwise it only passes through. Nothing is logged.

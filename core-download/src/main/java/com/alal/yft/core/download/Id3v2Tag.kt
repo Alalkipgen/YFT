@@ -3,7 +3,7 @@ package com.alal.yft.core.download
 import com.alal.yft.core.model.download.FileNames
 import java.io.ByteArrayOutputStream
 
-/** The ID3v2.3 tag YFT writes before the first MP3 frame: the title only (T18). */
+/** The ID3v2.3 tag YFT writes before the first MP3 frame: the title only. */
 object Id3v2Tag {
     const val MAX_TITLE_CHARS = 250
     private const val HEADER_BYTES = 10
@@ -43,7 +43,7 @@ object Id3v2Tag {
             .joinToString("")
             .trim()
         if (spaced.isEmpty()) return null
-        // D3: cut at a grapheme boundary: never half a surrogate pair, never a letter's mark.
+        // Cut at a grapheme boundary: never half a surrogate pair, never a letter's mark.
         return FileNames.cut(spaced, MAX_TITLE_CHARS).trimEnd().takeIf(String::isNotEmpty)
     }
 

@@ -1,7 +1,6 @@
 name: Master recipes publish (spike)
 
-# Social plan S4 (MASTER_KEY_SOCIAL_PLAN.md section 7.3, 7.5; R9 in MASTER_KEY_PHASE1_PLAN.md): a
-# data fix without a new APK. Signs one committed, data-only recipe config
+# Signed recipe config: a data fix without a new APK. Signs one committed, data-only recipe config
 # (extractor-master/recipes/configs/<name>.json) with the repository secret YFT_RECIPE_KEY and
 # publishes it on the branch "recipes" as master-recipes.json, the address a social-ladder debug
 # build asks (raw.githubusercontent.com; yft.masterRecipeUrl's default). Start: the owner's label
@@ -15,7 +14,7 @@ name: Master recipes publish (spike)
 # person's label: skipped. Runs never overlap. The private key is written only to the runner's
 # temporary directory (owner-only) and shredded at the step's end; it is never printed.
 #
-# VK Master plan section 9 (R9 schema 2): a committed config is schema 2 (schema 1 plus site vk
+# Schema 2 (VK ladder): a committed config is schema 2 (schema 1 plus site vk
 # and rungs V1-V3), and each run publishes two files from it with one version: master-recipes.json
 # (schema 1, vk and V1-V3 left out, the four-site file v1.0.0 reads) and master-recipes-2.json
 # (schema 2, all five sites, for v1.0.1; its copy published/v<N>-<name>.schema2.json). The next

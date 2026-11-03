@@ -37,12 +37,12 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Social plan S1a (3): Facebook's ladder (F1, the plugin player, judged) in the app's lookup, in a
- * social-ladder build: a share link main resolved gets the ladder's rows for its video, and the
- * page's own route (private, in any language) ends the lookup in main's words. Flag off (every CI
- * build): the same lookup answers as today (no record, so the ladder claims nothing; R8's path).
- * Main's real Facebook adapter over synthetic pages; each case passes the switch explicitly.
- * No live calls.
+ * Social ladders: the Facebook ladder's plugin player step (`facebook F1` in Lookup details,
+ * judged) in the app's lookup, in a social-ladder build: a share link main resolved gets the
+ * ladder's rows for its video, and the page's own route (private, in any language) ends the lookup
+ * in main's words. Flag off (every CI build): the same lookup answers as today (no record, so the
+ * ladder claims nothing; the Site contract reader's path). Main's real Facebook adapter over
+ * synthetic pages; each case passes the switch explicitly. No live calls.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
@@ -68,7 +68,7 @@ class SocialLadderF1Test {
 
         assertEquals(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, failed.reason)
         assertEquals("This Facebook post is private or no longer available.", failed.message)
-        // Task 15 (F3b): only a photos-only answer drops Try again; a private post keeps it.
+        // Download sheet: only a photos-only answer drops Try again; a private post keeps it.
         assertTrue(failed.canRetry)
         assertEquals(listOf(embedUrl(REEL)), fixture.master.asked)
         assertEquals(0, fixture.captures.get())
@@ -79,7 +79,7 @@ class SocialLadderF1Test {
     fun flagOffTheSameLookupAnswersAsToday() = runTest {
         assertNull(SocialLadder.stage(OkHttpExtractorClient(OkHttpClient()), { null }, social = false))
         // Today's engine (no ladder), and the ladder present with the switch off: no record, so it
-        // claims nothing and R8's path answers, in today's words.
+        // claims nothing and the Site contract reader's path answers, in today's words.
         val today = Fixture(page = REEL, plugin = errorPage(BURMESE), socialLadder = false, ladder = false)
         val off = Fixture(page = REEL, plugin = errorPage(BURMESE), socialLadder = false, ladder = true)
 

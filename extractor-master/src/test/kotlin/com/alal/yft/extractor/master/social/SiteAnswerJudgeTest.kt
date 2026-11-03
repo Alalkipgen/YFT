@@ -10,8 +10,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S1a: the answer judge and Facebook's rules. Every page here is synthetic: the
- * route's structure §7.3 item 0.3 found (made-up IDs, signed out), with words of the test's own.
+ * The Answer judge and Facebook's rules. Every page here is synthetic: the
+ * route's structure the census found (made-up IDs, signed out), with words of the test's own.
  */
 class SiteAnswerJudgeTest {
     private val judged = mutableListOf<Judged>()

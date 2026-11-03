@@ -8,7 +8,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** P28: the files a page's own player is set up with, read by player, never by site. */
+/** The files a page's own player is set up with, read by player, never by site. */
 class PlayerSetupScannerTest {
     private val page = "https://tube.example.test/watch/77"
 

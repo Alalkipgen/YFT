@@ -21,14 +21,17 @@ import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.download.RemoteFileMetadata
 import com.alal.yft.core.model.download.TransferCheckpoint
 import com.alal.yft.core.model.media.BrowserRequestContext
+import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.CompanionAudio
 import com.alal.yft.core.model.media.MediaAsset
+import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaSizeAccuracy
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.VariantSupport
 import com.alal.yft.core.model.settings.DownloadLocation
+import com.alal.yft.core.model.settings.SaveFolder
 import com.alal.yft.download.policy.DownloadPolicyGate
 import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred
@@ -62,6 +65,23 @@ class DownloadEnqueuerTest {
         assertEquals(DownloadPlanType.DIRECT, task.planType)
         assertEquals(4_096L, task.totalBytes)
         assertEquals(1, harness.serviceStarter.starts)
+    }
+
+    /**
+     * A file TikTok's adapter already got with its one-byte check is probed without the
+     * HEAD (TikTok's host answers some HEADs 404); every other file, and a download without its
+     * origin, asks the HEAD first.
+     */
+    @Test
+    fun `a file its adapter already checked is probed without the HEAD`() = runTest {
+        val harness = Harness(this)
+        val file = variant(kind = MediaKind.DIRECT, label = "540p")
+
+        harness.enqueuer.enqueue(asset(), file, DownloadOrigin(candidate(checked = true), file))
+        harness.enqueuer.enqueue(asset(), file, DownloadOrigin(candidate(checked = false), file))
+        harness.enqueuer.enqueue(asset(), file)
+
+        assertEquals(listOf(false, true, true), harness.probe.askedHead)
     }
 
     @Test
@@ -191,6 +211,60 @@ class DownloadEnqueuerTest {
         )
     }
 
+    /**
+     * Save folder: the picked folder reaches the provider only for the chosen-folder location,
+     * for every plan type; any other location asks the provider as before, without a folder.
+     */
+    @Test
+    fun `the chosen folder reaches the provider only when it is the location`() = runTest {
+        val chosen = Harness(this, location = DownloadLocation.CHOSEN_FOLDER, folder = FOLDER)
+        chosen.probe.result = DirectProbeResult.Success(metadata(totalBytes = 8))
+        chosen.enqueuer.enqueue(asset(), variant(kind = MediaKind.DIRECT))
+        chosen.enqueuer.enqueue(asset(), variant(id = "hls", kind = MediaKind.HLS))
+        chosen.enqueuer.enqueue(
+            asset(),
+            variant(id = "dash", kind = MediaKind.DASH, container = null)
+                .copy(manifestVariantId = "video-720"),
+        )
+
+        assertEquals(listOf(FOLDER, FOLDER, FOLDER), chosen.destinations.folders)
+        assertEquals(3, chosen.queue.tasks.value.size)
+
+        val shared = Harness(this, folder = FOLDER)
+        shared.probe.result = DirectProbeResult.Success(metadata(totalBytes = 8))
+        shared.enqueuer.enqueue(asset(), variant(kind = MediaKind.DIRECT))
+        shared.enqueuer.enqueue(asset(), variant(id = "hls", kind = MediaKind.HLS))
+
+        assertEquals(listOf<SaveFolder?>(null, null), shared.destinations.folders)
+        assertEquals(0, shared.folderReads)
+    }
+
+    /** Save folder: a folder the provider could not use leaves the row's notice. */
+    @Test
+    fun `a download the chosen folder could not take is noted for its row`() = runTest {
+        val sources = DownloadSources()
+        val harness = Harness(
+            this,
+            location = DownloadLocation.CHOSEN_FOLDER,
+            folder = FOLDER,
+            sources = sources,
+        )
+        harness.destinations.folderUnavailable = true
+        harness.probe.result = DirectProbeResult.Success(metadata(totalBytes = 8))
+
+        val direct = harness.enqueuer.enqueue(asset(), variant(kind = MediaKind.DIRECT))
+            as EnqueueResult.Started
+        val hls = harness.enqueuer.enqueue(asset(), variant(id = "hls", kind = MediaKind.HLS))
+            as EnqueueResult.Started
+
+        assertEquals(setOf(direct.taskId, hls.taskId), sources.renewals.value.folderUnavailable)
+
+        harness.destinations.folderUnavailable = false
+        val fine = harness.enqueuer.enqueue(asset(), variant(id = "ok", kind = MediaKind.DIRECT))
+            as EnqueueResult.Started
+        assertFalse(fine.taskId in sources.renewals.value.folderUnavailable)
+    }
+
     @Test
     fun `a known size that cannot fit is rejected before any destination exists`() = runTest {
         val harness = Harness(this, storage = { 100L * MIB })
@@ -297,12 +371,15 @@ class DownloadEnqueuerTest {
         scope: kotlinx.coroutines.test.TestScope,
         location: DownloadLocation = DownloadLocation.SHARED_DOWNLOADS,
         storage: StorageSpace = StorageSpace.Unknown,
+        folder: SaveFolder? = null,
+        sources: DownloadSources? = null,
         onPolicy: suspend (DownloadQueue) -> Unit = {},
     ) {
         val probe = FakeProbe()
         val destinations = FakeDestinations()
         val serviceStarter = CountingServiceStarter()
         var policyCalls = 0
+        var folderReads = 0
         val queue = DownloadQueue(
             store = InMemoryStore(),
             transferDispatcher = NeverFinishingDispatcher(),
@@ -326,6 +403,11 @@ class DownloadEnqueuerTest {
                 taskIds = { "task-${next++}" },
                 clock = { 1_000 },
                 storage = storage,
+                sources = sources,
+                folder = {
+                    folderReads += 1
+                    folder
+                },
             )
         }
     }
@@ -344,9 +426,11 @@ class DownloadEnqueuerTest {
         ),
     ) : DirectMetadataProbe {
         var calls = 0
+        val askedHead = mutableListOf<Boolean>()
 
-        override suspend fun probe(plan: DirectDownloadPlan): DirectProbeResult {
+        override suspend fun probe(plan: DirectDownloadPlan, askHead: Boolean): DirectProbeResult {
             calls += 1
+            askedHead += askHead
             return result
         }
     }
@@ -354,21 +438,26 @@ class DownloadEnqueuerTest {
     private class FakeDestinations : DownloadDestinationProvider {
         val prepared = mutableListOf<Pair<String, String?>>()
         val locations = mutableListOf<DownloadLocation>()
+        val folders = mutableListOf<SaveFolder?>()
         var failure: IOException? = null
         var rename: (String) -> String = { it }
+        var folderUnavailable = false
 
         override fun prepare(
             fileName: String,
             mimeType: String?,
             location: DownloadLocation,
+            folder: SaveFolder?,
         ): PreparedDestination {
             failure?.let { throw it }
             prepared += fileName to mimeType
             locations += location
+            folders += folder
             return PreparedDestination(
                 destination = NoOpDestination(),
                 spec = DownloadDestinationSpec(DownloadDestinationKind.APP_PRIVATE),
                 fileName = rename(fileName),
+                folderUnavailable = folderUnavailable,
             )
         }
     }
@@ -421,6 +510,15 @@ class DownloadEnqueuerTest {
 
         override suspend fun discard(plan: DownloadPlan) = Unit
     }
+
+    private fun candidate(checked: Boolean) = MediaCandidate(
+        pageUrl = "https://www.tiktok.com/@fixture/video/1",
+        mediaUrl = "https://media.example.test/clip",
+        sources = setOf(CandidateSource.MANIFEST),
+        kind = MediaKind.DIRECT,
+        videoId = "tiktok:1",
+        fileChecked = checked,
+    )
 
     private fun asset() = MediaAsset(
         sourcePageUrl = "https://page.example.test/watch",
@@ -479,5 +577,6 @@ class DownloadEnqueuerTest {
 
     private companion object {
         const val MIB = 1_024L * 1_024
+        val FOLDER = SaveFolder(treeUri = "content://tree.test/tree/movies", name = "Movies")
     }
 }

@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.provider.Settings
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
@@ -15,6 +16,7 @@ import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -24,6 +26,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.text.font.FontWeight
 import androidx.test.core.app.ApplicationProvider
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.ui.theme.YftTheme
@@ -111,21 +114,25 @@ class UpdatesScreenTest {
 
     @Test
     fun anUpdateShowsItsTitleNotesButtonAndSecurityLine() {
-        val notes = (1..80).joinToString("\n") { "- **Fix $it** in [a list](https://example.com)" }
+        val notes = "## Fixes\n" +
+            (1..80).joinToString("\n") { "- **Fix $it** in [a list](https://example.com)" }
         shown.value = shown.value.copy(found = found("v1.0.1", notes = notes))
         setContent()
 
         composeRule.onNodeWithTag("updates-new-version").assert(hasText("New version v1.0.1"))
-        // Plain text: Markdown's marks dropped, the link only its text.
+        // Markdown rendered: no mark shows, the link only its text, a heading and bold as such.
         composeRule.onAllNodesWithText("**", substring = true).assertCountEquals(0)
         composeRule.onAllNodesWithText("](", substring = true).assertCountEquals(0)
+        composeRule.onAllNodesWithText("#", substring = true).assertCountEquals(0)
+        composeRule.onNode(hasText("Fixes") and isHeading()).assertExists()
+        composeRule.onAllNodesWithText("•").assertCountEquals(80)
+        val item = composeRule.onNodeWithText("Fix 1 in a list").fetchSemanticsNode()
+        val bold = item.config[SemanticsProperties.Text].single().spanStyles.single()
+        assertEquals(FontWeight.Bold, bold.item.fontWeight)
+        assertEquals(0 until 5, bold.start until bold.end)
         composeRule.onNodeWithTag("updates-notes")
             .assert(hasScrollAction())
-            .assert(
-                hasAnyDescendant(
-                    hasText("• Fix 1 in a list\n• Fix 2 in a list", substring = true),
-                ),
-            )
+            .assert(hasAnyDescendant(hasText("Fix 80 in a list")))
             .performTouchInput { swipeUp() }
         composeRule.onNodeWithTag("updates-download").assert(hasText("Download APK to update"))
         composeRule.onNodeWithTag("updates-security")

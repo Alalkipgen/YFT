@@ -13,7 +13,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** P34: what the ongoing notification and the finished notice say (R22). */
+/** Download queue: what the ongoing notification and the finished notice say. */
 class DownloadNotificationTextTest {
     private fun content(
         vararg tasks: com.alal.yft.core.download.StoredDownloadTask,
@@ -143,7 +143,7 @@ class DownloadNotificationTextTest {
         assertNull(finishedNoticeText(backgroundTask("r")))
     }
 
-    /** Item 7 Track B1: a link YouTube refused while it had time left did not expire. */
+    /** YouTube session reset: a link YouTube refused while it had time left did not expire. */
     @Test
     fun aYouTubeRefusalNoticeSaysYouTubeRefusedNotLinkExpired() {
         val refused = backgroundTask(

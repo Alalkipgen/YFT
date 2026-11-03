@@ -16,11 +16,11 @@ import com.alal.yft.extractor.master.modules.youtube.YouTubeVideo
 import java.net.URLDecoder
 
 /**
- * Phase 1.3 D2 — the answer judge (MASTER_KEY_PHASE1_3_PLAN.md §4 D2): one [CensusClass] for one
+ * The YouTube ladder's Answer judge: one [CensusClass] for one
  * player answer, from the copied parser's verdict and summary, the HTTP result and ShapeLocator's
  * value-shape scan, plus [Verdict.hls] (an HLS address on a `googlevideo.com` host, from the field
  * or L's locate) and the `SHAPE_CHANGED` kind ([ShapeKind]). The census classes every answer with
- * it; D3's ladder will.
+ * it; the YouTube ladder will.
  *
  * An answer the copied parser refuses, first match:
  * 1. `BOT_CHECK`: YouTube's bot-check words anywhere in the verdict's text, or the copied parser's
@@ -28,11 +28,11 @@ import java.net.URLDecoder
  * 2. `VERSION_REJECTED`: YouTube asking for a newer app;
  * 3. `AGE_CHECK`: the copied parser's age check;
  * 4. `REFUSED`: "not available on this app";
- * 5. a definite verdict → `VIDEO_VERDICT`, except **V7** (owner, 2026-10-15): an `UNPLAYABLE` or
+ * 5. a definite verdict → `VIDEO_VERDICT`, except **V7** (a refusal that is not final): an `UNPLAYABLE` or
  *    `ERROR` screen the copied parser reads as private or unavailable whose text names none of
  *    [DEFINITE_MARKERS] (age, sign-in, membership, purchase, private, removed, copyright, region,
  *    DRM, live) is one client's refusal → `REFUSED`, not terminal: the O rungs may go on, and when
- *    they do not complete R6's verdict stays (video 6's visionOS "This video is not available";
+ *    they do not complete the Master YouTube module's verdict stays (video 6's visionOS "This video is not available";
  *    the embedded player's error 152-18);
  * 6. `LOGIN_REQUIRED` → `VIDEO_VERDICT` (a sign-in only the user's own session can give);
  * 7. an unreadable answer → `REFUSED`;

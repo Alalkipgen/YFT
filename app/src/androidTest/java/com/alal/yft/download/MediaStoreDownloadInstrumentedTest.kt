@@ -35,7 +35,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * P20 (R1) on the CI emulator (API 34) with the real MediaStore. A new pending row in
+ * Direct download on the CI emulator (API 34) with the real MediaStore. A new pending row in
  * `Download/YFT/` has no file until its first "rw" open: reading its length must not fail,
  * out-of-order writes land where they belong, commit() publishes the row, discard() removes it,
  * and the real [DirectTransferEngine] saves a ranged download into a new row. There is no

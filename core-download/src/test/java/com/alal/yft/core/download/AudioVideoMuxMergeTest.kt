@@ -31,7 +31,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * The step after a merged download's tracks are in (P27): its progress, the merge straight into
+ * The step after a merged download's tracks are in: its progress, the merge straight into
  * the destination's file, the fallback to app storage, the space check and the step times.
  */
 class AudioVideoMuxMergeTest {

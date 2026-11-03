@@ -72,7 +72,7 @@ class PageCandidateStoreTest {
 
     @Test
     fun thePagesFactsAreKeptPerPageAndANewerReadKeepsWhatAnOlderFound() = runTest {
-        // P28: what the page states about its video, as its DOM probe reads it again and again.
+        // What the page states about its video, as its DOM probe reads it again and again.
         val page = "https://example.test/watch"
         val store = PageCandidateStore(scope = this, debounceMillis = 0)
         store.beginPage(page)

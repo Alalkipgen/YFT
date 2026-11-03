@@ -5,7 +5,7 @@ import com.alal.yft.core.model.media.MediaVariant
 import java.util.Locale
 
 /**
- * Whether this phone has a decoder that plays a video's picture (P6). YouTube's 2K and 4K are
+ * Whether this phone has a decoder that plays a video's picture. YouTube's 2K and 4K are
  * VP9 or AV1, which older or cheaper phones may not decode at that size; the download sheet
  * still offers them, with a warning, because the file itself is fine.
  */

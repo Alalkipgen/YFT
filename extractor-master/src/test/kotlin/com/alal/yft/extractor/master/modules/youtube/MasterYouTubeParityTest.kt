@@ -27,7 +27,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * R6 passthrough parity: main's YouTube extractor (no script runner, no token provider, no
+ * The Master YouTube module's passthrough parity: main's YouTube extractor (no script runner, no token provider, no
  * cookie: what Master runs with) and Master's module give the same rows, order, labels, sizes
  * and details on main's fixtures, asking the same requests. Cipher and SABR give 0 rows.
  */

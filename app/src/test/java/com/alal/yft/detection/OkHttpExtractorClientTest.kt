@@ -111,7 +111,7 @@ class OkHttpExtractorClientTest {
         )
         val client = server.client()
 
-        // P39 R25: too many redirects is an HTTP problem, not a changed page.
+        // Too many redirects is an HTTP problem, not a changed page.
         val loop = client.get("https://www.youtube.com/loop", session, 1_024) as Failure
         assertEquals(SiteExtractionFailure.HTTP_STATUS, loop.reason)
         assertTrue(loop.details.toString(), "too many redirects" in loop.details)

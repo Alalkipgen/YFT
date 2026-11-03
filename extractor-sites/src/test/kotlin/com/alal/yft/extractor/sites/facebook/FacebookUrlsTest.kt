@@ -66,7 +66,7 @@ class FacebookUrlsTest {
 
     @Test
     fun `story, permalink, post and group post pages are posts asked on their posts path`() {
-        // P3-FIX: the owner's phone opened story.php; no identity meant no adapter and no sheet.
+        // The owner's phone opened story.php; no identity meant no adapter and no sheet.
         val owner = "100012345678901"
         val cases = listOf(
             "https://m.facebook.com/story.php?story_fbid=1234567890123456&id=$owner&mibextid=x"
@@ -102,7 +102,7 @@ class FacebookUrlsTest {
 
     @Test
     fun `a story page that names its Page is asked on the Page's posts path`() {
-        // Decision 18: the app's browser opened a Page post's desktop link as story.php with the
+        // The app's browser opened a Page post's desktop link as story.php with the
         // Page's name in `id`; with no identity no lookup ran and the page's every video showed.
         val post = "pfbid0AbCdEfGhIjKlMn"
         val cases = listOf(

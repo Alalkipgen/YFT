@@ -11,15 +11,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S2d: Instagram's judge, for main's own answers in the lookup (the app API, GraphQL,
- * the post's page, the embed page) that I2 reads with no new ask, and (task 13) the tab-fetch
+ * Instagram ladder: Instagram's judge, for main's own answers in the lookup (the app API, GraphQL,
+ * the post's page, the embed page) that I2 (`instagram I2` in Lookup details) reads with no new ask, and the tab-fetch
  * rung's answer by the same JSON rules. Rows of the link's item bound to the post go to the checks
  * (by shape only for a one-item post); a 429 and the rate-limit answer stop the site; 401, 403, the
  * login and checkpoint addresses, a login-required and a checkpoint answer are the browser's (main's
- * rule, §6.3); photos with no video are final (main's words); no post in an answer, the embed's
+ * rule); photos with no video are final (main's words); no post in an answer, the embed's
  * `EmbedIsBroken` and a page without the post's data need playback; the embed's video without
  * files is the rung's (its own class, never a shape change); never REMOVED (no answer read tells a
- * removed post apart). Task 15 (F2): a shape change says what was read, counts and marks only, and
+ * removed post apart). A shape change says what was read, counts and marks only, and
  * a video whose files main's rule reads with no row read is a shape change on any way. Main's
  * fixtures and synthetic answers; no request.
  */
@@ -34,7 +34,7 @@ class InstagramAnswerJudgeTest {
             Triple(SiteWays.PAGE, failed(403), Expected(AnswerClass.LOGIN_WALL, "status 403", SiteExtractionFailure.LOGIN_REQUIRED)),
             Triple(SiteWays.APP_API, failed(400), Expected(AnswerClass.VALUE_REJECTED, "status 400", SiteExtractionFailure.RESPONSE_CHANGED)),
             Triple(SiteWays.GRAPHQL, failed(400), Expected(AnswerClass.VALUE_REJECTED, "status 400", SiteExtractionFailure.RESPONSE_CHANGED)),
-            // Task 13: the tab-fetch rung's 400 is a rejected value too (no other value is tried).
+            // The tab-fetch rung's 400 is a rejected value too (no other value is tried).
             Triple(SiteWays.TAB_FETCH, failed(400), Expected(AnswerClass.VALUE_REJECTED, "status 400", SiteExtractionFailure.RESPONSE_CHANGED)),
             Triple(SiteWays.TAB_FETCH, failed(429), Expected(AnswerClass.RATE_LIMITED, "status 429", SiteExtractionFailure.RATE_LIMITED)),
             Triple(SiteWays.PAGE, failed(400), Expected(AnswerClass.TRANSIENT, "failed: HTTP_STATUS 400", SiteExtractionFailure.HTTP_STATUS)),
@@ -68,7 +68,7 @@ class InstagramAnswerJudgeTest {
                 expected.assert("$way $url", InstagramAnswerJudge.judge(way, answer(GRAPHQL_REEL, url), InstagramReading(rows = 3, post = true)))
             }
         }
-        // Main's rule and §6.3's: the checkpoint is a sign-in wall, the browser's (no stop).
+        // Main's rule and the judge's: the checkpoint is a sign-in wall, the browser's (no stop).
         assertEquals(Next.BROWSER, InstagramAnswerJudge.judge(SiteWays.PAGE, answer("", "https://www.instagram.com/challenge/")).next)
     }
 
@@ -114,7 +114,7 @@ class InstagramAnswerJudgeTest {
             Triple("""{"require_login":true,"status":"fail"}""", InstagramReading(), Expected(AnswerClass.LOGIN_WALL, "the answer: login required", SiteExtractionFailure.LOGIN_REQUIRED)),
             Triple("""{"message":"login_required","status":"fail"}""", InstagramReading(), Expected(AnswerClass.LOGIN_WALL, "the answer: login required", SiteExtractionFailure.LOGIN_REQUIRED)),
             Triple(Fixtures.read("instagram/graphql_photo.json"), InstagramReading(post = true, photos = true), Expected(AnswerClass.PHOTO_ONLY, "photos only, no video", SiteExtractionFailure.NO_MEDIA_FOUND)),
-            // Photos marked, but a video by its type: never final. Task 15 (F2): a shape change says
+            // Photos marked, but a video by its type: never final. A shape change says
             // what was read, counts and marks only (the answer's size, the post, a video mark, files).
             Triple(
                 GRAPHQL_CAROUSEL,
@@ -136,7 +136,7 @@ class InstagramAnswerJudgeTest {
                     SiteExtractionFailure.RESPONSE_CHANGED,
                 ),
             ),
-            // Task 15 (F2): main's rule read the post's files, the recipe no row: the recipe's shape.
+            // Main's rule read the post's files, the recipe no row: the recipe's shape.
             Triple(
                 GRAPHQL_REEL,
                 InstagramReading(post = true, videoTyped = true, files = 2),
@@ -181,7 +181,7 @@ class InstagramAnswerJudgeTest {
         val cases = listOf(
             Triple("<html></html>", InstagramReading(post = true, photos = true), Expected(AnswerClass.PHOTO_ONLY, "photos only, no video", SiteExtractionFailure.NO_MEDIA_FOUND)),
             Triple(embedBroken, InstagramReading(), Expected(AnswerClass.NEEDS_PLAYBACK, "not embeddable: removed, private or not embeddable alike", null)),
-            // Task 15 (F2): a shape change says what was read, counts and marks only (the page's
+            // A shape change says what was read, counts and marks only (the page's
             // size, its JSON documents, main's post, a video mark, the post's files): main's post
             // with no video read.
             Triple(
@@ -193,7 +193,7 @@ class InstagramAnswerJudgeTest {
                     SiteExtractionFailure.RESPONSE_CHANGED,
                 ),
             ),
-            // L3 (the retest of 2026-10-23): a node names the post's code with no data (no video
+            // Seen in the retest of 2026-10-23: a node names the post's code with no data (no video
             // mark, no file) and main's rule finds no post: main's "no post", never a shape change;
             // the line still says what was read.
             Triple(
@@ -223,9 +223,9 @@ class InstagramAnswerJudgeTest {
             }
         }
 
-        // Task 13 (observation d): a video without files. The embed page signed out lists none by
+        // A video without files. The embed page signed out lists none by
         // its design: the tab-fetch rung's, its own class (W never flags it); the post's page: a
-        // shape change, as before (task 15: with what was read).
+        // shape change, as before (with what was read).
         val video = InstagramReading(post = true, videoTyped = true, documents = 1, rulePost = true)
         val embed = InstagramAnswerJudge.judge(SiteWays.EMBED_PAGE, answer("<html></html>"), video)
         Expected(AnswerClass.VIDEO_WITHOUT_FILES, "a video, no files read", null).assert("embed", embed)
@@ -318,7 +318,7 @@ class InstagramAnswerJudgeTest {
             listOf(SiteWays.GRAPHQL to changed, SiteWays.PAGE to rejected) to (SiteWays.PAGE to rejected),
             listOf(SiteWays.GRAPHQL to transient, SiteWays.EMBED_PAGE to changed) to (SiteWays.EMBED_PAGE to changed),
             listOf(SiteWays.GRAPHQL to transient, SiteWays.EMBED_PAGE to playback) to (SiteWays.EMBED_PAGE to playback),
-            // Task 13: the embed's video without files, after the walls, before every other stop.
+            // The embed's video without files, after the walls, before every other stop.
             listOf(SiteWays.GRAPHQL to wall, SiteWays.EMBED_PAGE to bare) to (SiteWays.GRAPHQL to wall),
             listOf(SiteWays.GRAPHQL to playback, SiteWays.PAGE to changed, SiteWays.EMBED_PAGE to bare) to (SiteWays.EMBED_PAGE to bare),
             listOf(SiteWays.GRAPHQL to rejected, SiteWays.PAGE to transient, SiteWays.EMBED_PAGE to bare) to (SiteWays.EMBED_PAGE to bare),

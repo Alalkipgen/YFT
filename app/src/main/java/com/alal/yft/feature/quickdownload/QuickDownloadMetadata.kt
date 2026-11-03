@@ -9,7 +9,7 @@ import com.alal.yft.core.model.media.MediaVariant
 import java.net.URI
 import java.util.Locale
 
-/** P11: the site's real whole-file metadata, without requiring a size probe first. */
+/** The site's real whole-file metadata, without requiring a size probe first. */
 internal object QuickDownloadMetadata {
     fun asset(candidate: MediaCandidate, now: Long = System.currentTimeMillis()): MediaAsset? {
         if (candidate.kind != MediaKind.DIRECT || candidate.drmHint == true) return null

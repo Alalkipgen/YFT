@@ -12,7 +12,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** VK-Master plan §4 V1, Appendix B step 3: Master's own read of VK's answers, bound to the video. */
+/** The re-read step (`vk V1` in Lookup details): Master's own read of VK's answers, bound to the video. */
 class VkReaderTest {
     @Test
     fun `the embed's key table gives the video's files in VK's order, never the trailer, a picture or another video's`() {

@@ -25,7 +25,7 @@ internal val PROGRESS_STATUSES = setOf(
     DownloadTaskStatus.VERIFYING,
 )
 
-/** Track E: a download whose link died while its page is looked up again for the same file. */
+/** Fresh link renewal: a download whose link died while its page is looked up again for it. */
 internal const val RENEWING_LINK_LABEL = "Getting a fresh link\u2026"
 
 /** A status pill on a card that has no progress bar. */
@@ -41,16 +41,34 @@ internal fun actionTag(action: DownloadAction, id: String): String =
 internal fun menuTag(action: DownloadAction, id: String): String =
     "download-menu-${action.name.lowercase(Locale.US)}-$id"
 
-/** "Delete file" on a finished download (P42), beside "Remove from list". */
+/** "Delete file" on a finished download, beside "Remove from list". */
 internal const val DELETE_FILE_LABEL = "Delete file"
 internal const val DELETE_FILE_TITLE = "Delete this file?"
 
 internal fun deleteFileTag(id: String): String = "download-menu-delete-file-$id"
 
-/** The question's text (P42): the file goes from Download/YFT and from the list, for good. */
+/** The question's text: the file goes from Download/YFT and from the list, for good. */
 internal fun deleteFileQuestionText(fileName: String): String =
     "\u201c$fileName\u201d will be removed from Download/YFT and from this list. " +
         "This can't be undone."
+
+/** "Delete 3 files?" for the downloads picked in select mode. */
+internal fun deleteFilesTitle(count: Int): String =
+    if (count == 1) DELETE_FILE_TITLE else "Delete $count files?"
+
+internal fun deleteFilesQuestionText(count: Int): String =
+    "These $count files will be removed from Download/YFT and from this list. " +
+        "This can't be undone."
+
+/** Select mode, started with a long press on a finished download. */
+internal const val SELECT_LABEL = "Select"
+internal const val SELECT_ALL_LABEL = "Select all"
+
+internal fun selectedCountLabel(count: Int): String = "$count selected"
+
+/** The select bar's "Delete file" ("Delete files" for more than one). */
+internal fun deleteFilesLabel(count: Int): String =
+    if (count == 1) DELETE_FILE_LABEL else "Delete files"
 
 /** Visible button text. */
 internal fun actionLabel(action: DownloadAction): String = when (action) {
@@ -71,7 +89,9 @@ internal fun menuLabel(action: DownloadAction): String = when (action) {
 /**
  * "MP4", "HLS · MP4", "M4A · 12 MB": what the file is, and its size once it is not moving. A
  * finished video whose picture size has been read from the file ([quality]) reads
- * "720p · 96 MB" instead, as in the Library.
+ * "720p · 96 MB" instead, as in the Library. An unfinished video whose picked
+ * quality the app holds ([DownloadRowUiState.pickedQuality]) names it with its stream, else its
+ * format: "1080p · HLS", "1080p · MP4"; the finished row then names the file's own quality.
  */
 internal fun metaLabel(row: DownloadRowUiState, quality: String? = null): String {
     val stream = when (row.planType) {
@@ -88,10 +108,13 @@ internal fun metaLabel(row: DownloadRowUiState, quality: String? = null): String
     val finishedQuality = quality?.takeIf {
         row.status == DownloadTaskStatus.COMPLETED && !row.isAudio
     }
-    val parts = if (finishedQuality != null) {
-        listOf(finishedQuality)
-    } else {
-        listOfNotNull(stream, row.format)
+    val pickedQuality = row.pickedQuality?.takeIf {
+        row.status != DownloadTaskStatus.COMPLETED && !row.isAudio
+    }
+    val parts = when {
+        finishedQuality != null -> listOf(finishedQuality)
+        pickedQuality != null -> listOfNotNull(pickedQuality, stream ?: row.format)
+        else -> listOfNotNull(stream, row.format)
     }
     return (parts + listOfNotNull(size?.let(YftFormat::bytes)))
         .joinToString(" · ")
@@ -106,12 +129,15 @@ internal fun percentLabel(row: DownloadRowUiState): String? =
 
 /**
  * The line under the bar: "61 of 96 MB · 2.4 MB/s · 15 s left", "Paused", "Checking source".
- * Without [withSpeed] the speed is left out, for cards too narrow for the whole line.
+ * An estimated total reads "205 of ~236 MB". Without [withSpeed] the speed is left out, for
+ * cards too narrow for the whole line.
  */
 internal fun progressDetail(row: DownloadRowUiState, withSpeed: Boolean = true): String {
     row.stage?.let { stage -> return mergeStageLabel(stage, row.destinationKind) }
+    val estimate = row.estimatedTotalBytes?.takeIf { row.totalBytes == null }
     val amount = row.totalBytes
         ?.let { amountOf(row.downloadedBytes, it) }
+        ?: estimate?.let { amountOf(row.downloadedBytes, it, estimated = true) }
         ?: row.downloadedBytes.takeIf { it > 0L }?.let(YftFormat::bytes)
     return when (row.status) {
         DownloadTaskStatus.PROBING -> "Checking source"
@@ -119,7 +145,7 @@ internal fun progressDetail(row: DownloadRowUiState, withSpeed: Boolean = true):
         DownloadTaskStatus.PAUSING -> "Pausing"
         DownloadTaskStatus.PAUSED -> listOfNotNull(amount, "Paused").joinToString(" · ")
         else -> listOfNotNull(
-            if (row.totalBytes == null) "Downloading" else null,
+            if (row.totalBytes == null && estimate == null) "Downloading" else null,
             amount,
             row.bytesPerSecond?.takeIf { withSpeed }?.let(::speedLabel),
             row.secondsLeft?.let(::timeLeftLabel),
@@ -129,7 +155,7 @@ internal fun progressDetail(row: DownloadRowUiState, withSpeed: Boolean = true):
 
 /**
  * "Merging audio and video · 45%", "Saving to Download/YFT · 80%": the step after a merged
- * download's tracks are in (P27), with its percent when known.
+ * download's tracks are in, with its percent when known.
  */
 internal fun mergeStageLabel(stage: DownloadStage, destination: DownloadDestinationKind): String {
     val step = when (stage.step) {
@@ -144,16 +170,19 @@ internal fun mergeStageLabel(stage: DownloadStage, destination: DownloadDestinat
     return listOfNotNull(step, stage.percent?.let { "$it%" }).joinToString(" · ")
 }
 
-/** "61 of 96 MB", or "800 KB of 96 MB" when the units differ. */
-internal fun amountOf(downloaded: Long, total: Long): String {
+/**
+ * "61 of 96 MB", or "800 KB of 96 MB" when the units differ; an [estimated] total has a "~"
+ * before it: "205 of ~236 MB".
+ */
+internal fun amountOf(downloaded: Long, total: Long, estimated: Boolean = false): String {
     val done = YftFormat.bytes(downloaded)
-    val all = YftFormat.bytes(total)
+    val all = YftFormat.bytes(total).let { if (estimated) "~$it" else it }
     val sameUnit = done.substringAfter(' ') == all.substringAfter(' ')
     return if (sameUnit) "${done.substringBefore(' ')} of $all" else "$done of $all"
 }
 
 /**
- * The speed on the cards and in the notification (P34, G8): below 1,024 KB/s whole kilobytes
+ * The speed on the cards and in the notification: below 1,024 KB/s whole kilobytes
  * ("850 KB/s", "1023 KB/s"), from there one decimal ("1.0 MB/s", "12.3 MB/s"), 1,024-based.
  */
 internal fun speedLabel(bytesPerSecond: Long): String {
@@ -220,11 +249,17 @@ internal fun statusChip(
     else -> null
 }
 
-/** "Download/YFT · 18 GB free", or the location alone when the volume cannot be measured. */
+/**
+ * "Download/YFT · 18 GB free", or the location alone when the volume cannot be measured; a
+ * chosen folder (Save folder) by its path: "Movies/Test · 18 GB free" on the phone's
+ * storage, "Movies" alone on a memory card or in a cloud app.
+ */
 internal fun storageLabel(storage: DownloadStorageSummary): String {
     val location = when (storage.location) {
         DownloadLocation.SHARED_DOWNLOADS -> LibraryLocation.SHARED_DOWNLOADS.label
         DownloadLocation.APP_STORAGE -> LibraryLocation.APP_STORAGE.label
+        DownloadLocation.CHOSEN_FOLDER ->
+            storage.folderName ?: LibraryLocation.CHOSEN_FOLDER.label
     }
     return storage.freeBytes
         ?.let { "$location · ${YftFormat.bytes(it)} free" }
@@ -262,7 +297,7 @@ internal fun failureLabel(reason: DownloadFailureReason): String = when (reason)
     DownloadFailureReason.YOUTUBE_REFUSED -> "YouTube refused the download"
 }
 
-/** The step a download failed at, for the failure details (P21). */
+/** The step a download failed at, for the failure details. */
 internal fun stageLabel(stage: DownloadFailureStage): String = when (stage) {
     DownloadFailureStage.CONNECT -> "Connecting to the server"
     DownloadFailureStage.READ_SOURCE -> "Reading from the server"
@@ -282,6 +317,19 @@ internal fun planKindLabel(row: DownloadRowUiState): String = when (row.planType
     DownloadPlanType.AUDIO_VIDEO_MUX -> "Merge (audio + video)"
 }
 
+/**
+ * Save folder: a row's notice when the chosen folder could not be used, so the file went to
+ * the default place ([kind]) instead.
+ */
+internal fun folderUnavailableNotice(kind: DownloadDestinationKind): String {
+    val place = when (kind) {
+        DownloadDestinationKind.APP_PRIVATE -> "app storage"
+        DownloadDestinationKind.MEDIA_STORE, DownloadDestinationKind.SAF_DOCUMENT ->
+            LibraryLocation.SHARED_DOWNLOADS.label
+    }
+    return "The chosen folder can't be used, so this file is saved in $place."
+}
+
 /** Where the file is written: Downloads (MediaStore), a chosen folder (SAF) or the app. */
 internal fun destinationKindLabel(kind: DownloadDestinationKind): String = when (kind) {
     DownloadDestinationKind.MEDIA_STORE -> "Downloads (MediaStore)"
@@ -290,15 +338,17 @@ internal fun destinationKindLabel(kind: DownloadDestinationKind): String = when 
 }
 
 /**
- * The text of the failure Details dialog and of Copy details (P21): reason, stage, HTTP status,
- * detail, start times (P41), download type, destination and versions. It names no file, link
- * or address, and the detail is cleaned once more before it is shown.
+ * The text of the failure Details dialog and of Copy details: reason, stage, HTTP status,
+ * detail, start times, download type, destination and versions. It names no file, link
+ * or address, and the detail is cleaned once more before it is shown. AV1 merge switch: a merged
+ * download's last line is [av1Decoder] ([av1DecoderLine]) when one is given.
  */
 internal fun failureDetailsText(
     row: DownloadRowUiState,
     appVersion: String,
     androidRelease: String,
     sdkInt: Int,
+    av1Decoder: String? = null,
 ): String {
     val failure = row.failure
     val reason = (failure?.reason ?: row.failureReason)?.let { reason ->
@@ -313,7 +363,7 @@ internal fun failureDetailsText(
         "Stage: ${stage ?: UNKNOWN}",
         "HTTP status: ${failure?.httpStatusCode ?: UNKNOWN}",
         "Detail: ${DownloadFailureDetails.sanitize(failure?.detail) ?: UNKNOWN}",
-        // How long the start took (P41): "Start: plan 0.0 s · length 0.4 s (probe) · …".
+        // How long the start took: "Start: plan 0.0 s · length 0.4 s (probe) · …".
         DownloadFailureDetails.sanitize(failure?.startTimeline)
             ?.removePrefix("start:")
             ?.trim()
@@ -323,46 +373,69 @@ internal fun failureDetailsText(
         "Saved to: ${destinationKindLabel(row.destinationKind)}",
         "App: YFT ${appVersion.ifBlank { UNKNOWN }}",
         "Android: ${androidRelease.ifBlank { UNKNOWN }} (API $sdkInt)",
+        av1DecoderLine(row, av1Decoder),
     ).joinToString("\n")
 }
 
 /**
- * F6: a download that needs a fresh link shows its details too, like a failed one: its link
+ * AV1 merge switch: whether the phone has an AV1 decoder ("AV1 decoder: hardware (…)", "software
+ * (…)" or "none"), on a merged download's Details only, and only while AV1 merges are on (a debug
+ * build's test switch: the caller passes [av1Decoder], else null; the release passes none).
+ */
+internal fun av1DecoderLine(row: DownloadRowUiState, av1Decoder: String?): String? =
+    av1Decoder?.takeIf { row.planType == DownloadPlanType.AUDIO_VIDEO_MUX }
+
+/**
+ * A download that needs a fresh link shows its details too, like a failed one: its link
  * either failed (the reason and the link's facts) or was never tried ([unknownReason]).
  */
 internal val DownloadRowUiState.showsFailureDetails: Boolean
     get() = status == DownloadTaskStatus.FAILED || status == DownloadTaskStatus.NEEDS_REFRESH
 
 /**
- * Track E: a download that got a fresh link shows Details too while it runs, is paused or after
- * it completed: how each fresh link went on ([downloadDetailsText]).
+ * Fresh link renewal: a download that got a fresh link shows Details too while it runs, is paused
+ * or after it completed: how each fresh link went on ([downloadDetailsText]).
  */
 internal val DownloadRowUiState.showsDetails: Boolean
     get() = showsFailureDetails || renewalLines.isNotEmpty()
 
-/** The Details text: a failure's ([failureDetailsText]), else the fresh links' (Track E). */
+/**
+ * AV1 merge switch: while a debug build's AV1 merges are on ([av1Decoder] given, as for
+ * [av1DecoderLine]), a finished merged download shows Details too: they end with the phone's AV1
+ * decoders. Otherwise as [showsDetails].
+ */
+internal fun DownloadRowUiState.showsDetails(av1Decoder: String?): Boolean =
+    showsDetails ||
+        (status == DownloadTaskStatus.COMPLETED && av1DecoderLine(this, av1Decoder) != null)
+
+/**
+ * The Details text: a failure's ([failureDetailsText]), else the fresh links' (Fresh link renewal);
+ * for a finished merge with the AV1 line, its status, type, place, versions and that line.
+ */
 internal fun downloadDetailsText(
     row: DownloadRowUiState,
     appVersion: String,
     androidRelease: String,
     sdkInt: Int,
+    av1Decoder: String? = null,
 ): String {
     if (row.showsFailureDetails) {
-        return failureDetailsText(row, appVersion, androidRelease, sdkInt)
+        return failureDetailsText(row, appVersion, androidRelease, sdkInt, av1Decoder)
     }
     return (
         listOf("YFT download", "Status: ${row.status.name}") +
             renewalLines(row) +
-            listOf(
+            listOfNotNull(
                 "Download type: ${planKindLabel(row)}",
                 "Saved to: ${destinationKindLabel(row.destinationKind)}",
                 "App: YFT ${appVersion.ifBlank { UNKNOWN }}",
                 "Android: ${androidRelease.ifBlank { UNKNOWN }} (API $sdkInt)",
+                av1DecoderLine(row, av1Decoder),
             )
         ).joinToString("\n")
 }
 
-/** Track E: one line per fresh link, cleaned once more like a failure's detail. */
+/** Fresh link renewal: one line per fresh link, cleaned once more like a failure's detail. */
 private fun renewalLines(row: DownloadRowUiState): List<String> =
     row.renewalLines.mapNotNull(DownloadFailureDetails::sanitize)
 
@@ -373,9 +446,15 @@ private fun renewalLines(row: DownloadRowUiState): List<String> =
 private fun unknownReason(row: DownloadRowUiState): String =
     if (row.status == DownloadTaskStatus.NEEDS_REFRESH) NOT_TRIED_REASON else UNKNOWN
 
-/** Track E (E-D6): a "Link expired" row whose page YFT can look up again. */
+/** Fresh link renewal: a "Link expired" row whose page YFT can look up again. */
 internal const val RENEWABLE_LINK_NOTE =
     "Tap Retry to get a fresh link, or reopen the page in the browser."
+
+/**
+ * A "Link expired" row YFT cannot renew, or one whose page, read again, had no player
+ * data (a notice, a check): Retry would read the same page.
+ */
+internal const val REOPEN_PAGE_NOTE = "Reopen the page in the browser to get a fresh link."
 
 internal const val NOT_TRIED_REASON =
     "Link not tried (the app was closed or restarted, and YFT keeps a download's link only " +
@@ -392,14 +471,14 @@ internal const val AUDIO_FROM_VIDEO_HINT =
     "This video's sound can't be saved as audio. Download the video instead."
 
 /**
- * Item 7 Track B1: YouTube refused the download while its link still had time left
+ * YouTube session reset: YouTube refused the download while its link still had time left
  * ([DownloadFailureReason.YOUTUBE_REFUSED]): the link did not expire, so the row must not say
  * "Link expired" or that reopening the page gets a working one.
  */
 internal fun DownloadRowUiState.isYouTubeRefusal(): Boolean =
     (failure?.reason ?: failureReason) == DownloadFailureReason.YOUTUBE_REFUSED
 
-/** Item 7 Track B3: offered on a [isYouTubeRefusal] row, on its card and in its menu. */
+/** YouTube session reset: offered on a [isYouTubeRefusal] row, on its card and in its menu. */
 internal const val RESET_YOUTUBE_LABEL = "Reset YouTube session"
 
 internal const val YOUTUBE_REFUSED_HINT =

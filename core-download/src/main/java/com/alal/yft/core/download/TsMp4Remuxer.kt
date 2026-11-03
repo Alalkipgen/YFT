@@ -10,12 +10,12 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 
 /**
- * D1: remuxes the pieces of an HLS download into an MP4 in plain Kotlin, without re-encoding:
+ * Remuxes the pieces of an HLS download into an MP4 in plain Kotlin, without re-encoding:
  * MPEG-TS with H.264 video and AAC (ADTS) sound becomes an MP4 (an M4A for sound alone), packed
  * AAC sound an M4A. Samples go straight into the destination as they are read, in chunks of
  * about a second per track, so the phone needs no room beyond the pieces and the file; `moov`
- * ([StreamCopyMoov], as the P35 stream copy writes it) follows them. Anything it does not expect
- * — another codec, encryption, a broken packet, frame or parameter set — is "not supported"
+ * ([StreamCopyMoov], as the fast merge's stream copy writes it) follows them. Anything it does not
+ * expect — another codec, encryption, a broken packet, frame or parameter set — is "not supported"
  * ([StreamCopyUnsupported]) and the caller keeps the file in its own format.
  */
 internal object TsMp4Remuxer : HlsRemuxer {
@@ -116,7 +116,7 @@ internal object TsMp4Remuxer : HlsRemuxer {
 }
 
 /**
- * D1: the packets of an MPEG-TS stream, read in order: the first program of the PAT, its first
+ * The packets of an MPEG-TS stream, read in order: the first program of the PAT, its first
  * H.264 video ([wantVideo]) and its first AAC (ADTS) sound from the first PMT, each PES of those
  * two handed on whole with its 90 kHz times. Another video or sound codec, scrambled packets or
  * a SAMPLE-AES stream are not supported, so a video is never written without its picture or its
@@ -304,7 +304,7 @@ internal class TsDemuxer(
 }
 
 /**
- * D1: 90 kHz MPEG times (33 bits) made one line: each is taken where it lies closest to the one
+ * 90 kHz MPEG times (33 bits) made one line: each is taken where it lies closest to the one
  * before it, so a stream that crosses the wrap (about every 26.5 hours) keeps counting.
  */
 internal class TsTimeline {
@@ -334,7 +334,7 @@ internal class TsTimeline {
 }
 
 /**
- * D1: H.264 access units (Annex B, one per PES) as MP4 samples: each NAL unit with a 4-byte
+ * H.264 access units (Annex B, one per PES) as MP4 samples: each NAL unit with a 4-byte
  * length instead of its start code; access unit delimiters and filler data are left out. The
  * first sample is the first IDR picture with its parameter sets (anything before it cannot be
  * shown); the parameter sets seen until then become the `avcC`.
@@ -422,7 +422,7 @@ internal class AvcSampleBuilder(
     }
 }
 
-/** D1: start codes of an H.264 byte stream (Annex B). */
+/** Start codes of an H.264 byte stream (Annex B). */
 internal object AnnexB {
     /** The index after the next `00 00 01` in [from] until [end], or -1. */
     fun nextUnit(data: ByteArray, from: Int, end: Int): Int {
@@ -443,7 +443,7 @@ internal object AnnexB {
 }
 
 /**
- * D1: what the MP4 needs of an H.264 sequence parameter set: its profile, level, chroma format
+ * What the MP4 needs of an H.264 sequence parameter set: its profile, level, chroma format
  * and bit depths for the `avcC`, and the picture's size after cropping.
  */
 internal class AvcSps(
@@ -622,7 +622,7 @@ internal class AvcSps(
     }
 }
 
-/** D1: reads an H.264 RBSP bit by bit, with Exp-Golomb codes; reading past its end fails. */
+/** Reads an H.264 RBSP bit by bit, with Exp-Golomb codes; reading past its end fails. */
 internal class BitReader(private val data: ByteArray) {
     private var position = 0
 
@@ -657,7 +657,7 @@ internal class BitReader(private val data: ByteArray) {
 }
 
 /**
- * D1: AAC in ADTS frames as MP4 samples: every raw frame without its header, timed from its PES
+ * AAC in ADTS frames as MP4 samples: every raw frame without its header, timed from its PES
  * (the first frame that starts in a PES at the PES's time, the next ones 1024 samples on) or,
  * for packed sound without a [timeline], one after another. A frame cut between two PES is
  * joined first. The `stsd` holds the AudioSpecificConfig of the headers, as the HLS merge's
@@ -765,7 +765,7 @@ internal class AdtsSampleBuilder(
 }
 
 /**
- * D1: one track of the remuxed MP4 while it is written: each sample's size, duration,
+ * One track of the remuxed MP4 while it is written: each sample's size, duration,
  * composition offset, sync flag and place in the file, its chunks, and the chunk still gathered
  * in memory. Times are the track's own ticks; a time that jumps back, or ahead by more than ten
  * seconds (a discontinuity), is moved to where the samples before it end, and so are the times
@@ -911,7 +911,7 @@ internal class RemuxTrack(
 }
 
 /**
- * D1: the remuxed MP4 in [output]: `ftyp` (an M4A's for sound alone) and a 64-bit `mdat` whose
+ * The remuxed MP4 in [output]: `ftyp` (an M4A's for sound alone) and a 64-bit `mdat` whose
  * size is set at the end, the chunks of both tracks as they fill (about a second or
  * [maxChunkBytes] each), then `moov`.
  */
@@ -1074,7 +1074,7 @@ internal class RemuxMp4Writer(
     }
 }
 
-/** D1: a byte array that grows as bytes are added, and drops bytes from its front. */
+/** A byte array that grows as bytes are added, and drops bytes from its front. */
 internal class GrowableBytes(initial: Int) {
     var data = ByteArray(initial)
         private set

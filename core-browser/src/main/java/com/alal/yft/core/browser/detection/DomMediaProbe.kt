@@ -3,7 +3,7 @@ package com.alal.yft.core.browser.detection
 /**
  * The script the browser runs on a page to list its media elements and media meta tags.
  *
- * P28: its first entry (`element: "facts"`) carries what the page states about its video — the
+ * Its first entry (`element: "facts"`) carries what the page states about its video — the
  * meta tags [PageFactsReader] reads, up to five JSON-LD blocks and the page title — and the text
  * of the scripts that set up its player (at most 200 KB in all), read by
  * [DomProbeResultParser]. Nothing on the page is run or changed.

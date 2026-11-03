@@ -10,19 +10,19 @@ import com.alal.yft.extractor.master.toolkit.BalancedJson
 import java.net.URI
 
 /**
- * Social plan S1a (`MASTER_KEY_SOCIAL_PLAN.md` §5 L2, §7.3): what comes after one answer a
- * social rung read. [CHECK_ROWS]: V and the init check on the rows; [NEXT_RUNG]: the next rung
- * (or L3 on the pages already read), else main's answer stays; [PLAYBACK]: the visible tab's own
+ * Answer judge (Social ladders): what comes after one answer a
+ * social rung read. [CHECK_ROWS]: the Row check and the init check on the rows; [NEXT_RUNG]: the next rung
+ * (or Shape search on the pages already read), else main's answer stays; [PLAYBACK]: the visible tab's own
  * playback (F3) or the browser; [BROWSER]: the user's browser (a wall only the user's session
- * passes); [STOP_SITE]: the host stop and the site's cooldown (S7); [FINAL]: the site's final
+ * passes); [STOP_SITE]: the host stop and the site's cooldown (Social limits); [FINAL]: the site's final
  * answer about the post.
  */
 internal enum class Next { CHECK_ROWS, NEXT_RUNG, PLAYBACK, BROWSER, STOP_SITE, FINAL }
 
 /**
- * S1a, L2: one class per answer ([next]; [reason], the answer's reason when the lookup ends on
+ * One class per answer ([next]; [reason], the answer's reason when the lookup ends on
  * it; null: the rows, or the failure's own reason). A [Next.FINAL] class needs positive evidence
- * (the judge of each site); [NEEDS_PLAYBACK] is S1a's "needs playback" (F3 or the browser).
+ * (the judge of each site); [NEEDS_PLAYBACK] is the Social ladders' "needs playback" (F3 or the browser).
  */
 internal enum class AnswerClass(val next: Next, val reason: SiteExtractionFailure?) {
     DIRECT(Next.CHECK_ROWS, null),
@@ -37,13 +37,13 @@ internal enum class AnswerClass(val next: Next, val reason: SiteExtractionFailur
     REGION_LIMITED(Next.FINAL, SiteExtractionFailure.GEO_RESTRICTED),
     PHOTO_ONLY(Next.FINAL, SiteExtractionFailure.NO_MEDIA_FOUND),
     DRM(Next.FINAL, SiteExtractionFailure.DRM_PROTECTED),
-    /** A stale value (a `doc_id`, a token); its self-healing is S1b's. */
+    /** A stale value (a `doc_id`, a token); healing it is later work (not built). */
     VALUE_REJECTED(Next.NEXT_RUNG, SiteExtractionFailure.RESPONSE_CHANGED),
     SHAPE_CHANGED(Next.NEXT_RUNG, SiteExtractionFailure.RESPONSE_CHANGED),
     /**
-     * Social plan task 13 (observation d): a page that shows the post is a video and lists no file,
+     * A page that shows the post is a video and lists no file,
      * as its own design (Instagram's signed-out embed page): not a shape change; the next rung
-     * (Instagram's tab-fetch rung, decision 24), else main's reason stays.
+     * (the Instagram tab-fetch step), else main's reason stays.
      */
     VIDEO_WITHOUT_FILES(Next.NEXT_RUNG, null),
     /** A network failure or another HTTP status: no answer about the post. */
@@ -52,7 +52,7 @@ internal enum class AnswerClass(val next: Next, val reason: SiteExtractionFailur
 }
 
 /**
- * S1a: a judged answer: its [answerClass], the [reason] the lookup ends with when it ends on this
+ * A judged answer: its [answerClass], the [reason] the lookup ends with when it ends on this
  * answer (null: the rows), and the [evidence] — a short label (a status, an address's kind, a
  * route's kind), never the page's words, a link or an ID.
  */
@@ -61,8 +61,8 @@ internal data class Judged(val answerClass: AnswerClass, val reason: SiteExtract
 }
 
 /**
- * S1a, Facebook's judge (the pilot). Conservative: a final answer only on positive evidence that
- * does not depend on the page's language (§7.3 item 0.3): the page's own route in its JSON
+ * Facebook's judge (the first one). Conservative: a final answer only on positive evidence that
+ * does not depend on the page's language: the page's own route in its JSON
  * (`initialRouteInfo.route`) — the error route with its root's `privacy: true` (Facebook's "this
  * content isn't available" page, in every language) → [AnswerClass.PRIVATE], the video's
  * not-found route → [AnswerClass.REMOVED]. The page's words, a shape hash, the reel's `video:
@@ -86,7 +86,7 @@ internal object FacebookAnswerJudge {
 
     /**
      * [answer]: the rung's HTTP answer; [rows]: the rows the reader bound to the post's video ID
-     * (L3; another video's rows never count); [fewerHeights]: fewer heights than the page names;
+     * (Shape search; another video's rows never count); [fewerHeights]: fewer heights than the page names;
      * [needsPlayback]: the plugin player answered without files; [drm]: the reader saw a DRM
      * system named for this video.
      */

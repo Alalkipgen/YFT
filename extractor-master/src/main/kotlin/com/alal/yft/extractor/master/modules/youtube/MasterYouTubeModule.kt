@@ -13,18 +13,18 @@ import com.alal.yft.extractor.master.modules.youtube.ladder.LadderLookup
 import com.alal.yft.extractor.master.modules.youtube.ladder.MasterClientLadder
 
 /**
- * R6 (YT-1/YT-2/YT-4): Master's own YouTube reader, the copied [YouTubeExtractor] behind
+ * Master YouTube module (`master: youtube module` in Lookup details): Master's own YouTube reader, the copied [YouTubeExtractor] behind
  * [SiteExtractorModule]. It runs with no proof-of-origin provider and, by default, no
  * player-script runner, so streams that need n/sig are not offered by Master (main, flag off,
  * still covers them). It is asked without the user's cookie: a signed-in or age-checked answer
  * stays main's.
  *
- * Phase 1.1 S5: [playerScripts] may be the own solver's runner
+ * YouTube own solver: [playerScripts] may be the own solver's runner
  * (`solver.OwnPlayerScriptRunner`); the reader then asks visionOS first (no solver) and the own
  * solver only for streams that need n/sig, dropping every stream whose value is not verified.
- * Phase 1.2 N5b: its signatures are used only after V ([SignatureGate]; A.8: the app's own
+ * Own-solver ladder: its signatures are used only after the Row check V ([SignatureGate]; the app's own
  * reader gets the same gate through [YouTubeSignatureGuard]).
- * Phase 1.3 D6: with a [ladder] (debug, `-Pyft.clientLadder`; null = R6 as before) each lookup
+ * YouTube ladder (`ladder <rung>` in Lookup details): with a [ladder] (debug, `-Pyft.clientLadder`; null = the module as before) each lookup
  * runs the same reader on the ladder's HTTP path and ends with the ladder's last step
  * ([MasterClientLadder]).
  */
@@ -33,7 +33,7 @@ class MasterYouTubeModule(
     private val playerScripts: PlayerScriptRunner = NoPlayerScriptRunner,
     private val ladder: MasterClientLadder? = null,
 ) : MasterSiteModule {
-    // Phase 1.2 N5b: V for the own solver's signatures (A.8: with ownSolverNext on or off; a
+    // Own-solver ladder: V for the own solver's signatures (with ownSolverNext on or off; a
     // runner that hands over no checks gets no gate, and the reader runs as before).
     private val gate = SignatureGate.of(playerScripts, http)
 
@@ -53,7 +53,7 @@ class MasterYouTubeModule(
                     !it.equals("Authorization", ignoreCase = true)
             },
         ))
-        // D6: the ladder's last step sees the result after the gate's V, as the user would.
+        // The ladder's last step sees the result after the gate's V, as the user would.
         val lookup = ladder?.lookup(http, clean)
         val active = gate
         val result = if (active == null) read(clean, lookup) else active.around { read(clean, lookup) }

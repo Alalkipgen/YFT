@@ -18,6 +18,7 @@ import androidx.compose.ui.text.AnnotatedString
 import com.alal.yft.core.model.logging.DiagnosticTextSanitizer
 import com.alal.yft.diagnostics.CrashReportStore
 import com.alal.yft.ui.ShowDetails
+import com.alal.yft.ui.navigation.SharedLinks
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -32,7 +33,7 @@ fun AboutRoute(onNavigateBack: () -> Unit, onOpenLicenses: () -> Unit = {}) {
     LaunchedEffect(store) {
         report = withContext(Dispatchers.IO) { store.read() }
     }
-    // Decision 30 (v): the quiet build's hidden Show details (the version line tapped 7 times).
+    // Quiet details: the quiet build's hidden Show details (the version line tapped 7 times).
     val details = remember(context) { ShowDetails.get(context) }
     val showDetails by details.on.collectAsState()
     AboutScreen(
@@ -70,7 +71,7 @@ internal fun shareCrashReport(context: Context, report: String) {
         .putExtra(Intent.EXTRA_TEXT, DiagnosticTextSanitizer.redact(report))
     try {
         context.startActivity(
-            Intent.createChooser(send, "Share crash report")
+            SharedLinks.leaveOutYft(Intent.createChooser(send, "Share crash report"))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         )
     } catch (_: ActivityNotFoundException) {

@@ -6,7 +6,7 @@ import com.alal.yft.extractor.master.solver.OwnSolverProbe
 import java.util.Locale
 
 /**
- * Phase 1.2 N7, owner tool (debug build only): the solver canary's results and their report, in
+ * Solver canary (owner tool, debug build only): its results and their report, in
  * plain Kotlin so a JVM test checks them ([SolverCanary] runs the steps on the phone).
  *
  * The report holds the player ID, labels, counts, verdicts, times and byte counts only: never an
@@ -17,10 +17,10 @@ import java.util.Locale
  * strategy. V is the live check of the app's lookup on one public video.
  */
 internal object SolverCanaryReport {
-    /** P hit in the same process, phone build (owner, N7). */
+    /** P hit in the same process, phone build (the owner's target). */
     const val SAME_PROCESS_TARGET_MILLIS: Long = 2_000
 
-    /** P hit after a restart, the engine's cold start included (owner, N7). */
+    /** P hit after a restart, the engine's cold start included (the owner's target). */
     const val AFTER_RESTART_TARGET_MILLIS: Long = 8_000
 
     const val TITLE: String = "YFT solver canary"

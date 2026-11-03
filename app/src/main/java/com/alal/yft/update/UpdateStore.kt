@@ -2,7 +2,7 @@ package com.alal.yft.update
 
 import android.content.SharedPreferences
 
-/** What the updater keeps between app opens (§4.3). Times are epoch millis. */
+/** What the updater keeps between app opens. Times are epoch millis. */
 data class UpdateRecord(
     /** Check automatically; null = the build's default (on in the release, off in test mode). */
     val autoCheck: Boolean? = null,

@@ -116,7 +116,7 @@ class OkHttpExtractorNetworkTest {
 
     @Test
     fun aCookieTheShortLinksRedirectSetsGoesToThePageOnlyWithThePolicy() = runBlocking {
-        // P39 (R29): TikTok's short link sets its session on the redirect; a browser sends it
+        // TikTok's short link sets its session on the redirect; a browser sends it
         // to the page, so the lookup does too when its policy says so.
         ExtractorTlsFixture().use { fixture ->
             repeat(2) {

@@ -7,7 +7,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** R3 T7: QualityLadder. */
+/** Master toolkit: QualityLadder. */
 class QualityLadderTest {
     private fun track(
         name: String,

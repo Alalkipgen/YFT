@@ -3,8 +3,8 @@ package com.alal.yft.extractor.master.lookup
 import com.alal.yft.extractor.api.ExtractorHttpResult
 
 /**
- * Social plan S0a (`MASTER_KEY_SOCIAL_PLAN.md` §7.1): what a [LookupRecord] made for the site
- * census writes next to each ask: the way that asked ([way]: main's "public page", Master's
+ * Lookup record: what a [LookupRecord] made for the Site census writes
+ * next to each ask: the way that asked ([way]: main's "public page", Master's
  * "plugin player", a "file check", ...), and what a 2xx answer held ([read]). The site table
  * ([com.alal.yft.extractor.master.social.SiteWays]) gives one instance per census row. A record
  * given none (every lookup of the app, route B included) labels nothing and counts as before.
@@ -22,12 +22,12 @@ interface AskLabels {
 }
 
 /**
- * S0a: one answer's reading: its [mark] and its [shape], a short fingerprint of the answer's
+ * One answer's reading: its [mark] and its [shape], a short fingerprint of the answer's
  * structure (key names or markers, never a value): `j` + 8 hex for JSON, `h` + 8 hex for a page.
  */
 data class AskReading(val mark: AnswerMark, val shape: String? = null)
 
-/** S0a: what an answer held; [stops]: the host is asked nothing more (as a 429). */
+/** What an answer held; [stops]: the host is asked nothing more (as a 429). */
 enum class AnswerMark(val label: String, val stops: Boolean = false) {
     /** The post's media data, as main or Master reads it. */
     DATA("data"),

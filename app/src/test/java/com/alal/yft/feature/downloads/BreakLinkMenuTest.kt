@@ -26,7 +26,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Track E (E-D9): "Break this download's link" is the trial's alone, on a running or paused
+ * Fresh link renewal: "Break this download's link" is the trial's alone, on a running or paused
  * download; every other build (the release, a preview, a plain debug) and a quiet one drop it.
  */
 @RunWith(RobolectricTestRunner::class)

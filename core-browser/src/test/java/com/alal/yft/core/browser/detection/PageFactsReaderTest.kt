@@ -5,7 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** P28: what a page states about its own video, from its meta tags and JSON-LD only. */
+/** What a page states about its own video, from its meta tags and JSON-LD only. */
 class PageFactsReaderTest {
     private val page = "https://tube.example.test/watch/77"
 

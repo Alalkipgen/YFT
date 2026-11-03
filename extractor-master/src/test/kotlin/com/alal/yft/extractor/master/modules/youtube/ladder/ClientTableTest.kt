@@ -12,7 +12,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Phase 1.3 D2 (MASTER_KEY_PHASE1_3_PLAN.md §4 D2): the client table v2 keeps guardrail 5 — at most
+ * YouTube ladder: the client table v2 keeps its limits — at most
  * 4 identities, all main's own profiles unchanged, at most 2 bundled alternates with source and
  * date, version sources live only on the approved hosts, no O rung live before the gate.
  */

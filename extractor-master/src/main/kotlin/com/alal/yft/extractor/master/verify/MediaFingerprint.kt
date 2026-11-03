@@ -4,7 +4,7 @@ import com.alal.yft.core.model.media.MediaCandidate
 import kotlin.math.abs
 
 /**
- * R4: what ties one video's files together without decoding them — the length and, when a file
+ * Media fingerprint: what ties one video's files together without decoding them — the length and, when a file
  * states it, its keyframe cues ([SegmentIndexReader]). Length alone never groups two files; it
  * takes both a near-identical length and agreeing cues.
  */

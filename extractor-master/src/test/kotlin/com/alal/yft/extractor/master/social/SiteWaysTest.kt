@@ -47,8 +47,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S0a: the census's site table ([SiteWays]): the five sites with main's IDs (VK's,
- * [VkSite], since VK Master wave 2), their 51 slots and what each kind expects, the hosts the one-row check may ask, each site's way labels,
+ * Site census: the census's site table ([SiteWays]): the five sites with main's IDs (VK's,
+ * [VkSite], since the VK ladder), their 51 slots and what each kind expects, the hosts the one-row check may ask, each site's way labels,
  * the readings of main's committed fixtures and the shape fingerprints. The labels of the asks
  * main's adapters and Master's contracts really send are [SiteWaysDriftTest]'s. No live calls.
  */
@@ -135,7 +135,7 @@ class SiteWaysTest {
         // 0.4: Instagram's removed slot, signed out, cannot tell its sign-in answer from a shown post's.
         assertEquals(removed.copy(ambiguousWithoutSession = setOf(LOGIN_REQUIRED)), SiteWays.INSTAGRAM.kind(10)!!.expect)
         assertEquals("removed", SiteWays.INSTAGRAM.kind(10)!!.label)
-        // 0.4 (c): Facebook's sign-in-only slot, signed out, answers as a missing post does.
+        // Facebook's sign-in-only slot, signed out, answers as a missing post does.
         assertEquals(
             SiteWays.INSTAGRAM.kind(9)!!.expect.copy(ambiguousWithoutSession = setOf(PRIVATE_OR_UNAVAILABLE, RESPONSE_CHANGED)),
             SiteWays.FACEBOOK.kind(12)!!.expect,
@@ -157,7 +157,7 @@ class SiteWaysTest {
         assertEquals(720, hd.minHeight)
         assertTrue(SiteWays.ALL.flatMap { it.slots }.filter { it !== SiteWays.TIKTOK.kind(10) }.all { it.expect.minHeight == null })
         assertEquals(setOf(NO_MEDIA_FOUND), SiteWays.INSTAGRAM.kind(8)!!.expect.reasons)
-        // X's main answers a post its widget does not show with no media (P48).
+        // X's main answers a post its widget does not show with no media (X adapter).
         assertEquals(setOf(LOGIN_REQUIRED, PRIVATE_OR_UNAVAILABLE, NO_MEDIA_FOUND), SiteWays.X.kind(7)!!.expect.reasons)
         assertEquals(setOf(PRIVATE_OR_UNAVAILABLE, NO_MEDIA_FOUND), SiteWays.X.kind(8)!!.expect.reasons)
     }
@@ -501,14 +501,14 @@ class SiteWaysTest {
         val PAGE_SHAPE = Regex("h[0-9a-f]{8}")
         val JSON_SHAPE = Regex("j[0-9a-f]{8}")
 
-        /** Master's plugin player's shape (as the R8 contract test's), with fixture addresses. */
+        /** Master's plugin player's shape (as the site contract reader's test's), with fixture addresses. */
         const val FB_EMBED = "<html><body><script>s.handle({\"instances\":[[\"__inst\",[\"VideoConfig\"]," +
             "[{\"video_id\":\"1234567890123456\",\"videoData\":[{\"is_hls\":false," +
             "\"hd_src\":\"https:\\/\\/video.example-cdn.test\\/v\\/embed-hd.mp4?oh=fixture\"," +
             "\"sd_src\":\"https:\\/\\/video.example-cdn.test\\/v\\/embed-sd.mp4?oh=fixture\"}]}],1]]});" +
             "</script></body></html>"
 
-        /** Master's embed player's shape (as the R8 contract test's), with a fixture address. */
+        /** Master's embed player's shape (as the site contract reader's test's), with a fixture address. */
         const val TT_EMBED = "<html><body><script id=\"__FRONTITY_CONNECT_STATE__\" type=\"application/json\">" +
             "{\"source\":{\"data\":{\"/embed/v2/7311234567890123456\":{\"videoData\":{\"itemInfos\":" +
             "{\"id\":\"7311234567890123456\",\"video\":{\"urls\":" +

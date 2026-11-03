@@ -6,16 +6,16 @@ import java.security.MessageDigest
 import java.util.Objects
 
 /**
- * Phase 1.4 item 7 (YouTube routing B, `MASTER_KEY_PHASE1_4_ROUTING_PLAN.md`) R1: one request of
+ * Lookup record: one request of
  * a lookup as its [LookupRecord] sees it.
  *
  * Two asks are the same request only when the method, address, body and headers (names, values
  * and order) are all the same, as in the ladder's same-lookup memo. [authorized]: the request
  * carries the user's session or credentials (a non-blank `Cookie`, `Authorization` or
  * `Proxy-Authorization` header); such an answer is never kept or replayed. [endpoint] is the
- * method, address and body alone (an endpoint main asked is not asked again by Master, R2);
+ * method, address and body alone (an endpoint main asked is not asked again by Master on route B);
  * [hash] is a short hash for counts only. [toString] shows the method and the short hash, never
- * the address, the body or a header. F5: [watchPage] marks a GET of a YouTube watch (or embed)
+ * the address, the body or a header. [watchPage] marks a GET of a YouTube watch (or embed)
  * page, and [withoutCookie] is the same request without its `Cookie` header — what the record
  * keys main's cookie GET of the lookup's watch page by.
  */
@@ -38,10 +38,10 @@ class LookupAsk(
     /** A short hash of the method, address, body and [authorized]; for counts and details only. */
     val hash: String = digest(method, url, body, authorized.toString()).take(HASH_CHARS)
 
-    /** F5: a GET of a YouTube watch page or embed page (guardrail 7: one page per lookup). */
+    /** A GET of a YouTube watch page or embed page (the YouTube ladder's budget: one page per lookup). */
     val watchPage: Boolean = method == GET && isWatchPage(url)
 
-    /** F5: whether the request carries a non-blank `Cookie` and no other credential header. */
+    /** Whether the request carries a non-blank `Cookie` and no other credential header. */
     internal val cookieOnly: Boolean
         get() = headers.any { (name, value) -> name.trim().equals(COOKIE, ignoreCase = true) && value.isNotBlank() } &&
             headers.none { (name, value) ->
@@ -49,7 +49,7 @@ class LookupAsk(
                     value.isNotBlank()
             }
 
-    /** F5: the same request without its `Cookie` headers (the others in their order). */
+    /** The same request without its `Cookie` headers (the others in their order). */
     internal fun withoutCookie(): LookupAsk = LookupAsk(
         method,
         url,

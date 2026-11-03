@@ -3,7 +3,7 @@ package com.alal.yft.core.model.media
 import kotlin.math.abs
 
 /**
- * P28: what a page without an adapter states about its own video, apart from any file: its
+ * What a page without an adapter states about its own video, apart from any file: its
  * length, title and picture (JSON-LD `VideoObject`, Open Graph, `itemprop`, the page title).
  * Every field is optional. The stated length tells the page's video from the ad its player
  * shows first: a 0:30 file on a page that states 16:24 is not the page's video.

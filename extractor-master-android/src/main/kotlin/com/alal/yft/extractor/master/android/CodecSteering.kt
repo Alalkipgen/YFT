@@ -1,7 +1,7 @@
 package com.alal.yft.extractor.master.android
 
 /**
- * R5: the codec policy the document-start script `yft-master-codecs.js` enforces in the page's
+ * Codec steering: the codec policy the document-start script `yft-master-codecs.js` enforces in the page's
  * player. The app builds it from the same rules as `DeviceMergeSupport`: AVC/AAC always,
  * VP9/Opus WebM merges from Android 10, AV1 only while AV1 merges are on (they are off). The
  * script only narrows answers, never touches DRM queries and is off on YouTube hosts.

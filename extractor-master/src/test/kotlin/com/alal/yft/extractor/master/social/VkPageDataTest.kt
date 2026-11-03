@@ -40,6 +40,22 @@ class VkPageDataTest {
     }
 
     @Test
+    fun `one row per height, the first file VK names for it`() {
+        // VK's key table naming 720 twice (`mp4_720`, then `mp4_0720`).
+        val table = DATA.replace("\"mp4_720\":\"${file("3")}\"", "\"mp4_720\":\"${file("3")}\",\"mp4_0720\":\"${file("9")}\"")
+        val rows = VkPageData.of(request(), snapshot(listOf(table)))
+        assertEquals(listOf(1_080, 720, 480, 360, 240, 144), rows.map { it.height })
+        assertEquals(file("3"), rows[1].mediaUrl)
+        assertTrue(rows.none { it.mediaUrl == file("9") })
+        // The shape scan (no key table): `mp4_720` and `url720` are one height, the first named.
+        val shape = """{"response":{"items":[{"id":400000001,"owner_id":-100000001,"title":"t","duration":118,""" +
+            """"mp4_720":"${file("3")}","url720":"${file("9")}","mp4_480":"${file("2")}"}]}}"""
+        val shaped = VkPageData.of(request(), snapshot(listOf(shape)))
+        assertEquals(listOf(file("3"), file("2")), shaped.map { it.mediaUrl })
+        assertEquals(listOf(720, 480), shaped.map { it.height })
+    }
+
+    @Test
     fun `another video's data, another host, no files and no VK data give nothing, the first body with files counts`() {
         assertTrue(VkPageData.of(request(), snapshot(listOf(DATA.replace("\"id\":400000001", "\"id\":400000002")))).isEmpty())
         assertTrue(VkPageData.of(request(), snapshot(listOf(DATA.replace("vk1-2.vkuser.net", "cdn.example")))).isEmpty())

@@ -12,7 +12,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * P28: the owner's Preview #4 case on a fixture page. The page states its video (16:24) in
+ * The owner's Preview #4 case on a fixture page. The page states its video (16:24) in
  * JSON-LD naming an embed page, not a file; its player plays a 30 s 1080p ad first and loads
  * the page's HLS master afterwards. Download during the ad opens the HLS with the page's title
  * and picture; the ad stays under Other videos. On the old code the playing 0:30 ad wins.

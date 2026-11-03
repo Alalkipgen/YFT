@@ -9,7 +9,7 @@ import com.alal.yft.download.policy.TransferNetworkState
 import com.alal.yft.feature.downloads.DownloadSpeedMeter
 
 /**
- * The download service's decisions (P34), apart from Android so they can be tested on the JVM:
+ * The download service's decisions, apart from Android so they can be tested on the JVM:
  * - the service stays in the foreground while any task is queued, waits for a network or runs,
  *   at every stage (download, merge, MP3 conversion, save), and stops when none is left;
  * - a wake lock while anything runs, a Wi-Fi lock while bytes are downloaded ([locks]);
@@ -132,7 +132,7 @@ internal class DownloadServiceController(
         host.showActive(content)
     }
 
-    /** A task this service saw run that has finished or failed gets its notice (G5). */
+    /** A task this service saw run that has finished or failed gets its notice. */
     private fun noticeEnded(tasks: List<StoredDownloadTask>) {
         val byId = tasks.associateBy(StoredDownloadTask::id)
         val ended = watched.filter { id ->
@@ -157,7 +157,7 @@ internal class DownloadServiceController(
     }
 
     companion object {
-        /** G5 default: a notice when a download finishes or fails. */
+        /** Default: a notice when a download finishes or fails. */
         const val DONE_NOTICE = true
         const val MIN_UPDATE_MS = 1_000L
         private const val MS_PER_SECOND = 1_000L

@@ -246,8 +246,8 @@ class BrowserRouteTest {
         showRoute()
         navigate("example.test/one")
 
-        // With wrap-content parameters a real WebView lays pages out with a zero viewport
-        // height: Facebook's reel video got a 320x0 box (P2 emulator diagnostics).
+        // With wrap-content parameters a real WebView lays pages out with a zero viewport height:
+        // Facebook's reel video got a 320x0 box (emulator diagnostics).
         composeRule.runOnIdle {
             val params = webViews().single().layoutParams
             assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, params.width)
@@ -388,8 +388,8 @@ class BrowserRouteTest {
         }
         composeRule.waitUntil(5_000) { extractor.calls.get() == 1 }
 
-        // P12: two taps while the page's own lookup runs. Whatever script a tap runs, the page
-        // answers with this very video, as the player on screen would.
+        // Download sheet: two taps while the page's own lookup runs. Whatever script a tap runs,
+        // the page answers with this very video, as the player on screen would.
         var answered: ValueCallback<String>? = null
         repeat(2) {
             composeRule.onNodeWithTag("browser-download-wide").performClick()

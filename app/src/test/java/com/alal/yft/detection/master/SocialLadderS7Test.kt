@@ -36,12 +36,13 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Social plan S1a (5), S7, in the app's lookup, in a social-ladder build: main's 429 ends its
- * lookup (main's answer, nothing asked by Master) and cools Facebook's host for 30 minutes, so the
- * next lookups' F1 does not ask while F2 still reads main's pages; after 30 minutes F1 asks again.
- * Flag off (every CI build): the same lookups answer as today, R8 asks as before and nothing cools.
- * Main's real Facebook adapter over synthetic pages, a fake clock and the test's own cooldown;
- * each case passes the switch explicitly. No live calls.
+ * Social limits, in the app's lookup, in a social-ladder build: main's 429 ends its lookup (main's
+ * answer, nothing asked by Master) and cools Facebook's host for 30 minutes, so the next lookups'
+ * plugin player step (`facebook F1` in Lookup details) does not ask while the main's-pages step
+ * still reads main's pages; after 30 minutes the plugin player asks again. Flag off (every CI
+ * build): the same lookups answer as today, the Site contract reader asks as before and nothing
+ * cools. Main's real Facebook adapter over synthetic pages, a fake clock and the test's own
+ * cooldown; each case passes the switch explicitly. No live calls.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
@@ -57,7 +58,8 @@ class SocialLadderS7Test {
         assertEquals(0, fixture.captures.get())
         assertTrue(fixture.cooldown.cooling(HOST))
 
-        // Ten minutes later main's page answers (under keys main no longer knows): F1 cools, F2's rows.
+        // Ten minutes later main's page answers (under keys main no longer knows): the plugin
+        // player cools, the main's-pages step's rows.
         fixture.now += 10 * MINUTE
         fixture.mainAnswer = ExtractorHttpResult.Success(200, movedKeyPage(VIDEO), watchPage, "text/html")
         val cooling = fixture.lookup() as SiteAdapterOutcome.Detected
@@ -65,7 +67,7 @@ class SocialLadderS7Test {
         cooling.candidates.forEach { assertEquals("facebook:$VIDEO", it.videoId) }
         assertTrue(fixture.master.asked.isEmpty())
 
-        // Thirty-one minutes after main's 429: F1 asks again (once).
+        // Thirty-one minutes after main's 429: the plugin player asks again (once).
         fixture.now += 21 * MINUTE
         val again = fixture.lookup() as SiteAdapterOutcome.Detected
         assertEquals(setOf(hd(VIDEO), sd(VIDEO)), again.candidates.map { it.mediaUrl }.toSet())
@@ -77,7 +79,8 @@ class SocialLadderS7Test {
     @Test
     fun flagOffTheSameLookupsAnswerAsTodayAndNothingCools() = runTest {
         // Today's engine (no ladder), and the ladder present with the switch off: main's 429 is
-        // main's answer; the next lookup asks R8's endpoint as before, in today's words.
+        // main's answer; the next lookup asks the Site contract reader's endpoint as before, in
+        // today's words.
         val today = Fixture(socialLadder = false, ladder = false)
         val off = Fixture(socialLadder = false, ladder = true)
         for (fixture in listOf(today, off)) {
@@ -102,7 +105,7 @@ class SocialLadderS7Test {
             assertEquals(1, fixture.captures.get())
             assertFalse(fixture.cooldown.cooling(HOST))
         }
-        // R8's line only: no ladder line.
+        // The Site contract reader's line only: no ladder line.
         assertTrue(offs.details.none { it.startsWith("master: facebook ladder") || it.startsWith("master: facebook F") })
     }
 

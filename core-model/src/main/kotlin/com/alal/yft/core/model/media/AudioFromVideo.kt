@@ -3,7 +3,7 @@ package com.alal.yft.core.model.media
 import java.util.Locale
 
 /**
- * The music of a video that has no audio-only file (P3).
+ * The music of a video that has no audio-only file.
  *
  * Sites such as Facebook serve some videos only as MP4 files with sound. The phone then downloads
  * the MP4 and copies its AAC track into an M4A without re-encoding; MP3 is made from the same
@@ -15,7 +15,7 @@ object AudioFromVideo {
     const val LABEL = "M4A"
 
     /**
-     * True for a supported, whole MP4 video file with sound whose sound is AAC, or (P25) whose
+     * True for a supported, whole MP4 video file with sound whose sound is AAC, or whose
      * sound's codec is not stated: other sites' files and Facebook's HD/SD rarely state codecs.
      * The phone checks the track when it copies it and fails a file without AAC.
      */

@@ -8,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S2b: TikTok's judge, for T1's embed answer and each of main's pages T2 reads. Only a
+ * TikTok ladder: TikTok's judge, for T1's (`tiktok T1` in Lookup details) embed answer and each of main's pages T2 reads. Only a
  * photo post and DRM (as the reader states them) are final; rows bound to the item win over any
  * page signal; a 429 or a verify page stops the site; TikTok's login address is the browser's;
  * TikTok's status and an answer that names the video without a file are "needs playback", never

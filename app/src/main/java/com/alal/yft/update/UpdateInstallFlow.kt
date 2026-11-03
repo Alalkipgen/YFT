@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** Where the in-app update is (§4.4, §4.5's table); [test]: the reinstall test's, no release's. */
+/** Where the in-app update is; [test]: the reinstall test's, no release's. */
 sealed interface InstallState {
     val test: Boolean
 
@@ -56,7 +56,7 @@ sealed interface InstallState {
 /** Android's confirmation for session [sessionId]; YFT starts [intent] while it is in front. */
 class InstallConfirmation(val sessionId: Int, val intent: Intent)
 
-/** The step that failed (§4.4). */
+/** The step that failed. */
 sealed interface InstallFailure {
     data object NoSpace : InstallFailure
 
@@ -82,7 +82,7 @@ sealed interface InstallFailure {
 }
 
 /**
- * **Download APK to update** in YFT (§4.4), in this process-wide scope so it outlives the screen:
+ * **Download APK to update** in YFT, in this process-wide scope so it outlives the screen:
  * 1 allowed to install? 2 free space; 3 the release's `SHA256SUMS` line; 4 the APK, check 1 the
  * checksum; check 2 the signature; check 3 the package and the version; then Android's installer,
  * which asks the user. The checks run in that order and every failure stops before any session.
@@ -103,7 +103,7 @@ class UpdateInstallFlow(
     private var job: Job? = null
     private var sessionId: Int? = null
 
-    // Step 8: what an earlier run left — the cached APK and YFT's own sessions.
+    // Cleanup: what an earlier run left — the cached APK and YFT's own sessions.
     private val cleanup: Job? = if (environment.mode == UpdateMode.OFF) {
         null
     } else {
@@ -244,7 +244,7 @@ class UpdateInstallFlow(
         install(file, test = true, cached = false)
     }
 
-    /** Step 7: the session; its answer comes to [onStatus]. A [cached] file goes once written. */
+    /** The install session; its answer comes to [onStatus]. A [cached] file goes once written. */
     private suspend fun install(file: File, test: Boolean, cached: Boolean) {
         show(InstallState.Installing(test))
         try {

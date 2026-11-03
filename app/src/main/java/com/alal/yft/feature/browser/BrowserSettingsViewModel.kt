@@ -11,9 +11,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 
 /**
- * Settings › Browser as the browser screen reads them (P30): the search engine its start page
- * names and [BrowserSearch] searches with. Kept apart from [BrowserViewModel], which stays as it
- * is (Phase 13 contracts).
+ * Settings › Browser as the browser screen reads them: the search engine its start page names and
+ * [BrowserSearch] searches with. Kept apart from [BrowserViewModel], which stays as it is.
  */
 @HiltViewModel
 class BrowserSettingsViewModel @Inject constructor(

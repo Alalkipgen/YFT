@@ -203,7 +203,7 @@ class BrowserScreenTest {
             onDownloadGroup = { opened += it },
         )
 
-        // P13: one video gets the wide button under the page instead of the round one.
+        // Download sheet: one video gets the wide button under the page instead of the round one.
         composeRule.onNodeWithContentDescription("Download this video").assertIsDisplayed()
         composeRule.onAllNodesWithTag("browser-download-fab").assertCountEquals(0)
         composeRule.onAllNodesWithTag("browser-download-fab-badge").assertCountEquals(0)
@@ -218,7 +218,7 @@ class BrowserScreenTest {
 
     @Test
     fun theQualitiesOfOneVideoAreOneRowAndTheButtonOpensThemTogether() {
-        // Facebook's HD, SD and DASH items of one reel (P3 regression: three rows).
+        // Facebook's HD, SD and DASH items of one reel (regression: three rows).
         val id = "facebook:1603698891196107"
         val items = listOf(
             clip().copy(title = "Reel — HD", videoId = id),
@@ -248,8 +248,8 @@ class BrowserScreenTest {
 
     @Test
     fun aFacebookPostsVideoOpensTheSheetAndThePlayersOwnFilesAreNotMoreVideos() {
-        // P3-FIX regression: story.php listed the player's track files as 26 "Video file" rows
-        // and the button opened that list instead of the video's sheet.
+        // Regression: story.php listed the player's track files as 26 "Video file" rows and the
+        // button opened that list instead of the video's sheet.
         val id = "facebook:post:1234567890123456"
         val video = listOf(
             clip().copy(title = "Post — HD", videoId = id),
@@ -297,7 +297,7 @@ class BrowserScreenTest {
         composeRule.onNodeWithTag("browser-download-fab-badge", useUnmergedTree = true)
             .assertExists()
         composeRule.onAllNodesWithTag("found-list").assertCountEquals(0)
-        // P12: the main video's sheet, not the found list.
+        // Download sheet: the main video's sheet, not the found list.
         composeRule.onNodeWithTag("browser-download-fab").performClick()
         composeRule.onAllNodesWithTag("found-list").assertCountEquals(0)
         composeRule.runOnIdle {
@@ -308,7 +308,7 @@ class BrowserScreenTest {
 
     @Test
     fun aPagesPreviewsAreNotCountedAndFollowItsVideoUnderOtherVideos() {
-        // P24: one stream and three preview clips: the button and the count say one video.
+        // One stream and three preview clips: the button and the count say one video.
         var main = 0
         val previews = (1..3).map { number ->
             clip().copy(
@@ -370,7 +370,7 @@ class BrowserScreenTest {
             onDownloadMain = { main++ },
         )
 
-        // Nothing found yet: the (wide, P13) button is there, says "this video" and spins.
+        // Nothing found yet: the (wide) button is there, says "this video" and spins.
         composeRule.onNodeWithContentDescription("Download this video").assertIsDisplayed()
         composeRule.onNodeWithTag("browser-download-wide-spinner", useUnmergedTree = true)
             .assertExists()
@@ -414,7 +414,7 @@ class BrowserScreenTest {
             downloadSheetOpenProvider = { sheetOpen },
         )
 
-        // A site's video page: the wide button, which does what the round one did (P12).
+        // A site's video page: the wide button, which does what the round one did.
         composeRule.onNodeWithTag("browser-download-wide")
             .assertIsDisplayed()
             .assert(hasContentDescription("Download this video"))
@@ -533,7 +533,7 @@ class BrowserScreenTest {
         setScreen(uiState = BrowserUiState(address = "cat videos"), onSearch = { searched += it })
 
         composeRule.onNodeWithText("Search YouTube for “cat videos”").assertIsDisplayed()
-        // P30: the web search row names its engine, Google unless Settings › Browser says else.
+        // The web search row names its engine, Google unless Settings › Browser says else.
         composeRule.onNodeWithText("Search Google for “cat videos”").assertIsDisplayed()
         composeRule.onNodeWithTag("browser-search-youtube").performClick()
         composeRule.onNodeWithTag("browser-search-web").performClick()
@@ -802,7 +802,7 @@ class BrowserScreenTest {
 
     @Test
     fun aQuietBuildShowsNoLookupNoticeAndItsFocusFailureIsOneLineWithoutRetry() {
-        // Decision 30 (v): the release and #12 normal, Show details off.
+        // Quiet details: the release and the normal Preview APK, Show details off.
         var state by mutableStateOf(
             BrowserUiState(
                 currentUrl = "https://m.youtube.com/",

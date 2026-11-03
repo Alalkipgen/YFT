@@ -6,18 +6,18 @@ import java.net.URLDecoder
 import java.util.Locale
 
 /**
- * Pure, offline address rules for VK videos and clips (VK_PLAN §4.1, the owner's answers 2–3).
+ * Pure, offline address rules for VK videos and clips.
  *
  * Claimed: `/video{oid}_{id}` and `/clip{oid}_{id}` pages, a `z=video…` or `z=clip…` layer on
  * any page, and `video_ext.php?oid=…&id=…` embeds, on vk.com (www., m.), vk.ru (m.) and vkvideo.ru
- * (www., m.). Everything else — messenger posts, VK's link-out page, look-alike hosts, ids that
- * are not bounded numbers — stays with the generic detector. Matching never throws and never
- * touches the network.
+ * with any subdomain (www., m., a channel's own such as `vksport.vkvideo.ru`; v1.0.2). Everything
+ * else — messenger posts, VK's link-out page, look-alike hosts, ids that are not bounded numbers —
+ * stays with the generic detector. Matching never throws and never touches the network.
  */
 internal object VkUrls {
     const val SITE_ID = "vk"
 
-    /** The embed hosts (§4.1): vkvideo.ru's own embed only ever answered the SPA shell. */
+    /** The embed hosts: vkvideo.ru's own embed only ever answered the SPA shell. */
     const val COM_HOST = "vk.com"
     const val RU_HOST = "vk.ru"
 
@@ -27,10 +27,10 @@ internal object VkUrls {
         "m.vk.com",
         "vk.ru",
         "m.vk.ru",
-        "vkvideo.ru",
-        "www.vkvideo.ru",
-        "m.vkvideo.ru",
     )
+
+    /** vkvideo.ru takes every subdomain (the site census saw a channel's `vksport.vkvideo.ru`). */
+    private const val VKVIDEO_HOST = "vkvideo.ru"
     private const val MAX_PAGE_URL_CHARS = 4_096
     private const val MAX_MEDIA_URL_CHARS = 8_192
     private const val EMBED_PATH = "/video_ext.php"
@@ -50,7 +50,7 @@ internal object VkUrls {
     /** okcdn.ru's image host (first frames, previews): never media. */
     private val IMAGE_HOSTS = setOf("iv.okcdn.ru")
 
-    /** Path D's video servers (VK5 recon: `vk6-4.vkuser.net`); read in the API's answer only. */
+    /** Path D's video servers (for example `vk6-4.vkuser.net`); read in the API's answer only. */
     private val API_MEDIA_HOST = Regex("^vk[0-9]{1,4}-[0-9]{1,4}\\.vkuser\\.net$")
 
     /** A video or clip link, as far as v1 reads it. */
@@ -126,7 +126,7 @@ internal object VkUrls {
     }
 
     /**
-     * Path D's key table (VK5): the embed's rule, or HTTPS on `vk{N}-{N}.vkuser.net`, where
+     * Path D's key table: the embed's rule, or HTTPS on `vk{N}-{N}.vkuser.net`, where
      * api.vkvideo.ru's answer puts the files. The embed (B, B2) and the browser never take it.
      */
     fun isApiMediaFileUrl(url: String): Boolean = isMediaFileUrl(url) || isApiMediaHostUrl(url)
@@ -174,7 +174,7 @@ internal object VkUrls {
         if (uri.rawUserInfo != null) return null
         if (uri.port != -1 && uri.port != 443) return null
         val host = uri.host?.lowercase(Locale.US) ?: return null
-        if (host !in PAGE_HOSTS) return null
+        if (!isPageHost(host)) return null
         val path = uri.rawPath.orEmpty()
         if (path.equals(AWAY_PATH, ignoreCase = true)) return null
         val query = queryOf(uri.rawQuery) ?: return null
@@ -193,6 +193,9 @@ internal object VkUrls {
         if (segments.size != 1) return null
         return item(segments.single())?.copy(list = list, hash = hash)
     }
+
+    private fun isPageHost(host: String): Boolean =
+        host in PAGE_HOSTS || host == VKVIDEO_HOST || host.endsWith(".$VKVIDEO_HOST")
 
     private fun item(text: String): VkLink? {
         val match = ITEM.matchEntire(text) ?: return null

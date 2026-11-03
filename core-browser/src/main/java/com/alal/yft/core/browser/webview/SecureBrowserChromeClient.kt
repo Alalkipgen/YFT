@@ -13,7 +13,7 @@ import com.alal.yft.core.browser.policy.BrowserAddressNormalizer
  * over everything until the page or the user leaves full screen. Without a handler the request is
  * declined at once, so the page never waits for a full-screen view that does not come.
  *
- * A new window (`window.open`, `target="_blank"`; P32) never opens beside the page: it opens in
+ * A new window (`window.open`, `target="_blank"`) never opens beside the page: it opens in
  * the current tab, or the [guard] blocks it and the sink hears of it.
  */
 class SecureBrowserChromeClient(

@@ -14,7 +14,7 @@ import java.net.URI
 /**
  * Turns what the browser saw into candidates. A player that fetches one file in byte ranges
  * (`bytestart`/`byteend`, `range=`) makes one candidate for the whole file, not one per piece,
- * and its size is probed for the whole file (P3-FIX).
+ * and its size is probed for the whole file.
  */
 object BrowserObservationMapper {
     fun fromRequest(observation: RequestObservation): MediaCandidate? {
@@ -41,7 +41,7 @@ object BrowserObservationMapper {
     }
 
     /**
-     * P24: [PageMediaRole.PREVIEW] for an ad's file: its address, or the address of the frame
+     * [PageMediaRole.PREVIEW] for an ad's file: its address, or the address of the frame
      * that asked for it ([frameUrl], the request's `Referer`), names an ad server or ad words.
      * The page's own player asks with the page as its `Referer`, so its files keep no role.
      */
@@ -49,22 +49,22 @@ object BrowserObservationMapper {
         PageMediaRole.PREVIEW.takeIf { adSign(mediaUrl, frameUrl) != null }
 
     /**
-     * P43: what shows that [mediaUrl] is an ad's ([AdHosts.adSign]): its own address first,
+     * What shows that [mediaUrl] is an ad's ([AdHosts.adSign]): its own address first,
      * else the address of the frame that asked for it ([frameUrl]); null when nothing does.
      */
     fun adSign(mediaUrl: String, frameUrl: String?): AdSign? =
         AdHosts.adSign(mediaUrl) ?: frameUrl?.let(AdHosts::adSign)
 
     /**
-     * P28: whether [url] asks for an ad break ([AdHosts.isAdBreakRequest]): a VAST or VMAP
+     * Whether [url] asks for an ad break ([AdHosts.isAdBreakRequest]): a VAST or VMAP
      * document by a whole path part (`vast`, `vast3.xml`, `vmap.php`; never `vast-ocean.mp4`),
-     * P43: also Google IMA's ad requests, `preroll` and `/ads/` requests. The file the player
+     * also Google IMA's ad requests, `preroll` and `/ads/` requests. The file the player
      * fetches right after one is the ad's ([VastAdTracker]).
      */
     fun isAdBreakRequest(url: String): Boolean = AdHosts.isAdBreakRequest(url)
 
     /**
-     * P43: whether an answer of the page's ([contentType], its body's first characters
+     * Whether an answer of the page's ([contentType], its body's first characters
      * [bodyStart]) is an ad break's: a VAST or VMAP document ([AdHosts.isAdBreakAnswer]).
      */
     fun isAdBreakAnswer(contentType: String?, bodyStart: String?): Boolean =
@@ -92,7 +92,7 @@ object BrowserObservationMapper {
             requestContext = observation.requestContext(),
             confidence = CandidateConfidence.LOW,
             observedAtEpochMs = observation.observedAtEpochMs,
-            // P43: a file an ad network serves is an ad, also when only its probe tells it.
+            // A file an ad network serves is an ad, also when only its probe tells it.
             pageRole = adRole(observation.requestUrl, observation.referer()),
             adSign = adSign(observation.requestUrl, observation.referer()),
         )
@@ -132,7 +132,7 @@ object BrowserObservationMapper {
             title = observation.title,
             thumbnailUrl = observation.thumbnailUrl,
             durationMillis = observation.durationMillis,
-            // P45: asked as the page's player asks for it (Origin, the page's origin as Referer).
+            // Asked as the page's player asks for it (Origin, the page's origin as Referer).
             requestContext = BrowserRequestContext.pageLink(
                 observation.pageUrl,
                 observation.mediaUrl,
@@ -140,7 +140,7 @@ object BrowserObservationMapper {
             confidence = CandidateConfidence.HIGH,
             observedAtEpochMs = observation.observedAtEpochMs,
             pageRole = observation.pageRole ?: adRole(observation.mediaUrl, null),
-            // P43: what the page's markup says about a file it names stands.
+            // What the page's markup says about a file it names stands.
             adSign = AdHosts.adSign(observation.mediaUrl)
                 .takeUnless { observation.pageRole == PageMediaRole.MAIN },
         )

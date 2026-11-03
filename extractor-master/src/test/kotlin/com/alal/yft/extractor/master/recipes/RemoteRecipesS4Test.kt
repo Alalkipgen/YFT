@@ -31,7 +31,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S4 (`MASTER_KEY_SOCIAL_PLAN.md` §7.3): R9's signed config hosted and live. Its
+ * Signed recipe config, hosted and live. Its
  * `rungsOff` turns ladder rungs off by name (anything else rejects the whole config); its status
  * is one line of fixed words; the census screen asks on demand; the ask runs outside the caller's
  * lookup (never one of its asks, never under its rules); every committed config parses as the
@@ -221,7 +221,7 @@ class RemoteRecipesS4Test {
             assertTrue("$name: $keys", keys.containsAll(setOf("schema", "sites")))
             assertTrue("$name: version and expires are the workflow's", (keys - setOf("schema", "sites", "rungsOff")).isEmpty())
             val composed = text.trim().removeSuffix("}").trimEnd() + ""","version":1,"expires":"2027-12-31"}"""
-            // VK Master plan §9: a committed config is schema 2; v1.0.0's file is its schema-1 projection.
+            // A committed config is schema 2; v1.0.0's file is its schema-1 projection.
             val schema1 = checkNotNull(RemoteRecipeConfig2.schema1(composed)) { "$name is not a schema-2 config" }
             val result = RemoteRecipeConfig.parse(schema1, ContractRecipes.ALL)
             val two = RemoteRecipeConfig2.parse(composed, ContractRecipes.ALL)
@@ -249,7 +249,7 @@ class RemoteRecipesS4Test {
         val bundledFacebook = checkNotNull(ContractRecipes.ALL.firstOrNull { it.site == "facebook" })
         assertEquals(bundledFacebook.answerHosts, facebook.answerHosts)
         assertEquals(bundledFacebook.endpoint, facebook.endpoint)
-        // drill-vk-v2-off (VK Master plan section 12, R9's drill): VK's V2 off in v1.0.1's file, the
+        // drill-vk-v2-off (the Signed recipe config's drill): the VK ladder's V2 (`vk V2` in Lookup details) off in v1.0.1's file, the
         // recipes as bundled; v1.0.0's file carries nothing of it (the defaults' reading).
         val vkDrill = schema2.getValue("drill-vk-v2-off")
         assertEquals(setOf(VkLadder.RUNG_V2), vkDrill.rungsOff)

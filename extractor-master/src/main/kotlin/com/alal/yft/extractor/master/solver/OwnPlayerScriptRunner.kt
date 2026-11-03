@@ -18,7 +18,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * Phase 1.1 S5: YouTube's n/sig values from YouTube's own current player, computed by Master's
+ * YouTube own solver: YouTube's n/sig values from YouTube's own current player, computed by Master's
  * own solver core (`yft-own-solver/own.solver.core.js`) instead of main's bundled ejs solver.
  *
  * The player is fetched exactly as main's `YouTubePlayerScriptRunner` fetches it: the address
@@ -32,8 +32,8 @@ import kotlinx.coroutines.withTimeoutOrNull
  * [PlayerScriptResult.Failed] with [SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED]; a failed
  * player download keeps its own reason, as in main's runner.
  *
- * Phase 1.2 N5b: with [next] (ownSolverNext on) the ladder runs instead, see [Next]; without it
- * this runner is Phase 1.1. N5b A.8: Phase 1.1's signatures wait for V as the ladder's do (see
+ * Own-solver ladder: with [next] (ownSolverNext on) the ladder runs instead, see [Next]; without it
+ * this runner is the single-worker run. Its signatures wait for V as the ladder's do (see
  * [phase11Checked]); its values and its runs are unchanged.
  */
 class OwnPlayerScriptRunner(
@@ -45,7 +45,7 @@ class OwnPlayerScriptRunner(
     private val next: Next? = null,
 ) : PlayerScriptRunner, SignatureVerdicts {
     /**
-     * Phase 1.2 N5b, ownSolverNext on: the ladder instead of Phase 1.1's single worker P run.
+     * Own-solver ladder, ownSolverNext on: the ladder instead of the single worker P run.
      * Worker P (prepared program kept as before), then worker B for a kind P did not give, then
      * the page ([page], strategy E: page P, then page B for a kind page P did not answer cleanly)
      * only when a worker step needs it, all decided by [OwnSolverLadderRule]; worker jobs ask for
@@ -55,7 +55,7 @@ class OwnPlayerScriptRunner(
      * deaths during a job and V = fail. B and the page run from the player text (fetched when
      * needed, not kept).
      *
-     * A.2 caps: each job gets a deadline, min(its step's cap, the time left in the lookup):
+     * Caps: each job gets a deadline, min(its step's cap, the time left in the lookup):
      * [workerCapMillis] for worker P and B, [pageCapMillis] for page P and B, [lookupCapMillis]
      * for the whole lookup (from the ladder's start, the player download included; [clock] in
      * milliseconds). The core stops at it and gives `budget` for what it could not check. A step
@@ -65,14 +65,14 @@ class OwnPlayerScriptRunner(
      * run (not recorded, no breaker), and the ready wait never outlasts the lookup. A core that
      * ignores its deadline still ends in the job timeout, which trips the breaker as before.
      *
-     * A.4 locator cache ([locators], see [OwnSolverLocators]): every worker job asks for the core's
+     * Locator cache ([locators], see [OwnSolverLocators]): every worker job asks for the core's
      * parts and carries the parts cached for its step and this player text (by SHA-256; the page
      * steps never locate). A kind's part is kept only from the step the ladder chose for it, a
      * worker step without init errors whose core gave one (a kind answered cleanly); a signature's
      * part only once V passed for that answer. A part that came back without a part, or that the
      * ladder did not take, is dropped; V = fail drops that step's signature part.
      *
-     * A.5 V ledger ([ledger], see [OwnSolverVLedger]): the passes, keyed by player version, step,
+     * V ledger ([ledger], see [OwnSolverVLedger]): the passes, keyed by player version, step,
      * player text hash and the hash of the locator part the answer used (`-` for none), so a hit
      * on a part needs its own V pass. Memory unless the app gives both stores a file.
      */
@@ -108,8 +108,8 @@ class OwnPlayerScriptRunner(
     private val lock = Mutex()
 
     /**
-     * A prepared program and, with ownSolverNext (A.4), the SHA-256 of the player text it came
-     * from (Phase 1.1 computes none).
+     * A prepared program and, with ownSolverNext, the SHA-256 of the player text it came
+     * from (the single-worker run computes none).
      */
     private class Kept(val program: String, val scriptHash: String?)
 
@@ -159,17 +159,17 @@ class OwnPlayerScriptRunner(
         return phase11Checked(playerId, request, resolved)
     }
 
-    /** N5b A.8: Phase 1.1's V passes, by [PendingCheck.cacheKey]; memory only (for the process). */
+    /** The single-worker run's V passes, by [PendingCheck.cacheKey]; memory only (for the process). */
     private val phase11Passes = OwnSolverVLedger()
 
     /**
-     * N5b A.8, guarded by itself: player versions whose Phase 1.1 signatures V proved wrong (FAIL,
+     * Guarded by itself: player versions whose single-worker signatures V proved wrong (FAIL,
      * with a control), for the process; at most [MAX_PHASE11_OFF], the oldest goes first.
      */
     private val phase11Off = LinkedHashSet<String>()
 
     /**
-     * N5b A.8: Phase 1.1's signatures wait for V as the ladder's do. An answer with signatures
+     * The single-worker run's signatures wait for V as the ladder's do. An answer with signatures
      * gets a [PendingCheck] for worker P with no hashes (one V pass per player version and
      * process, kept in [phase11Passes]) unless that pass is there. A player version in
      * [phase11Off] gives no signatures; an answer left with no values fails as before.
@@ -242,16 +242,16 @@ class OwnPlayerScriptRunner(
     }
 
     // ---------------------------------------------------------------------------------------------
-    // Phase 1.2 N5b: the ladder (ownSolverNext only).
+    // Own-solver ladder: the ladder (ownSolverNext only).
 
     /**
      * Guarded by itself: the V each answer's signatures still need, by request (read once); the
-     * ladder's and (A.8) Phase 1.1's.
+     * ladder's and the single-worker run's.
      */
     private val pendingChecks = WeakHashMap<PlayerScriptRequest, PendingCheck>()
 
     /**
-     * N5b A.4, guarded by itself: a signature's part waiting for its answer's V (written on PASS),
+     * Guarded by itself: a signature's part waiting for its answer's V (written on PASS),
      * by check; at most [MAX_WAITING], the oldest goes first.
      */
     private val waiting = LinkedHashMap<PendingCheck, Learned>()
@@ -265,7 +265,7 @@ class OwnPlayerScriptRunner(
     )
 
     /**
-     * N5b A.2, guarded by [lock]: the budget memory, per player version and step (keys as the
+     * Guarded by [lock]: the budget memory, per player version and step (keys as the
      * breaker's, never an input or a value), for the process: the step's last run ended `budget`.
      * At most [MAX_BUDGETS] keys; the oldest goes first.
      */
@@ -298,7 +298,7 @@ class OwnPlayerScriptRunner(
         }
     }
 
-    /** N5b A.8, Phase 1.1: PASS is kept for the process; FAIL turns the player version's signatures off. */
+    /** The single-worker run: PASS is kept for the process; FAIL turns the player version's signatures off. */
     private fun recordPhase11(check: PendingCheck, verdict: SignatureVerdicts.Verdict) {
         when (verdict) {
             SignatureVerdicts.Verdict.PASS -> phase11Passes.pass(check.cacheKey)
@@ -344,22 +344,22 @@ class OwnPlayerScriptRunner(
         val playerId: String,
         val request: PlayerScriptRequest,
         val batch: OwnSolverProtocol.Batch,
-        /** N5b A.2: when the lookup started, on [Next.clock]. */
+        /** When the lookup started, on [Next.clock]. */
         val startedAt: Long,
     ) {
         var source: String? = null
 
-        /** N5b A.4: the SHA-256 of [source], once fetched. */
+        /** The SHA-256 of [source], once fetched. */
         var textHash: String? = null
         var fetchFailure: SiteExtractionFailure? = null
         val failures = mutableListOf<String>()
         val replies = HashMap<OwnSolverBreaker.Step, OwnSolverProtocol.Decoded.Solved>()
         val steps = HashMap<OwnSolverBreaker.Step, OwnSolverLadderRule.Step>()
 
-        /** N5b A.4: the player text hash each step ran from (P on the kept program: the program's). */
+        /** The player text hash each step ran from (P on the kept program: the program's). */
         val hashes = HashMap<OwnSolverBreaker.Step, String>()
 
-        /** N5b A.4: the parts each worker step was sent. */
+        /** The parts each worker step was sent. */
         val sent = HashMap<OwnSolverBreaker.Step, OwnSolverLocator.Parts>()
     }
 
@@ -434,7 +434,7 @@ class OwnPlayerScriptRunner(
     }
 
     /**
-     * N5b A.5: the V that [step]'s signatures need: the player text it ran from and the part its
+     * The V that [step]'s signatures need: the player text it ran from and the part its
      * answer used (a hit on a part that step was sent; `-` for none).
      */
     private fun checkOf(state: Ladder, step: OwnSolverBreaker.Step): PendingCheck {
@@ -450,7 +450,7 @@ class OwnPlayerScriptRunner(
     }
 
     /**
-     * N5b A.4: the cache after a lookup, per asked kind. The part kept is the chosen step's own: a
+     * The cache after a lookup, per asked kind. The part kept is the chosen step's own: a
      * worker step whose run had no init errors and whose core gave a part of its strategy for that
      * kind (the core gives one only for a kind it answered cleanly). Any other part of the entry
      * goes (it missed, it failed, or the ladder took the kind elsewhere). A signature's part is
@@ -500,7 +500,7 @@ class OwnPlayerScriptRunner(
     }
 
     /**
-     * N5b A.4: the parts cached for worker step [name] on player text [scriptHash]; empty (locate
+     * The parts cached for worker step [name] on player text [scriptHash]; empty (locate
      * only) when there are none.
      */
     private fun partsFor(state: Ladder, next: Next, name: OwnSolverBreaker.Step, scriptHash: String?): OwnSolverLocator.Parts {
@@ -566,7 +566,7 @@ class OwnPlayerScriptRunner(
     }
 
     /**
-     * N5b A.2: a step off for budget does not run; the ladder takes its last run instead, without
+     * A step off for budget does not run; the ladder takes its last run instead, without
      * answers. Null: the step runs.
      */
     private fun skipped(state: Ladder, name: OwnSolverBreaker.Step): OwnSolverLadderRule.Step? {
@@ -576,11 +576,11 @@ class OwnPlayerScriptRunner(
         return budget.last.copy(answered = emptySet())
     }
 
-    /** N5b A.2: the time left in the lookup, in milliseconds (0 or less: none). */
+    /** The time left in the lookup, in milliseconds (0 or less: none). */
     private fun left(state: Ladder, next: Next): Long = next.lookupCapMillis - (next.clock() - state.startedAt)
 
     /**
-     * N5b A.2: [name]'s deadline, min(its cap, the time left in the lookup); null when the lookup
+     * [name]'s deadline, min(its cap, the time left in the lookup); null when the lookup
      * has no time left: the step does not run, nothing is recorded, no breaker.
      */
     private fun deadline(state: Ladder, next: Next, name: OwnSolverBreaker.Step): Long? {
@@ -593,7 +593,7 @@ class OwnPlayerScriptRunner(
     }
 
     /**
-     * N5b A.2: the budget memory after a run of [name] with [deadline]: [decoded] null (no reply)
+     * The budget memory after a run of [name] with [deadline]: [decoded] null (no reply)
      * or not `budget` starts the count again; `budget` with the full cap turns the step off at
      * once, with a shorter deadline the second time in a row. A job that never started (ready
      * timeout) is not a run and does not come here.
@@ -664,7 +664,7 @@ class OwnPlayerScriptRunner(
     }
 
     /**
-     * A reply as the rule's step; a step whose signatures failed V answers no signature. A.4: the
+     * A reply as the rule's step; a step whose signatures failed V answers no signature. Also: the
      * player text hash the step ran from and the parts it was sent.
      */
     private fun record(
@@ -851,11 +851,11 @@ class OwnPlayerScriptRunner(
         /** A slow phone takes several seconds for a first pass; this bounds a stuck engine. */
         const val DEFAULT_TIMEOUT_MILLIS: Long = 45_000
 
-        /** N5b: a fresh WebView loading the app's own page and scripts; no strike when it is slow. */
+        /** A fresh WebView loading the app's own page and scripts; no strike when it is slow. */
         const val DEFAULT_READY_TIMEOUT_MILLIS: Long = 20_000
 
         /**
-         * N5b A.2 caps (owner, 2026-10-13, from A.1's numbers with a phone margin of x4): a
+         * The caps (from the measured times, with a phone margin of x4): a
          * worker step's deadline is the job timeout less 5 s for the reply (the core checks it
          * every 4096 steps); P's init (20 s) fits with 20 s left for its search.
          */
@@ -864,7 +864,7 @@ class OwnPlayerScriptRunner(
         /**
          * A page step's deadline, tighter: it runs only for the kinds the workers left, on the
          * app's shared renderer, where a page job holds the in-app browser for about its own
-         * length. N7 (owner, 2026-10-14): 20 s, down from the provisional 35 s; on the phone a page
+         * length. 20 s, down from the provisional 35 s; on the phone a page
          * job stalled the browser 0.8-1.3 s, so 20 s keeps a wide margin and bounds the worst stall.
          */
         const val DEFAULT_PAGE_CAP_MILLIS: Long = 20_000

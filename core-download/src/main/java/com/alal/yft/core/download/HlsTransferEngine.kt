@@ -60,7 +60,7 @@ interface HlsTransferRunner {
  * fsync, then assembled in manifest order. The public destination remains unpublished until its
  * final length is verified.
  *
- * D1: a download of its own ([HlsDownloadPlan.remuxToMp4]) whose pieces are MPEG-TS, or packed
+ * A download of its own ([HlsDownloadPlan.remuxToMp4]) whose pieces are MPEG-TS, or packed
  * AAC sound, is remuxed into an MP4 (an M4A for sound alone) by [remuxer], without re-encoding.
  * When that cannot be done the pieces are joined as before and published in their own format
  * (`.ts` as `video/mp2t`, `.aac`, `.mp3`), never under an MP4's name.
@@ -313,7 +313,7 @@ class HlsTransferEngine internal constructor(
     }
 
     /**
-     * P45: a playlist the site refused to YFT ([BrowserReads.isRefusal]) asked once more by the
+     * A playlist the site refused to YFT ([BrowserReads.isRefusal]) asked once more by the
      * browser's own engine, as the page's player asks it; null when it refused too or could not
      * ask. Its pieces are still downloaded by YFT.
      */
@@ -577,7 +577,7 @@ class HlsTransferEngine internal constructor(
 
     /**
      * Publishes the pieces in [destination]: remuxed into an MP4 when [plan] asks for one and the
-     * pieces can be (D1), else joined. Returns the bytes written and, when the file keeps its own
+     * pieces can be, else joined. Returns the bytes written and, when the file keeps its own
      * format, the name and type it is published under.
      */
     private suspend fun assemble(
@@ -613,7 +613,7 @@ class HlsTransferEngine internal constructor(
     }
 
     /**
-     * D1: the pieces remuxed into an MP4 and published under the planned name; null when the
+     * The pieces remuxed into an MP4 and published under the planned name; null when the
      * media cannot be remuxed, with nothing published. Storage errors fail the download.
      */
     private suspend fun remux(
@@ -655,7 +655,7 @@ class HlsTransferEngine internal constructor(
     }
 
     /**
-     * D1: the joined pieces published in their own format, [kind]'s extension and type, because
+     * The joined pieces published in their own format, [kind]'s extension and type, because
      * they are not an MP4: MPEG-TS pieces keep only their packets (a piece disguised as an image
      * loses its prefix).
      */

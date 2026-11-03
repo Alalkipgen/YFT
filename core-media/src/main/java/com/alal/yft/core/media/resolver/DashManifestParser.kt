@@ -8,6 +8,7 @@ import com.alal.yft.core.model.media.VariantSupport
 import java.io.StringReader
 import java.util.Locale
 import javax.xml.parsers.DocumentBuilderFactory
+import javax.xml.parsers.ParserConfigurationException
 import org.w3c.dom.Element
 import org.w3c.dom.Node
 import org.xml.sax.InputSource
@@ -19,6 +20,8 @@ internal object DashManifestParser {
         requestContext: BrowserRequestContext,
         expiresAtEpochMs: Long?,
     ): ManifestParseResult {
+        // No document type, so no entity, on any parser (see the factory).
+        if (DOCUMENT_TYPE.containsMatchIn(manifest)) return ManifestParseResult.Malformed
         val document = runCatching {
             secureDocumentBuilderFactory()
                 .newDocumentBuilder()
@@ -34,6 +37,7 @@ internal object DashManifestParser {
 
         val durationMillis = root.attribute("mediaPresentationDuration")
             .toDurationMillis()
+        val static = !root.attribute("type").equals("dynamic", ignoreCase = true)
         val variants = mutableListOf<MediaVariant>()
         var representationIndex = 0
         root.descendantElements("AdaptationSet").forEach { adaptation ->
@@ -90,6 +94,8 @@ internal object DashManifestParser {
                         VariantSupport.UNSUPPORTED_CODEC
                     },
                     expiresAtEpochMs = expiresAtEpochMs,
+                    dashOneFile = static && isOneFile(representation, adaptation),
+                    dashPieces = static && isInPieces(representation, adaptation),
                 )
                 representationIndex += 1
             }
@@ -99,18 +105,83 @@ internal object DashManifestParser {
         return ManifestParseResult.Parsed(variants, durationMillis)
     }
 
+    /**
+     * Android's own parser (`org.apache.harmony.xml.parsers`) throws for
+     * `isXIncludeAware`, for every feature but namespaces and validation and for every attribute,
+     * so asking them all at once made every manifest unreadable on a phone (the JVM's parser
+     * knows them all). Each one is asked on its own and one the parser does not know is skipped;
+     * a manifest with a document type is refused before parsing ([DOCUMENT_TYPE]) on every
+     * parser.
+     */
     private fun secureDocumentBuilderFactory(): DocumentBuilderFactory =
         DocumentBuilderFactory.newInstance().apply {
             isNamespaceAware = true
-            isXIncludeAware = false
-            isExpandEntityReferences = false
-            setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
-            setFeature("http://xml.org/sax/features/external-general-entities", false)
-            setFeature("http://xml.org/sax/features/external-parameter-entities", false)
-            setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
-            setAttribute("http://javax.xml.XMLConstants/property/accessExternalDTD", "")
-            setAttribute("http://javax.xml.XMLConstants/property/accessExternalSchema", "")
+            ifKnown { isXIncludeAware = false }
+            ifKnown { isExpandEntityReferences = false }
+            ifKnown { setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) }
+            ifKnown { setFeature("http://xml.org/sax/features/external-general-entities", false) }
+            ifKnown {
+                setFeature("http://xml.org/sax/features/external-parameter-entities", false)
+            }
+            ifKnown {
+                setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+            }
+            ifKnown {
+                setAttribute("http://javax.xml.XMLConstants/property/accessExternalDTD", "")
+            }
+            ifKnown {
+                setAttribute("http://javax.xml.XMLConstants/property/accessExternalSchema", "")
+            }
         }
+
+    /** One hardening setting; a parser that does not know it throws, and it is skipped. */
+    private inline fun ifKnown(setting: () -> Unit) {
+        try {
+            setting()
+        } catch (_: ParserConfigurationException) {
+        } catch (_: IllegalArgumentException) {
+        } catch (_: UnsupportedOperationException) {
+        }
+    }
+
+    /**
+     * Whether [representation] is one file: a `SegmentBase` (its own, its
+     * adaptation set's or its period's) with the representation's own `BaseURL` and no
+     * initialization in another file, and no `SegmentList` or `SegmentTemplate` beside it. Only
+     * noted here: the download asks such a file in ranges, and a page's video quality of this
+     * kind is offered with its manifest's sound.
+     */
+    private fun isOneFile(representation: Element, adaptation: Element): Boolean {
+        val levels = listOfNotNull(adaptation.parentNode as? Element, adaptation, representation)
+        val bases = levels.flatMap { it.childElements("SegmentBase") }
+        if (bases.isEmpty()) return false
+        if (levels.any { it.childElements("SegmentList").isNotEmpty() }) return false
+        if (levels.any { it.childElements("SegmentTemplate").isNotEmpty() }) return false
+        if (bases.any { base ->
+                base.childElements("Initialization").any { it.attribute("sourceURL") != null }
+            }
+        ) {
+            return false
+        }
+        return representation.childElements("BaseURL").singleOrNull()
+            ?.textContent?.trim()?.isNotEmpty() == true
+    }
+
+    /**
+     * Whether [representation] is in pieces: a `SegmentTemplate` or `SegmentList`
+     * (its own, its adaptation set's or its period's) and no `SegmentBase` beside it, the ways
+     * the download reads pieces (`bbb_30fps.mpd`: one `SegmentTemplate` for each adaptation
+     * set). Only noted here: a page's video quality of this kind is offered with its manifest's
+     * sound, as a one-file one is.
+     */
+    private fun isInPieces(representation: Element, adaptation: Element): Boolean {
+        val levels = listOfNotNull(adaptation.parentNode as? Element, adaptation, representation)
+        if (levels.any { it.childElements("SegmentBase").isNotEmpty() }) return false
+        return levels.any { level ->
+            level.childElements("SegmentTemplate").isNotEmpty() ||
+                level.childElements("SegmentList").isNotEmpty()
+        }
+    }
 
     private fun trackType(
         contentType: String?,
@@ -200,6 +271,9 @@ internal object DashManifestParser {
     }
 
     private const val DASH_MIME_TYPE = "application/dash+xml"
+
+    /** A document type or an entity declaration; such a manifest is refused. */
+    private val DOCUMENT_TYPE = Regex("""<!\s*(?:DOCTYPE|ENTITY)""", RegexOption.IGNORE_CASE)
     private const val MILLIS_PER_SECOND = 1_000.0
     private const val MILLIS_PER_MINUTE = 60 * MILLIS_PER_SECOND
     private const val MILLIS_PER_HOUR = 60 * MILLIS_PER_MINUTE

@@ -4,7 +4,7 @@ import java.net.URI
 import java.util.Locale
 
 /**
- * Which media URLs name the same file or the same stream (P3-FIX). Pure and offline.
+ * Which media URLs name the same file or the same stream. Pure and offline.
  *
  * A site's own player fetches one file in pieces. A byte-range parameter (`bytestart` and
  * `byteend`, or `range=0-1023`) names a piece of the file, not another file, so [wholeFile]
@@ -45,7 +45,7 @@ object MediaFileUrls {
     fun hasByteRange(url: String): Boolean = wholeFile(url) != url
 
     /**
-     * VK's pack proof (V3's retest, 2026-10-26): true when [url] names a piece of a file by a
+     * VK's pack proof (a retest, 2026-10-26): true when [url] names a piece of a file by a
      * closed byte range that [wholeFile] leaves in place: a `bytes=0-1427` query value (VK's
      * player). Such an address gives that piece only, never the file, so it is never a file row,
      * and no whole-file address is made of it (its track may be picture or sound only: the page's

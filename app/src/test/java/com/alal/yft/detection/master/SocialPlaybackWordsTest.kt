@@ -4,10 +4,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * Social plan task 14 (observation e): which words a social lookup's "needs playback" answer shows
+ * Social ladders: which words a social lookup's "needs playback" answer shows
  * ([SocialLadder.playbackWords]): the playback words only when the tab shows a video or the site's
  * answer names the post's video; a sign-in or age wall the sign-in words; else main's words.
- * Task 15 (F2): a shape change's counts and marks never pick the playback words. Synthetic lines
+ * Social ladders: a shape change's counts and marks never pick the playback words. Synthetic lines
  * in each ladder's shape (words only; made-up keys), no lookup.
  */
 class SocialPlaybackWordsTest {
@@ -36,7 +36,7 @@ class SocialPlaybackWordsTest {
 
     @Test
     fun anInstagramVideoNamedByTheEmbedPageOrTheRungGetsThePlaybackWords() {
-        // Slot 5's shape: the embed page names the video and lists no file (task 13, observation d).
+        // A census link's shape: the embed page names the video and lists no file.
         val embed = listOf(
             "master: instagram I2 main's GraphQL: LOGIN_WALL (status 401)",
             "master: instagram I2 main's embed page: VIDEO_WITHOUT_FILES (a video, no files read)",
@@ -60,7 +60,7 @@ class SocialPlaybackWordsTest {
 
     @Test
     fun anInstagramShapeChangeSaysWhatItReadAndKeepsTheWordsAsBefore() {
-        // Task 15 (F2): a shape change's counts and marks (the page's size, its documents, main's
+        // Social ladders: a shape change's counts and marks (the page's size, its documents, main's
         // post, a video mark, the files) never pick the playback words: a wall still gets the
         // sign-in words, as before.
         val details = listOf(
@@ -75,8 +75,8 @@ class SocialPlaybackWordsTest {
             SocialLadder.WordsPick(SocialLadder.Words.SIGN_IN, "LOGIN_WALL; no video in the tab"),
             SocialLadder.playbackWords(INSTAGRAM, details, tabVideo = false),
         )
-        // L3 (the retest of 2026-10-23): a page main's rule finds no post in is "needs playback"
-        // with what was read; it names no video, so the words stay as before (main's, no wall).
+        // A page main's rule finds no post in is "needs playback" with what was read; it names no
+        // video, so the words stay as before (main's, no wall).
         val noPost = listOf(
             "master: instagram I2 main's page: NEEDS_PLAYBACK (no post data in the page, as main's rule reads it; " +
                 "the page: 9000 characters; documents: 1; main's post: no; a video mark: no; files: 0)",
@@ -104,7 +104,7 @@ class SocialPlaybackWordsTest {
             SocialLadder.Words.SIGN_IN,
             SocialLadder.playbackWords(INSTAGRAM, wall, tabVideo = false).words,
         )
-        // No post in the answer (removed, private or gated alike; decision 20 (ii)): main's words.
+        // No post in the answer (removed, private or gated alike): main's words.
         val noPost = listOf(
             "master: instagram I2 main's GraphQL: NEEDS_PLAYBACK (no post in the answer: removed, private or gated alike)",
             "master: instagram I2: NEEDS_PLAYBACK (GraphQL: no post in the answer: removed, private or gated alike); next: PLAYBACK",
@@ -170,8 +170,9 @@ class SocialPlaybackWordsTest {
 
     @Test
     fun aCaptureRungOffInTheSignedConfigGetsMainsWordsEvenWithAVideoInTheTab() {
-        // Social plan S4: the tab's own playback off in the signed config: no capture was asked,
-        // so playing the video again gives nothing; main's words, whatever else the lines name.
+        // Signed recipe config: the tab's own playback off in the signed config: no capture was
+        // asked, so playing the video again gives nothing; main's words, whatever else the lines
+        // name.
         val named = mapOf(
             FACEBOOK to "master: facebook F1 plugin player: NEEDS_PLAYBACK (the plugin player: needs playback); next: PLAYBACK",
             TIKTOK to "master: tiktok T1 embed player: NEEDS_PLAYBACK (names the video, no file); next: PLAYBACK",
@@ -194,7 +195,8 @@ class SocialPlaybackWordsTest {
             "master: x words: main's (the tab's playback off (config))",
             SocialLadder.wordsLine(X, SocialLadder.playbackWords(X, listOf(off.getValue(X)), tabVideo = true)),
         )
-        // A rung off before the tab's playback (F1, the tab-fetch rung) leaves the words as before.
+        // A rung off before the tab's playback (the plugin player, the tab-fetch rung) leaves the
+        // words as before.
         val earlier = listOf("master: facebook F1 plugin player: off (config); not run")
         assertEquals(SocialLadder.Words.PLAYBACK, SocialLadder.playbackWords(FACEBOOK, earlier, tabVideo = true).words)
         val probe = listOf(named.getValue(INSTAGRAM), "master: instagram probe: off (config); not run")

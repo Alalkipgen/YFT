@@ -24,7 +24,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Phase 1.2 N2: live check V against a fake HTTP client; no live calls. */
+/** Row check: the own-solver ladder's live check V against a fake HTTP client; no live calls. */
 class StreamCheckTest {
     @Test
     fun `a stream that opens passes the signature and leaves n unknown until measured`() = runTest {

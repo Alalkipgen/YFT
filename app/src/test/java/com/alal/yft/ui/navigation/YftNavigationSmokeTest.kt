@@ -1,5 +1,6 @@
 package com.alal.yft.ui.navigation
 
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
@@ -32,6 +33,7 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import com.alal.yft.MainActivity
 import com.alal.yft.core.data.preferences.HomeSitesRepository
 import com.alal.yft.core.data.preferences.SettingsRepository
 import com.alal.yft.core.model.ThemeMode
@@ -47,6 +49,8 @@ import com.alal.yft.feature.home.ClipPeek
 import com.alal.yft.feature.home.ClipboardAccess
 import com.alal.yft.feature.home.CopiedLinkWatcher
 import com.alal.yft.feature.home.HomeRoute
+import com.alal.yft.feature.home.HomeScreen
+import com.alal.yft.feature.home.HomeUiState
 import com.alal.yft.feature.home.HomeViewModel
 import com.alal.yft.feature.home.LinkInspection
 import com.alal.yft.feature.library.LibraryItem
@@ -60,8 +64,10 @@ import com.alal.yft.ui.YftAppShell
 import com.alal.yft.ui.components.PhasePlaceholderScreen
 import com.alal.yft.ui.components.PromptboxStatus
 import com.alal.yft.ui.theme.YftTheme
+import com.alal.yft.update.HomeUpdateCard
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -69,6 +75,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import org.robolectric.shadows.ShadowToast
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -77,6 +84,7 @@ class YftNavigationSmokeTest {
     val composeRule = createAndroidComposeRule<ComponentActivity>()
 
     private lateinit var shellNavController: NavHostController
+    private lateinit var shellHome: HomeViewModel
 
     @Test
     fun bottomBarSwitchesTabsAndShowsWhichOneIsSelected() {
@@ -375,7 +383,7 @@ class YftNavigationSmokeTest {
                     navController = rememberNavController(),
                     themeMode = ThemeMode.LIGHT,
                     onThemeModeChanged = {},
-                    homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _, _ ->
+                    homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _, _, _ ->
                         HomeRoute(
                             onOpenBrowser = onOpenBrowser,
                             onOpenDetectedMedia = onOpenDetectedMedia,
@@ -410,6 +418,157 @@ class YftNavigationSmokeTest {
         composeRule.onNodeWithText("link=null").assertIsDisplayed()
     }
 
+    @Test
+    fun homesUpdateCardOpensUpdatesAndBackReturnsHome() {
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                YftNavHost(
+                    navController = rememberNavController(),
+                    themeMode = ThemeMode.LIGHT,
+                    onThemeModeChanged = {},
+                    homeContent = { onOpenBrowser, onDetected, onOpenLibrary, _, _, onUpdates ->
+                        HomeScreen(
+                            state = HomeUiState(),
+                            onAction = {},
+                            onOpenBrowser = onOpenBrowser,
+                            onOpenDetectedMedia = onDetected,
+                            onOpenLibrary = onOpenLibrary,
+                            updateCard = HomeUpdateCard("Update available", "v1.0.3"),
+                            onOpenUpdates = onUpdates,
+                        )
+                    },
+                    updatesContent = { onNavigateBack ->
+                        Placeholder(YftDestination.UPDATES, onNavigateBack)
+                    },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("home-update").performClick()
+        composeRule.onNodeWithText(YftDestination.UPDATES.summary).assertIsDisplayed()
+        composeRule.onNodeWithTag("navigate-back").performClick()
+        composeRule.onNodeWithTag("home-update").assertIsDisplayed()
+    }
+
+    @Test
+    fun aDownloadNotificationsTapOpensTheDownloadsTab() {
+        val requests = TabRequests().apply { take(notificationTap()) }
+        setShell(requests = requests)
+
+        screenTitle(YftDestination.DOWNLOADS).assertIsDisplayed()
+        composeRule.onNodeWithTag("nav-downloads").assertIsSelected()
+        assertNull(requests.requested.value)
+
+        // As from a tab the user picked: back returns to Home.
+        composeRule.runOnUiThread { composeRule.activity.onBackPressedDispatcher.onBackPressed() }
+        composeRule.onNodeWithTag("home-list").assertIsDisplayed()
+        composeRule.onNodeWithTag("nav-home").assertIsSelected()
+    }
+
+    @Test
+    fun aPlainLaunchShowsHomeAndATapWhileOpenSwitchesToDownloads() {
+        val requests = TabRequests().apply {
+            take(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER))
+        }
+        setShell(requests = requests)
+
+        composeRule.onNodeWithTag("home-list").assertIsDisplayed()
+        composeRule.onNodeWithTag("nav-home").assertIsSelected()
+
+        // From another tab.
+        composeRule.onNodeWithTag("nav-library").performClick()
+        composeRule.runOnUiThread { requests.take(notificationTap()) }
+        screenTitle(YftDestination.DOWNLOADS).assertIsDisplayed()
+        composeRule.onNodeWithTag("nav-downloads").assertIsSelected()
+
+        // From a full-screen page over a tab.
+        composeRule.onNodeWithTag("nav-settings").performClick()
+        composeRule.onNodeWithTag("settings-list")
+            .performScrollToNode(hasTestTag("settings-open-about"))
+        composeRule.onNodeWithTag("settings-open-about").performClick()
+        composeRule.onNodeWithTag("about-content").assertIsDisplayed()
+        composeRule.runOnUiThread { requests.take(notificationTap()) }
+        screenTitle(YftDestination.DOWNLOADS).assertIsDisplayed()
+        composeRule.onNodeWithTag("nav-downloads").assertIsSelected()
+        assertNull(requests.requested.value)
+    }
+
+    /** A link shared at a cold start opens its download sheet over Home. */
+    @Test
+    fun aSharedLinkIsLookedUpOnHomeAndOpensItsDownloadSheet() {
+        val shared = SharedLinks().apply {
+            take(share("A clip worth keeping https://a.test/copied"))
+        }
+        setShell(shared = shared)
+
+        composeRule.onNodeWithTag("modal-sheet").assertExists()
+        composeRule.onNodeWithText(YftDestination.QUICK_DOWNLOAD.summary).assertIsDisplayed()
+        assertEquals(
+            YftDestination.QUICK_DOWNLOAD.route,
+            shellNavController.currentDestination?.route,
+        )
+        // Home looked up the link alone, as a pasted one.
+        assertEquals("https://a.test/copied", shellHome.uiState.value.link)
+        assertNull(shared.shared.value)
+    }
+
+    @Test
+    fun aLinkSharedWhileYftIsOpenComesBackToHomeForItsSheet() {
+        val shared = SharedLinks()
+        setShell(shared = shared)
+
+        // From another tab.
+        composeRule.onNodeWithTag("nav-library").performClick()
+        composeRule.runOnUiThread { shared.take(share("https://a.test/copied")) }
+        composeRule.onNodeWithTag("modal-sheet").assertExists()
+        assertEquals(
+            YftDestination.QUICK_DOWNLOAD.route,
+            shellNavController.currentDestination?.route,
+        )
+
+        // From a full-screen page over a tab.
+        composeRule.runOnUiThread { shellNavController.goHome() }
+        composeRule.onNodeWithTag("nav-settings").performClick()
+        composeRule.onNodeWithTag("settings-list")
+            .performScrollToNode(hasTestTag("settings-open-about"))
+        composeRule.onNodeWithTag("settings-open-about").performClick()
+        composeRule.onNodeWithTag("about-content").assertIsDisplayed()
+        composeRule.runOnUiThread { shared.take(share("Again https://a.test/copied?2")) }
+        composeRule.onNodeWithTag("modal-sheet").assertExists()
+        assertEquals(
+            YftDestination.QUICK_DOWNLOAD.route,
+            shellNavController.currentDestination?.route,
+        )
+        assertEquals("https://a.test/copied?2", shellHome.uiState.value.link)
+        // Back from the sheet is Home, as for a pasted link.
+        composeRule.runOnUiThread { composeRule.activity.onBackPressedDispatcher.onBackPressed() }
+        composeRule.onNodeWithTag("home-list").assertIsDisplayed()
+    }
+
+    @Test
+    fun sharedTextWithoutALinkSaysSoAndStaysWhereItIs() {
+        val shared = SharedLinks()
+        setShell(shared = shared)
+        composeRule.onNodeWithTag("nav-library").performClick()
+
+        composeRule.runOnUiThread { shared.take(share("Just words, no link")) }
+        composeRule.waitForIdle()
+
+        assertEquals(SharedLinks.NO_LINK_MESSAGE, ShadowToast.getTextOfLatestToast())
+        assertEquals(YftDestination.LIBRARY.route, shellNavController.currentDestination?.route)
+        assertEquals("", shellHome.uiState.value.link)
+        assertNull(shared.shared.value)
+    }
+
+    private fun share(text: String): Intent = Intent(Intent.ACTION_SEND)
+        .setType("text/plain")
+        .putExtra(Intent.EXTRA_TEXT, text)
+
+    private fun notificationTap(): Intent = TabRequests.showing(
+        Intent(composeRule.activity, MainActivity::class.java),
+        YftDestination.DOWNLOADS,
+    )
+
     /** The bar label repeats each tab's title, so match the screen's own title only. */
     private fun screenTitle(destination: YftDestination) = composeRule.onNode(
         hasText(destination.title) and !hasTestTag("nav-${destination.route}"),
@@ -421,12 +580,16 @@ class YftNavigationSmokeTest {
     private fun setShell(
         activeDownloads: () -> Int = { 0 },
         miniPlayer: @Composable () -> Unit = {},
+        requests: TabRequests? = null,
+        shared: SharedLinks? = null,
     ) {
-        val home = homeViewModel()
+        val home = homeViewModel().also { shellHome = it }
         composeRule.setContent {
             var themeMode by remember { mutableStateOf(ThemeMode.SYSTEM) }
             YftTheme(themeMode = themeMode) {
                 val navController = rememberNavController().also { shellNavController = it }
+                requests?.let { ShowRequestedTab(navController, it) }
+                shared?.let { LookUpSharedLink(navController, it) }
                 YftAppShell(
                     navController = navController,
                     activeDownloads = activeDownloads(),
@@ -458,13 +621,14 @@ private fun TestNavHost(
         themeMode = themeMode,
         onThemeModeChanged = onThemeModeChanged,
         modifier = modifier,
-        homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, onOpenQuick, onSearch ->
+        homeContent = { onOpenBrowser, onDetected, onLibrary, onOpenQuick, onSearch, onUpdates ->
             HomeRoute(
                 onOpenBrowser = onOpenBrowser,
-                onOpenDetectedMedia = onOpenDetectedMedia,
-                onOpenLibrary = onOpenLibrary,
+                onOpenDetectedMedia = onDetected,
+                onOpenLibrary = onLibrary,
                 onOpenQuickDownload = onOpenQuick,
                 onOpenSearch = onSearch,
+                onOpenUpdates = onUpdates,
                 viewModel = home,
             )
         },

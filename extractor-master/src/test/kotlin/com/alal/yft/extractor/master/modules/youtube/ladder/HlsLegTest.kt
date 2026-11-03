@@ -17,7 +17,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Phase 1.3 D5c: the H leg (HlsLeg, §3 H steps 1–3) on the D1 simulator's HLS (master, variant
+ * YouTube HLS rung: the H leg (HlsLeg, its steps 1–3) on the Answer change test's HLS (master, variant
  * and segments made in code, with F3's faults as knobs); offline, no live calls.
  */
 class HlsLegTest {
@@ -31,7 +31,7 @@ class HlsLegTest {
         "Range" to "bytes=0-",
     )
 
-    /** What D6 hands the leg for visionOS's answer: steps 1 and 2. */
+    /** What the YouTube ladder hands the leg for visionOS's answer: steps 1 and 2. */
     private class Prepared(val address: String?, val length: Long?)
 
     private fun prepare(text: String): Prepared {
@@ -144,7 +144,7 @@ class HlsLegTest {
             Triple("key", { key = "AES-128" }, Verdict.FAIL to Why.KEY),
             Triple("key and a 403 variant: the fail names the first", { key = "SAMPLE-AES"; variant = SimWorld.FORBIDDEN }, Verdict.FAIL to Why.VARIANT),
             Triple("key NONE", { key = "NONE" }, null),
-            // The owner's (က), 2026-10-17: a generic binary type lets the start decide.
+            // The owner's choice: a generic binary type lets the start decide.
             Triple("octet-stream, ts start", { contentType = "application/octet-stream" }, null),
             Triple("no content type", { contentType = "" }, null),
             Triple("octet-stream, fragmented mp4 (live)", { contentType = "application/octet-stream"; startText = "\u0000\u0000\u0004\u0074moof" }, null),
@@ -172,7 +172,7 @@ class HlsLegTest {
     }
 
     /**
-     * Phase 1.4 item 2, run 4 (live 2026-10-17): YouTube's HLS segment ignores the range and
+     * Live on 2026-10-17: YouTube's HLS segment ignores the range and
      * answers 200 with the whole segment. Through the HTTP client that is "too large" (H: SEGMENT,
      * the phone's note); through the ladder's media reader only the first 64 KiB are kept.
      */
@@ -198,7 +198,7 @@ class HlsLegTest {
         }
         val row = HlsLeg(wholeSegment, reader = reader).lookup().run(prepared.address, prepared.length, headers) as HlsLeg.Row
         assertEquals("ts", row.container)
-        // The live answer: 200, application/octet-stream, a moof start; the start decides (the owner's (က)).
+        // The live answer: 200, application/octet-stream, a moof start; the start decides (the owner's choice).
         val live = object : MediaStartReader {
             override suspend fun read(url: String, headers: Map<String, String>, maxBytes: Int): MediaStart {
                 val whole = ("\u0000\u0000\u0004\u0074moof" + "@".repeat(1_048_568)).toByteArray(Charsets.ISO_8859_1)

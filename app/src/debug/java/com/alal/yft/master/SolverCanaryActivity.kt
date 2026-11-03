@@ -30,7 +30,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * Owner tool, debug build only (Phase 1.2 N7): runs [SolverCanary] on the phone without a
+ * Owner tool, debug build only: runs [SolverCanary] on the phone without a
  * computer. Its launcher entry ("YFT solver canary") exists only when the build has
  * `yft.masterCapture`, `yft.ownSolver` and `yft.ownSolverNext` on (manifest placeholder
  * `yftOwnerToolsNext`); it starts only on a tap and shows the report, which never holds an address
@@ -141,7 +141,7 @@ class SolverCanaryActivity : ComponentActivity() {
      * A visible WebView with a 50 ms timer that keeps its longest gap: while a page job runs, how
      * long a page in the app's browser would stand still. Made only before the first page step,
      * so the lookup's engine start stays cold. It loads no address. After the steps it also gives
-     * the renderer's JS heap limit (N7 round 2).
+     * the renderer's JS heap limit.
      */
     private val stallMeter = object : SolverCanary.StallMeter {
         @SuppressLint("SetJavaScriptEnabled")

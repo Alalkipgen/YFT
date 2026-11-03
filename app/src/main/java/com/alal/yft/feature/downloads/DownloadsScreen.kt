@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.widget.Toast
 import androidx.annotation.DrawableRes
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,6 +18,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -65,6 +68,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -82,6 +86,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alal.yft.BuildConfig
 import com.alal.yft.core.download.DownloadDestinationKind
 import com.alal.yft.core.model.download.DownloadTaskStatus
+import com.alal.yft.detection.Av1MergeSwitch
 import com.alal.yft.download.BackgroundSettingsIntents
 import com.alal.yft.download.policy.TransferNetworkState
 import com.alal.yft.feature.library.AppPrivateDownloadProvider
@@ -97,6 +102,7 @@ import com.alal.yft.ui.components.YftCard
 import com.alal.yft.ui.components.YftCircleButton
 import com.alal.yft.ui.components.YftFilterChip
 import com.alal.yft.ui.components.YftIcon
+import com.alal.yft.ui.components.YftIconButton
 import com.alal.yft.ui.components.YftMediaKind
 import com.alal.yft.ui.components.YftOutlinedButton
 import com.alal.yft.ui.components.YftProgressBar
@@ -123,7 +129,7 @@ fun DownloadsRoute(
     val deleteFileQuestion by viewModel.deleteFileQuestion.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
-    // P42: Android's "Allow YFT to delete?" for an item YFT no longer owns.
+    // Delete file: Android's "Allow YFT to delete?" for an item YFT no longer owns.
     val consent = rememberLauncherForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult(),
     ) { result -> viewModel.onDeleteConsentResult(result.resultCode == Activity.RESULT_OK) }
@@ -185,10 +191,26 @@ fun DownloadsRoute(
         snackbarHostState = snackbarHostState,
         onResetYouTubeSession = viewModel::resetYouTubeSession,
         onBreakLink = viewModel::breakLink,
+        selectionActions = remember(viewModel) {
+            DownloadSelectionActions(
+                onRemoveFromList = viewModel::removeFromList,
+                onDeleteFiles = viewModel::onDeleteFiles,
+            )
+        },
     )
 }
 
-/** "Delete file" on a finished download and its question (P42). */
+/** What the select bar does with the picked finished downloads. */
+data class DownloadSelectionActions(
+    val onRemoveFromList: (List<String>) -> Unit,
+    val onDeleteFiles: (List<String>) -> Unit,
+) {
+    companion object {
+        val None = DownloadSelectionActions(onRemoveFromList = {}, onDeleteFiles = {})
+    }
+}
+
+/** "Delete file" on a finished download and its question. */
 data class DeleteFileActions(
     val onDeleteFile: (String) -> Unit,
     val onConfirm: () -> Unit,
@@ -207,6 +229,10 @@ data class DeleteFileActions(
  * Tapping a card opens a menu with every control the task allows, and accessibility services
  * get the same controls as custom actions. A finished download's play button plays it in the
  * app ([onPlay]); its menu can also hand it to another app ([onOpen]).
+ *
+ * A long press on a finished download starts select mode: taps pick finished
+ * downloads, and the bar above the list removes them from the list or deletes their files
+ * ([selectionActions]); Back or Cancel leaves it.
  */
 @Composable
 fun DownloadsScreen(
@@ -223,12 +249,24 @@ fun DownloadsScreen(
     deleteFileActions: DeleteFileActions = DeleteFileActions.None,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     onResetYouTubeSession: () -> Unit = {},
-    /** Track E (E-D9): the trial's tool that breaks a download's link; only the trial has it. */
+    /** Fresh link renewal: the trial's tool that breaks a download's link; only in the trial. */
     onBreakLink: (String) -> Unit = {},
+    selectionActions: DownloadSelectionActions = DownloadSelectionActions.None,
 ) {
     val colors = YftTheme.colors
     var filter by rememberSaveable { mutableStateOf(DownloadsFilter.ALL) }
-    // Item 7 Track B3: "Reset YouTube session?" is open.
+    // The finished downloads picked in select mode, in the order picked; rows
+    // that went or the filter hides drop out, and select mode ends with the last one.
+    var picked by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    val finishedIds = uiState.rowsFor(filter)
+        .filter { it.status == DownloadTaskStatus.COMPLETED }
+        .map { it.id }
+    val selection = RowSelection(
+        picked = picked.filter { it in finishedIds },
+        onToggle = { id -> picked = if (id in picked) picked - id else picked + id },
+    )
+    BackHandler(enabled = selection.active) { picked = emptyList() }
+    // "Reset YouTube session?" is open.
     var youTubeResetAsked by rememberSaveable { mutableStateOf(false) }
     val storage = uiState.storage
     Box(
@@ -237,62 +275,82 @@ fun DownloadsScreen(
             .background(colors.background)
             .windowInsetsPadding(WindowInsets.statusBars),
     ) {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .testTag("downloads-list"),
-            contentPadding = PaddingValues(bottom = if (storage != null) 80.dp else 16.dp),
-        ) {
-            item(key = "header") {
-                YftScreenHeader(
-                    title = YftDestination.DOWNLOADS.title,
-                    contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp),
-                ) {
-                    YftOutlinedButton(
-                        text = "Pause all",
-                        onClick = onPauseAll,
-                        modifier = Modifier.testTag("downloads-pause-all"),
-                        icon = YftIcons.Pause,
-                        enabled = uiState.canPauseAll,
-                        compact = true,
-                    )
-                }
-            }
-            if (!uiState.isEmpty) {
-                item(key = "filters") {
-                    FilterRow(
-                        uiState = uiState,
-                        selected = filter,
-                        onSelect = { filter = it },
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                }
-            }
-            val holdsWork = uiState.rows.any { it.status in NETWORK_HELD_STATUSES }
-            if (uiState.network != TransferNetworkState.ALLOWED && holdsWork) {
-                item(key = "network") {
-                    NetworkNotice(
-                        network = uiState.network,
-                        onOpenSettings = onOpenSettings,
-                        modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp),
-                    )
-                }
-            }
-            backgroundItems(uiState.background, backgroundActions)
-            if (uiState.isEmpty) {
-                item(key = "empty") { EmptyQueue(Modifier.fillParentMaxHeight(EMPTY_HEIGHT)) }
-            } else {
-                downloadItems(
-                    uiState = uiState,
-                    filter = filter,
-                    todayStartEpochMs = todayStartEpochMs,
-                    onAction = onAction,
-                    onOpen = onOpen,
-                    onPlay = onPlay,
-                    onDeleteFile = deleteFileActions.onDeleteFile,
-                    onResetYouTube = { youTubeResetAsked = true },
-                    onBreakLink = onBreakLink,
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (selection.active) {
+                SelectionBar(
+                    count = selection.picked.size,
+                    allPicked = selection.picked.size == finishedIds.size,
+                    onCancel = { picked = emptyList() },
+                    onSelectAll = { picked = finishedIds },
+                    onRemoveFromList = {
+                        selectionActions.onRemoveFromList(selection.picked)
+                        picked = emptyList()
+                    },
+                    onDeleteFiles = { selectionActions.onDeleteFiles(selection.picked) },
                 )
+            }
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .testTag("downloads-list"),
+                contentPadding = PaddingValues(bottom = if (storage != null) 80.dp else 16.dp),
+            ) {
+                item(key = "header") {
+                    YftScreenHeader(
+                        title = YftDestination.DOWNLOADS.title,
+                        contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp),
+                    ) {
+                        YftOutlinedButton(
+                            text = "Pause all",
+                            onClick = onPauseAll,
+                            modifier = Modifier.testTag("downloads-pause-all"),
+                            icon = YftIcons.Pause,
+                            enabled = uiState.canPauseAll,
+                            compact = true,
+                        )
+                    }
+                }
+                if (!uiState.isEmpty) {
+                    item(key = "filters") {
+                        FilterRow(
+                            uiState = uiState,
+                            selected = filter,
+                            onSelect = {
+                                filter = it
+                                picked = emptyList()
+                            },
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    }
+                }
+                val holdsWork = uiState.rows.any { it.status in NETWORK_HELD_STATUSES }
+                if (uiState.network != TransferNetworkState.ALLOWED && holdsWork) {
+                    item(key = "network") {
+                        NetworkNotice(
+                            network = uiState.network,
+                            onOpenSettings = onOpenSettings,
+                            modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp),
+                        )
+                    }
+                }
+                backgroundItems(uiState.background, backgroundActions)
+                if (uiState.isEmpty) {
+                    item(key = "empty") { EmptyQueue(Modifier.fillParentMaxHeight(EMPTY_HEIGHT)) }
+                } else {
+                    downloadItems(
+                        uiState = uiState,
+                        filter = filter,
+                        todayStartEpochMs = todayStartEpochMs,
+                        onAction = onAction,
+                        onOpen = onOpen,
+                        onPlay = onPlay,
+                        onDeleteFile = deleteFileActions.onDeleteFile,
+                        onResetYouTube = { youTubeResetAsked = true },
+                        onBreakLink = onBreakLink,
+                        selection = selection,
+                    )
+                }
             }
         }
         if (storage != null) {
@@ -312,7 +370,10 @@ fun DownloadsScreen(
     deleteFileQuestion?.let { question ->
         DeleteFileDialog(
             question = question,
-            onConfirm = deleteFileActions.onConfirm,
+            onConfirm = {
+                picked = emptyList()
+                deleteFileActions.onConfirm()
+            },
             onCancel = deleteFileActions.onCancel,
         )
     }
@@ -328,7 +389,7 @@ fun DownloadsScreen(
 }
 
 /**
- * Item 7 Track B3: "Reset YouTube session?" before YFT's browser forgets YouTube's cookies, site
+ * "Reset YouTube session?" before YFT's browser forgets YouTube's cookies, site
  * storage and remembered lookups; other sites keep their sign-ins.
  */
 @Composable
@@ -352,7 +413,10 @@ internal fun YouTubeResetDialog(
     )
 }
 
-/** "Delete this file?" before "Delete file" deletes (P42, `DELETE_CONFIRM`). */
+/**
+ * "Delete this file?" before "Delete file" deletes (`DELETE_CONFIRM`), or
+ * "Delete 3 files?" for the downloads picked in select mode.
+ */
 @Composable
 internal fun DeleteFileDialog(
     question: DeleteFileQuestion,
@@ -360,13 +424,24 @@ internal fun DeleteFileDialog(
     onCancel: () -> Unit,
 ) {
     val colors = YftTheme.colors
+    val text = if (question.count == 1) {
+        deleteFileQuestionText(question.fileName)
+    } else {
+        deleteFilesQuestionText(question.count)
+    }
     AlertDialog(
         onDismissRequest = onCancel,
         modifier = Modifier.testTag("download-delete-file-dialog"),
-        title = { Text(DELETE_FILE_TITLE, color = colors.textPrimary) },
-        text = { Text(deleteFileQuestionText(question.fileName), color = colors.textPrimary) },
+        title = { Text(deleteFilesTitle(question.count), color = colors.textPrimary) },
+        text = { Text(text, color = colors.textPrimary) },
+        // Delete in the same red as the Library's.
         confirmButton = {
-            YftTextButton("Delete", onConfirm, Modifier.testTag("download-delete-file-confirm"))
+            YftTextButton(
+                text = "Delete",
+                onClick = onConfirm,
+                modifier = Modifier.testTag("download-delete-file-confirm"),
+                color = colors.coralText,
+            )
         },
         dismissButton = {
             YftTextButton("Cancel", onCancel, Modifier.testTag("download-delete-file-cancel"))
@@ -375,7 +450,92 @@ internal fun DeleteFileDialog(
     )
 }
 
-/** P34: the notifications card, then the battery card, under the network notice. */
+/**
+ * The finished downloads picked in select mode ([picked], in the order picked)
+ * and how a card picks or drops itself.
+ */
+internal class RowSelection(
+    val picked: List<String>,
+    val onToggle: (String) -> Unit,
+) {
+    val active: Boolean
+        get() = picked.isNotEmpty()
+
+    companion object {
+        val None = RowSelection(picked = emptyList(), onToggle = {})
+    }
+}
+
+/**
+ * The bar above the list in select mode: Cancel, how many are picked, Select
+ * all, then **Remove from list** (the files stay) and **Delete file** (one question first).
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun SelectionBar(
+    count: Int,
+    allPicked: Boolean,
+    onCancel: () -> Unit,
+    onSelectAll: () -> Unit,
+    onRemoveFromList: () -> Unit,
+    onDeleteFiles: () -> Unit,
+) {
+    val colors = YftTheme.colors
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(colors.background)
+            .padding(start = 4.dp, top = 4.dp, end = 16.dp, bottom = 8.dp)
+            .testTag("downloads-select-bar"),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            YftIconButton(
+                icon = YftIcons.Close,
+                contentDescription = "Cancel",
+                onClick = onCancel,
+                modifier = Modifier.testTag("downloads-select-cancel"),
+            )
+            Text(
+                text = selectedCountLabel(count),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 4.dp)
+                    .semantics { liveRegion = LiveRegionMode.Polite }
+                    .testTag("downloads-select-count"),
+                color = colors.textPrimary,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            )
+            YftTextButton(
+                text = SELECT_ALL_LABEL,
+                onClick = onSelectAll,
+                modifier = Modifier.testTag("downloads-select-all"),
+                enabled = !allPicked,
+            )
+        }
+        FlowRow(
+            modifier = Modifier.padding(start = 12.dp, top = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            YftOutlinedButton(
+                text = menuLabel(DownloadAction.DELETE),
+                onClick = onRemoveFromList,
+                modifier = Modifier.testTag("downloads-select-remove"),
+                icon = YftIcons.Remove,
+                compact = true,
+            )
+            YftOutlinedButton(
+                text = deleteFilesLabel(count),
+                onClick = onDeleteFiles,
+                modifier = Modifier.testTag("downloads-select-delete-file"),
+                icon = YftIcons.Delete,
+                compact = true,
+            )
+        }
+    }
+}
+
+/** Download queue: the notifications card, then the battery card, under the network notice. */
 private fun LazyListScope.backgroundItems(
     background: BackgroundCardsUiState,
     actions: BackgroundCardActions,
@@ -411,6 +571,7 @@ private fun LazyListScope.downloadItems(
     onDeleteFile: (String) -> Unit,
     onResetYouTube: () -> Unit,
     onBreakLink: (String) -> Unit,
+    selection: RowSelection,
 ) {
     val visible = uiState.rowsFor(filter)
     if (visible.isEmpty()) {
@@ -430,6 +591,7 @@ private fun LazyListScope.downloadItems(
                 onDeleteFile = onDeleteFile,
                 onResetYouTube = onResetYouTube,
                 onBreakLink = onBreakLink,
+                selection = selection,
                 modifier = Modifier.padding(start = 16.dp, top = 8.dp, end = 16.dp),
             )
         }
@@ -656,7 +818,7 @@ private fun cardActions(
                     onAction(action, row.id)
                 },
             )
-            // P42: beside "Remove from list", which keeps the file.
+            // Delete file: beside "Remove from list", which keeps the file.
             if (action == DownloadAction.DELETE && row.status == DownloadTaskStatus.COMPLETED) {
                 add(
                     CardAction(DELETE_FILE_LABEL, deleteFileTag(row.id), YftIcons.Delete) {
@@ -685,7 +847,7 @@ private fun cardActions(
             ),
         )
     }
-    // Track E (E-D9): the trial's own tool for the phone test, on a running or paused download.
+    // Fresh link renewal: the trial's own tool for the phone test, on a running or paused download.
     // Every other build drops it with its label (BuildConfig.SOCIAL_TRIAL is false there; the
     // release check rejects the label anywhere but the trial).
     if (BuildConfig.SOCIAL_TRIAL && onBreakLink != null && row.status in BREAKABLE_STATUSES) {
@@ -699,7 +861,7 @@ private fun cardActions(
     }
 }
 
-/** Track E (E-D9): the downloads whose link the trial's tool breaks: they are using one. */
+/** Fresh link renewal: the downloads whose link the trial's tool breaks: they are using one. */
 private val BREAKABLE_STATUSES = setOf(DownloadTaskStatus.RUNNING, DownloadTaskStatus.PAUSED)
 
 @DrawableRes
@@ -722,14 +884,16 @@ private fun DownloadCard(
     onResetYouTube: () -> Unit,
     onBreakLink: (String) -> Unit,
     modifier: Modifier = Modifier,
+    selection: RowSelection = RowSelection.None,
 ) {
     val colors = YftTheme.colors
     var menuOpen by remember { mutableStateOf(false) }
     var detailsOpen by remember { mutableStateOf(false) }
-    // Decision 30 (v): a quiet build shows a failure's Details only with Show details on; the
-    // failed download's Retry stays (a function).
-    val showDetails = row.showsDetails && !LocalQuietRelease.current
-    // Track E (E-D9): the trial's tool, as the trial's VK value break (never in a quiet build).
+    // Quiet details: a quiet build shows a failure's Details only with Show details on; the
+    // failed download's Retry stays (a function). AV1 merge switch: while a debug build's AV1
+    // merges are on, a finished merge has Details with the AV1 line (read again as the menu opens).
+    val showDetails = row.showsDetails(Av1MergeSwitch.detailLine()) && !LocalQuietRelease.current
+    // Fresh link renewal: the trial's tool, like the VK trial break (never in a quiet build).
     val trialTools = BuildConfig.SOCIAL_TRIAL && !LocalQuietRelease.current
     val actions = cardActions(
         row = row,
@@ -742,24 +906,46 @@ private fun DownloadCard(
         showDetails = showDetails,
         onBreakLink = onBreakLink.takeIf { trialTools },
     )
+    // Finished downloads can be picked; in select mode a tap picks or drops
+    // them, and the other rows wait.
+    val selectable = row.status == DownloadTaskStatus.COMPLETED
+    val selecting = selection.active
+    val picked = selectable && row.id in selection.picked
+    val toggle = { selection.onToggle(row.id) }
     Box(modifier = modifier.fillMaxWidth()) {
         YftCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("download-${row.id}")
                 .semantics {
-                    customActions = actions.map { action ->
-                        CustomAccessibilityAction(action.label) {
-                            action.run()
-                            true
+                    if (selecting) {
+                        if (selectable) selected = picked
+                    } else {
+                        customActions = actions.map { action ->
+                            CustomAccessibilityAction(action.label) {
+                                action.run()
+                                true
+                            }
                         }
                     }
                 },
-            onClick = { menuOpen = true },
+            onClick = when {
+                !selecting -> ({ menuOpen = true })
+                selectable -> toggle
+                else -> ({})
+            },
             contentPadding = PaddingValues(10.dp),
+            onLongClick = toggle.takeIf { selectable },
+            onLongClickLabel = SELECT_LABEL.takeIf { selectable && !selecting },
+            selected = picked && selecting,
         ) {
             when (row.status) {
-                DownloadTaskStatus.COMPLETED -> FinishedRow(row = row, onPlay = onPlay)
+                DownloadTaskStatus.COMPLETED -> FinishedRow(
+                    row = row,
+                    onPlay = onPlay,
+                    selecting = selecting,
+                    picked = picked,
+                )
                 in PROGRESS_STATUSES -> ProgressRow(row = row, onAction = onAction)
                 else -> StatusRow(
                     row = row,
@@ -768,6 +954,17 @@ private fun DownloadCard(
                     onDetails = { detailsOpen = true },
                     onResetYouTube = onResetYouTube,
                     showDetails = showDetails,
+                )
+            }
+            // Save folder: the chosen folder could not take this file.
+            if (row.folderUnavailable) {
+                Text(
+                    text = folderUnavailableNotice(row.destinationKind),
+                    modifier = Modifier
+                        .padding(top = 6.dp)
+                        .testTag("download-folder-note-${row.id}"),
+                    color = colors.textSecondary,
+                    style = MaterialTheme.typography.bodySmall,
                 )
             }
         }
@@ -804,7 +1001,7 @@ private fun DownloadCard(
 }
 
 /**
- * What failed, where and on which phone (P21), with Copy details for a bug report; Track E: or,
+ * What failed, where and on which phone, with Copy details for a bug report; or,
  * for a download that got a fresh link, how it went on. The text holds no file name, link or
  * address ([downloadDetailsText]).
  */
@@ -815,12 +1012,14 @@ internal fun FailureDetailsDialog(
     appVersion: String = BuildConfig.VERSION_NAME,
     androidRelease: String = Build.VERSION.RELEASE.orEmpty(),
     sdkInt: Int = Build.VERSION.SDK_INT,
+    // AV1 merge switch: the phone's AV1 decoders, only while a debug build's AV1 merges are on.
+    av1Decoder: String? = remember { Av1MergeSwitch.detailLine() },
 ) {
     val colors = YftTheme.colors
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
-    val text = remember(row, appVersion, androidRelease, sdkInt) {
-        downloadDetailsText(row, appVersion, androidRelease, sdkInt)
+    val text = remember(row, appVersion, androidRelease, sdkInt, av1Decoder) {
+        downloadDetailsText(row, appVersion, androidRelease, sdkInt, av1Decoder)
     }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -993,9 +1192,11 @@ private fun StatusRow(
                 Text(
                     text = when {
                         row.isYouTubeRefusal() -> YOUTUBE_REFUSED_HINT
-                        // Track E (E-D6): Retry looks the page up again while YFT has its source.
-                        DownloadAction.RETRY in row.availableActions -> RENEWABLE_LINK_NOTE
-                        else -> "Reopen the page in the browser to get a fresh link."
+                        // Fresh link renewal: Retry looks the page up again while YFT has its
+                        // source; a page read again without player data would be read the same way.
+                        DownloadAction.RETRY in row.availableActions && !row.noPlayerOnPage ->
+                            RENEWABLE_LINK_NOTE
+                        else -> REOPEN_PAGE_NOTE
                     },
                     modifier = Modifier
                         .padding(top = 6.dp)
@@ -1046,6 +1247,8 @@ private fun StatusRow(
 private fun FinishedRow(
     row: DownloadRowUiState,
     onPlay: (DownloadRowUiState) -> Unit,
+    selecting: Boolean = false,
+    picked: Boolean = false,
 ) {
     val colors = YftTheme.colors
     val context = LocalContext.current
@@ -1078,13 +1281,32 @@ private fun FinishedRow(
             tint = colors.success,
             size = 22.dp,
         )
-        YftCircleButton(
-            icon = YftIcons.Play,
-            contentDescription = "Play ${row.title}",
-            onClick = { onPlay(row) },
-            modifier = Modifier.testTag("download-open-${row.id}"),
-            size = CIRCLE_SIZE,
-        )
+        if (selecting) {
+            // The pick mark stands where Play was, so a tap only picks.
+            Box(
+                modifier = Modifier
+                    .size(CIRCLE_SIZE)
+                    .testTag("download-pick-${row.id}"),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (picked) {
+                    YftIcon(
+                        icon = YftIcons.Check,
+                        contentDescription = "Selected",
+                        tint = colors.link,
+                        size = 24.dp,
+                    )
+                }
+            }
+        } else {
+            YftCircleButton(
+                icon = YftIcons.Play,
+                contentDescription = "Play ${row.title}",
+                onClick = { onPlay(row) },
+                modifier = Modifier.testTag("download-open-${row.id}"),
+                size = CIRCLE_SIZE,
+            )
+        }
     }
 }
 
@@ -1095,7 +1317,7 @@ private fun RowThumbnail(
     iconSize: Dp = 28.dp,
     image: ImageBitmap? = null,
 ) {
-    // P19: the picture saved when the download started, until the file's own frame exists.
+    // The picture saved when the download started, until the file's own frame exists.
     val saved = rememberDownloadThumbnail(row.id)
     YftThumbnail(
         image = image ?: saved,
@@ -1215,10 +1437,10 @@ internal object DownloadIntents {
             mimeType = mimeTypeOf(row),
             sizeBytes = row.totalBytes ?: row.downloadedBytes.takeIf { it > 0L },
             modifiedAtEpochMs = row.updatedAtEpochMs.takeIf { it > 0L },
-            location = if (row.destinationKind == DownloadDestinationKind.APP_PRIVATE) {
-                LibraryLocation.APP_STORAGE
-            } else {
-                LibraryLocation.SHARED_DOWNLOADS
+            location = when (row.destinationKind) {
+                DownloadDestinationKind.APP_PRIVATE -> LibraryLocation.APP_STORAGE
+                DownloadDestinationKind.MEDIA_STORE -> LibraryLocation.SHARED_DOWNLOADS
+                DownloadDestinationKind.SAF_DOCUMENT -> LibraryLocation.CHOSEN_FOLDER
             },
         )
     }

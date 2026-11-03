@@ -11,7 +11,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Phase 1.3 D5a — A's versions (MASTER_KEY_PHASE1_3_PLAN.md guardrail 5, §9 item 3): one rule per
+ * Client version source — A's versions: one rule per
  * test, with a fake source reader and the health's clock; no live call.
  */
 class VersionSourceTest {

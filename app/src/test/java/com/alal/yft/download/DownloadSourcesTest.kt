@@ -33,8 +33,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Track E (E2): where each download came from, in memory only: remembered as the queue gets the
- * task, under the name it is saved as, and dropped with the task or by Clear browsing data.
+ * Fresh link renewal: where each download came from, in memory only: remembered as the queue gets
+ * the task, under the name it is saved as, and dropped with the task or by Clear browsing data.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class DownloadSourcesTest {
@@ -114,7 +114,7 @@ class DownloadSourcesTest {
         val harness = EnqueueHarness(this)
         val variant = file(height = 720)
 
-        // No origin: the screen did not know where the file came from.
+        // No origin: the screen did not know where the file came from (its quality is kept).
         assertTrue(harness.enqueuer.enqueue(asset(variant), variant) is EnqueueResult.Started)
         harness.probe.answer = {
             DirectProbeResult.Failure(DownloadFailure(DownloadFailureReason.EXPIRED_URL))
@@ -131,7 +131,79 @@ class DownloadSourcesTest {
         assertTrue(runCatching { enqueue(harness, variant) }.isFailure)
 
         (0..4).forEach { assertNull(harness.sources["task-$it"]) }
-        assertEquals(DownloadRenewals.None, harness.sources.renewals.value)
+        assertEquals(
+            DownloadRenewals(qualities = mapOf("task-0" to "720p")),
+            harness.sources.renewals.value,
+        )
+    }
+
+    /** Each video's picked quality, for its row; sound has none. */
+    @Test
+    fun `every video download keeps the quality it was picked as and sound none`() = runTest {
+        val harness = EnqueueHarness(this)
+        val wide = file(height = 960).copy(width = 1920)
+        val video = file(height = 360)
+        val sound = requireNotNull(AudioFromVideo.of(video, LENGTH))
+        val mp3 = requireNotNull(Mp3Variants.of(sound, 192, LENGTH))
+
+        enqueue(harness, file(height = 720))
+        harness.enqueuer.enqueue(asset(wide), wide)
+        enqueue(harness, file(MediaKind.HLS, height = 2160, container = null))
+        harness.enqueuer.enqueue(asset(video), sound, origin(candidate(), video))
+        harness.enqueuer.enqueue(asset(video), mp3, origin(candidate(), video))
+        enqueue(harness, file(height = null))
+
+        assertEquals(
+            mapOf("task-0" to "720p", "task-1" to "1080p", "task-2" to "4K"),
+            harness.sources.renewals.value.qualities,
+        )
+    }
+
+    @Test
+    fun `a picked quality goes with its download or when it finishes, not with browsing data`() {
+        val sources = DownloadSources()
+        val ids = listOf("done", "cancelled", "deleted", "paused", "queued")
+        ids.forEach { sources.picked(it, "720p") }
+        // "queued" is not in the queue's list yet.
+        sources.prune(ids.take(4).map { task(it, DownloadTaskStatus.RUNNING) })
+        sources.clear()
+        assertEquals(ids.toSet(), sources.renewals.value.qualities.keys)
+
+        sources.prune(
+            listOf(
+                task("done", DownloadTaskStatus.COMPLETED),
+                task("cancelled", DownloadTaskStatus.CANCELLED),
+                task("paused", DownloadTaskStatus.PAUSED),
+            ),
+        )
+        assertEquals(
+            mapOf("paused" to "720p", "queued" to "720p"),
+            sources.renewals.value.qualities,
+        )
+        sources.forget("paused")
+        assertEquals(mapOf("queued" to "720p"), sources.renewals.value.qualities)
+    }
+
+    @Test
+    fun `a folder notice stays while its row is listed, finished or not, and through clearing`() {
+        val sources = DownloadSources()
+        val ids = listOf("done", "cancelled", "deleted", "paused", "queued")
+        ids.forEach(sources::folderUnavailable)
+        // "queued" is not in the queue's list yet.
+        sources.prune(ids.take(4).map { task(it, DownloadTaskStatus.RUNNING) })
+        sources.clear()
+        assertEquals(ids.toSet(), sources.renewals.value.folderUnavailable)
+
+        sources.prune(
+            listOf(
+                task("done", DownloadTaskStatus.COMPLETED),
+                task("cancelled", DownloadTaskStatus.CANCELLED),
+                task("paused", DownloadTaskStatus.PAUSED),
+            ),
+        )
+        assertEquals(setOf("done", "paused", "queued"), sources.renewals.value.folderUnavailable)
+        sources.forget("paused")
+        assertEquals(setOf("done", "queued"), sources.renewals.value.folderUnavailable)
     }
 
     @Test
@@ -168,6 +240,43 @@ class DownloadSourcesTest {
         assertNotNull(sources["new"])
         assertEquals(setOf("running", "new"), sources.renewals.value.renewable)
         assertTrue(sources.renewals.value.notes.isEmpty())
+    }
+
+    /** A page read again without its player data is marked until the next answer. */
+    @Test
+    fun `a page read again without its player stays marked until the next answer`() {
+        val sources = DownloadSources()
+        listOf("notice", "done", "cancelled", "deleted").forEach { id -> remember(sources, id) }
+        listOf("notice", "done", "cancelled", "deleted", "unknown").forEach { id ->
+            sources.pageWithoutPlayer(id, without = true)
+        }
+        // Only a download YFT has the source of is marked.
+        assertEquals(
+            setOf("notice", "done", "cancelled", "deleted"),
+            sources.renewals.value.noPlayer,
+        )
+        sources.pageWithoutPlayer("notice", without = false)
+        assertEquals(setOf("done", "cancelled", "deleted"), sources.renewals.value.noPlayer)
+        sources.pageWithoutPlayer("notice", without = true)
+
+        sources.prune(
+            listOf(
+                task("notice", DownloadTaskStatus.NEEDS_REFRESH),
+                task("done", DownloadTaskStatus.COMPLETED),
+                task("cancelled", DownloadTaskStatus.CANCELLED),
+                task("deleted", DownloadTaskStatus.NEEDS_REFRESH),
+            ),
+        )
+        assertEquals(setOf("notice", "deleted"), sources.renewals.value.noPlayer)
+        sources.prune(listOf(task("notice", DownloadTaskStatus.NEEDS_REFRESH)))
+        assertEquals(setOf("notice"), sources.renewals.value.noPlayer)
+        sources.forget("notice")
+        assertTrue(sources.renewals.value.noPlayer.isEmpty())
+
+        remember(sources, "again")
+        sources.pageWithoutPlayer("again", without = true)
+        sources.clear()
+        assertEquals(DownloadRenewals.None, sources.renewals.value)
     }
 
     @Test

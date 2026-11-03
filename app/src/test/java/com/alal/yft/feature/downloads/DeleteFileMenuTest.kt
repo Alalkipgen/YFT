@@ -24,8 +24,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * P42: a finished download's menu offers "Delete file" beside "Remove from list"; unfinished
- * rows keep their menus. Before P42 the menu had only "Remove from list", which kept the file.
+ * A finished download's menu offers "Delete file" beside "Remove from list"; unfinished
+ * rows keep their menus. Before, the menu had only "Remove from list", which kept the file.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w360dp-h780dp")

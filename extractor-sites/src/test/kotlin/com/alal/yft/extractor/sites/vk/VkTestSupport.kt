@@ -20,7 +20,7 @@ internal const val POSTLIVE_LINK = "https://vk.com/video-140332_456239111"
 internal const val VIDEO_OWNER = -50883936L
 internal const val VIDEO_ID = 456244102L
 
-/** The VK0 fixtures, with a real-looking expiry put in (query `expires=` and `/expires/` path). */
+/** The embed fixtures, with a real-looking expiry added (query `expires=` and `/expires/` path). */
 internal object VkFixtures {
     fun video(): String = Fixtures.read("vk/embed-video-public.html").withExpiry()
 
@@ -34,19 +34,19 @@ internal object VkFixtures {
 
     fun desktopPage(): String = Fixtures.read("vk/page-vkvideo-desktop.html")
 
-    /** VK5: the embed's adult-content answer (English), and the same page in Russian. */
+    /** The embed's adult-content answer (English), and the same page in Russian. */
     fun adult(): String = Fixtures.read("vk/embed-adult-content.html")
 
     fun adultRussian(): String = adult().replace(ADULT_TEXT_EN, ADULT_TEXT_RU)
 
-    /** VK5: api.vkvideo.ru's `video.get` for an adult video, a deleted one, and error 5. */
+    /** api.vkvideo.ru's `video.get` for an adult video, a deleted one, and error 5. */
     fun apiAdult(): String = Fixtures.read("vk/api-video-get-adult.json").withExpiry()
 
     fun apiDeleted(): String = Fixtures.read("vk/api-video-get-deleted.json")
 
     fun apiAuthError(): String = Fixtures.read("vk/api-error-auth.json")
 
-    /** The fixture's message as VK sends it (no-break spaces as at VK5's recon). */
+    /** The fixture's message as VK sends it (with no-break spaces). */
     const val ADULT_TEXT_EN = "Algorithms determined that the\u00A0video may contain adult " +
         "content. Such videos can&#39;t be viewed on\u00A0external sites"
     const val ADULT_TEXT_RU = "Алгоритмы определили, что видео может содержать контент " +
@@ -93,7 +93,7 @@ internal object VkPages {
     fun fileUrl(key: String): String = "https://vkvd1.okcdn.ru/$key/F?expires=$EXPIRES_MS"
 }
 
-/** VK5: path D's adult video (the API fixture's) and login.vk.ru's token answer. */
+/** Path D's adult video (the API fixture's) and login.vk.ru's token answer. */
 internal const val ADULT_LINK = "https://vkvideo.ru/video-215889201_456243439"
 internal const val ADULT_CANONICAL = "https://vk.com/video-215889201_456243439"
 internal const val ADULT_OWNER = -215889201L
@@ -106,7 +106,7 @@ internal const val TOKEN = "anonym.FIXTURE.token.0123456789"
 internal const val TOKEN_2 = "anonym.FIXTURE.token.9876543210"
 
 internal object VkApiPages {
-    /** login.vk.ru's answer in VK5 recon's shape: both expiries in epoch seconds. */
+    /** login.vk.ru's answer in the shape VK sent: both expiries in epoch seconds. */
     fun token(value: String = TOKEN, expiresAtEpochMs: Long = NOW_MS + 86_400_000L): String =
         "{\"type\":\"okay\",\"data\":{\"access_token\":\"$value\"," +
             "\"expires\":${expiresAtEpochMs / 1_000},\"expired_at\":${expiresAtEpochMs / 1_000}}}"
@@ -122,7 +122,7 @@ internal object VkApiPages {
 /**
  * VK's two embed hosts as a test scripts them. Embed requests are answered per host in order
  * (the last answer repeats), manifests by URL; [delayMillis] (virtual time) stands in for a slow
- * server, by the request's 1-based number. Every request is recorded. VK5: [api] answers path D's
+ * server, by the request's 1-based number. Every request is recorded. [api] answers path D's
  * hosts (login.vk.ru, api.vkvideo.ru) in order per host, the last answer repeating; a POST to any
  * other host fails the test.
  */

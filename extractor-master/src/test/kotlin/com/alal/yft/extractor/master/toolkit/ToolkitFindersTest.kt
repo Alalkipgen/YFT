@@ -8,7 +8,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** R3 T1/T2: PageScripts and BalancedJson. */
+/** Master toolkit: PageScripts and BalancedJson. */
 class ToolkitFindersTest {
     @Test
     fun `balanced slices respect strings, escapes, arrays and the size cap`() {

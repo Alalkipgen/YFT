@@ -4,7 +4,7 @@ import com.alal.yft.extractor.master.modules.youtube.StreamCheck
 import com.alal.yft.extractor.master.verify.CapturedMp4Facts
 
 /**
- * Phase 1.3 D4: the **init check** on an L row (MASTER_KEY_PHASE1_3_PLAN.md guardrail 6, §4 D4).
+ * Row check: the **init check** on an L row.
  * It reads the bytes V already read for the row (from offset 0, the first 4 KiB, ≤ 64 KiB) and
  * makes no request of its own. It passes only when all four hold:
  *

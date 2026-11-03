@@ -1,23 +1,23 @@
 package com.alal.yft.extractor.master.modules.youtube.ladder
 
 /**
- * Phase 1.3 D0: the weekly check's diff (MASTER_KEY_PHASE1_3_PLAN.md §4 D0 "Weekly check (W)").
+ * Client census: the weekly check's diff.
  *
  * Each answer of the new run is compared with the latest earlier run that asked the same client
  * the same way about the same video (same slot tag). The first line is `NO CHANGE`,
  * `CHANGED (n)` or `BROKEN (n)` with the days since the last run; then one line per change, each
- * naming its runbook step (§7). **BROKEN** is a worsening: a class that got worse (DIRECT → any
+ * naming its runbook step (docs/TESTING.md). **BROKEN** is a worsening: a class that got worse (DIRECT → any
  * other class, a working class → a refusal or a verdict), V `PASS` → `FAIL`, an H step `2xx` →
  * anything else, a key or a duration mismatch on H, a **BREAKING** shape (a removed path the copied
  * parser reads, [ShapeFingerprint.PARSER_READS]), or a version accepted → rejected. Shape paths are
  * gathered per client and step over all its videos; a path one video gained and another lost is
  * not a change (owner, 2026-10-15). Bot checks (`ClientCensus`, owner 2026-10-15) are shown even
- * on a first run: a bot check the run answered as R6 whose answer (`R0+vd`) was DIRECT with V
+ * on a first run: a bot check the run answered as the Master YouTube module does, whose answer (`R0+vd`) was DIRECT with V
  * passed is an INFO line — no runbook step, not counted (owner, 2026-10-15); any other answered
  * bot check is one CHANGED line, and the bot check that stopped the run (a request that already
  * carried visitor data) is BROKEN. A bot check refuses the request, not the client, so an answer
  * that is one is never compared as a class, count or shape change. The rung that answered a
- * lookup is added from D6 on.
+ * lookup is added with the ladder's wiring.
  */
 internal object CensusDiff {
     enum class Level { CHANGED, BROKEN }
@@ -90,7 +90,7 @@ internal object CensusDiff {
             }
             val next = again?.let { "visionOS with visitor data: ${it.finalClass}" + it.v?.let { v -> ", V $v" }.orEmpty() }
                 ?: "visionOS not asked again"
-            // R6 answered the lookup with checked rows (owner, 2026-10-15): nothing to do, so info only.
+            // The Master YouTube module answered the lookup with checked rows: nothing to do, so info only.
             if (again != null && again.finalClass == CensusClass.DIRECT && again.v == PASS) {
                 info += "$label: bot check, answered as R6 ($next)"
             } else {
@@ -142,8 +142,8 @@ internal object CensusDiff {
                 val level = if (now.rank > before.rank) Level.BROKEN else Level.CHANGED
                 lines += Line(level, "$label: class $before → $now", now.runbookStep)
             } else if (flip) {
-                // MWEB's adaptive answer flips between ciphered and address-less (valid runs 2–3 and
-                // test 2; D7 census fix): the same formats, so an INFO line, not a layout change.
+                // MWEB's adaptive answer flips between ciphered and address-less (seen in census runs):
+                // the same formats, so an INFO line, not a layout change.
                 info += "$label: formats flipped between ciphered and address-less " +
                     "(protected/no address ${prior.protectedFormats}/${prior.unaddressed} → " +
                     "${ask.protectedFormats}/${ask.unaddressed}; the known MWEB flip)"

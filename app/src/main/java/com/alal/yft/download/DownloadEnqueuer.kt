@@ -8,15 +8,21 @@ import com.alal.yft.core.model.download.DirectProbeResult
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.media.MediaAsset
 import com.alal.yft.core.model.media.MediaSizeAccuracy
+import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.settings.DownloadLocation
+import com.alal.yft.core.model.settings.SaveFolder
 import com.alal.yft.download.policy.DownloadPolicyGate
 import com.alal.yft.feature.downloads.DownloadPlanFactory
 import com.alal.yft.feature.downloads.DownloadPlanResult
 import com.alal.yft.feature.downloads.DownloadRequest
+import com.alal.yft.feature.library.pickedQualityLabel
 import java.io.IOException
 import java.util.Locale
 import java.util.UUID
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /** Staging destination plus the non-sensitive recovery description persisted with the task. */
 data class PreparedDestination(
@@ -24,21 +30,35 @@ data class PreparedDestination(
     val spec: DownloadDestinationSpec,
     /** The name the file is published under; differs from the request when it was taken. */
     val fileName: String,
+    /**
+     * Save folder: the chosen folder could not be used (deleted, access gone, card removed),
+     * so the file goes to the default place instead; its row says so.
+     */
+    val folderUnavailable: Boolean = false,
 )
 
 /** Creates a safe staging destination that stays unpublished until the transfer is verified. */
 interface DownloadDestinationProvider {
+    /**
+     * Save folder: [folder] is the folder picked for [DownloadLocation.CHOSEN_FOLDER]; the
+     * other locations never use it.
+     */
     @Throws(IOException::class)
     fun prepare(
         fileName: String,
         mimeType: String?,
         location: DownloadLocation = DownloadLocation.SHARED_DOWNLOADS,
+        folder: SaveFolder? = null,
     ): PreparedDestination
 }
 
 /** Narrow probe boundary so enqueue logic stays testable without network access. */
 interface DirectMetadataProbe {
-    suspend fun probe(plan: DirectDownloadPlan): DirectProbeResult
+    /**
+     * [askHead] false: the row's file was already got by its adapter's one-byte check
+     * (`MediaCandidate.fileChecked`, TikTok), so only the range GET asks it.
+     */
+    suspend fun probe(plan: DirectDownloadPlan, askHead: Boolean = true): DirectProbeResult
 }
 
 /** Starts the foreground transfer service once work is actually queued. */
@@ -51,8 +71,8 @@ interface PreviewDownloadStarter {
     suspend fun enqueue(asset: MediaAsset, variant: MediaVariant): EnqueueResult
 
     /**
-     * Track E: like [enqueue], with where the file came from ([origin]: the page's file, the
-     * file before its conversion, who looked it up), so a link that dies after the download
+     * Fresh link renewal: like [enqueue], with where the file came from ([origin]: the page's file,
+     * the file before its conversion, who looked it up), so a link that dies after the download
      * started can be renewed; null when the screen does not know.
      */
     suspend fun enqueue(
@@ -91,8 +111,12 @@ class DownloadEnqueuer(
     private val taskIds: () -> String = { UUID.randomUUID().toString() },
     private val clock: () -> Long = System::currentTimeMillis,
     private val storage: StorageSpace = StorageSpace.Unknown,
-    /** Track E: each queued download's source, for a fresh link (memory only). */
+    /** Fresh link renewal: each queued download's source, for a fresh link (memory only). */
     private val sources: DownloadSources? = null,
+    /** Save folder: the folder picked for [DownloadLocation.CHOSEN_FOLDER], if any. */
+    private val folder: suspend () -> SaveFolder? = { null },
+    /** Where a chosen folder's provider is asked, away from the main thread. */
+    private val folderDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : PreviewDownloadStarter {
     override suspend fun enqueue(asset: MediaAsset, variant: MediaVariant): EnqueueResult =
         enqueue(asset, variant, origin = null)
@@ -117,41 +141,68 @@ class DownloadEnqueuer(
         }
 
         val target = location()
+        // Save folder: the chosen folder is read only when it is the target.
+        val targetFolder = if (target == DownloadLocation.CHOSEN_FOLDER) folder() else null
         // A streaming size is only trusted when the manifest stated it exactly.
         val exactStreamBytes = variant.sizeBytes
             ?.takeIf { variant.sizeAccuracy == MediaSizeAccuracy.EXACT }
-        // Track E: the source is remembered just before the queue gets the task, so no failure
-        // of its first run comes before it; a task the queue never got leaves none.
+        // Fresh link renewal: the source is remembered just before the queue gets the task, so no
+        // failure of its first run comes before it; a task the queue never got leaves none.
         val remember = Remember(taskId, origin, asset, variant)
         return when (request) {
-            is DownloadRequest.Direct -> enqueueDirect(request, target, remember)
+            is DownloadRequest.Direct -> enqueueDirect(
+                request = request,
+                target = target,
+                targetFolder = targetFolder,
+                remember = remember,
+                // A file TikTok's adapter already got skips the HEAD (its host may 404).
+                askHead = origin?.candidate?.fileChecked != true,
+            )
             is DownloadRequest.Hls ->
-                enqueueStream(request, target, exactStreamBytes) { name, dest, spec ->
-                    remember.around(name) {
-                        queue.enqueue(request.plan.copy(suggestedFileName = name), dest, spec)
+                enqueueStream(request, target, targetFolder, exactStreamBytes) { prepared ->
+                    remember.around(prepared) {
+                        queue.enqueue(
+                            request.plan.copy(suggestedFileName = prepared.fileName),
+                            prepared.destination,
+                            prepared.spec,
+                        )
                     }
                 }
 
             is DownloadRequest.Dash ->
-                enqueueStream(request, target, exactStreamBytes) { name, dest, spec ->
-                    remember.around(name) {
-                        queue.enqueue(request.plan.copy(suggestedFileName = name), dest, spec)
+                enqueueStream(request, target, targetFolder, exactStreamBytes) { prepared ->
+                    remember.around(prepared) {
+                        queue.enqueue(
+                            request.plan.copy(suggestedFileName = prepared.fileName),
+                            prepared.destination,
+                            prepared.spec,
+                        )
                     }
                 }
 
             // Both tracks and the merged file sit on the phone together before the merge ends.
-            is DownloadRequest.Mux ->
-                enqueueStream(request, target, variant.sizeBytes?.times(2)) { name, dest, spec ->
-                    remember.around(name) {
-                        queue.enqueue(request.plan.copy(suggestedFileName = name), dest, spec)
-                    }
+            is DownloadRequest.Mux -> enqueueStream(
+                request,
+                target,
+                targetFolder,
+                variant.sizeBytes?.times(2),
+            ) { prepared ->
+                remember.around(prepared) {
+                    queue.enqueue(
+                        request.plan.copy(suggestedFileName = prepared.fileName),
+                        prepared.destination,
+                        prepared.spec,
+                    )
                 }
+            }
         }
     }
 
     /**
-     * Track E: remembers a download's source under the name it is saved as, just before the
-     * queue gets the task; forgets it again when queueing fails.
+     * Fresh link renewal: remembers a download's source under the name it is saved as, just before
+     * the queue gets the task; forgets it again when queueing fails. Also the quality a video was
+     * picked as, for its row, wherever it was picked; and that the chosen folder could not be used
+     * (Save folder), for the row's notice.
      */
     private inner class Remember(
         private val taskId: String,
@@ -159,10 +210,11 @@ class DownloadEnqueuer(
         private val asset: MediaAsset,
         private val variant: MediaVariant,
     ) {
-        suspend fun <T> around(fileName: String, enqueue: suspend () -> T): T {
+        suspend fun <T> around(prepared: PreparedDestination, enqueue: suspend () -> T): T {
             val sources = sources ?: return enqueue()
-            val origin = origin ?: return enqueue()
-            sources.remember(taskId, origin, asset, variant, fileName)
+            origin?.let { sources.remember(taskId, it, asset, variant, prepared.fileName) }
+            pickedQuality(variant)?.let { sources.picked(taskId, it) }
+            if (prepared.folderUnavailable) sources.folderUnavailable(taskId)
             return try {
                 enqueue()
             } catch (error: Throwable) {
@@ -172,12 +224,21 @@ class DownloadEnqueuer(
         }
     }
 
+    /** A video's quality name ("1080p"); none for sound alone, an M4A or an MP3 of a video. */
+    private fun pickedQuality(variant: MediaVariant): String? {
+        val sound = variant.trackType == MediaTrackType.AUDIO ||
+            variant.audioFromVideo || variant.mp3 != null
+        return if (sound) null else pickedQualityLabel(variant.width, variant.height)
+    }
+
     private suspend fun enqueueDirect(
         request: DownloadRequest.Direct,
         target: DownloadLocation,
+        targetFolder: SaveFolder?,
         remember: Remember,
+        askHead: Boolean,
     ): EnqueueResult {
-        val metadata = when (val result = probe.probe(request.plan)) {
+        val metadata = when (val result = probe.probe(request.plan, askHead)) {
             is DirectProbeResult.Failure -> return EnqueueResult.Rejected(
                 result.failure.reason,
                 messageFor(result.failure.reason),
@@ -187,11 +248,15 @@ class DownloadEnqueuer(
         }
         insufficientSpace(metadata.totalBytes, target)?.let { return it }
 
-        val prepared = prepare(request.fileName, request.mimeType ?: metadata.contentType, target)
-            ?: return storageUnavailable()
+        val prepared = prepare(
+            fileName = request.fileName,
+            mimeType = request.mimeType ?: metadata.contentType,
+            target = target,
+            targetFolder = targetFolder,
+        ) ?: return storageUnavailable()
 
         policy.ensureApplied()
-        remember.around(prepared.fileName) {
+        remember.around(prepared) {
             queue.enqueue(
                 plan = request.plan.copy(suggestedFileName = prepared.fileName),
                 metadata = metadata,
@@ -206,32 +271,41 @@ class DownloadEnqueuer(
     private suspend fun enqueueStream(
         request: DownloadRequest,
         target: DownloadLocation,
+        targetFolder: SaveFolder?,
         exactBytes: Long?,
-        enqueue: suspend (String, DownloadDestination, DownloadDestinationSpec) -> String,
+        enqueue: suspend (PreparedDestination) -> String,
     ): EnqueueResult {
         insufficientSpace(exactBytes, target)?.let { return it }
-        val prepared = prepare(request.fileName, request.mimeType, target)
+        val prepared = prepare(request.fileName, request.mimeType, target, targetFolder)
             ?: return storageUnavailable()
 
         policy.ensureApplied()
-        val taskId = enqueue(prepared.fileName, prepared.destination, prepared.spec)
+        val taskId = enqueue(prepared)
         serviceStarter.start()
         return EnqueueResult.Started(taskId, prepared.fileName)
     }
 
-    private fun prepare(
+    private suspend fun prepare(
         fileName: String,
         mimeType: String?,
         target: DownloadLocation,
+        targetFolder: SaveFolder?,
     ): PreparedDestination? =
         try {
-            destinations.prepare(fileName, mimeType, target)
+            if (targetFolder == null) {
+                destinations.prepare(fileName, mimeType, target)
+            } else {
+                // A folder's provider may be slow (a memory card, a cloud app).
+                withContext(folderDispatcher) {
+                    destinations.prepare(fileName, mimeType, target, targetFolder)
+                }
+            }
         } catch (_: IOException) {
             null
         }
 
     /**
-     * Rejects work of a known size that cannot fit, before any destination exists (R3). Unknown
+     * Rejects work of a known size that cannot fit, before any destination exists. Unknown
      * sizes and unmeasurable volumes pass; the engines still report a full disk if a write fails.
      */
     private fun insufficientSpace(requiredBytes: Long?, target: DownloadLocation): EnqueueResult? {

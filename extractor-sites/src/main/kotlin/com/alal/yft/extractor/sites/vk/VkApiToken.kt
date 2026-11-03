@@ -8,9 +8,9 @@ import com.alal.yft.extractor.api.json.get
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * Path D's anonymous token (VK5): VK's web client token for signed-out viewers, never a user's.
+ * Path D's anonymous token: VK's web client token for signed-out viewers, never a user's.
  * It lives in memory only — never stored, logged, shown or put into an address — and is used
- * until 60 s before VK's expiry (24 h at VK5's recon), at most 24 h by the phone's clock.
+ * until 60 s before VK's expiry (24 h when checked), at most 24 h by the phone's clock.
  */
 internal class VkApiToken(val value: String, val usableUntilEpochMs: Long) {
     fun usableAt(nowEpochMs: Long): Boolean = nowEpochMs < usableUntilEpochMs

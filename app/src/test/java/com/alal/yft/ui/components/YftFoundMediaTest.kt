@@ -12,7 +12,7 @@ import org.junit.Test
 class YftFoundMediaTest {
     @Test
     fun aFoundFileReadsWithTheSheetsQualityNameAndSize() {
-        // P25: the found list names a file's quality and size as the Download sheet does.
+        // The found list names a file's quality and size as the Download sheet does.
         assertEquals(
             listOf("MP4", "720p · HD", "25 MB", "0:25"),
             file(height = 720, bytes = 25 * MIB).factLabels(),

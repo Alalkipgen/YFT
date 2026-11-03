@@ -3,42 +3,191 @@
 All notable changes to Video Downloader (YFT) are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow
 [Semantic Versioning](https://semver.org/). `yft.versionCode` in `gradle.properties` follows the
-version code rule (`docs/IN_APP_UPDATE_PLAN.md` §4.2), which the in-app update computes from a
+version code rule (`docs/RELEASE.md`), which the in-app update computes from a
 release's tag: a stable X.Y.Z is X·1000000 + Y·10000 + Z·100 (1.0.0 = 1000000, 1.0.1 = 1000100),
 a prerelease just below its version's (1.0.0-rc.1 = 999901). Android refuses to install a lower
 one.
 
 ## [1.0.2]
 
-Not dated yet: the owner dates this section when he publishes it (`docs/RELEASE.md` §5).
+Not dated yet: the date is added when 1.0.2 is published.
 
 ### Added
 
-- A fresh link for a download whose link dies after it started (Track E): when a site's file
-  answers 401, 403 or 410 or its link expired, also after the phone moved between Wi-Fi and mobile
-  data, the row shows **Getting a fresh link…** (no **Download failed** notification meanwhile)
-  while YFT looks the page up again as the first lookup did (from Home or the browser, with the
-  same sign-in), finds the same video in the same quality (and makes the same MP3 or M4A), and
-  the download goes on where it stopped, or starts over when the file changed. YouTube, Facebook,
-  Instagram, TikTok, X, VK and Vimeo through their own lookups; a page without one is read again
-  quietly. At most three tries per download, in the same app session; never another quality.
-- **Retry** on a **Link expired** or **YouTube refused** row whose page YFT can look up again (in
-  the same app session): one fresh lookup per tap.
-- With Show details on, **Details** on a running, paused or finished download that got a fresh
-  link, with its lines ("Fresh link (403 at 41.0 MB): resumed at 41.0 MB"); never an address.
+- With **Backup finder** on, weak Facebook, Instagram and VK browser answers can get missing
+  qualities or sound from the backup finder while keeping the original rows first. Instagram's
+  backup finder also puts the best version of each height first.
+- YFT is in Android's **Share** menu. A link shared from another app (YouTube, Facebook, TikTok, a
+  browser…) is looked up as if it was pasted on Home, and its Download sheet opens. Nothing
+  downloads until you pick. Shared text without a link says **No link in the shared text**.
+- **Settings** › **Downloads** › **Save files to** › **Choose a folder…** picks a save folder in
+  Android's folder picker, on the phone or a memory card, on every Android version YFT runs on. New
+  downloads are saved there. Downloads, the Download sheet and the Library show its name, and the
+  Library lists its videos and audio. A folder YFT can no longer use (deleted, access gone, card
+  removed) shows as unavailable. A new download then goes to Download/YFT (app storage on Android
+  7–9), and its row says so.
+- **Downloads**: hold a finished download to select it, then tap more (or **Select all**). **Remove
+  from list** or **Delete file** acts on all of them, with one question (**Delete 3 files?**).
+  **Cancel** or Back leaves.
+- **Library**: hold a file to select it, then tap more (or **Select all**). **Delete files**
+  deletes them all, with one question (**Delete 3 files?**) and, when Android asks first, one
+  Android request for all of them. **Cancel**, Back, another filter or a search leaves.
+- Instagram carousels and X posts with several videos: the Download sheet lists each video under
+  the title (**Video 1 of 4**, **Video 2 of 4**…, in the post's order). The one the link names is
+  first and picked, else the first. Tap one to see its qualities. Each video downloads as a row and
+  a file of its own, named with its number ("… (Video 2 of 4) 720p"). Photos in the post are
+  skipped, and a post of photos only reads as before. No extra request is made.
+- Fresh link renewal: when a download's link dies after it started, YFT gets a fresh link and goes
+  on. This covers a file that answers 401, 403 or 410, an expired link, and a move between Wi-Fi
+  and mobile data. The row shows **Getting a fresh link…**, with no **Download failed**
+  notification meanwhile. YFT looks the page up again as the first lookup did (from Home or the
+  browser, with the same sign-in), finds the same video in the same quality, and makes the same MP3
+  or M4A. The download goes on where it stopped, or starts over when the file changed. YouTube,
+  Facebook, Instagram, TikTok, X, VK and Vimeo use their own lookups; another page is read again
+  quietly. At most three tries per download, in the same app session, and never another quality.
+- **Retry** on a **Link expired** or **YouTube refused** row runs one fresh lookup per tap, when
+  YFT can look the page up again (in the same app session).
+- With Show details on, a download that got a fresh link has **Details** while it runs, is paused
+  or is finished, such as "Fresh link (403 at 41.0 MB): resumed at 41.0 MB". Details never show an
+  address.
+- A tap on a download notification opens the **Downloads** tab, also when YFT is already open.
+- Home shows a small **Update available** card while a newer YFT is found. A tap opens **Updates**.
+- Zawgyi titles: the Download sheet shows a title written in Zawgyi in Unicode, and the download is
+  named so (its file, an MP3's title, Downloads and the Library). This happens only when YFT is
+  sure the title is Zawgyi; a Unicode title never changes. **Use original title** under the title
+  switches back to the title as the video gave it, and again, before the download starts.
+- DASH streams on sites without their own lookup, whose qualities are one file each (on-demand
+  streams with a `SegmentBase` index), now download. Each file downloads in parts and resumes where
+  it stopped. A video quality comes with the stream's sound in one file, merged as other merges are
+  (AVC with AAC into MP4; VP9 with Opus into WebM from Android 10). Before, such a row read **No
+  sound** and its download failed.
 
 ### Changed
 
-- **YouTube refused** keeps its hint and **Reset YouTube session**; YFT asks for a fresh link by
-  itself only after the phone's network changed (once per download), else on Retry.
+- Home's **Your sites** shows every site, three to a row in your order, with **Add** last. Before,
+  it showed four, and the rest needed a sideways swipe.
+- Deleting files reads the same on Downloads and in the Library. The question ends "This can't be
+  undone.", the note after it says "Deleted 1 file." or "Deleted 3 files.", and **Delete** is red
+  on both (it was teal on Downloads). The empty Library also names your save folder.
+- Settings: the save folder's line reads "Saving to <folder>. Tap to change."
+- **Updates** shows the release notes with their headings, lists, bold, italic and code, not as
+  plain text. A link still shows only its text and opens nothing. Headings are larger and bold,
+  with more room above them. The smallest heading is clearly larger than the text, also at a large
+  text size.
+- **Downloads** names the picked quality and its stream while a video downloads ("1080p · HLS",
+  "1080p · MP4"), as the finished row does, instead of only "HLS · MP4" or "MP4". After the app
+  restarts, a running download reads as before.
+- **Downloads**: a recently ended YouTube live shows a percent and "205 of ~236 MB" while it
+  downloads.
+- **YouTube refused** keeps its hint and **Reset YouTube session**. YFT asks for a fresh link by
+  itself only after the phone's network changed (once per download); otherwise it waits for Retry.
+- Instagram: a private post's link (its code is longer than a public post's) that YFT could not
+  read says **This Instagram post is private or no longer available.**, also behind Instagram's
+  login wall. Before, it said **Instagram's page could not be read. Tap Details to see why, or Try
+  again.** or the sign-in words. Try again stays. A public post behind the login wall still says
+  where to sign in.
+- With Show details on, **Lookup details** (with **Copy details**) also show on Home's Download
+  sheet: when a site's own lookup failed before the page itself gave the video; under the error
+  when no format of a found video can be read; with the file TikTok's player plays when TikTok's
+  page could not be read; and after the Backup finder found a video on any other site.
+- Backup finder, VK: a video found through the page's own video data offers each quality VK names
+  for it (such as 1080p, 720p, 480p, 360p, 240p and 144p) as rows of that one video, tallest first.
+  Before, it offered only the tallest.
+- Backup finder, TikTok: it asks TikTok's player at most once in 10 seconds, because TikTok refuses
+  quick repeats. A lookup less than 10 s after the last ask waits for the rest, or skips the player
+  when that wait would not fit in the lookup's time. With Show details on, Lookup details say
+  "paced, waited N s" (or "not asked").
 
 ### Fixed
 
-- VK: a file that answers 400 after it gave bytes (VK's answer on a new network) is a dead link
-  too and gets a fresh link; a 400 before any byte fails as before.
-- A download stopped at **Link expired** keeps its progress for the fresh link, and its Cancel or
-  Delete removes its partial file in the same app session; a merged download keeps a finished
-  track only when the fresh link's track has its length.
+- DASH streams (`.mpd` links) are found on the phone. Android's own XML reader refused the manifest
+  reader's safety settings, so such a link showed **Couldn't get this video.**
+- A DASH manifest that names its files at an http address is downloaded over https only: from the
+  same address at https, or from the manifest's own address. When neither answers, the download
+  fails, and its Details say why.
+- Facebook and Instagram on the phone offer each quality of the page's DASH manifest, merged with
+  its sound (such as a Facebook video's AVC 1080p or an Instagram reel's merged sizes), and the
+  sound alone. The same XML reader problem had left only the page's plain files. The Backup finder
+  reads such manifests on the phone too, VK's page manifest among them.
+- A DASH quality downloads the quality you picked. Before, every row downloaded the manifest's
+  first track, often its sound alone (a 360p video saved as "Video 1 · DASH · M4A"). A quality the
+  manifest no longer has fails with **This quality is not available now — choose another**, and its
+  Details name it. Another quality is never saved instead.
+- A DASH stream whose qualities come in pieces (a `SegmentTemplate` or `SegmentList`, such as
+  Akamai's bbb_30fps.mpd) offers each video quality with the stream's sound, merged into one file
+  as for one-file streams. Before, every row read **No sound** beside the stream's own **M4A**.
+- A merged DASH video whose times count in fine units and that runs past 7:09 (such as DASH-IF's
+  ElephantsDream, 10:54) is saved whole on Android 16. It was cut at about 7:11 and counted as
+  done. A merge whose file comes out shorter than its tracks now fails as **Incompatible tracks**,
+  and its Details say how far it got.
+- A DASH video or sound saved from pieces (such as Unified Streaming's Tears of Steel) shows its
+  whole length in YFT's player at once and can be sought anywhere. Before, its length grew about a
+  minute at a time while it played.
+- The first merged download after installing (YouTube's or a DASH stream's) no longer fails as
+  **Storage unavailable** when its picture and its sound start at the same moment.
+- A merge made the safety-net way (Android's MediaMuxer, when the stream copy cannot be used) keeps
+  its sound when the sound starts a moment before the picture, as an AAC sound with an edit list
+  does (such as Unified Streaming's Tears of Steel). From Android 11 the sound ended at its first
+  sample, so the file had no sound.
+- **Play preview** of an HLS quality whose sound is a separate playlist plays with its sound. It
+  was silent, though its download already had the sound.
+- MP3 conversion is faster. The phone's AAC decoder runs on its own thread, always fed, while the
+  MP3 encoder works through the sound already decoded, so the two run at the same time. A finished
+  MP3's **Details** give its sound's length, how long the encoder waited for decoded sound and how
+  long it encoded, for example "MP3: 4:12 of sound, decode 0.3 s, encode 6.8 s".
+- A YouTube live that ended a short while ago downloads whole again, instead of stopping at the end
+  with **YouTube still preparing this live video, try later**. YFT asked YouTube for the stream's
+  newest piece only once, before the download, so the pieces that came out meanwhile were missing
+  at the end. Now it asks again before it checks the length, fetches the pieces that came out after
+  it, and tries a missing piece a few more times, waiting at most 2 minutes. If YouTube's newest
+  piece no longer moves and every piece up to it came, but the video is still up to 2 minutes
+  shorter than YouTube says, it is saved. With Show details on, its **Details** say how much
+  shorter and why. A piece missing in the middle, or more missing, still stops the download, and
+  its **Details** say how much is missing and where.
+- A download whose link dies in the middle goes on from where it stopped on its fresh link, also
+  when the site's file names no version, as VK's and Facebook's files do. Before, it started again
+  at 0 B there, and also after **Pause**, a lost network or **Retry** on the same link.
+- VK: a download whose link answers 400 when the network comes back (after a move between Wi-Fi and
+  mobile data) gets a fresh link. It stopped as **Failed · Unexpected HTTP status** (HTTP 400). A
+  file that answers 400 after it gave bytes counts as a dead link; a 400 before any byte fails as
+  before.
+- A download stopped at **Link expired** keeps its progress for the fresh link. Its Cancel or
+  Delete removes its partial file in the same app session. A merged download keeps a finished track
+  only when the fresh link's track has the same length.
+- **Link expired** on a page that, read again, had no player (a notice or a check) says only to
+  reopen the page in the browser, because **Retry** would read the same page again.
+- A TikTok download no longer fails at its start with 404 when TikTok's file host refuses the first
+  check of a file that TikTok's lookup already opened.
+- VK videos on a channel's own vkvideo.ru address (such as vksport.vkvideo.ru) are found as on
+  vkvideo.ru.
+- A size too small for the media's length (under 1 KB a second; a 1:47:11 M4A once read "1 B" over
+  a bad connection) counts as unknown. The Download sheet's row and **Download** show "Size
+  unknown" or the usual "~" estimate, and the download learns the real size. A clip of a few
+  seconds keeps its small size.
+- The Download sheet starts on the MP4 when a page offers the same video as MP4 and as an OGG or
+  WebM of unknown quality (such as w3schools' sample video).
+- The Download sheet's short list always shows the selected row, so **Download** never names a
+  format you cannot see.
+- The Download sheet always shows a video's whole length ("14:05"). In large text a long site name
+  (such as VK's vksport.vkvideo.ru) ends in "…" instead of cutting the length.
+- A downloaded video's file name says the quality its row showed: a 720 × 1280 TikTok video picked
+  as **720p** is saved as "… 720p", not "… 1280p".
+- A finished download and the Library name a video's quality as the Download sheet did: a 1920 ×
+  960 file picked as **1080p** says 1080p, not 960p.
+- A file name too long for the phone keeps its quality and type ("… 480p.mp4"). Only the title is
+  shortened: after a whole word when one ends near, never inside a Myanmar letter's cluster, and
+  within the phone's limit. Before, it was cut mid-word and lost " 480p".
+- Downloads' folder chip: Download/YFT picked again in the folder picker reads as the default
+  ("Download/YFT · 6.8 GB free"), not "YFT". Another picked folder shows its path ("Movies/Test")
+  and, on the phone's own storage, its free space.
+- The Downloads list keeps its rows in place while several downloads run: unfinished ones in the
+  order they were added, newest first, then finished, failed and stopped ones.
+- Large text: a site's name in Home's **Your sites** has its whole third of the row and is drawn a
+  little smaller instead of being cut ("Faceboo…"). Downloads' **Remove from list** and **Delete
+  files** go onto two lines instead of being cut. A bottom-bar tab's name is drawn a little smaller
+  to fit its tab ("Downlo…" before). The browser's address bar shows the page's address once, its
+  site and path on one line, ending in "…" when too long; two copies of the address could be drawn
+  over each other.
 
 ## [1.0.1] - 2026-10-29
 

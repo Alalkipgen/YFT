@@ -44,7 +44,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Track E (E1): the queue asks for a fresh link when a file's link dies after the download
+ * Fresh link renewal: the queue asks for a fresh link when a file's link dies after the download
  * started, keeps the resume point, counts its tries, and stops cleanly. The engine and the
  * app's renewal source are fakes; the engines' own same-file checks have their own tests.
  */
@@ -229,7 +229,7 @@ class DownloadLinkRenewalTest {
         assertTrue(renewal.requests.isEmpty())
     }
 
-    /** G1 and §7.3: Resume after the link expired keeps the bytes of every plan type. */
+    /** Resume after the link expired keeps the bytes of every plan type. */
     @Test
     fun `a resume after the link expired keeps the saved checkpoint of every plan type`() =
         runTest {
@@ -267,13 +267,14 @@ class DownloadLinkRenewalTest {
                 val name = plan.javaClass.simpleName
                 assertEquals(name, 1, renewal.requests.size)
                 assertEquals(name, 4L, renewal.requests.single().bytesKept)
-                assertEquals(name, 0L, renewal.requests.single().bytesFromThisLink)
+                // The link gave those 4 bytes before the Pause.
+                assertEquals(name, 4L, renewal.requests.single().bytesFromThisLink)
                 assertEquals(name, saved, engine.calls[2].resumeFrom)
                 assertEquals(name, DownloadTaskStatus.COMPLETED, queue.task(plan.taskId).status)
             }
         }
 
-    /** G1 for a merge: a track the failed run did not touch keeps its saved state. */
+    /** For a merge, a track the failed run did not touch keeps its saved state. */
     @Test
     fun `a merge keeps the saved state of the track the failed run did not touch`() = runTest {
         val plan = mux("mux")
@@ -398,7 +399,7 @@ class DownloadLinkRenewalTest {
         )
     }
 
-    /** E-D3: one fresh link per failure, another only after it gave bytes, 3 at most. */
+    /** One fresh link per failure, another only after it gave bytes, 3 at most. */
     @Test
     fun `automatic renewals stop after three and a retry asks once more`() = runTest {
         val engine = FakeEngine { call, _ ->
@@ -421,7 +422,7 @@ class DownloadLinkRenewalTest {
         assertEquals(4, engine.calls.size)
         assertEquals(listOf(0, 1, 2, 3), engine.calls.map { it.tag?.link })
 
-        // E-D6: a Retry is one lookup, not counted in the three.
+        // A Retry is one lookup, not counted in the three.
         queue.resume("capped")
         runCurrent()
         assertEquals(4, renewal.requests.size)
@@ -452,7 +453,7 @@ class DownloadLinkRenewalTest {
         assertEquals(4L, queue.task("zero").downloadedBytes)
     }
 
-    /** E-D5': a "YouTube refused" is renewed once per download; refused again, it stops as B1. */
+    /** A "YouTube refused" is renewed once per download; refused again, it stops as refused. */
     @Test
     fun `youtube refused is renewed once`() = runTest {
         val refused = DownloadFailure(DownloadFailureReason.YOUTUBE_REFUSED, 403, CONNECT)
@@ -646,7 +647,7 @@ class DownloadLinkRenewalTest {
         assertEquals(3, engine.calls.size)
     }
 
-    /** G2: a "Link expired" row keeps only its destination, so Delete still cleans up. */
+    /** A "Link expired" row keeps only its destination, so Delete still cleans up. */
     @Test
     fun `delete of a link expired row cleans its partial file without keeping its link`() =
         runTest {

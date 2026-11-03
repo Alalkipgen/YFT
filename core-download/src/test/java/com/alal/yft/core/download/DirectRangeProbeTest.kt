@@ -110,6 +110,42 @@ class DirectRangeProbeTest {
         assertEquals("bytes=0-0", server.takeRequest().getHeader("Range"))
     }
 
+    /**
+     * v1.0.2: a file its lookup already got with a one-byte range request (TikTok's adapter) is
+     * asked with the range GET alone, since TikTok's host answers some HEADs 404 for a file the
+     * range GET gets; asked with the HEAD, that 404 still fails (every other site's rule).
+     */
+    @Test
+    fun `a file its lookup already checked skips the HEAD`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(404))
+
+        val headFirst = probe.probe(plan(server.url("/lower.mp4").toString()))
+            as DirectProbeResult.Failure
+
+        assertEquals(DownloadFailureReason.NOT_FOUND, headFirst.failure.reason)
+        assertEquals(404, headFirst.failure.httpStatusCode)
+        assertEquals("HEAD", server.takeRequest().method)
+
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(206)
+                .setHeader("Content-Range", "bytes 0-0/4096")
+                .setHeader("Content-Type", "video/mp4")
+                .setBody("x"),
+        )
+
+        val result = probe.probe(plan(server.url("/lower.mp4").toString()), askHead = false)
+            as DirectProbeResult.Success
+
+        assertEquals(4_096L, result.metadata.totalBytes)
+        assertTrue(result.metadata.supportsByteRanges)
+        assertEquals("video/mp4", result.metadata.contentType)
+        val range = server.takeRequest()
+        assertEquals("GET", range.method)
+        assertEquals("bytes=0-0", range.getHeader("Range"))
+        assertEquals(2, server.requestCount)
+    }
+
     @Test
     fun `missing response length remains unknown`() = runTest {
         server.enqueue(MockResponse().setResponseCode(405))

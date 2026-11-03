@@ -18,6 +18,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.getBoundsInRoot
@@ -36,6 +38,8 @@ import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.feature.browser.SiteCheck
 import com.alal.yft.feature.preview.PreviewDownloadStatus
+import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.UNICODE_TITLE
+import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.ZAWGYI_TITLE
 import com.alal.yft.thumbnail.LocalRemoteThumbnails
 import com.alal.yft.thumbnail.RemoteThumbnails
 import com.alal.yft.thumbnail.testPicture
@@ -62,7 +66,7 @@ class QuickDownloadScreenTest {
 
     @Test
     fun showsTitleSiteLengthThenAudioAndVideoSectionsAndSelectsOne() {
-        // P3-FIX (owner's phone): two sections only, Audio then Video, one row per resolution.
+        // The owner's phone check: two sections only, Audio then Video, one row per resolution.
         var state by mutableStateOf(SAMPLE_QUICK_DOWNLOAD)
         val selected = mutableListOf<String>()
         composeRule.setContent {
@@ -83,7 +87,7 @@ class QuickDownloadScreenTest {
 
         composeRule.onNodeWithText(SHEET_TITLE).assertExists()
         composeRule.onNodeWithText("Ocean waves").assertExists()
-        composeRule.onNodeWithTag("quick-source").assert(hasText("youtube.com · "))
+        composeRule.onNodeWithTag("quick-source").assert(hasText("youtube.com"))
         composeRule.onNodeWithTag("quick-length").assert(hasText("4:12"))
         val audioTop = composeRule.onNodeWithTag("quick-section-audio").assert(hasText("Audio"))
             .fetchSemanticsNode().positionInRoot.y
@@ -111,7 +115,7 @@ class QuickDownloadScreenTest {
         listOf("Music", "M4A · Fast").forEach {
             composeRule.onAllNodesWithText(it).assertCountEquals(0)
         }
-        // Expanding preserves the P9 default selection.
+        // Expanding preserves the short view's default selection.
         composeRule.onNodeWithTag("quick-option-${preferred.id}").assertIsSelected()
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
         composeRule.onNodeWithTag("quick-download").assertIsDisplayed()
@@ -197,7 +201,7 @@ class QuickDownloadScreenTest {
 
     @Test
     fun aFourKRowThePhoneMayNotPlayShowsTheWarningOnItsOwnRow() {
-        // P6: a 4K VP9 WebM row on a phone without a VP9 decoder that large.
+        // Merge: a 4K VP9 WebM row on a phone without a VP9 decoder that large.
         val fourK = QuickDownloadFixtures.video(2160, 300 * QuickDownloadFixtures.MIB, true)
             .copy(mimeType = "video/webm", codecs = listOf("vp9"))
         val candidates = listOf(fourK) + QuickDownloadFixtures.youtube()
@@ -269,7 +273,7 @@ class QuickDownloadScreenTest {
 
     @Test
     fun aWaitingSheetShowsTheLinkPlaceholderRowsAndGettingQualitiesThenItsRows() {
-        // P16: opened from a pasted link before the lookup answered.
+        // Opened from a pasted link before the lookup answered.
         var state by mutableStateOf(
             QuickDownloadUiState(
                 header = SheetHeader(
@@ -294,7 +298,7 @@ class QuickDownloadScreenTest {
         composeRule.onNodeWithTag("quick-placeholder-audio").assertIsDisplayed()
         composeRule.onNodeWithTag("quick-placeholder-video").assertIsDisplayed()
         composeRule.onAllNodesWithTag("quick-placeholder-row").assertCountEquals(4)
-        // Plan adapted (P18): Download is ready while the sheet waits; it queues the pick.
+        // Download is ready while the sheet waits; it queues the pick.
         composeRule.onNodeWithTag("quick-download").assertIsDisplayed().assertIsEnabled()
         composeRule.onAllNodesWithTag("quick-rows").assertCountEquals(0)
 
@@ -308,7 +312,7 @@ class QuickDownloadScreenTest {
 
     @Test
     fun aWaitingSheetOffersM4AOrTheDefaultQualityAndDownloadStartsWhenReady() {
-        // P18: the first row of each waiting section is a choice an early Download takes.
+        // The first row of each waiting section is a choice an early Download takes.
         var state by mutableStateOf(
             QuickDownloadUiState(
                 header = SAMPLE_QUICK_DOWNLOAD.header,
@@ -375,7 +379,7 @@ class QuickDownloadScreenTest {
 
         composeRule.onNodeWithTag("quick-header").assertExists()
         composeRule.onNodeWithTag("quick-loading").assertExists()
-        // P16: Download stays in its place; P18: it can be tapped before the rows come.
+        // Download stays in its place; it can be tapped before the rows come.
         composeRule.onNodeWithTag("quick-download").assertIsEnabled()
 
         state = state.copy(loading = false, failure = "The media could not be reached.")
@@ -399,7 +403,7 @@ class QuickDownloadScreenTest {
             }
         }
 
-        // P12: the sheet waits for the page's lookup instead of listing the page.
+        // The sheet waits for the page's lookup instead of listing the page.
         composeRule.onNodeWithTag("quick-loading").assertExists()
         composeRule.onNodeWithText(WAITING_MESSAGE).assertExists()
         composeRule.onAllNodesWithTag("quick-other-videos").assertCountEquals(0)
@@ -409,7 +413,7 @@ class QuickDownloadScreenTest {
         state = state.copy(canRetry = false)
         composeRule.onAllNodesWithTag("quick-retry").assertCountEquals(0)
 
-        // P45: the sheet is the tapped video's only; it never offers the page's other videos.
+        // The sheet is the tapped video's only; it never offers the page's other videos.
         state = SAMPLE_QUICK_DOWNLOAD
         composeRule.onNodeWithTag("quick-download").assertExists()
         composeRule.onAllNodesWithTag("quick-other-videos").assertCountEquals(0)
@@ -418,7 +422,7 @@ class QuickDownloadScreenTest {
 
     @Test
     fun theSheetSaysItFindsThePagesVideoThenThatTheVideoMayBeAnAd() {
-        // P28: the page states a far longer video than the ad its player shows first.
+        // Ad filter: the page states a far longer video than the ad its player shows first.
         var state by mutableStateOf(
             QuickDownloadUiState(
                 header = SAMPLE_QUICK_DOWNLOAD.header,
@@ -446,7 +450,7 @@ class QuickDownloadScreenTest {
 
     @Test
     fun theSheetSaysItUsesAFreshLinkAndItsDetailsListTheAttempts() {
-        // P37: the first link was gone; the same video's fresh link is prepared.
+        // Fresh link renewal: the first link was gone; the same video's fresh link is prepared.
         val details = listOf(
             "First video",
             "Status: HTTP 410",
@@ -477,7 +481,7 @@ class QuickDownloadScreenTest {
 
     @Test
     fun aQuietBuildSaysOneLineAndNothingElse() {
-        // Decision 30 (v): no Details, Copy details, Master lines, Try again or reload.
+        // Quiet details: no Details, Copy details, Master lines, Try again or reload.
         var checks = 0
         var state by mutableStateOf(
             QuickDownloadUiState(
@@ -524,7 +528,8 @@ class QuickDownloadScreenTest {
 
     @Test
     fun aGoneLinkOnTheBrowsersPageOffersReloadPageAndTryAgain() {
-        // P37: nothing fresh came from the page: the error offers the browser's reload.
+        // Fresh link renewal: nothing fresh came from the page: the error offers the browser's
+        // reload.
         var reloads = 0
         var retries = 0
         var state by mutableStateOf(
@@ -560,7 +565,7 @@ class QuickDownloadScreenTest {
 
     @Test
     fun aFailureShowsItsDetailsOnlyWhenAskedFor() {
-        // P24: the sheet's Details name the step, the host and the status.
+        // Page video finder: the sheet's Details name the step, the host and the status.
         val details = listOf(
             "Step: list of qualities (manifest)",
             "Host: stream.example.test",
@@ -606,9 +611,9 @@ class QuickDownloadScreenTest {
 
     @Test
     fun aLongFailureScrollsTryAgainStaysReachableAndCopyDetailsCopiesItsLines() {
-        // Social plan task 15 (F3, the phone session of 2026-10-23): long Details and Try again
-        // under them were cut off; now the message and the Details scroll, Try again stays pinned
-        // under them, and Copy details copies the lines as shown, each link as its bare host.
+        // On a phone run, long Details and Try again under them were cut off; now the message and
+        // the Details scroll, Try again stays pinned under them, and Copy details copies the lines
+        // as shown, each link as its bare host.
         val details = (1..30).map { step ->
             "master: fixture ladder step $step: a made-up answer read and judged, rows 0 " +
                 "(NEEDS_PLAYBACK: no post in the answer; the next rung is the tab's own playback)"
@@ -678,8 +683,8 @@ class QuickDownloadScreenTest {
 
     @Test
     fun aSuccessShowsItsLookupDetailsAndCopyDetailsOnlyWhenAskedFor() {
-        // VK-Master wave 2: after the backup finder's success the rows keep the lookup's own
-        // lines behind "Lookup details", with Copy details, as a failed lookup's Details.
+        // After the Backup finder's success the rows keep the lookup's own lines behind
+        // "Lookup details", with Copy details, as a failed lookup's Details.
         val lines = listOf(
             "master: fixture ladder after NO_MEDIA_FOUND; main's answers re-read, no new ask",
             "master: fixture V2 heal client_id: healed from fixture-script " +
@@ -730,7 +735,7 @@ class QuickDownloadScreenTest {
 
     @Test
     fun aQuietBuildShowsLookupDetailsOnlyWithShowDetailsOn() {
-        // Decision 30 (v): a quiet build without Show details keeps its sheet as it was.
+        // Quiet details: a quiet build without Show details keeps its sheet as it was.
         val lines = listOf("master: fixture ladder after NO_MEDIA_FOUND; main's answers re-read")
         var quiet by mutableStateOf(true)
         composeRule.setContent {
@@ -760,6 +765,77 @@ class QuickDownloadScreenTest {
         composeRule.onNodeWithTag("quick-lookup-detail-text").performScrollTo()
             .assert(hasText(lines.single()))
         composeRule.onNodeWithTag("quick-lookup-copy").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun aFormatsFailureAfterASuccessKeepsTheLookupDetailsUnderItsOwnDetails() {
+        // The lookup found the video, then no format of it could be read: the failure's own Details
+        // stay, and the lookup's lines follow them as Lookup details.
+        val details = listOf("Step: list of qualities (manifest)", "Host: stream.example.test")
+        val lines = listOf(
+            "master: fixture ladder after NO_MEDIA_FOUND; main's answers re-read, no new ask",
+            "master: 1 checked candidates via PAGE_DATA",
+        )
+        var quiet by mutableStateOf(false)
+        var state by mutableStateOf(
+            QuickDownloadUiState(
+                header = SAMPLE_QUICK_DOWNLOAD.header,
+                failure = "The list of qualities could not be read.",
+                failureDetails = details,
+                canRetry = true,
+                lookupDetails = lines,
+            ),
+        )
+        composeRule.setContent {
+            CompositionLocalProvider(LocalQuietRelease provides quiet) {
+                YftTheme(themeMode = ThemeMode.LIGHT) {
+                    QuickDownloadScreen(state = state, onSelect = {}, onDownload = {}, onRetry = {})
+                }
+            }
+        }
+
+        composeRule.onNodeWithTag("quick-error")
+            .assert(hasText("The list of qualities could not be read."))
+        composeRule.onNodeWithTag("quick-retry").assertIsDisplayed()
+        composeRule.onAllNodesWithTag("quick-lookup-detail-text").assertCountEquals(0)
+        // The failure's own Details, as before.
+        composeRule.onNodeWithTag("quick-error-details").assert(hasText("Details")).performClick()
+        composeRule.onNodeWithTag("quick-error-detail-text")
+            .assert(hasText(details.joinToString("\n")))
+        composeRule.onNodeWithTag("quick-error-details").performClick()
+        // Then the lookup's lines behind Lookup details, with their own Copy details.
+        composeRule.onNodeWithTag("quick-lookup-details").performScrollTo()
+            .assert(hasText("Lookup details"))
+            .performClick()
+        composeRule.onNodeWithTag("quick-lookup-detail-text").performScrollTo()
+            .assert(hasText(lines.joinToString("\n")))
+        composeRule.onAllNodesWithTag("quick-error-detail-text").assertCountEquals(0)
+        composeRule.onNodeWithTag("quick-lookup-copy").performScrollTo().performClick()
+        val copied = ApplicationProvider.getApplicationContext<Context>()
+            .getSystemService(ClipboardManager::class.java)
+            .primaryClip!!
+            .getItemAt(0)
+            .text
+            .toString()
+        assertEquals(copiedDetails(lines), copied)
+        composeRule.onNodeWithTag("quick-retry").assertIsDisplayed()
+
+        // A quiet build without Show details: its one line, no Details and no Lookup details.
+        quiet = true
+        composeRule.waitForIdle()
+        for (tag in listOf(
+            "quick-error-details", "quick-lookup-details", "quick-lookup-detail-text",
+            "quick-lookup-copy",
+        )) {
+            composeRule.onAllNodesWithTag(tag).assertCountEquals(0)
+        }
+
+        // A failed lookup (no lines of a success): its Details only, as before.
+        quiet = false
+        state = state.copy(lookupDetails = emptyList())
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("quick-error-details").assertIsDisplayed()
+        composeRule.onAllNodesWithTag("quick-lookup-details").assertCountEquals(0)
     }
 
     @Test
@@ -812,7 +888,7 @@ class QuickDownloadScreenTest {
                 )
             }
         }
-        // Old P3-FIX already shows all 12 rows and has no toggle: its button is offscreen.
+        // The older sheet shows all 12 rows and has no toggle: its button is offscreen.
         val toggles = composeRule.onAllNodesWithTag("quick-more-formats").fetchSemanticsNodes()
         if (toggles.isNotEmpty()) {
             composeRule.onNodeWithTag("quick-more-formats").performClick()
@@ -829,8 +905,8 @@ class QuickDownloadScreenTest {
     @Test
     @GraphicsMode(GraphicsMode.Mode.NATIVE)
     fun everyRowShowsItsOneLineDescriptionAndDownloadStaysVisible() {
-        // P25: the line under each title says what the quality is for. Real text measuring
-        // (native graphics), so the rows are as tall as on a phone.
+        // The line under each title says what the quality is for. Real text measuring (native
+        // graphics), so the rows are as tall as on a phone.
         composeRule.setContent {
             YftTheme(themeMode = ThemeMode.LIGHT) {
                 QuickDownloadScreen(state = SAMPLE_QUICK_DOWNLOAD, onSelect = {}, onDownload = {})
@@ -862,7 +938,7 @@ class QuickDownloadScreenTest {
     @Config(qualifiers = "w320dp-h568dp")
     @GraphicsMode(GraphicsMode.Mode.NATIVE)
     fun onASmallPhoneDownloadStaysVisibleWithTheDescriptions() {
-        // P25: three lines a row still leave Details and Download pinned on a 568 dp screen.
+        // Three lines a row still leave Details and Download pinned on a 568 dp screen.
         val choices = QuickDownloadFixtures.choices(QuickDownloadFixtures.youtubeLadder())!!
         composeRule.setContent {
             YftTheme(themeMode = ThemeMode.LIGHT) {
@@ -913,7 +989,7 @@ class QuickDownloadScreenTest {
 
     @Test
     fun theHeaderShowsTheVideosPictureOnceItLoads() {
-        // P19: the 16:9 header tile shows the placeholder, then the picture the loader gives.
+        // The 16:9 header tile shows the placeholder, then the picture the loader gives.
         val asked = mutableListOf<String>()
         val loads = CompletableDeferred<ImageBitmap?>()
         val thumbnails = object : RemoteThumbnails {
@@ -949,6 +1025,107 @@ class QuickDownloadScreenTest {
                 .fetchSemanticsNodes().size == 1
         }
         composeRule.runOnIdle { assertEquals(listOf(PICTURE), asked) }
+    }
+
+    @Test
+    fun aPostsVideoItemsArePickedUnderTheHeaderAndAVideoOfItsOwnHasNone() {
+        // The linked item first and selected; a tap shows another item.
+        var state by mutableStateOf(
+            SAMPLE_QUICK_DOWNLOAD.copy(
+                postItems = listOf(
+                    PostItemChoice("id:instagram:fixture", 3, "Video 3 of 4"),
+                    PostItemChoice("id:instagram:fixture:1", 1, "Video 1 of 4"),
+                ),
+                postItemKey = "id:instagram:fixture",
+            ),
+        )
+        val picked = mutableListOf<String>()
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                QuickDownloadScreen(
+                    state = state,
+                    onSelect = {},
+                    onDownload = {},
+                    onSelectPostItem = { key ->
+                        picked += key
+                        state = state.copy(postItemKey = key)
+                    },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(POST_ITEMS_TAG).assertIsDisplayed()
+        composeRule.onNodeWithTag("${POST_ITEM_TAG}3").assertIsSelected()
+        composeRule.onNodeWithText("Video 1 of 4").assertIsDisplayed()
+        composeRule.onNodeWithTag("${POST_ITEM_TAG}1").assertIsNotSelected().performClick()
+
+        composeRule.runOnIdle { assertEquals(listOf("id:instagram:fixture:1"), picked) }
+        composeRule.onNodeWithTag("${POST_ITEM_TAG}1").assertIsSelected()
+        composeRule.onNodeWithTag("${POST_ITEM_TAG}3").assertIsNotSelected()
+        val header = composeRule.onNodeWithTag("quick-thumbnail").getBoundsInRoot()
+        val items = composeRule.onNodeWithTag(POST_ITEMS_TAG).getBoundsInRoot()
+        assertTrue("the items sit under the header", items.top >= header.bottom)
+
+        state = SAMPLE_QUICK_DOWNLOAD
+        composeRule.waitForIdle()
+        composeRule.onAllNodesWithTag(POST_ITEMS_TAG).assertCountEquals(0)
+    }
+
+    @Test
+    fun aTitleConvertedFromZawgyiOffersUseOriginalTitleAndATapSwitchesTheHeader() {
+        // Zawgyi titles: the header shows the Unicode title; "Use original title" under it shows
+        // (and the next Download takes) the title the video gave, and back again.
+        val rows = QuickDownloadFixtures.youtubeTitled(ZAWGYI_TITLE)
+        val choices = QuickDownloadFixtures.choices(rows)!!
+        var state by mutableStateOf(
+            SAMPLE_QUICK_DOWNLOAD.copy(
+                header = SAMPLE_QUICK_DOWNLOAD.header!!.copy(title = choices.title),
+                choices = choices,
+            ),
+        )
+        var toggles = 0
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                QuickDownloadScreen(
+                    state = state,
+                    onSelect = {},
+                    onDownload = {},
+                    onToggleOriginalTitle = {
+                        toggles++
+                        state = state.copy(useOriginalTitle = !state.useOriginalTitle)
+                    },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(HEADER_TITLE_TAG).assertTextEquals(UNICODE_TITLE)
+        composeRule.onNodeWithTag(ORIGINAL_TITLE_TAG)
+            .assertIsDisplayed()
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Checkbox))
+            .assert(hasText("Use original title"))
+            .assertIsOff()
+        val header = composeRule.onNodeWithTag("quick-header").getBoundsInRoot()
+        val toggle = composeRule.onNodeWithTag(ORIGINAL_TITLE_TAG).getBoundsInRoot()
+        assertTrue("the switch sits under the header", toggle.top >= header.bottom)
+
+        composeRule.onNodeWithTag(ORIGINAL_TITLE_TAG).performClick()
+        composeRule.runOnIdle { assertEquals(1, toggles) }
+        composeRule.onNodeWithTag(HEADER_TITLE_TAG).assertTextEquals(ZAWGYI_TITLE)
+        composeRule.onNodeWithTag(ORIGINAL_TITLE_TAG).assertIsOn().performClick()
+        composeRule.runOnIdle { assertEquals(2, toggles) }
+        composeRule.onNodeWithTag(HEADER_TITLE_TAG).assertTextEquals(UNICODE_TITLE)
+        composeRule.onNodeWithTag(ORIGINAL_TITLE_TAG).assertIsOff()
+
+        // Not while a Download is being queued.
+        state = state.copy(downloadStatus = PreviewDownloadStatus.Enqueuing)
+        composeRule.onNodeWithTag(ORIGINAL_TITLE_TAG).assertIsNotEnabled()
+
+        // A title that was not converted offers no switch.
+        state = SAMPLE_QUICK_DOWNLOAD
+        composeRule.waitForIdle()
+        composeRule.onAllNodesWithTag(ORIGINAL_TITLE_TAG).assertCountEquals(0)
+        composeRule.onAllNodesWithText("Use original title").assertCountEquals(0)
+        composeRule.onNodeWithTag(HEADER_TITLE_TAG).assertTextEquals("Ocean waves")
     }
 
     private fun hasText(text: String) = SemanticsMatcher.expectValue(

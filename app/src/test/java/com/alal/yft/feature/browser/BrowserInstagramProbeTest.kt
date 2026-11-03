@@ -30,12 +30,11 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Social plan S2d (decisions 19 (v) and 24): the browser's side of Instagram's tab-fetch rung.
- * Every other build (no switch): no lookup carries a probe. A social-ladder build: an Instagram
- * lookup's context carries it (its own switch and, task 13, its proof read each time; no proof
- * switch: off), another site's none; without a
- * screen collecting the asks there is no tab; with one, the ask names the post and the screen's
- * answer goes back to the ladder. Fixture adapters and a fake backup; no live calls.
+ * The browser's side of the Instagram tab-fetch step. Every other build (no switch): no lookup
+ * carries a probe. A social-ladder build: an Instagram lookup's context carries it (its own switch
+ * and its proof read each time; no proof switch: off), another site's none; without a screen
+ * collecting the asks there is no tab; with one, the ask names the post and the screen's answer
+ * goes back to the ladder. Fixture adapters and a fake backup; no live calls.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
@@ -63,7 +62,7 @@ class BrowserInstagramProbeTest {
         assertFalse(probe.on()) // off by default
         on = true
         assertTrue(probe.on()) // read each time
-        // Task 13: the rung's proof, its own switch, read each time too.
+        // The step's proof, its own switch, read each time too.
         assertFalse(probe.proof())
         proof = true
         assertTrue(probe.proof())

@@ -12,7 +12,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Item 7 Track B3: "Reset YouTube session" forgets YouTube's cookies, site storage and
+ * "Reset YouTube session" forgets YouTube's cookies, site storage and
  * remembered lookups, and nothing of any other site (Clear browsing data signs the user out of
  * every site). The fake jar keeps cookies as a browser does: a cookie of a host only and one of
  * a domain are different cookies even with one name, and only an expired `Set-Cookie` with the

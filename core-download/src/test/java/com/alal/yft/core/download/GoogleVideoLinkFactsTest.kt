@@ -17,7 +17,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** F6: a failed YouTube media link's facts, without the link or any of its values. */
+/** A failed YouTube media link's facts, without the link or any of its values. */
 class GoogleVideoLinkFactsTest {
     @Test
     fun aDirectLinkSaysItsClientStreamTokenSignatureAndTimes() {
@@ -77,8 +77,8 @@ class GoogleVideoLinkFactsTest {
     }
 
     /**
-     * Track B1: YouTube's media host refused a link that still had time left (HTTP 403 while
-     * connecting): not an expired link. D7 runs 13 / 13b: `ends 359 min (app 358)`, yet the
+     * YouTube's media host refused a link that still had time left (HTTP 403 while
+     * connecting): not an expired link. In two phone runs: `ends 359 min (app 358)`, yet the
      * download said "Link expired".
      */
     @Test

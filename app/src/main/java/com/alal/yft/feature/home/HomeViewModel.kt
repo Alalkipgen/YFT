@@ -39,11 +39,11 @@ import kotlinx.coroutines.launch
  *
  * A submitted link is checked by [LinkInspector]; what it finds goes to [DetectedMediaStore],
  * the same memory-only place the browser fills, so View opens the usual Detected Media list.
- * Candidates of one video count once (P3). When it found one video, Home opens its download
- * sheet instead and View reopens it. P16: a link to a video of a site an adapter reads opens the
- * sheet at once; the sheet waits on this lookup, shows its failure with Try again, and closing it
- * stops the lookup. P24: previews and ads of a page are not counted; a page with one main video
- * opens its sheet at once with that video alone (P45); View lists the rest.
+ * Candidates of one video count once. When it found one video, Home opens its download sheet
+ * instead and View reopens it. A link to a video of a site an adapter reads opens the sheet at
+ * once; the sheet waits on this lookup, shows its failure with Try again, and closing it stops the
+ * lookup. Page video finder: previews and ads of a page are not counted; a page with one main video
+ * opens its sheet at once with that video alone; View lists the rest.
  */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -64,13 +64,21 @@ class HomeViewModel @Inject constructor(
     /** The one video the last lookup found, which View hands to the sheet again. */
     private var foundVideo: MediaGroup? = null
 
+    /**
+     * The detail lines of the lookup that found [foundVideo]
+     * ([LinkInspection.Found.details]), the sheet's Lookup details; none when it gave none.
+     */
+    private var foundDetails: List<String> = emptyList()
+
     private var recentJob: Job? = null
 
-    /** P29: the page the last lookup found and the link it came from, for Try again. */
+    /**
+     * Fresh link renewal: the page the last lookup found and the link it came from, for Try again.
+     */
     private var foundPage: String? = null
     private var foundLink: String? = null
 
-    /** P16: the lookup the open sheet waits on, and the link it looks up, until it found it. */
+    /** The lookup the open sheet waits on, and the link it looks up, until it found it. */
     private var sheetLookup: PageVideoLookup? = null
     private var sheetLink: String? = null
 
@@ -160,9 +168,10 @@ class HomeViewModel @Inject constructor(
         if (link.isEmpty()) return
         stopInspection()
         foundVideo = null
+        foundDetails = emptyList()
         foundPage = null
         foundLink = null
-        // P16: a supported site's video opens its sheet now; the lookup below fills it.
+        // A supported site's video opens its sheet now; the lookup below fills it.
         val sheet = inspector.siteVideo(link)?.let { video ->
             PageVideoLookup(video.key, video.pageUrl, title = null, owner = LookupOwner.HOME)
         }
@@ -173,7 +182,7 @@ class HomeViewModel @Inject constructor(
 
     /**
      * Looks [link] up; [sheet] is the lookup an open sheet shows, null when none waits. [fresh]
-     * (the sheet's Try again) skips a remembered answer (P17).
+     * (the sheet's Try again) skips a remembered answer (Lookup reuse).
      */
     private fun inspect(link: String, sheet: PageVideoLookup?, fresh: Boolean = false) {
         sheetLookup = sheet
@@ -205,7 +214,7 @@ class HomeViewModel @Inject constructor(
                 val result = if (fresh) inspector.inspectAgain(link) else inspector.inspect(link)
                 val status = when (result) {
                     is LinkInspection.Found -> {
-                        // P28: the length the page states tells its video from its ads.
+                        // Ad filter: the length the page states tells its video from its ads.
                         val facts = result.facts
                         val candidates = MediaGroups.withPageRoles(result.candidates, facts)
                         detectedMediaStore.publish(
@@ -226,18 +235,25 @@ class HomeViewModel @Inject constructor(
                                 .filter { it.isSavable },
                         )
                         if (videos.isNotEmpty()) {
-                            // P24: the count counts the page's videos, not its previews and
-                            // ads; one main video opens its sheet, alone (P45).
-                            // P28: with the page's title and picture where it names none.
+                            // Page video finder: the count counts the page's videos, not its
+                            // previews and ads; one main video opens its sheet, alone.
+                            // Ad filter: with the page's title and picture where it names none.
+                            // Download sheet: with the lookup's lines, the sheet's Lookup
+                            // details (none after a site reader's own success).
+                            val lines = DiagnosticTextSanitizer.details(result.details)
                             val list = MediaGroups.ofPage(videos, facts)
+                            foundDetails = lines
                             foundVideo = list.videos.singleOrNull()
                                 ?.let { MediaGroups.withPageFacts(it, facts) }
-                                ?.also { main -> detectedMediaStore.select(main) }
+                                ?.also { main ->
+                                    detectedMediaStore.select(main, lookupDetails = lines)
+                                }
                             quick = foundVideo != null
-                            // P16: the open sheet shows the link's video, the list the rest.
+                            // The open sheet shows the link's video, the list the rest.
                             if (sheet != null && foundVideo == null) {
                                 detectedMediaStore.select(
                                     MediaGroups.withPageFacts(list.videos.first(), facts),
+                                    lookupDetails = lines,
                                 )
                             }
                             PromptboxStatus.Found(count = list.videos.size)
@@ -300,20 +316,23 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** View on one found video: the sheet shows it again, whatever the browser found since. */
+    /**
+     * View on one found video: the sheet shows it again with its lookup's lines, whatever the
+     * browser found since.
+     */
     fun selectFoundVideo() {
-        foundVideo?.let { detectedMediaStore.select(it) }
+        foundVideo?.let { detectedMediaStore.select(it, lookupDetails = foundDetails) }
     }
 
     private fun stopInspection() {
         inspection?.cancel()
         inspection = null
-        // P16: a sheet must not wait on a lookup that no longer runs.
+        // A sheet must not wait on a lookup that no longer runs.
         sheetLookup = null
         detectedMediaStore.clearLookup(LookupOwner.HOME)
     }
 
-    /** P16: the sheet's Try again after this link's lookup failed asks once more. */
+    /** The sheet's Try again after this link's lookup failed asks once more. */
     private fun retrySheetLookup(key: String) {
         val sheet = sheetLookup ?: return
         val shown = detectedMediaStore.lookup.value ?: return
@@ -324,9 +343,9 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
-     * P29: the sheet's Try again on the page Home found: the page is read again without a
-     * remembered answer, quietly (the Promptbox keeps its state), so the sheet gets the page's
-     * current addresses instead of the dead one.
+     * Fresh link renewal: the sheet's Try again on the page Home found: the page is read again
+     * without a remembered answer, quietly (the Promptbox keeps its state), so the sheet gets the
+     * page's current addresses instead of the dead one.
      */
     private fun readFoundPageAgain(pageUrl: String) {
         val link = foundLink?.takeIf { foundPage == pageUrl }
@@ -359,7 +378,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** P16: the sheet closed before this link's video came; its lookup stops. */
+    /** The sheet closed before this link's video came; its lookup stops. */
     private fun closeSheetLookup(key: String) {
         if (sheetLookup?.key != key) return
         val running = inspection?.isActive == true

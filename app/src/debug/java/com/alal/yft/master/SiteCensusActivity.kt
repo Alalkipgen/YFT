@@ -1,5 +1,5 @@
 /*
- * Provenance (social plan S0c, copied, not moved; main 34a41890; listed in toolkit-provenance.tsv):
+ * Provenance (Site census: copied, not moved; main 34a41890; listed in toolkit-provenance.tsv):
  *   app/.../detection/SiteAdapterModule.kt  WebViewAgent (the agent YFT's tab sends, read once on Main)
  */
 package com.alal.yft.master
@@ -32,6 +32,7 @@ import com.alal.yft.core.browser.policy.BrowserAddressNormalizer
 import com.alal.yft.core.browser.policy.BrowserAddressResult
 import com.alal.yft.core.browser.policy.BrowserUserAgent
 import com.alal.yft.core.data.network.NetworkConfiguration
+import com.alal.yft.detection.Av1MergeSwitch
 import com.alal.yft.detection.OkHttpExtractorClient
 import com.alal.yft.detection.master.InstagramProbeSwitch
 import com.alal.yft.detection.master.MasterRecipeConfig
@@ -62,10 +63,10 @@ import okhttp3.Request
 import okhttp3.Response
 
 /**
- * Owner tool, debug build only (social plan S0c, `MASTER_KEY_SOCIAL_PLAN.md` §7.1): "YFT site
- * census" runs [SiteCensus] on the phone over the owner's links, one site or all: main's own
- * lookup of each link ([SiteCensusLookup]: fresh, the browser's identity, no retry, at most 90 s),
- * V on its best row, Master's R8 way once under route B's rules, the judge; a 429 or a bot check
+ * Owner tool, debug build only: "YFT site census" runs [SiteCensus] on the phone over the owner's
+ * links, one site or all: main's own lookup of each link ([SiteCensusLookup]: fresh, the browser's
+ * identity, no retry, at most 90 s), the Row check (V) on its best row, Master's
+ * Site contract reader once under the YouTube backup route's rules, the judge; a 429 or a bot check
  * stops the site for the run and for 30 minutes; at most 150 requests and 40 MB per site. Its
  * launcher entry exists only when the build has `yft.masterCapture` and `yft.ownSolver` on
  * (manifest placeholder `yftOwnerTools`). A run starts only on a tap and belongs to this screen
@@ -74,24 +75,29 @@ import okhttp3.Response
  * copy buttons, and the state (cooldowns, the last run) is kept in
  * `files/master/site-census-last.json`.
  *
- * Social plan 0.4 (c) (§7.4 step 2): per site, every slot's main and V first, then the backup's
- * parts (route B, then the trials); a 429 or a bot check in the backup's parts skips only its
- * remaining parts (and its parts of the next runs for 30 minutes; main still runs). The run gets
- * whether Android's network is a VPN ([onVpn], as the screen reads Wi-Fi): the state keeps each
- * site's baseline per VPN and session (with each slot's link fingerprint, never in the export).
+ * Per site, every slot's main and V first, then the backup's parts (the Site contract reader, then
+ * the trials); a 429 or a bot check in the backup's parts skips only its remaining parts (and its
+ * parts of the next runs for 30 minutes; main still runs). The run gets whether Android's network
+ * is a VPN ([onVpn], as the screen reads Wi-Fi): the state keeps each site's baseline per VPN and
+ * session (with each slot's link fingerprint, never in the export).
  *
- * Social plan S2d (decisions 19 and 24): in a social-ladder build the screen also holds the own
- * switches of Instagram's tab-fetch rung ([InstagramProbeSwitch], each off by default): "Instagram's
- * tab-fetch rung (signed out)" (part 2, task 13: the browser's Instagram lookups ask the rung only
- * while it is on, after I2 gave no rows) and "Instagram rung proof: set I2's rows aside" (debug:
- * with I2's rows, the rung is asked in their place, so a post main answers shows the rung's own
- * rows). The census itself has no tab: the rung is never asked in it.
+ * Instagram tab-fetch step: in a social-ladder build the screen also holds the own switches of
+ * Instagram's tab-fetch rung ([InstagramProbeSwitch], each off by default): "Instagram's tab-fetch
+ * rung (signed out)" (the browser's Instagram lookups ask the rung only while it is on, after the
+ * main's-answers step (`instagram I2` in Lookup details) gave no rows) and "Instagram rung proof:
+ * set I2's rows aside" (debug: with I2's rows, the rung is asked in their place, so a post main
+ * answers shows the rung's own rows). The census itself has no tab: the rung is never asked in it.
  *
- * Social plan task 6b: in a social-ladder build each ladder site's backup part is that site's
+ * AV1 merge switch: in every debug build the screen also holds "AV1 merges (test, Android 14 or
+ * newer)" ([Av1MergeSwitch], off by default): while it is on, the sheet keeps AV1 + AAC rows on
+ * Android 14 or newer (with an AV1 decoder), named with "AV1", and the download merges them
+ * into one MP4. The release and the previews have no such switch (AV1 merges stay off there).
+ *
+ * In a social-ladder build each ladder site's backup part is that site's
  * ladder as the browser runs it ([census]'s pack: the rungs, each row checked against main's), and
  * the screen says so ([LADDER_NOTE]); every other build: the screen and the census as before.
  *
- * Social plan task 8 (S3, §7.5): in a social-ladder build only (behind the flag), "Weekly check W
+ * Weekly site check: in a social-ladder build only (behind the flag), "Weekly check W
  * (all sites)" runs the census's weekly check W ([SiteWeekly]: three slots per site, the backup's
  * part (the site's ladder) on slot 1 only, each way once, at most 60 s, 2 MB and 24 requests per
  * site, W's own baselines, each CHANGED or BREAKING line with its runbook step) and the intro says
@@ -118,10 +124,10 @@ class SiteCensusActivity : ComponentActivity() {
         })
         val status = TextView(this).apply { textSize = 15f }
         this.status = status
-        // S4: the signed recipe config in use, a social-ladder build only (asked again on open).
+        // Signed recipe config: the one in use, a social-ladder build only (asked again on open).
         val recipes = if (SocialLadder.enabled) TextView(this).apply { textSize = 14f } else null
         val all = Button(this).apply { text = "Run all sites" }
-        // Task 8: W's button, a social-ladder build only (behind the flag; every other build as before).
+        // Weekly site check: W's button, a social-ladder build only (behind the flag).
         val weeklyButton = if (SocialLadder.enabled) Button(this).apply { text = "Weekly check W (all sites)" } else null
         val perSite = SiteWays.ALL.associateWith { site -> Button(this).apply { text = "Run ${site.name}" } }
         val result = TextView(this).apply {
@@ -142,7 +148,7 @@ class SiteCensusActivity : ComponentActivity() {
         add(all)
         perSite.values.forEach(::add)
         weeklyButton?.let(::add)
-        // S2d (task 13): the rung's own switches under the Run buttons, each off by default (a
+        // Instagram tab-fetch step: its own switches under the Run buttons, each off by default (a
         // social-ladder build only); they stay as set until the owner turns them off.
         if (SocialLadder.enabled) {
             add(CheckBox(this).apply {
@@ -154,6 +160,14 @@ class SiteCensusActivity : ComponentActivity() {
                 text = "Instagram rung proof: set I2's rows aside"
                 isChecked = InstagramProbeSwitch.proof(this@SiteCensusActivity)
                 setOnCheckedChangeListener { _, checked -> InstagramProbeSwitch.setProof(this@SiteCensusActivity, checked) }
+            })
+        }
+        // AV1 merge switch: a test switch, off by default (a debug build only).
+        if (Av1MergeSwitch.built) {
+            add(CheckBox(this).apply {
+                text = AV1_SWITCH_LABEL
+                isChecked = Av1MergeSwitch.on(this@SiteCensusActivity)
+                setOnCheckedChangeListener { _, checked -> Av1MergeSwitch.set(this@SiteCensusActivity, checked) }
             })
         }
         listOf(copy, copyJson, result).forEach(::add)
@@ -189,7 +203,7 @@ class SiteCensusActivity : ComponentActivity() {
             runButtons.forEach { it.isEnabled = false }
             return
         }
-        // S4: the config is asked for on open (one bounded ask, whatever its interval), then shown.
+        // Signed recipe config: asked on open (one bounded ask, whatever its interval), then shown.
         recipes?.let { line ->
             line.text = MasterRecipeConfig.status()
             lifecycleScope.launch {
@@ -240,7 +254,7 @@ class SiteCensusActivity : ComponentActivity() {
                 try {
                     val network = networkNote()
                     val vpn = onVpn()
-                    // S4: the recipe config in use is one of the report's notes (a social-ladder build only).
+                    // Signed recipe config: the one in use is noted (a social-ladder build only).
                     val notes = listOf(network) + listOfNotNull(recipes?.let { MasterRecipeConfig.status() })
                     val outcome = withContext(Dispatchers.Default) {
                         census.run(sites, links, readState(stateFile), notes, vpn = vpn, mode = mode) { step ->
@@ -296,12 +310,12 @@ class SiteCensusActivity : ComponentActivity() {
      * [LookupRecorder] into each row's record: TikTok's own client sends a short link's redirect
      * cookies (as the app's), the others share one. TikTok's hidden page is the app's own
      * ([TikTokPageEngine], the owner's settings). Master's contracts and V use the same client
-     * class without the recorder (route B records Master's asks itself); Master's media checks
-     * are the app's ([OkHttpMediaValidator]) on the counted client. Task 6b: in a social-ladder
-     * build main's clients also keep main's pages ([SocialLadder.pages], outermost, as the app's)
-     * and the census runs each ladder site's Master part as the app's ladder
-     * ([SiteCensus.Pack]: [SocialLadder.stage] on Master's client, S6's row check around the
-     * media checks, main's adapters, the app's cooldown); every other build: no pack, as before.
+     * class without the recorder (the YouTube backup route's client records Master's asks itself);
+     * Master's media checks are the app's ([OkHttpMediaValidator]) on the counted client. In a
+     * social-ladder build main's clients also keep main's pages ([SocialLadder.pages], outermost,
+     * as the app's) and the census runs each ladder site's Master part as the app's ladder
+     * ([SiteCensus.Pack]: [SocialLadder.stage] on Master's client, the Row check around the media
+     * checks, main's adapters, the app's cooldown); every other build: no pack, as before.
      */
     private fun census(): SiteCensus {
         val bytes = AtomicLong()
@@ -349,12 +363,13 @@ class SiteCensusActivity : ComponentActivity() {
             pack = SocialLadder.stage(http, identify)?.let { stage ->
                 SiteCensus.Pack(
                     stage = stage,
-                    // Task 9: the app's S6 wiring: one check and reader, each read on its lookup's site's hosts.
+                    // Row check: the app's wiring, one check and reader, each read on its
+                    // lookup's site's hosts.
                     validator = { checks -> SocialLadder.validator(checks, client) },
                     identify = identify,
                     sites = SocialLadder.SITES,
                     cooldown = SocialLadder.cooldown,
-                    // S4: the engine's recipes as the app's (its signed config, the ladders' own source).
+                    // Signed recipe config: the app's recipes, the ladders' own source.
                     contracts = MasterRecipeConfig.contracts(RouteBHttpClient(http)),
                 )
             },
@@ -407,7 +422,10 @@ class SiteCensusActivity : ComponentActivity() {
 
         const val LINKS_LINE = "Links per site (empty slots are skipped):"
 
-        /** Task 8: the weekly check W's lines, a social-ladder build only (after [LADDER_NOTE]). */
+        /** AV1 merge switch: its box (every debug build; off by default). */
+        const val AV1_SWITCH_LABEL = "AV1 merges (test, Android 14 or newer)"
+
+        /** Weekly site check: W's lines, a social-ladder build only (after [LADDER_NOTE]). */
         val WEEKLY_NOTE: String = "Weekly check W: slots " +
             SiteWeekly.SLOTS.entries.joinToString(" · ") { (id, slots) -> "${SiteWays.site(id)?.name ?: id} ${slots.joinToString(", ")}" } +
             ", the backup's part on slot ${SiteWeekly.MASTER_SLOT} only, each way once, at most ${SiteWeekly.MAX_MILLIS / 1000} s, " +
@@ -415,7 +433,7 @@ class SiteCensusActivity : ComponentActivity() {
             "last run on the same VPN state and session (never the full census's), each change with its runbook step. A " +
             "stopped or cooling site is not run (never waited out).\n\n"
 
-        /** Task 6b: the intro's added lines in a social-ladder build only (before [LINKS_LINE]). */
+        /** The intro's added lines in a social-ladder build only (before [LINKS_LINE]). */
         const val LADDER_NOTE = "This build runs the social ladder: for Facebook, TikTok, X, Instagram and VK the backup's " +
             "part is that site's ladder as the browser runs it (no tab here, so no capture), with each rung's state " +
             "and each row checked against YFT's own (wrong rows and unknown rows apart). A ladder with no wrong row " +

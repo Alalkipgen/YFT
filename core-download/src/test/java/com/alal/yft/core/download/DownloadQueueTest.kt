@@ -4,6 +4,7 @@ import com.alal.yft.core.model.download.DirectDownloadPlan
 import com.alal.yft.core.model.download.DirectTransferCheckpoint
 import com.alal.yft.core.model.download.DirectTransferResult
 import com.alal.yft.core.model.download.DownloadFailure
+import com.alal.yft.core.model.download.DownloadFailureDetails
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.DownloadFailureStage
 import com.alal.yft.core.model.download.DownloadProgress
@@ -214,7 +215,7 @@ class DownloadQueueTest {
     }
 
     /**
-     * P21: a Retry after the file itself failed starts over at byte 0 in a new destination of
+     * A Retry after the file itself failed starts over at byte 0 in a new destination of
      * the same name. The old queue resumed the checkpoint in the broken one and failed again.
      */
     @Test
@@ -257,7 +258,7 @@ class DownloadQueueTest {
             assertEquals("content://media/pending/2", store.snapshot().single().destinationUri)
         }
 
-    /** P21: a dropped connection keeps its partial file, so the Retry resumes it. */
+    /** A dropped connection keeps its partial file, so the Retry resumes it. */
     @Test
     fun `retry after a network failure resumes its checkpoint in the same destination`() =
         runTest {
@@ -286,7 +287,7 @@ class DownloadQueueTest {
             assertEquals(0, destination.renewals.get())
         }
 
-    /** P21: when the partial file is gone, resuming its checkpoint cannot work; start over. */
+    /** When the partial file is gone, resuming its checkpoint cannot work; start over. */
     @Test
     fun `retry when the partial file is gone starts over at byte 0`() = runTest {
         val replacement = TestDestination(length = 0)
@@ -304,7 +305,7 @@ class DownloadQueueTest {
         assertEquals(listOf(0L, 0L), runner.resumedFrom)
     }
 
-    /** P21: a Retry that cannot make a new file stays failed, with the new error's details. */
+    /** A Retry that cannot make a new file stays failed, with the new error's details. */
     @Test
     fun `retry that cannot make a new destination stays failed with the new details`() =
         runTest {
@@ -327,7 +328,7 @@ class DownloadQueueTest {
         }
 
     /**
-     * F6: a refused YouTube media link needs a fresh link, and its details start with the
+     * A refused YouTube media link needs a fresh link, and its details start with the
      * link's facts, then the engine's own detail; never the link itself.
      */
     @Test
@@ -367,9 +368,45 @@ class DownloadQueueTest {
     }
 
     /**
-     * Item 7 Track B1: YouTube refusing a link with time left on it (403 while connecting) is
+     * A YouTube live video not ready yet leads its details with how
+     * much is missing and where; the link's facts follow, cut at the end if they must be.
+     */
+    @Test
+    fun `a youtube live not ready yet leads its details with what is missing`() = runTest {
+        val notReady = DownloadFailure(
+            reason = DownloadFailureReason.LIVE_NOT_READY,
+            stage = DownloadFailureStage.VERIFY,
+            detail = "live: 54 s missing at the end, newest sq 1555 still moving · " +
+                "2h09m39s of 2h10m33s · 1556/1556 pieces",
+        )
+        val queue = DownloadQueue(
+            InMemoryStore(),
+            ScriptedRunner { _, _ -> notReady },
+            backgroundScope,
+            clock = { CLOCK_MS },
+        )
+        val link = "https://rr2---sn-fixture.googlevideo.com/videoplayback?expire=" +
+            "${CLOCK_MS / 1_000 + 3_600}&c=VISIONOS&itag=160&sig=fixture&n=fixture"
+        queue.enqueue(
+            plan("live").copy(sourceUrl = link, expiresAtEpochMs = CLOCK_MS + 30 * 60_000),
+            metadata(),
+            TestDestination(),
+        )
+        runCurrent()
+
+        val task = queue.tasks.value.single()
+        assertEquals(DownloadTaskStatus.FAILED, task.status)
+        val detail = task.failure?.detail.orEmpty()
+        assertTrue(detail, detail.startsWith("${notReady.detail}; VISIONOS itag"))
+        assertTrue(detail, detail.length <= DownloadFailureDetails.MAX_CHARS)
+        assertFalse(detail.contains("googlevideo"))
+    }
+
+    /**
+     * YouTube refusing a link with time left on it (403 while connecting) is
      * not an expired link: the task still needs a fresh link, its reason is YOUTUBE_REFUSED and
-     * its details are F6's. The same refusal of a link past its end stays ACCESS_DENIED.
+     * its details are the link's facts ([GoogleVideoLinkFacts]). The same refusal of a link past
+     * its end stays ACCESS_DENIED.
      */
     @Test
     fun `youtube refusing a link with time left is not an expired link`() = runTest {

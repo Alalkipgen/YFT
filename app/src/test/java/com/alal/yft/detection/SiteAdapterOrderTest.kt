@@ -20,8 +20,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * P40 step 5: the order of a lookup's steps. Browser: the tab's own data → the page read with
- * the tab's cookies → the hidden page (only when the tab has no data for the post). Home: the
+ * TikTok page reader: the order of a lookup's steps. Browser: the tab's own data → the page read
+ * with the tab's cookies → the hidden page (only when the tab has no data for the post). Home: the
  * page read → the hidden page. Details list every step and its result.
  */
 class SiteAdapterOrderTest {
@@ -182,7 +182,7 @@ class SiteAdapterOrderTest {
 
             val outcome = coordinator(extractor, hidden).inspect(PAGE, homeContext(), NOW)
 
-            // P46: TikTok's pages call some public posts private; its own player gets them.
+            // TikTok adapter: TikTok's pages call some public posts private; its player gets them.
             assertEquals(1, hidden.asked.size)
             assertTrue(outcome.toString(), outcome is SiteAdapterOutcome.Detected)
         }

@@ -87,7 +87,7 @@ class MediaGroupsTest {
 
     @Test
     fun aNamedVideoIsThePagesOnlyVideoAndThePlayersOwnFilesDoNotCount() {
-        // P3-FIX: Facebook's story page; the player fetched the video's picture and sound
+        // Facebook's story page; the player fetched the video's picture and sound
         // tracks, which generic detection saw as two more files of unknown length.
         val id = "facebook:post:1234567890123456"
         val named = listOf(
@@ -111,7 +111,7 @@ class MediaGroupsTest {
 
     @Test
     fun anAdapterSiteNeverListsItsPlayersFilesAsVideos() {
-        // P12: a YouTube or Facebook page whose lookup still runs, or failed, showed "Found on
+        // A YouTube or Facebook page whose lookup still runs, or failed, showed "Found on
         // this page 4" with the player's files; on an adapter's site only its video counts.
         val played = listOf(
             candidate("https://cdn.example.test/v/track-video.mp4", title = null),
@@ -137,7 +137,7 @@ class MediaGroupsTest {
         val videos = MediaGroups.pageVideos(listOf(small, unknown, large))
         assertEquals(3, videos.size)
 
-        // P24 (plan step 2): the picture height ranks before the stated size, so the small
+        // The picture height ranks before the stated size, so the small
         // 1080p file now wins over the large 360p one.
         assertEquals(listOf(small), MediaGroups.mainVideo(videos)!!.candidates)
         assertEquals(
@@ -160,7 +160,7 @@ class MediaGroupsTest {
 
     private val sitePage = "https://videos.example.test/watch/42"
 
-    /** P24: the owner's case: one long HLS video and 40 short preview clips around it. */
+    /** The owner's case: one long HLS video and 40 short preview clips around it. */
     private fun previewGrid(): List<MediaCandidate> {
         val master = candidate(
             "https://stream.example.test/v42/master.m3u8",
@@ -270,7 +270,7 @@ class MediaGroupsTest {
 
     @Test
     fun aPageThatNamesItsVideoListsTheRestAsItsOtherVideosUnlessOneIsLong() {
-        // P24 (live check): a stock-video page names its video in og:video and JSON-LD, and
+        // Seen in a live check: a stock-video page names its video in og:video and JSON-LD, and
         // links other videos' files of unknown length in its own data.
         val road = "https://cdn.example.test/v/1080p.mp4"
         val named = candidate(road, "Road", durationMillis = 25_000)

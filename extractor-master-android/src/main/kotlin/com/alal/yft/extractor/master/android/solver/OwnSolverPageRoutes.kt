@@ -1,7 +1,7 @@
 package com.alal.yft.extractor.master.android.solver
 
 /**
- * Phase 1.1 S5: the only addresses the own solver's page may load, all served by the app.
+ * YouTube own solver: the only addresses the own solver's page may load, all served by the app.
  *
  * Same model as main's `SolverPageRoutes` (copied, not shared; main's file is unchanged): the
  * page lives on Android's reserved asset host, which never resolves to a real server, and every

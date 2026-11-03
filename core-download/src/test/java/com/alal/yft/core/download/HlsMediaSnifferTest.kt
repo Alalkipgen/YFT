@@ -7,7 +7,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
-/** D1: what the first piece of an HLS download holds, and so how it is published. */
+/** What the first piece of an HLS download holds, and so how it is published. */
 class HlsMediaSnifferTest {
     @get:Rule
     val folder = TemporaryFolder()

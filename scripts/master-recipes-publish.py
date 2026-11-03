@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Social plan S4 (MASTER_KEY_SOCIAL_PLAN.md section 7.3; R9 in MASTER_KEY_PHASE1_PLAN.md): the
-master-recipes-publish workflow's helper. Data only, and it never sees the private key: a
-committed config (extractor-master/recipes/configs/<name>.json: "schema", "sites" and, optional,
-"rungsOff") becomes the payloads the workflow signs, with the next version and its expiry date.
+"""Signed recipe config: the master-recipes-publish workflow's helper. Data only, and it never sees
+the private key: a committed config (extractor-master/recipes/configs/<name>.json: "schema", "sites"
+and, optional, "rungsOff") becomes the payloads the workflow signs, with the next version and its
+expiry date.
 
-VK Master plan section 9 (R9 schema 2): a committed config is schema 2 (schema 1 plus site "vk"
+Schema 2 (VK ladder): a committed config is schema 2 (schema 1 plus site "vk"
 and rungs V1-V3) and becomes two payloads with the same version and expiry: master-recipes-2.json's
 (schema 2, all five sites, for v1.0.1) and master-recipes.json's (schema 1, for v1.0.0: "vk" left
 out of "sites", V1-V3 left out of "rungsOff" and "rungsOff" itself when that empties it; for a

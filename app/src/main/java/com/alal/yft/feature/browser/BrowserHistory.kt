@@ -59,7 +59,7 @@ import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
 
-/** One day group of the History list (P31). */
+/** One day group of the History list. */
 internal data class HistoryGroup(val title: String, val pages: List<BrowserHistoryEntry>)
 
 /** Today, Yesterday and Earlier by the phone's calendar days; pages stay newest first. */
@@ -120,9 +120,9 @@ private val MONTHS = listOf(
 )
 
 /**
- * The browser's History (P31), over the whole browser screen: a search box, the pages by day
- * (a tap opens one, its menu deletes it) and "Clear history" after a confirmation. Back closes
- * it. Composed after the browser, so its Back is handled first.
+ * The browser's History, over the whole browser screen: a search box, the pages by day (a tap opens
+ * one, its menu deletes it) and "Clear history" after a confirmation. Back closes it. Composed
+ * after the browser, so its Back is handled first.
  */
 @Composable
 internal fun BrowserHistoryPanel(

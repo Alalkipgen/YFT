@@ -27,7 +27,7 @@ interface ClipboardAccess {
 }
 
 /**
- * "Check copied links when YFT opens" (decision D1). Home calls [poll] whenever it is resumed
+ * "Check copied links when YFT opens". Home calls [poll] whenever it is resumed
  * and its window has focus; Android 10+ hides the clipboard from apps without focus.
  *
  * The text is read only when the setting is on, the window has focus and the description says

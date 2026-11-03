@@ -17,7 +17,7 @@ import org.junit.Test
 class LayerStackTest {
     private val reader = LayerStack.standard()
 
-    /** R2: YouTube rows stay off in the standard stack; the recipe itself is kept for R6. */
+    /** YouTube rows stay off in the standard stack; the recipe itself is kept for the Master YouTube module. */
     private val youtubeRecipe = LayerStack(listOf(RecipeLayer(youtubeStreams = true)))
 
     @Test

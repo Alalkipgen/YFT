@@ -1,5 +1,5 @@
 /*
- * Provenance (social plan S2c, copied, not moved; main 34a41890; listed in toolkit-provenance.tsv):
+ * Provenance (copied, not moved; main 34a41890; listed in toolkit-provenance.tsv):
  *   extractor-sites/.../x/XSyndication.kt  parse (the order: the post's own media, else its own
  *                                        card's, else the quoted post's; its photos counted),
  *                                        videosOf, videoOf (a video or a GIF: its MP4 files, its
@@ -8,7 +8,7 @@
  *   extractor-sites/.../x/XExtractor.kt  extract (the item: the link's `/video/N` among the post's
  *                                        own or card's media, else the first)
  *   extractor-sites/.../x/XUrls.kt  VIDEO_SUFFIX, videoNumberOf
- * Reviewed (social plan 0.1, main's X card fix on this branch, not at the base): main's
+ * Reviewed (main's X card fix on this branch, not at the base): main's
  *   cardVideosOf and cardMediaIds (the card's media in the card's own order); the design is
  *   reused, the code is new (no row: the base has no such symbol).
  */
@@ -41,35 +41,35 @@ import java.util.Locale
 import kotlin.coroutines.coroutineContext
 
 /**
- * Social plan S2c (`MASTER_KEY_SOCIAL_PLAN.md` §6.4, §7.3): X's ladder after main failed, in place
- * of R8's unjudged ask, inside the same rules as Facebook's ([FacebookLadder]) and TikTok's
- * ([TikTokLadder]). **X1, main's answer replayed:** the answer main's adapter got from X's
+ * The X ladder: X's steps after main failed, in place
+ * of the site contract reader's unjudged ask, inside the same rules as Facebook's ([FacebookLadder]) and TikTok's
+ * ([TikTokLadder]). **X1 (`x X1` in Lookup details), main's answer replayed:** the answer main's adapter got from X's
  * embedded-post widget in this lookup ([MainPages]: its page, or its refused GET), read with no new
- * ask (no token self-check, no X2: decision 2) and judged ([XAnswerJudge]).
+ * ask (no token self-check and no widget-token re-ask, by the owner's choice) and judged ([XAnswerJudge]).
  *
- * - **Rows, the link's item only** (decision 11): the post's own media, else its own card's, else
+ * - **Rows, the link's item only:** the post's own media, else its own card's, else
  *   the quoted post's (main's order, 0.1); the link's `/video/N` among the post's own or card's
  *   media, else the first. Its rows are bound to the link's post ID (a quoted post's files too)
- *   and go to the engine's media checks (V and the init check, S6) as main's answer for that one
+ *   and go to the engine's media checks (the row check and the init check) as main's answer for that one
  *   item, read with X's recipe: its MP4 files first, its playlist only without them and only with
  *   a known length (the item's playlist alone, no length: nothing to check). A renamed key: main's
- *   whole answer read by the recipe (L4 + L3 included), only when its rows are one item's.
+ *   whole answer read by the recipe (the recipe reader and shape search included), only when its rows are one item's.
  * - **Final:** a photo post only (main's own answer, `NO_MEDIA_FOUND`, in main's words; photos and
  *   no video or GIF by the media's types, so a renamed key never makes one).
  * - **Nothing to read** (null: the next stage, the visible tab's own playback, X3, and the user's
  *   browser; main's reason stays): the widget's 404 (no post in its answer; a 404 alone is no proof
- *   the post was deleted, so it never ends the lookup: the owner's call, task 0), a tombstone (an
+ *   the post was deleted, so it never ends the lookup: the owner's call), a tombstone (an
  *   age-limited post's empty one; a deleted or a protected post's with X's notice, which one answer
  *   cannot tell apart), `{}`, another status, another post's answer or an unknown shape.
  *
- * S7: X's own budget ([SocialBudget.X]): the rows go to V only while main's and Master's asks, the
- * lookup's time and the answer's characters hold. Main's X code and reasons stay (decision 10).
+ * Social limits: X's own budget ([SocialBudget.X]): the rows go to V only while main's and Master's asks, the
+ * lookup's time and the answer's characters hold. Main's X code and reasons stay.
  *
- * S4: a rung the signed recipe config turns off ([RungsOff]: X1, X3) is not run, its line says
+ * Signed recipe config: a rung the config turns off ([RungsOff]: X1, X3) is not run, its line says
  * so; the config is asked for (when due, on its own) as the stage starts.
  *
  * Claims only an X lookup with its own record ([LookupRecord]: the social-ladder build's,
- * `-Pyft.socialLadder`); every other lookup keeps R8's path. [contractsOf] gives the recipe the
+ * `-Pyft.socialLadder`); every other lookup keeps the site contract reader's path. [contractsOf] gives the recipe the
  * engine reads with, around [http] (never asked here); [identify] names a page's post (the app's
  * adapters). Lines: short labels and counts, never a link, an ID or the post's words; nothing is
  * logged.
@@ -92,9 +92,9 @@ class XLadder(
         details: MutableList<String>,
     ): SocialStage.Staged? {
         val record = coroutineContext[LookupRecord] ?: return null
-        // S4: the signed config's ask when due (outside the lookup), so its rungs off apply here.
+        // The signed config's ask when due (outside the lookup), so its rungs off apply here.
         contracts.refresh()
-        // S7: a host that answered main's ask with a 429 cools from the stage's end, as TikTok's.
+        // A host that answered main's ask with a 429 cools from the stage's end, as TikTok's.
         return try {
             climb(record, request, details)
         } finally {
@@ -102,7 +102,7 @@ class XLadder(
         }
     }
 
-    /** S4: X3, the visible tab's own playback, when the signed config turns it off. */
+    /** X3, the visible tab's own playback, when the signed config turns it off. */
     override suspend fun captureOff(request: MasterRequest): String? =
         RungsOff.line(X3).takeIf { "X3" in contracts.rungsOff() }
 
@@ -113,14 +113,14 @@ class XLadder(
         details: MutableList<String>,
     ): SocialStage.Staged? {
         val asked = request.identity?.takeIf { it.siteId == SITE_ID } ?: return null
-        // As R8: a sign-in or bot-check failure is the user's own playback's; another post's page
+        // As with the site contract reader: a sign-in or bot-check failure is the user's own playback's; another post's page
         // is not read for.
         if (TerminalRules.needsAuthorizedPlayback(request.primaryFailure) ||
             request.expectedContentId?.let { it != asked.contentId } == true
         ) {
             return null
         }
-        // S4: X1 off in the signed config: not run (nothing else to read).
+        // X1 off in the signed config: not run (nothing else to read).
         if ("X1" in contracts.rungsOff()) {
             details += RungsOff.line(X1)
             return null
@@ -165,7 +165,7 @@ class XLadder(
     }
 
     /**
-     * S7: why the rows may not go to V in [record]'s lookup, or null: main's and Master's asks so
+     * Why the rows may not go to V in [record]'s lookup, or null: main's and Master's asks so
      * far, the lookup's time or the answer's [chars] over X's budget.
      */
     private fun over(record: LookupRecord, chars: Long): String? = when {
@@ -259,7 +259,7 @@ class XLadder(
         val playlist: Boolean,
         val durationMillis: Long?,
     ) {
-        /** Rows to check: its MP4 files, else its playlist with a known length (S6). */
+        /** Rows to check: its MP4 files, else its playlist with a known length (for the row check). */
         val usable: Boolean get() = files > 0 || playlist && durationMillis != null
     }
 
@@ -348,7 +348,7 @@ class XLadder(
         internal const val LINE = "master: x ladder"
         internal const val X1 = "master: x X1 main's answer"
 
-        /** S4: X3, the visible tab's own playback (its line only when the config turns it off). */
+        /** X3, the visible tab's own playback (its line only when the config turns it off). */
         internal const val X3 = "master: x X3"
         private const val ITEM = "master: x X1 item"
 

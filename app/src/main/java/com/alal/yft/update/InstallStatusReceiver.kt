@@ -11,7 +11,7 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 
 /**
- * Android's answer about an update session (§4.4 step 7), sent through the PendingIntent YFT gave
+ * Android's answer about an update session, sent through the PendingIntent YFT gave
  * the session. Not exported: nothing else can reach it. `STATUS_PENDING_USER_ACTION` carries
  * Android's confirmation, which YFT starts only while it is in front ([UpdateAutoOpen]).
  */

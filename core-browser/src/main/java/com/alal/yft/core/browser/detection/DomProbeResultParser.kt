@@ -44,7 +44,7 @@ class DomProbeResultParser(
                     pageRole = PageMediaRole.PREVIEW.takeIf { item.looksLikePreview() },
                 )
                 val candidate = BrowserObservationMapper.fromDom(observation) ?: return@repeat
-                // P24: an Open Graph or Twitter stream that is a media file is the page's video.
+                // An Open Graph or Twitter stream that is a media file is the page's video.
                 val named = item.optNullableString("element") == "meta" &&
                     candidate.kind != MediaKind.UNKNOWN && candidate.pageRole == null
                 add(if (named) candidate.copy(pageRole = PageMediaRole.MAIN) else candidate)
@@ -53,7 +53,7 @@ class DomProbeResultParser(
     }
 
     /**
-     * P28: what the page states about its video ([PageFactsReader]), from the probe's `facts`
+     * What the page states about its video ([PageFactsReader]), from the probe's `facts`
      * entry; null when it states nothing or the probe sent none.
      */
     fun facts(pageUrl: String, javascriptResult: String?): PageVideoFacts? {
@@ -83,7 +83,7 @@ class DomProbeResultParser(
         return facts.takeUnless { it.isEmpty }
     }
 
-    /** P28: the files of the page's player setups, each setup's qualities one video. */
+    /** The files of the page's player setups, each setup's qualities one video. */
     private fun playerSetup(
         pageUrl: String,
         item: JSONObject,
@@ -130,13 +130,13 @@ class DomProbeResultParser(
     private fun JSONObject.optNullableString(name: String): String? =
         optString(name, "").trim().takeIf(String::isNotEmpty)
 
-    /** P24: a muted loop, or a clip in a link to another page or a thumbnail box. */
+    /** A muted loop, or a clip in a link to another page or a thumbnail box. */
     private fun JSONObject.looksLikePreview(): Boolean =
         optBoolean("muted", false) && optBoolean("loop", false) ||
             optBoolean("thumbnail", false)
 
     private companion object {
-        /** P28: the probe's entry with the page's facts and player scripts. */
+        /** The probe's entry with the page's facts and player scripts. */
         const val FACTS = "facts"
         const val MAX_META = 20
         const val MAX_META_LENGTH = 2_000

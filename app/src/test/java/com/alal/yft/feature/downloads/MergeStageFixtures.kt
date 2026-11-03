@@ -10,8 +10,8 @@ import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.download.StreamChunkCheckpoint
 
 /**
- * A merged download whose two tracks are in (1 GB), at [stage] with [stepDone] of [stepTotal]
- * (P27): for the card and notification tests.
+ * A merged download whose two tracks are in (1 GB), at [stage] with [stepDone] of [stepTotal]:
+ * for the card and notification tests.
  */
 internal fun mergedTask(
     id: String,

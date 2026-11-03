@@ -48,11 +48,17 @@ data class StoredDownloadTask(
     val createdAtEpochMs: Long,
     val updatedAtEpochMs: Long,
     /**
-     * The whole failure behind [failureReason] (P21): its stage, HTTP status and detail. Null
+     * The whole failure behind [failureReason]: its stage, HTTP status and detail. Null
      * when the task has not failed or when only the reason is known; a failure whose reason is
      * not [failureReason] is out of date and is not shown.
      */
     val failure: DownloadFailure? = null,
+    /**
+     * An estimate of the whole size while [totalBytes] is unknown, from the engine's progress
+     * ([com.alal.yft.core.model.download.DownloadProgress.estimatedTotalBytes]), for a live
+     * stream that has ended. In memory only: it is not saved, and null when there is none.
+     */
+    val estimatedTotalBytes: Long? = null,
 ) {
     init {
         require(id.isNotBlank())
@@ -62,8 +68,8 @@ data class StoredDownloadTask(
         require(totalBytes == null || downloadedBytes <= totalBytes)
         require(preferredSegmentCount in 1..32)
         require(planType.accepts(checkpoint))
-        // A running DASH or merged task may show the bytes written since its last checkpoint
-        // (P41); a completed task the bytes of the file it published (D1 follow-ups 3 and 4);
+        // A running DASH or merged task may show the bytes written since its last checkpoint;
+        // a completed task the bytes of the file it published;
         // every other task shows exactly what its checkpoint keeps.
         require(
             checkpoint.downloadedBytes == downloadedBytes ||
@@ -134,7 +140,7 @@ class RoomDownloadTaskStore(
     private fun DownloadRecordWithSegments.toStoredTask(): StoredDownloadTask {
         val planType = enumValueOrDefault(record.planType, DownloadPlanType.DIRECT)
         val status = enumValueOrDefault(record.status, DownloadTaskStatus.FAILED)
-        // D1 follow-ups 3 and 4: a completed task keeps the size of the file it published, saved
+        // A completed task keeps the size of the file it published, saved
         // as both its total and its downloaded bytes. A row saved before saved its checkpoint's
         // bytes, so it shows what it showed.
         val publishedBytes = record.totalBytes
@@ -183,7 +189,7 @@ class RoomDownloadTaskStore(
     }
 
     /**
-     * D1 follow-up 4: a [published] record's total is the size of the file it published (an MP3
+     * A [published] record's total is the size of the file it published (an MP3
      * or M4A made from the download may be smaller or larger than it), so its checkpoint's total
      * is the bytes it downloaded: what the finished download verified.
      */
@@ -258,12 +264,12 @@ class RoomDownloadTaskStore(
     ): T = enumValues<T>().firstOrNull { it.name == value } ?: fallback
 }
 
-/** Stream tasks whose shown bytes move between checkpoints (P41). */
+/** Stream tasks whose shown bytes move between checkpoints. */
 internal val DownloadPlanType.showsBytesInFlight: Boolean
     get() = this == DownloadPlanType.DASH || this == DownloadPlanType.AUDIO_VIDEO_MUX
 
 /**
- * D1 follow-ups 3 and 4: a completed task shows the size of the file it published, as both its
+ * A completed task shows the size of the file it published, as both its
  * downloaded and its total bytes, for every plan type: the MP4 or M4A made from HLS pieces (or a
  * kept .ts, .aac or .mp3), the MP3 or M4A made from a direct download, a merged video, a DASH
  * file. Its checkpoint keeps what was downloaded; a plain direct download published exactly
@@ -280,7 +286,7 @@ internal fun DownloadPlanType.accepts(checkpoint: TransferCheckpoint): Boolean =
 }
 
 /**
- * The `last_error_detail` column (P21): "STAGE|HTTP status|detail", each part empty when unknown.
+ * The `last_error_detail` column: "STAGE|HTTP status|detail", each part empty when unknown.
  * The reason stays in `last_error_code`; the detail is cleaned again when it is read.
  */
 internal object FailureDetailCodec {
@@ -301,7 +307,7 @@ internal object FailureDetailCodec {
         return listOf(
             failure.stage?.name.orEmpty(),
             failure.httpStatusCode?.toString().orEmpty(),
-            // The start times (P41) follow the detail; a payload saved before has none.
+            // The start times follow the detail; a payload saved before has none.
             startTimeline?.let { "$detail$SEPARATOR$it" } ?: detail,
         ).joinToString(SEPARATOR)
     }

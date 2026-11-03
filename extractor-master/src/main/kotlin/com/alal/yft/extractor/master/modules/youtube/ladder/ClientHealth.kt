@@ -4,14 +4,14 @@ import com.alal.yft.extractor.api.json.JsonValue
 import com.alal.yft.extractor.master.solver.OwnSolverTextFile
 
 /**
- * Phase 1.3 D3 — health v2 (MASTER_KEY_PHASE1_3_PLAN.md §4 D3; guardrails 4, 5, 7 and 8).
+ * YouTube ladder: the clients' health, saved on the phone.
  *
  * Per client of the table ([MasterClientTable] ids only): the last class and its time, the last
  * pass, the cooldown end, the working variant (the rung that answered), the learned version (a
  * public version string with its source and time) and the L shape maps (shape fingerprint → key
  * paths only), with counts. Also the version-source clock (at most one fetch a day per identity)
  * and the bot-check window (30 min) that blocks only the rungs that send requests — A, O, S's
- * re-ask and a version source ((က+), guardrail 4) — never L, Z, V, the init check, H or a local S.
+ * re-ask and a version source — never L, Z, V, the init check, H or a local S.
  *
  * Cooldowns (v1): `REFUSED` 1 h; `SABR_ONLY`, `TOKEN_NEEDED`, `VERSION_REJECTED` and
  * `SHAPE_CHANGED` 24 h. A class a rung repaired (A, S, Z, L, H) counts as a pass with that rung as
@@ -139,7 +139,7 @@ internal class ClientHealth(
     fun firstCooling(ids: List<String>): String? =
         if (botChecked()) null else ids.filter(::cooling).minByOrNull { clients[it]?.cooldownUntil ?: Long.MAX_VALUE }
 
-    /** Keeps a version that answered OK with a V-passed row (guardrail 5): public text only. */
+    /** Keeps a version that answered OK with a V-passed row: public text only. */
     @Synchronized
     fun learn(id: String, version: String, source: String) {
         if (id !in IDS || !VERSION.matches(version) || !WORD.matches(source)) return
@@ -163,7 +163,7 @@ internal class ClientHealth(
     @Synchronized
     fun learnedVersion(id: String): String? = load().clients[id]?.learnedVersion
 
-    /** L step 7: the located key paths for [fingerprint] (paths only, bounded). */
+    /** The YouTube shape reader's located key paths for [fingerprint] (paths only, bounded). */
     @Synchronized
     fun rememberShape(id: String, fingerprint: String, paths: Collection<String>) {
         if (id !in IDS || !FINGERPRINT.matches(fingerprint)) return
@@ -180,7 +180,7 @@ internal class ClientHealth(
     fun shape(id: String, fingerprint: String): List<String>? = load().clients[id]?.shapes?.get(fingerprint)
 
     /**
-     * Phase 1.4 item 4: the player ID the page named in the last successful lookup (public: the
+     * The player ID the page named in the last successful lookup (public: the
      * player script's version label, never an address); S's fallback when a page names none.
      */
     @Synchronized
@@ -201,7 +201,7 @@ internal class ClientHealth(
         if (load().clients[id]?.shapes?.remove(fingerprint) != null) save()
     }
 
-    /** The version-source clock: at most one fetch a day per identity (guardrails 5 and 7). */
+    /** The version-source clock: at most one fetch a day per identity. */
     @Synchronized
     fun maySourceRead(id: String): Boolean = load().sourceReads[id]?.let { clock() - it >= DAY_MILLIS } ?: true
 
@@ -213,7 +213,7 @@ internal class ClientHealth(
     }
 
     /**
-     * A's read of [id]'s version source (D5a): true — and the day's read spent — when it may read
+     * A's read of [id]'s version source: true — and the day's read spent — when it may read
      * now, false when it read in the last day; claimed before the read, so a failed read spends it too.
      */
     @Synchronized

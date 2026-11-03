@@ -18,7 +18,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Phase 1 R2: the engine's stops before any capture widening. */
+/** Backup finder: the engine's stops before any capture widening. */
 class SafetyGapsTest {
     private val enabled = MasterPolicy(enabled = true)
     private val media = "https://cdn.example.test/main.mp4"

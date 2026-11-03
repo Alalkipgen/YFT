@@ -42,6 +42,8 @@ import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.DownloadFailureStage
 import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.settings.DownloadLocation
+import com.alal.yft.detection.Av1Decoders
+import com.alal.yft.detection.Av1MergeSwitch
 import com.alal.yft.download.policy.TransferNetworkState
 import com.alal.yft.feature.library.AppPrivateDownloadProvider
 import com.alal.yft.feature.library.FixedMediaDetails
@@ -277,8 +279,8 @@ class DownloadsScreenTest {
     }
 
     /**
-     * P21: Details shows why and where a download failed; Copy details puts the same text on
-     * the clipboard, without the link or the address it failed on.
+     * Download queue: Details shows why and where a download failed; Copy details puts the same
+     * text on the clipboard, without the link or the address it failed on.
      */
     @Test
     fun failedTaskShowsItsDetailsAndCopiesThemWithoutLinks() {
@@ -321,7 +323,7 @@ class DownloadsScreenTest {
     }
 
     /**
-     * F6: a download whose link expired or was refused offers its details too, with the
+     * A download whose link expired or was refused offers its details too, with the
      * reason, the HTTP status and the link's facts, from its button and from its menu.
      */
     @Test
@@ -401,7 +403,7 @@ class DownloadsScreenTest {
             .assertIsDisplayed()
         composeRule.onNodeWithTag("downloads-pause-all").assertIsNotEnabled()
         composeRule.onAllNodesWithTag("download-action-retry-old").assertCountEquals(0)
-        // Item 7 Track B3: Reset YouTube session is offered on a YouTube refusal only.
+        // Reset YouTube session is offered on a YouTube refusal only.
         composeRule.onAllNodesWithTag("download-reset-youtube-old").assertCountEquals(0)
 
         composeRule.onNodeWithTag("download-action-delete-old").performClick()
@@ -410,9 +412,9 @@ class DownloadsScreenTest {
     }
 
     /**
-     * Item 7 Track B1: YouTube refused the download while its link had time left: the row says
-     * so instead of "Link expired" and says what to try instead of "reopen the page"; it offers
-     * removal and its details, no Retry (B3 adds Reset YouTube session, tested below).
+     * YouTube session reset: YouTube refused the download while its link had time left: the row
+     * says so instead of "Link expired" and says what to try instead of "reopen the page"; it
+     * offers removal and its details, no Retry (Reset YouTube session is tested below).
      */
     @Test
     fun aYouTubeRefusalSaysWhatToTryInsteadOfLinkExpired() {
@@ -459,7 +461,7 @@ class DownloadsScreenTest {
     }
 
     /**
-     * Item 7 Track B3: a download YouTube refused offers Reset YouTube session on its card and in
+     * A download YouTube refused offers Reset YouTube session on its card and in
      * its menu. It asks first: Cancel resets nothing, Reset resets once; no download changes.
      */
     @Test
@@ -733,6 +735,40 @@ class DownloadsScreenTest {
     }
 
     @Test
+    fun `a file the chosen folder could not take says where it went, once`() {
+        setScreen(
+            DownloadsUiState(
+                rows = listOf(
+                    row(
+                        "moved",
+                        DownloadTaskStatus.RUNNING,
+                        10,
+                        100,
+                        10,
+                        destinationKind = DownloadDestinationKind.MEDIA_STORE,
+                    ).copy(folderUnavailable = true),
+                    row("kept", DownloadTaskStatus.RUNNING, 10, 100, 10),
+                ),
+                storage = DownloadStorageSummary(
+                    location = DownloadLocation.CHOSEN_FOLDER,
+                    freeBytes = null,
+                    folderName = "Movies",
+                ),
+            ),
+        )
+
+        composeRule.onNodeWithTag("download-folder-note-moved", useUnmergedTree = true)
+            .assertTextEquals(
+                "The chosen folder can't be used, so this file is saved in Download/YFT.",
+            )
+        composeRule.onAllNodesWithTag("download-folder-note-kept", useUnmergedTree = true)
+            .assertCountEquals(0)
+        composeRule.onAllNodesWithText("The chosen folder", substring = true)
+            .assertCountEquals(1)
+        composeRule.onNodeWithText("Movies").assertIsDisplayed()
+    }
+
+    @Test
     fun networkNoticeExplainsWhyWorkWaitsAndLeadsToSettings() {
         var settingsOpened = 0
         val waiting = row(
@@ -779,7 +815,7 @@ class DownloadsScreenTest {
 
     @Test
     fun aRunningDownloadShowsThePictureSavedWhenItStartedUntilTheFileHasAFrame() {
-        // P19: "run" has a saved picture, "plain" none; "done" is finished, its file has no
+        // "run" has a saved picture, "plain" none; "done" is finished, its file has no
         // frame (yet): the saved picture stays until it has.
         val saved = object : DownloadThumbnails by DownloadThumbnails.None {
             override suspend fun load(downloadId: String): ImageBitmap? =
@@ -812,7 +848,7 @@ class DownloadsScreenTest {
         pictures("done").assertCountEquals(1)
     }
 
-    /** Decision 30 (v): a quiet build's Details only with Show details; its Retry stays. */
+    /** Quiet details: a quiet build's Details only with Show details; its Retry stays. */
     @Test
     fun aQuietBuildHidesAFailuresDetailsAndKeepsItsRetry() {
         setScreen(DownloadsUiState(listOf(failedRow())), quiet = true)
@@ -825,8 +861,8 @@ class DownloadsScreenTest {
     }
 
     /**
-     * Track E (E-D6): a "Link expired" download whose page YFT can look up again says Retry gets
-     * a fresh link and offers Retry; the tap goes to the queue as any Retry.
+     * Fresh link renewal: a "Link expired" download whose page YFT can look up again says Retry
+     * gets a fresh link and offers Retry; the tap goes to the queue as any Retry.
      */
     @Test
     fun aRenewableExpiredLinkOffersRetryAndSaysWhatItDoes() {
@@ -857,7 +893,41 @@ class DownloadsScreenTest {
         assertEquals(listOf(DownloadAction.RETRY to "renew"), actions)
     }
 
-    /** Track E: a download that got a fresh link offers Details while it runs, without links. */
+    /**
+     * A "Link expired" download whose page, read again, had no player data (a notice, a
+     * check) says to reopen the page in the browser, since Retry would read it the same way;
+     * Retry stays.
+     */
+    @Test
+    fun anExpiredLinkWhosePageHadNoPlayerSaysToReopenThePage() {
+        val actions = mutableListOf<Pair<DownloadAction, String>>()
+        setScreen(
+            DownloadsUiState(
+                listOf(
+                    row(
+                        id = "notice",
+                        status = DownloadTaskStatus.NEEDS_REFRESH,
+                        downloaded = 1_024,
+                        total = 4_096,
+                        progressPercent = 25,
+                        requiresLinkRefresh = true,
+                        failureReason = DownloadFailureReason.EXPIRED_URL,
+                    ).copy(canRenew = true, noPlayerOnPage = true),
+                ),
+            ),
+            onAction = { action, id -> actions += action to id },
+        )
+
+        composeRule.onNodeWithText("Link expired").assertIsDisplayed()
+        composeRule.onNodeWithTag("download-refresh-note-notice", useUnmergedTree = true)
+            .assertIsDisplayed()
+            .assertTextEquals(REOPEN_PAGE_NOTE)
+        composeRule.onNodeWithTag("download-action-retry-notice").performClick()
+
+        assertEquals(listOf(DownloadAction.RETRY to "notice"), actions)
+    }
+
+    /** A download that got a fresh link offers Details while it runs, without links. */
     @Test
     fun aDownloadThatGotAFreshLinkShowsItsDetailsWhileItRuns() {
         setScreen(
@@ -890,7 +960,7 @@ class DownloadsScreenTest {
         composeRule.onAllNodesWithTag("download-menu-details-plain").assertCountEquals(0)
     }
 
-    /** Decision 30 (v): a quiet build keeps a renewed download's Details behind Show details. */
+    /** Quiet details: a quiet build keeps a renewed download's Details behind Show details. */
     @Test
     fun aQuietBuildHidesARenewedDownloadsDetails() {
         setScreen(
@@ -907,6 +977,69 @@ class DownloadsScreenTest {
         composeRule.onNodeWithTag("download-run").performClick()
         composeRule.onAllNodesWithTag("download-menu-details-run").assertCountEquals(0)
     }
+
+    /**
+     * AV1 merge switch: while a debug build's AV1 merges are on, a finished merge offers Details,
+     * which end with the phone's AV1 decoders; a finished download that is no merge has none, and
+     * once the switch is off (read again as the menu opens) neither has the merge.
+     */
+    @Test
+    fun aFinishedMergeShowsItsDetailsWhileAv1MergesAreOn() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        Av1MergeSwitch.install(context, built = true)
+        Av1MergeSwitch.set(context, true)
+        try {
+            setScreen(DownloadsUiState(listOf(finishedMerge(), finished("direct"))))
+
+            composeRule.onNodeWithTag("download-direct").performClick()
+            composeRule.onAllNodesWithTag("download-menu-details-direct").assertCountEquals(0)
+            composeRule.onNodeWithTag("download-menu-play-direct").performClick()
+            composeRule.onNodeWithTag("download-merged").performClick()
+            composeRule.onNodeWithTag("download-menu-details-merged").performClick()
+
+            composeRule.onNodeWithText("Download details").assertIsDisplayed()
+            composeRule.onNodeWithTag("download-failure-text", useUnmergedTree = true)
+                .assert(hasText("Status: COMPLETED", substring = true))
+                .assert(hasText("Download type: Merge (audio + video)", substring = true))
+                .assert(hasText(Av1Decoders.LABEL, substring = true))
+            composeRule.onNodeWithTag("download-failure-close").performClick()
+            // The switch off: the next time the menu opens, no Details.
+            Av1MergeSwitch.set(context, false)
+            composeRule.onNodeWithTag("download-merged").performClick()
+            composeRule.onNodeWithTag("download-menu-play-merged").assertIsDisplayed()
+            composeRule.onAllNodesWithTag("download-menu-details-merged").assertCountEquals(0)
+        } finally {
+            Av1MergeSwitch.set(context, false)
+            Av1MergeSwitch.install(context, built = false)
+        }
+    }
+
+    /** Quiet details: a quiet build has no finished merge's Details, AV1 switch or not. */
+    @Test
+    fun aQuietBuildHidesAFinishedMergesDetails() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        Av1MergeSwitch.install(context, built = true)
+        Av1MergeSwitch.set(context, true)
+        try {
+            setScreen(DownloadsUiState(listOf(finishedMerge())), quiet = true)
+
+            composeRule.onNodeWithTag("download-merged").performClick()
+            composeRule.onNodeWithTag("download-menu-play-merged").assertIsDisplayed()
+            composeRule.onAllNodesWithTag("download-menu-details-merged").assertCountEquals(0)
+        } finally {
+            Av1MergeSwitch.set(context, false)
+            Av1MergeSwitch.install(context, built = false)
+        }
+    }
+
+    private fun finishedMerge(): DownloadRowUiState =
+        finished("merged", planType = DownloadPlanType.AUDIO_VIDEO_MUX)
+
+    private fun finished(
+        id: String,
+        planType: DownloadPlanType = DownloadPlanType.DIRECT,
+    ): DownloadRowUiState =
+        row(id, DownloadTaskStatus.COMPLETED, 4_096, 4_096, 100, planType = planType)
 
     private fun setScreen(
         uiState: DownloadsUiState,

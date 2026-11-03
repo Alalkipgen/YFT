@@ -9,7 +9,7 @@ import com.alal.yft.extractor.master.toolkit.CandidateFactory
 import com.alal.yft.extractor.master.toolkit.UrlPolicy
 
 /**
- * L1: GET requests the browser made for this page, each with its own origin's context. R7: an
+ * Browser capture: GET requests the browser made for this page, each with its own origin's context. Playback hooks: an
  * address the focused player fed into its MediaSource counts as the focused video's, like the
  * playing address, and carries the picture size its init segment stated.
  */

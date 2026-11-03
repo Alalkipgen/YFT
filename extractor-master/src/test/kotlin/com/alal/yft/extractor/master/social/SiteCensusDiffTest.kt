@@ -6,7 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan 0.4 (b): the site census diff ([SiteCensusDiff]) over two made-up exports: one line
+ * The Site census diff ([SiteCensusDiff]) over two made-up exports: one line
  * per slot that changed, BREAKING for a worsening and CHANGED for any other difference; notes for
  * what was not compared; an older export's missing fields are not compared. No live calls.
  */
@@ -365,7 +365,7 @@ class SiteCensusDiffTest {
             v?.let { raw("v", SiteCensusJson.obj { field("verdict", it) }) }
         }
 
-    /** 0.4 (c): one of Master's asks: a 429 ([limited]) or a reading's [mark]. */
+    /** One of Master's asks: a 429 ([limited]) or a reading's [mark]. */
     private fun ask(limited: Boolean = false, mark: String? = null) = SiteCensusJson.obj {
         field("way", "embed player")
         field("m", "GET")

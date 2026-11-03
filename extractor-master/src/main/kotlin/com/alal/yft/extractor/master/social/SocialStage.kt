@@ -1,14 +1,15 @@
 package com.alal.yft.extractor.master.social
 
+import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.extractor.master.MasterPolicy
 import com.alal.yft.extractor.master.MasterRequest
 import com.alal.yft.extractor.master.MasterStage
 import com.alal.yft.extractor.master.PageSnapshot
 
 /**
- * Social plan S1a (3) (`MASTER_KEY_SOCIAL_PLAN.md` §7.3): a social site's ladder inside Master's
+ * Social ladders: a social site's ladder inside Master's
  * engine (Facebook's: [FacebookLadder]). For a lookup it [claims], its [stage] answers the
- * engine's first stage in place of R8's unjudged ask; the page data and the visible tab's own
+ * engine's first stage in place of the site contract reader's unjudged ask; the page data and the visible tab's own
  * playback (capture) follow as before. The engine without one: exactly as before.
  */
 interface SocialStage {
@@ -23,7 +24,7 @@ interface SocialStage {
     suspend fun stage(request: MasterRequest, policy: MasterPolicy, details: MutableList<String>): Staged?
 
     /**
-     * Social plan S4: for a lookup the ladder claims, its capture rung's off line ([RungsOff]: the
+     * Signed recipe config: for a lookup the ladder claims, its capture rung's off line ([RungsOff]: the
      * visible tab's own playback, F3, T3, X3 or I3) when the signed config in use turns it off —
      * the engine then asks no capture — else null (the capture as before). Asked after [stage].
      */
@@ -32,15 +33,21 @@ interface SocialStage {
     /**
      * A rung's answer: its [snapshot] (of the request's page and generation), read as [stage] for
      * [request] — the lookup's request with the video the rung asked about (a link main resolves
-     * first: the video main's resolved link names). Task 15 (F4): [last] — the ladder's last word
+     * first: the video main's resolved link names). [last] — the ladder's last word
      * for the lookup: after [snapshot] no other stage runs (no page data, no capture of the tab),
      * and a lookup it leaves without rows needs the user's playback with the ladder's lines only
      * (Instagram's rung proof, when it set I2's rows aside and the rung gave none). Every other
-     * answer: false, as before. Agent D's wiring (VK-Master plan §8): [checked] — told once, after
-     * the engine's media checks (V) of [snapshot]'s rows, whether any passed (false when the
-     * engine stopped before or V refused them all), so a rung keeps a healed value only after V
-     * passed its rows (VK's V2). It never changes the answer; one that throws is ignored. Null for
-     * every other rung, as before.
+     * answer: false, as before. [checked] — told once, after
+     * the engine's media checks (Row check) of [snapshot]'s rows, whether any passed (false when the
+     * engine stopped before or the Row check refused them all), so a rung keeps a healed value only after the Row check
+     * passed its rows (VK's heal step, `vk V2` in Lookup details). It never changes the answer; one that throws is ignored. Null for
+     * every other rung, as before. [pick] (best first per height) — the rows the Row check passed (each with its file's own
+     * total and length, [SocialRowCheck]) in the order the answer offers them, or fewer
+     * (Instagram's rungs: each height's best first, [RowPick]); it may only choose among them, else
+     * (or when it keeps none) they stay as the Row check passed them. Weak-answer fill (
+     * [SocialFill]): [admit] — whether a row goes to the Row check at all (the fill's run: only a row that may fill
+     * what main's answer lacks; another is never read). Null for every other rung and run: every
+     * row passed is kept and every row is checked, as before.
      */
     class Staged(
         val stage: MasterStage,
@@ -48,13 +55,19 @@ interface SocialStage {
         val request: MasterRequest,
         val last: Boolean = false,
         val checked: ((Boolean) -> Unit)? = null,
-    )
+        val pick: ((List<MediaCandidate>) -> List<MediaCandidate>)? = null,
+        val admit: ((MediaCandidate) -> Boolean)? = null,
+    ) {
+        /** This answer with [admit] (the Weak-answer fill's run), everything else as it is. */
+        fun admitting(admit: (MediaCandidate) -> Boolean): Staged =
+            Staged(stage, snapshot, request, last, checked, pick, admit)
+    }
 }
 
 /**
- * Social plan S2b (`MASTER_KEY_SOCIAL_PLAN.md` §7.3): a build's social ladders as one stage
+ * Social ladders: a build's social ladders as one stage
  * (Facebook's, TikTok's). A lookup is the first ladder's that [claims] it (each claims only its own
- * site's lookups); one no ladder claims keeps the engine's own path (R8's ask), as before.
+ * site's lookups); one no ladder claims keeps the engine's own path (the site contract reader's ask), as before.
  */
 class SocialStages(private val stages: List<SocialStage>) : SocialStage {
     override suspend fun claims(request: MasterRequest): Boolean = stages.any { it.claims(request) }

@@ -3,7 +3,7 @@ package com.alal.yft.extractor.master.solver
 import com.alal.yft.extractor.api.PlayerScriptRunner
 
 /**
- * Phase 1.1 S5: which player-script runner YouTube gets.
+ * YouTube own solver: which player-script runner YouTube gets.
  *
  * The own runner is used only when both opt-in flags are on (`-Pyft.ownSolver` and
  * `-Pyft.masterCapture`); otherwise main's ejs runner is used, exactly as main builds it. Only

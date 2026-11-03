@@ -10,7 +10,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** P6: 2K and 4K rows are checked against the phone's decoders before they are downloaded. */
+/** 2K and 4K rows are checked against the phone's decoders before they are downloaded. */
 class VideoPlaybackSupportTest {
     @Test
     fun codecsNameTheDecoderTheyNeed() {

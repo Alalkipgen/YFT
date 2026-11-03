@@ -13,7 +13,7 @@ import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * Phase 1.2 N7 (owner's option b): one ladder step on one player build for the phone canary, the
+ * Solver canary: one ladder step on one player build for the phone canary, the
  * debug build's owner tool "YFT solver canary" only. Nothing on a user's path makes one.
  *
  * [run] builds the step's job exactly as [OwnPlayerScriptRunner] builds it with ownSolverNext when
@@ -26,11 +26,11 @@ import kotlinx.coroutines.withTimeoutOrNull
  * or a gone renderer turns the step off until the process restarts; a step whose signatures V
  * failed answers no signature.
  *
- * The time ([Summary.totalMillis], the N7 "hit": from sending the job to its reply, the engine's
+ * The time ([Summary.totalMillis], the canary's "hit": from sending the job to its reply, the engine's
  * cold start included; [Summary.readyMillis]: until the page took the job) starts after the marker
  * is written and stops before it is cleared. A run whose engine gave no readable reply (none, a
  * timeout, a gone renderer, an unreadable one) is [Run.stopped]: the canary goes no further. A
- * reply with an error class or out of time ([Summary.budget]), or a step not run, is not (N7).
+ * reply with an error class or out of time ([Summary.budget]), or a step not run, is not.
  *
  * Locator parts are kept per player build and worker step ([workerP], [workerB]: P's and B's part
  * of a kind, and the builds of one player version, never replace each other) and learned with
@@ -80,7 +80,7 @@ class OwnSolverProbe(
     ) {
         /**
          * No readable reply (the engine's health): the canary stops here. An error class, a run
-         * out of time and a step not run do not stop it (N7: the phone's B1 stopped everything).
+         * out of time and a step not run do not stop it (they once stopped everything on the phone).
          */
         val stopped: Boolean get() = outcome in NO_REPLY
     }

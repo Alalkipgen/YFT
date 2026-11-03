@@ -17,10 +17,10 @@ import com.alal.yft.core.browser.policy.BrowserAddressNormalizer
 import java.io.ByteArrayInputStream
 
 /**
- * The browser's page loads and requests. With a [guard] (P32) a navigation the page started to
+ * The browser's page loads and requests. With a [guard] a navigation the page started to
  * another site or to a pop-up ad network is blocked and reported to the sink, and the scripts of
  * the listed networks get an empty answer; without one every web address loads as before.
- * P40: [pageStartScript] is a script a page gets when it starts, for a WebView that cannot add
+ * [pageStartScript] is a script a page gets when it starts, for a WebView that cannot add
  * scripts at document start (null: none).
  */
 class SecureBrowserWebViewClient(
@@ -61,7 +61,7 @@ class SecureBrowserWebViewClient(
         return true
     }
 
-    /** P32: the guard's answer for a page's navigation; a blocked one is reported and stays. */
+    /** The guard's answer for a page's navigation; a blocked one is reported and stays. */
     private fun blocks(view: WebView, url: String, request: WebResourceRequest): Boolean {
         val blocked = guard?.blockedNavigation(
             url = url,
@@ -133,7 +133,7 @@ class SecureBrowserWebViewClient(
                 observedAtEpochMs = clock(),
             ),
         )
-        // P32: a listed network's script, frame or image is empty; the page's own ads stay.
+        // A listed network's script, frame or image is empty; the page's own ads stay.
         val blocked = !request.isForMainFrame && guard?.blocksResource(request.url.host) == true
         return if (blocked) emptyAnswer() else null
     }

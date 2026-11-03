@@ -33,8 +33,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * P40: the page script on a real WebView, over sanitized fixtures (invented ids and addresses)
- * served at https://fixture.yft.test by the test itself. Offline: nothing is fetched.
+ * TikTok page reader: the page script on a real WebView, over sanitized fixtures (invented ids and
+ * addresses) served at https://fixture.yft.test by the test itself. Offline: nothing is fetched.
  *
  * The tab reads TikTok's own data (the page's script and the API answers its own code got),
  * the page still gets its answers unchanged, and the hidden page finds a post (or gives up

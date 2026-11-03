@@ -26,10 +26,10 @@ import okhttp3.Request
 import org.json.JSONObject
 
 /**
- * Phase 1.2 N2 phone measurement (MASTER_KEY_PHASE1_2_PLAN.md §2 "Live check V in more detail"):
- * how YouTube answers one stream address with the right `n`, an unchanged `n`, a wrong `n` and a
- * wrong signature. Each variant reads the first 1 MiB at most; the report holds its status class,
- * the bytes read and the time, and the `n` rule it suggests.
+ * Stream check meter, a phone measurement: how YouTube answers one stream address with the
+ * right `n`, an unchanged `n`, a wrong `n` and a wrong signature. Each variant reads the first
+ * 1 MiB at most; the report holds its status class, the bytes read and the time, and the
+ * `n` rule it suggests.
  *
  * Debug build only, and only when the owner starts it: from `StreamCheckMeasureTest`
  * (`-e yft.streamCheckMeasure 1`) or from the owner tool `StreamCheckMeasureActivity` (no

@@ -25,7 +25,7 @@ enum class DownloadAction {
 
 /**
  * Statuses that still occupy the queue. `PAUSED` is excluded because a paused task holds no slot;
- * a task getting a fresh link keeps its slot (Track E).
+ * a task getting a fresh link keeps its slot.
  */
 internal val OCCUPYING_STATUSES = setOf(
     DownloadTaskStatus.QUEUED,
@@ -102,7 +102,7 @@ enum class DownloadsFilter(val label: String) {
 }
 
 /**
- * The step after a merged download's tracks are in (P27), with its percent when known: the
+ * The step after a merged download's tracks are in, with its percent when known: the
  * card and the notification say "Merging audio and video · 45%", then "Saving to … · 80%".
  */
 data class DownloadStage(
@@ -135,6 +135,8 @@ data class DownloadStorageSummary(
     val location: DownloadLocation,
     /** Null when the volume cannot be measured. */
     val freeBytes: Long?,
+    /** Save folder: the chosen folder's name, for [DownloadLocation.CHOSEN_FOLDER]. */
+    val folderName: String? = null,
 )
 
 /**
@@ -162,18 +164,39 @@ data class DownloadRowUiState(
     val bytesPerSecond: Long? = null,
     /**
      * The failure behind [failureReason] with its stage, HTTP status and detail when they are
-     * known (P21), for the Details dialog; null when the task has not failed.
+     * known, for the Details dialog; null when the task has not failed.
      */
     val failure: DownloadFailure? = failureReason?.let(::DownloadFailure),
-    /** Merging or saving after a merged download's tracks are in (P27); null otherwise. */
+    /** Merging or saving after a merged download's tracks are in; null otherwise. */
     val stage: DownloadStage? = null,
     /**
-     * Track E (E-D6): the app has this download's source in this session, so Retry on its
+     * Fresh link renewal: the app has this download's source in this session, so Retry on its
      * "Link expired" looks the page up again for a fresh link.
      */
     val canRenew: Boolean = false,
-    /** Track E: this download's fresh links ("Fresh link (403 at 41.0 MB): resumed at …"). */
+    /** This download's fresh links ("Fresh link (403 at 41.0 MB): resumed at …"). */
     val renewalLines: List<String> = emptyList(),
+    /**
+     * The page, read again for this download's last fresh link, had no player data (a
+     * notice, a check); Retry would read it the same way, so the hint says to reopen it.
+     */
+    val noPlayerOnPage: Boolean = false,
+    /**
+     * The quality the download was picked as ("1080p"), while the app holds it
+     * (this session, until it finishes); the meta line names it.
+     */
+    val pickedQuality: String? = null,
+    /**
+     * Save folder: the chosen folder could not be used, so this file went to the default
+     * place (this session); the row says so.
+     */
+    val folderUnavailable: Boolean = false,
+    /**
+     * An estimate of the whole size while [totalBytes] is unknown (a live stream that has
+     * ended), shown as "~236 MB"; the bar, the percent and the time left go by it, below 100%
+     * until the file is saved. Null otherwise.
+     */
+    val estimatedTotalBytes: Long? = null,
 ) {
     /** The file name without its extension, as the cards show it. */
     val title: String = YftFormat.title(displayName)
@@ -186,10 +209,15 @@ data class DownloadRowUiState(
 
     /**
      * Determinate fraction, or null when the remote size is unknown so the UI must not invent a
-     * determinate bar. While merging or saving it is that step's fraction (P27).
+     * determinate bar. While merging or saving it is that step's fraction.
      */
     val progressFraction: Float? = if (stage != null) {
         stage.percent?.let { percent -> (percent / 100f).coerceIn(0f, 1f) }
+    } else if (totalBytes == null && estimatedTotalBytes != null) {
+        estimatedTotalBytes
+            .takeIf { it > 0L }
+            ?.let { (downloadedBytes.toDouble() / it.toDouble()).toFloat() }
+            ?.coerceIn(0f, MAX_ESTIMATED_PERCENT / 100f)
     } else {
         totalBytes
             ?.takeIf { it > 0L }
@@ -200,9 +228,12 @@ data class DownloadRowUiState(
 
     val isTerminal: Boolean = status in TERMINAL_STATUSES
 
-    /** Seconds left at the current speed; null unless running with a known size and speed. */
+    /**
+     * Seconds left at the current speed; null unless running with a known (or estimated) size
+     * and a speed.
+     */
     val secondsLeft: Long? = run {
-        val total = totalBytes
+        val total = totalBytes ?: estimatedTotalBytes
         val speed = bytesPerSecond?.takeIf { it > 0L }
         if (status != DownloadTaskStatus.RUNNING || total == null || speed == null ||
             stage != null
@@ -233,7 +264,7 @@ data class DownloadsUiState(
     val network: TransferNetworkState = TransferNetworkState.ALLOWED,
     /** Save location and free space, or null until measured. */
     val storage: DownloadStorageSummary? = null,
-    /** The notifications and battery cards (P34). */
+    /** The notifications and battery cards. */
     val background: BackgroundCardsUiState = BackgroundCardsUiState.None,
 ) {
     val isEmpty: Boolean = rows.isEmpty()
@@ -251,8 +282,26 @@ data class DownloadsUiState(
         val Empty = DownloadsUiState()
 
         /**
-         * Rows for [tasks]; [bytesPerSecond] holds the measured speed of running tasks by id,
-         * [renewals] the downloads a Retry renews and their fresh links' lines (Track E).
+         * The rows' order: unfinished work first, the newest added first by
+         * [StoredDownloadTask.createdAtEpochMs], which only enqueueing sets, so progress writes and
+         * status changes never move a row; finished, failed, cancelled and expired rows below, the
+         * most recently changed first. A retried row returns to its place by when it was added;
+         * ties fall to the id, so they keep one order.
+         */
+        internal val ROW_ORDER: Comparator<StoredDownloadTask> =
+            compareBy<StoredDownloadTask> { it.status in TERMINAL_STATUSES }
+                .thenByDescending { task ->
+                    if (task.status in TERMINAL_STATUSES) {
+                        task.updatedAtEpochMs
+                    } else {
+                        task.createdAtEpochMs
+                    }
+                }
+                .thenBy { it.id }
+
+        /**
+         * Rows for [tasks] in [ROW_ORDER]; [bytesPerSecond] holds the measured speed of running
+         * tasks by id, [renewals] the downloads a Retry renews and their fresh links' lines.
          */
         fun from(
             tasks: List<StoredDownloadTask>,
@@ -260,13 +309,15 @@ data class DownloadsUiState(
             renewals: DownloadRenewals = DownloadRenewals.None,
         ): DownloadsUiState = DownloadsUiState(
             rows = tasks
-                .sortedWith(
-                    compareBy<StoredDownloadTask> { it.status in TERMINAL_STATUSES }
-                        .thenByDescending { it.updatedAtEpochMs }
-                        .thenBy { it.id },
-                )
+                .sortedWith(ROW_ORDER)
                 .map { task ->
                     val stage = DownloadStage.of(task)
+                    val estimate = task.estimatedTotalBytes
+                        ?.takeIf {
+                            task.totalBytes == null && stage == null &&
+                                task.status in PROGRESS_STATUSES
+                        }
+                        ?.coerceAtLeast(task.downloadedBytes)
                     DownloadRowUiState(
                         id = task.id,
                         displayName = task.displayName,
@@ -275,7 +326,9 @@ data class DownloadsUiState(
                         destinationKind = task.destinationKind,
                         downloadedBytes = task.downloadedBytes,
                         totalBytes = task.totalBytes,
-                        progressPercent = stage?.percent ?: task.progressPercent,
+                        progressPercent = stage?.percent
+                            ?: estimate?.let { estimatedPercentOf(task.downloadedBytes, it) }
+                            ?: task.progressPercent,
                         requiresLinkRefresh = task.requiresLinkRefresh,
                         failureReason = task.failureReason,
                         mimeType = task.mimeType,
@@ -288,8 +341,25 @@ data class DownloadsUiState(
                         stage = stage,
                         canRenew = task.id in renewals.renewable,
                         renewalLines = renewals.notes[task.id].orEmpty(),
+                        noPlayerOnPage = task.id in renewals.noPlayer,
+                        pickedQuality = renewals.qualities[task.id],
+                        folderUnavailable = task.id in renewals.folderUnavailable,
+                        estimatedTotalBytes = estimate,
                     )
                 },
         )
     }
 }
+
+/**
+ * Whole percent of [downloaded] in an estimated total, 0..99: a guess never reads 100% before
+ * the file is saved. Null without an estimate above zero.
+ */
+internal fun estimatedPercentOf(downloaded: Long, estimatedTotal: Long): Int? {
+    if (estimatedTotal <= 0L) return null
+    return (downloaded.coerceIn(0L, estimatedTotal) * 100 / estimatedTotal)
+        .toInt()
+        .coerceIn(0, MAX_ESTIMATED_PERCENT)
+}
+
+private const val MAX_ESTIMATED_PERCENT = 99

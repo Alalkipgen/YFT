@@ -9,8 +9,8 @@ import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
 
 /**
- * Social plan S1a (2) (`MASTER_KEY_SOCIAL_PLAN.md` §7.3): the pages main read in one lookup, for
- * Master's rungs that read without asking — F2 (L3 rows on the pages already read, no fetch) and
+ * Social ladders: the pages main read in one lookup, for
+ * Master's rungs that read without asking — the Facebook ladder's F2 (`facebook F2` in Lookup details; Shape search rows on the pages already read, no fetch) and
  * the links main resolves first (Master reads them through main's resolved link: the final
  * address main's page answer reached). One per lookup, carried in the lookup's coroutine context
  * next to its labelled `LookupRecord`, in memory only and dropped with the lookup.
@@ -24,17 +24,17 @@ import kotlin.coroutines.CoroutineContext
  * addresses only (no body). Nothing is logged; [toString] shows counts only, never an address or
  * a page.
  *
- * Social plan S2b: [site], the lookup's site (main's site ID: `facebook`, `tiktok`), so the rows'
- * check (V, `SocialRowCheck`) asks only that site's media hosts; null (a lookup built before S2b):
+ * TikTok ladder: [site], the lookup's site (main's site ID: `facebook`, `tiktok`), so the rows'
+ * check (Row check, `SocialRowCheck`) asks only that site's media hosts; null (a lookup built without one):
  * the check's own site.
  *
- * Social plan S2c: main's GETs that got no 2xx answer ([Refusal]: a 404, another status, a network
+ * X ladder: main's GETs that got no 2xx answer ([Refusal]: a 404, another status, a network
  * failure) are kept too, as their address, status and main's reason only (no page, no header, no
  * cookie), at most [maxPages] of them: X's ladder judges main's refused answer without asking again
- * (a 404 from X's widget: no post in its answer, never final on its own, task 0).
+ * (a 404 from X's widget: no post in its answer, never final on its own).
  *
- * Social plan S2d part 1: Instagram's four GETs (the app API when signed in, GraphQL, the post's
- * page, the embed page) fit [MAX_PAGES]; I2 reads each way's kept answer or refusal, no new ask.
+ * Instagram ladder: Instagram's four GETs (the app API when signed in, GraphQL, the post's
+ * page, the embed page) fit [MAX_PAGES]; I2 (`instagram I2` in Lookup details) reads each way's kept answer or refusal, no new ask.
  */
 class MainPages(
     private val maxPages: Int = MAX_PAGES,
@@ -55,7 +55,7 @@ class MainPages(
     }
 
     /**
-     * S2c: one of main's GETs that got no 2xx answer: the address asked, its status (null: no
+     * One of main's GETs that got no 2xx answer: the address asked, its status (null: no
      * answer, a network failure) and main's [reason] for it.
      */
     class Refusal(val url: String, val statusCode: Int?, val reason: SiteExtractionFailure) {
@@ -74,14 +74,14 @@ class MainPages(
     /** The final address of main's first listed 2xx GET of [url], or null. */
     fun finalUrlOf(url: String): String? = synchronized(lock) { listed.firstOrNull { it.url == url }?.finalUrl }
 
-    /** S2c: main's refused GETs in the order they came, at most [maxPages] (more are not kept). */
+    /** Main's refused GETs in the order they came, at most [maxPages] (more are not kept). */
     fun refusals(): List<Refusal> = synchronized(lock) { refused.toList() }
 
     /** Main's 2xx GET answers not listed (over [maxPages]). */
     val unlisted: Int get() = synchronized(lock) { unlistedTotal }
 
     /**
-     * S1a (3): the video Master reads for [identity], a link main resolves first (a share link, a
+     * The video Master reads for [identity], a link main resolves first (a share link, a
      * post; [SitePageIdentity.requiresCanonicalResolution]): the one video the final addresses of
      * main's listed page answers for it name ([identify]: the same site's, itself resolved). Null
      * when main read no such page in this lookup, none led to a video, or two led to different
@@ -97,7 +97,7 @@ class MainPages(
 
     /**
      * Main's answer [result] to its GET of [url] with [headers]: a success (2xx) is kept as a
-     * [Page]; S2c: a failure as a [Refusal] (no page).
+     * [Page]; a failure as a [Refusal] (no page).
      */
     internal fun note(url: String, headers: Map<String, String>, result: ExtractorHttpResult) {
         val success = when (result) {
@@ -129,8 +129,8 @@ class MainPages(
     companion object Key : CoroutineContext.Key<MainPages> {
         /**
          * More than main's Facebook GETs in one lookup (the public page, the page, the AVC ladder)
-         * and TikTok's (S2b: the phone page, the desktop page, the download service); X's one (S2c:
-         * the widget's answer); Instagram's four at most (S2d: the app API, GraphQL, the page, the
+         * and TikTok's (the phone page, the desktop page, the download service); X's one (
+         * the widget's answer); Instagram's four at most (the app API, GraphQL, the page, the
          * embed page).
          */
         const val MAX_PAGES = 4
@@ -139,8 +139,8 @@ class MainPages(
         const val MAX_CHARS = 8L * 1024 * 1024
 
         /**
-         * Social plan task 12 (observation g): for a rung's "none kept" line, how main's answer
-         * reached [record]'s lookup without main asking in it (P17's shared lookup: its remembered
+         * For a rung's "none kept" line, how main's answer
+         * reached [record]'s lookup without main asking in it (Lookup reuse's shared lookup: its remembered
          * answer, or another caller's running lookup, [LookupRecord.reuse]); empty when main asked.
          */
         internal fun unasked(record: LookupRecord): String =

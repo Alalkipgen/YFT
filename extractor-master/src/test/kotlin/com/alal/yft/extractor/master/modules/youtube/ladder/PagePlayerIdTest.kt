@@ -9,7 +9,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Phase 1.4 item 4: the last good player ID when the page names none (never after a bot check). */
+/** YouTube ladder: the last good player ID when the page names none (never after a bot check). */
 class PagePlayerIdTest {
     @Test
     fun `the copied reader reads the last good player ID put in front of a page that names none`() {

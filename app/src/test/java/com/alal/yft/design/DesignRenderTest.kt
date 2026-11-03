@@ -300,7 +300,7 @@ internal fun ShellPreview(activeDownloads: Int) {
             themeMode = ThemeMode.SYSTEM,
             onThemeModeChanged = {},
             modifier = it,
-            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _, _ ->
+            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _, _, _ ->
                 HomeScreen(
                     state = SAMPLE_HOME,
                     onAction = {},
@@ -323,7 +323,7 @@ internal fun DownloadsShellPreview() {
             themeMode = ThemeMode.SYSTEM,
             onThemeModeChanged = {},
             modifier = it,
-            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _, _ ->
+            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _, _, _ ->
                 HomeScreen(
                     state = SAMPLE_HOME,
                     onAction = {},
@@ -582,7 +582,7 @@ internal fun LibraryShellPreview() {
             themeMode = ThemeMode.SYSTEM,
             onThemeModeChanged = {},
             modifier = it,
-            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _, _ ->
+            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _, _, _ ->
                 HomeScreen(
                     state = SAMPLE_HOME,
                     onAction = {},
@@ -654,7 +654,7 @@ internal fun SettingsShellPreview() {
             themeMode = ThemeMode.SYSTEM,
             onThemeModeChanged = {},
             modifier = it,
-            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _, _ ->
+            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _, _, _ ->
                 HomeScreen(
                     state = SAMPLE_HOME,
                     onAction = {},

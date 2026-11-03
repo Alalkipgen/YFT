@@ -13,7 +13,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** P28: the live page's facts and player setup, as the DOM probe sends them. */
+/** The live page's facts and player setup, as the DOM probe sends them. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
 class DomProbeFactsTest {

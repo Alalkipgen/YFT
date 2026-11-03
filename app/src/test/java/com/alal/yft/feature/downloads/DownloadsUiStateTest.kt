@@ -3,6 +3,7 @@ package com.alal.yft.feature.downloads
 import com.alal.yft.core.download.DownloadDestinationKind
 import com.alal.yft.core.download.DownloadPlanType
 import com.alal.yft.core.download.StoredDownloadTask
+import com.alal.yft.core.model.download.AudioVideoMuxCheckpoint
 import com.alal.yft.core.model.download.DirectTransferCheckpoint
 import com.alal.yft.core.model.download.DownloadFailure
 import com.alal.yft.core.model.download.DownloadFailureReason
@@ -109,7 +110,7 @@ class DownloadsUiStateTest {
         assertEquals(DownloadFailureReason.NETWORK, row.failureReason)
     }
 
-    /** P21: the row carries the stored stage and detail for its Details dialog. */
+    /** Download queue: the row carries the stored stage and detail for its Details dialog. */
     @Test
     fun failedTaskKeepsItsFailureDetailsForTheDialog() {
         val failure = DownloadFailure(
@@ -175,19 +176,127 @@ class DownloadsUiStateTest {
     }
 
     @Test
-    fun unfinishedWorkIsOrderedBeforeTerminalWorkAndThenByRecency() {
-        val state = DownloadsUiState.from(
-            listOf(
-                directTask("done", DownloadTaskStatus.COMPLETED, 1, 1, updatedAt = 50),
-                directTask("old-running", DownloadTaskStatus.RUNNING, 1, 10, updatedAt = 10),
-                directTask("new-paused", DownloadTaskStatus.PAUSED, 1, 10, updatedAt = 40),
-                directTask("cancelled", DownloadTaskStatus.CANCELLED, 0, 10, updatedAt = 90),
-            ),
+    fun unfinishedWorkComesFirstNewestAddedFirstThenTerminalWorkByRecency() {
+        val tasks = listOf(
+            added("done", DownloadTaskStatus.COMPLETED, createdAt = 5, updatedAt = 50),
+            added("old-running", DownloadTaskStatus.RUNNING, createdAt = 10, updatedAt = 90),
+            added("new-paused", DownloadTaskStatus.PAUSED, createdAt = 30, updatedAt = 40),
+            added("cancelled", DownloadTaskStatus.CANCELLED, createdAt = 1, updatedAt = 90),
         )
 
+        assertEquals(listOf("new-paused", "old-running", "cancelled", "done"), order(tasks))
+    }
+
+    @Test
+    fun progressWritesNeverReorderTheActiveRows() {
+        val tasks = listOf(
+            added("first", DownloadTaskStatus.RUNNING, createdAt = 10, updatedAt = 100),
+            added("second", DownloadTaskStatus.RUNNING, createdAt = 20, updatedAt = 100),
+            added("third", DownloadTaskStatus.QUEUED, createdAt = 30),
+        )
+        val before = order(tasks)
+
+        var now = 100L
+        val written = (1..6).fold(tasks) { current, step ->
+            current.map { task ->
+                now += 7
+                when {
+                    task.id == "third" && step == 2 ->
+                        task.copy(status = DownloadTaskStatus.RUNNING, updatedAtEpochMs = now)
+                    task.id == "second" && step == 4 ->
+                        task.copy(status = DownloadTaskStatus.PAUSED, updatedAtEpochMs = now)
+                    task.status == DownloadTaskStatus.RUNNING -> added(
+                        task.id,
+                        task.status,
+                        createdAt = task.createdAtEpochMs,
+                        updatedAt = now,
+                        downloaded = task.downloadedBytes + step,
+                    )
+                    else -> task
+                }
+            }.also { assertEquals(before, order(it)) }
+        }
+
+        assertEquals(listOf("third", "second", "first"), before)
+        assertEquals(DownloadTaskStatus.PAUSED, written.single { it.id == "second" }.status)
+    }
+
+    @Test
+    fun aNewDownloadComesFirst() {
+        val running = listOf(
+            added("older", DownloadTaskStatus.RUNNING, createdAt = 10, updatedAt = 900),
+            added("newer", DownloadTaskStatus.RUNNING, createdAt = 20, updatedAt = 950),
+        )
+        val new = added("new", DownloadTaskStatus.QUEUED, createdAt = 30)
+
         assertEquals(
-            listOf("new-paused", "old-running", "cancelled", "done"),
-            state.rows.map(DownloadRowUiState::id),
+            listOf("new", "newer", "older"),
+            order(running + new),
+        )
+        assertEquals(
+            listOf("new", "newer", "older"),
+            order(listOf(new) + running.reversed()),
+        )
+    }
+
+    @Test
+    fun rowsAddedAtTheSameTimeKeepOneOrderWhateverChanges() {
+        val tasks = listOf(
+            added("b", DownloadTaskStatus.RUNNING, createdAt = 50, updatedAt = 70),
+            added("a", DownloadTaskStatus.RUNNING, createdAt = 50, updatedAt = 60),
+            added("c", DownloadTaskStatus.QUEUED, createdAt = 50),
+        )
+        val expected = listOf("a", "b", "c")
+
+        assertEquals(expected, order(tasks))
+        assertEquals(expected, order(tasks.reversed()))
+        assertEquals(
+            expected,
+            order(tasks.map { it.copy(updatedAtEpochMs = 1_000 - it.updatedAtEpochMs) }),
+        )
+    }
+
+    @Test
+    fun finishedAndFailedRowsGoBelowAndARetriedRowReturnsToItsPlace() {
+        val tasks = listOf(
+            added("oldest", DownloadTaskStatus.RUNNING, createdAt = 10, updatedAt = 500),
+            added("middle", DownloadTaskStatus.RUNNING, createdAt = 20, updatedAt = 500),
+            added("newest", DownloadTaskStatus.RUNNING, createdAt = 30, updatedAt = 500),
+        )
+        fun List<StoredDownloadTask>.change(
+            id: String,
+            edit: (StoredDownloadTask) -> StoredDownloadTask,
+        ) = map { if (it.id == id) edit(it) else it }
+
+        val middleFailed = tasks.change("middle") {
+            it.copy(
+                status = DownloadTaskStatus.FAILED,
+                failureReason = DownloadFailureReason.NETWORK,
+                updatedAtEpochMs = 600,
+            )
+        }
+        assertEquals(listOf("newest", "oldest", "middle"), order(middleFailed))
+
+        val newestDone = middleFailed.change("newest") {
+            it.copy(status = DownloadTaskStatus.COMPLETED, updatedAtEpochMs = 700)
+        }
+        assertEquals(listOf("oldest", "newest", "middle"), order(newestDone))
+
+        val middleRetried = newestDone.change("middle") {
+            it.copy(
+                status = DownloadTaskStatus.QUEUED,
+                failureReason = null,
+                updatedAtEpochMs = 800,
+            )
+        }
+        assertEquals(listOf("middle", "oldest", "newest"), order(middleRetried))
+
+        val oldestRenewingAndOneMore = middleRetried.change("oldest") {
+            it.copy(status = DownloadTaskStatus.RENEWING_LINK, updatedAtEpochMs = 900)
+        } + added("new", DownloadTaskStatus.QUEUED, createdAt = 40)
+        assertEquals(
+            listOf("new", "middle", "oldest", "newest"),
+            order(oldestRenewingAndOneMore),
         )
     }
 
@@ -292,8 +401,103 @@ class DownloadsUiStateTest {
         assertFalse(singleRow(directTask("v", DownloadTaskStatus.QUEUED, 0, null)).isAudio)
     }
 
+    @Test
+    fun anEndedLiveShowsItsPercentAndItsEstimatedTotal() {
+        val state = DownloadsUiState.from(
+            listOf(liveTask(DownloadTaskStatus.RUNNING, downloaded = MB_205, estimate = MB_236)),
+            bytesPerSecond = mapOf("live" to 2_516_582L),
+        )
+
+        val row = state.rows.single()
+        assertEquals(MB_236, row.estimatedTotalBytes)
+        assertNull(row.totalBytes)
+        assertEquals(86, row.progressPercent)
+        assertEquals(205f / 236f, row.progressFraction!!, 0.0001f)
+        assertEquals("86%", percentLabel(row))
+        assertEquals("205 of ~236 MB · 2.4 MB/s · 13 s left", progressDetail(row))
+        assertEquals("MP4", metaLabel(row))
+    }
+
+    @Test
+    fun anEstimatedTotalThatGrowsLowersThePercent() {
+        val grown = singleRow(
+            liveTask(DownloadTaskStatus.RUNNING, downloaded = MB_205, estimate = MB_260),
+        )
+
+        assertEquals(78, grown.progressPercent)
+        assertEquals("78%", percentLabel(grown))
+        assertEquals("205 of ~260 MB", progressDetail(grown))
+    }
+
+    @Test
+    fun anEstimateNeverReads100PercentBeforeTheFileIsSaved() {
+        val allIn = singleRow(
+            liveTask(DownloadTaskStatus.RUNNING, downloaded = MB_236, estimate = MB_236),
+        )
+        assertEquals(99, allIn.progressPercent)
+        assertEquals(0.99f, allIn.progressFraction!!, 0.0001f)
+        assertEquals("99%", percentLabel(allIn))
+        assertEquals("236 of ~236 MB", progressDetail(allIn))
+
+        // Saved: the real size, as for any finished download, and no estimate.
+        val saved = singleRow(
+            liveTask(
+                DownloadTaskStatus.COMPLETED,
+                downloaded = MB_235,
+                estimate = MB_236,
+                total = MB_235,
+            ),
+        )
+        assertNull(saved.estimatedTotalBytes)
+        assertEquals(100, saved.progressPercent)
+        assertEquals("MP4 · 235 MB", metaLabel(saved))
+    }
+
+    @Test
+    fun aLiveWithoutAnEstimateLooksAsBefore() {
+        val row = singleRow(
+            liveTask(DownloadTaskStatus.RUNNING, downloaded = MB_205, estimate = null),
+        )
+
+        assertNull(row.estimatedTotalBytes)
+        assertNull(row.progressFraction)
+        assertEquals(0, row.progressPercent)
+        assertNull(percentLabel(row))
+        assertEquals("Downloading · 205 MB", progressDetail(row))
+    }
+
+    @Test
+    fun aKnownTotalWinsOverAnEstimate() {
+        val row = singleRow(
+            liveTask(
+                DownloadTaskStatus.RUNNING,
+                downloaded = MB_205,
+                estimate = MB_236,
+                total = MB_260,
+            ),
+        )
+
+        assertNull(row.estimatedTotalBytes)
+        assertEquals(78, row.progressPercent)
+        assertEquals("205 of 260 MB", progressDetail(row))
+    }
+
     private fun singleRow(task: StoredDownloadTask): DownloadRowUiState =
         DownloadsUiState.from(listOf(task)).rows.single()
+
+    /** The ids of [tasks]' rows, in the order the list shows them. */
+    private fun order(tasks: List<StoredDownloadTask>): List<String> =
+        DownloadsUiState.from(tasks).rows.map(DownloadRowUiState::id)
+
+    /** A task added at [createdAt] and last written at [updatedAt]. */
+    private fun added(
+        id: String,
+        status: DownloadTaskStatus,
+        createdAt: Long,
+        updatedAt: Long = createdAt,
+        downloaded: Long = 1,
+    ): StoredDownloadTask =
+        directTask(id, status, downloaded, 1_000, updatedAt = updatedAt, createdAt = createdAt)
 
     private fun directTask(
         id: String,
@@ -303,6 +507,7 @@ class DownloadsUiStateTest {
         requiresLinkRefresh: Boolean = false,
         failureReason: DownloadFailureReason? = null,
         updatedAt: Long = 1_000,
+        createdAt: Long = 1,
     ): StoredDownloadTask = StoredDownloadTask(
         id = id,
         displayName = "clip-$id.mp4",
@@ -329,7 +534,7 @@ class DownloadsUiStateTest {
                 ),
             ),
         ),
-        createdAtEpochMs = 1,
+        createdAtEpochMs = createdAt,
         updatedAtEpochMs = updatedAt,
     )
 
@@ -359,4 +564,40 @@ class DownloadsUiStateTest {
         createdAtEpochMs = 1,
         updatedAtEpochMs = 1_000,
     )
+
+    /**
+     * A live stream's merged task, its tracks still coming, with the estimated total its
+     * progress reported.
+     */
+    private fun liveTask(
+        status: DownloadTaskStatus,
+        downloaded: Long,
+        estimate: Long?,
+        total: Long? = null,
+    ): StoredDownloadTask = StoredDownloadTask(
+        id = "live",
+        displayName = "live.mp4",
+        status = status,
+        planType = DownloadPlanType.AUDIO_VIDEO_MUX,
+        totalBytes = total,
+        downloadedBytes = downloaded,
+        mimeType = "video/mp4",
+        destinationKind = DownloadDestinationKind.MEDIA_STORE,
+        destinationUri = null,
+        preferredSegmentCount = 1,
+        requiresLinkRefresh = false,
+        failureReason = null,
+        checkpoint = AudioVideoMuxCheckpoint(),
+        createdAtEpochMs = 1,
+        updatedAtEpochMs = 1_000,
+        estimatedTotalBytes = estimate,
+    )
+
+    private companion object {
+        const val MB = 1_048_576L
+        const val MB_205 = 205 * MB
+        const val MB_235 = 235 * MB
+        const val MB_236 = 236 * MB
+        const val MB_260 = 260 * MB
+    }
 }

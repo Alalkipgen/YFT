@@ -29,9 +29,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * P43: the item-7 page of FIX_ADD_PLAN without an adapter: it states a 10:05 video, its player
- * setup names an HLS and an MP4 of it, and its player fetches a 30-second pre-roll first. The
- * sheet under test, with a resolver whose answers the test sets by address.
+ * Ad filter: a page without an adapter whose sheet once showed its pre-roll ad: it states a 10:05
+ * video, its player setup names an HLS and an MP4 of it, and its player fetches a 30-second
+ * pre-roll first. The sheet under test, with a resolver whose answers the test sets by address.
  */
 internal class AdSheetHarness {
     val store = DetectedMediaStore()
@@ -68,7 +68,7 @@ internal class AdSheetHarness {
         const val MAIN_LENGTH = 603_000L
         const val AD_LENGTH = 30_000L
 
-        /** A file the page's player setup names as its video (P28's key and role). */
+        /** A file the page's player setup names as its video (the Ad filter's key and role). */
         fun named(url: String, kind: MediaKind = MediaKind.DIRECT, at: Long = 1) = MediaCandidate(
             pageUrl = PAGE,
             mediaUrl = url,

@@ -15,8 +15,8 @@ import java.net.URI
 import java.util.Locale
 
 /**
- * P40: the page script asset ([ASSET]) that reads TikTok's own data for one post from a page
- * TikTok shows (the user's tab or the hidden page), and what its answers mean.
+ * TikTok page reader: the page script asset ([ASSET]) that reads TikTok's own data for one post
+ * from a page TikTok shows (the user's tab or the hidden page), and what its answers mean.
  *
  * The script is the same text everywhere; [store] installs its copy of TikTok's own API
  * answers at document start, [item] asks it for one post. Its answers hold signed media
@@ -26,7 +26,7 @@ object TikTokPageScript {
     const val ASSET = "tiktok/page-data.js"
     const val SITE_ID = "tiktok"
 
-    /** The origins whose pages get the store script (P40 step 3). */
+    /** The origins whose pages get the store script. */
     val ORIGINS: Set<String> = setOf("https://www.tiktok.com", "https://m.tiktok.com")
 
     /** The page whose cookies a TikTok row carries. */
@@ -119,7 +119,7 @@ object TikTokPageScript {
     }
 
     /**
-     * P40 step 2: the tab's [javascriptResult] for [postId] as the lookup's tab step, with the
+     * The tab's [javascriptResult] for [postId] as the lookup's tab step, with the
      * tab's TikTok [cookie]. [answered] false: the tab did not answer in time.
      */
     fun tabData(

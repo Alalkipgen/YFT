@@ -1,5 +1,5 @@
 /*
- * Provenance (social plan S2b, copied, not moved; main 34a41890; listed in toolkit-provenance.tsv):
+ * Provenance (TikTok ladder, copied, not moved; main 34a41890; listed in toolkit-provenance.tsv):
  *   extractor-sites/.../tiktok/TikTokPageParser.kt  kindOf (the login path, the home page),
  *                                        CHALLENGE_MARKERS (only without TikTok's data scripts)
  */
@@ -11,10 +11,10 @@ import com.alal.yft.extractor.master.recipes.TikTokStatusRecipe
 import java.net.URI
 
 /**
- * Social plan S2b (`MASTER_KEY_SOCIAL_PLAN.md` §6.2, §7.3): TikTok's judge, for T1's answer (the
+ * TikTok ladder: TikTok's judge, for T1's answer (`tiktok T1` in Lookup details; the
  * embed player, asked without the user's cookies) and each of main's pages T2 reads. As
  * Facebook's, conservative: one anonymous answer says nothing final about what the user may watch
- * (main's P46 rule: TikTok's status on one page is not final), so only a photo post and DRM end the
+ * (the TikTok adapter's rule: TikTok's status on one page is not final), so only a photo post and DRM end the
  * lookup, and only as the reader states them ([photo], [drm]: the recipe's own paths for the asked
  * video). Rows bound to the item ID win over any page signal. A 429 stops the site, as does a bot
  * check (a page without TikTok's data that asks to verify: the user answers it with Show check);

@@ -1,5 +1,5 @@
 /*
- * R9 (MASTER_KEY_PHASE1_PLAN.md): the signed envelope of a Master recipe config.
+ * Signed recipe config: the signed envelope of a Master recipe config.
  *   {"alg": "ES256", "payload": "<the config's JSON text>", "signature": "<hex DER>"}
  * The signature is ECDSA P-256 with SHA-256 over the payload's UTF-8 bytes, made with the owner's
  * private key (scripts/master-recipe-sign.sh); the build carries only the public key (X.509 DER as

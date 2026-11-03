@@ -21,9 +21,11 @@ import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.core.model.settings.pick
+import com.alal.yft.detection.DashSoundPairing
 import com.alal.yft.download.DownloadOrigin
 import com.alal.yft.download.EnqueueResult
 import com.alal.yft.download.PreviewDownloadStarter
+import com.alal.yft.download.SaveFolders
 import com.alal.yft.download.policy.DownloadNetworkPolicy
 import com.alal.yft.download.policy.NetworkStatusSource
 import com.alal.yft.download.policy.TransferNetworkState
@@ -54,6 +56,8 @@ class PreviewViewModel @Inject constructor(
     private val downloadStarter: PreviewDownloadStarter,
     private val downloadPreferences: DownloadPreferencesRepository,
     private val network: NetworkStatusSource,
+    /** Save folder: whether the chosen folder can still be used. */
+    private val saveFolders: SaveFolders = SaveFolders.None,
 ) : ViewModel() {
     private val mutableUiState = MutableStateFlow<PreviewUiState>(PreviewUiState.Empty)
     private var quality = QualityPreference.HIGHEST
@@ -64,13 +68,20 @@ class PreviewViewModel @Inject constructor(
         savesToSharedDownloads = sharedDownloadsSupported,
     )
 
-    /** Wi-Fi only and the save location, shown next to the Download button. */
+    /**
+     * Wi-Fi only and the save location, shown next to the Download button. A chosen folder that
+     * can no longer be used shows the default place, where the file goes then.
+     */
     val downloadOptions: StateFlow<PreviewDownloadOptions> = downloadPreferences.preferences
         .map { preferences ->
+            val folder = preferences.folder
+                ?.takeIf { preferences.location == DownloadLocation.CHOSEN_FOLDER }
+                ?.takeIf { saveFolders.usableInBackground(it) }
             PreviewDownloadOptions(
                 wifiOnly = preferences.unmeteredOnly,
                 savesToSharedDownloads = sharedDownloadsSupported &&
-                    preferences.location == DownloadLocation.SHARED_DOWNLOADS,
+                    preferences.location != DownloadLocation.APP_STORAGE,
+                folderName = folder?.name,
             )
         }
         .catch { emit(defaultOptions) }
@@ -210,7 +221,7 @@ class PreviewViewModel @Inject constructor(
     }
 
     /**
-     * Track E: the selected page file [asset] came from and [variant]'s file before its
+     * Fresh link renewal: the selected page file [asset] came from and [variant]'s file before its
      * conversion, so a link that dies after the download started can be renewed. Who looked
      * it up is not known here: the browser's rule. Null without a selection.
      */
@@ -267,7 +278,8 @@ class PreviewViewModel @Inject constructor(
         mutableUiState.value = PreviewUiState.Loading
         quality = currentPreferences().defaultQuality
         val result = try {
-            resolver.resolve(candidate)
+            // Sound pairing: a page's one-file DASH video qualities with their manifest's sound.
+            DashSoundPairing.pair(resolver.resolve(candidate), candidate)
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (_: Exception) {

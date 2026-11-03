@@ -15,7 +15,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** P24 (plan step 6): the sheet's failure follows what went wrong, and Details say where. */
+/** Page video finder: the sheet's failure follows what went wrong, and Details say where. */
 class QuickDownloadFailuresTest {
     @Test
     fun aSitesAnswerIsNamedByItsStatus() {
@@ -92,7 +92,7 @@ class QuickDownloadFailuresTest {
 
     @Test
     fun detailsEndWithTheErrorClassNameButNeverItsMessage() {
-        // P39: the exception's class name is the last Details line.
+        // TikTok adapter: the exception's class name is the last Details line.
         val timedOut = VariantResolutionResult.Failure(
             VariantResolutionFailure.NETWORK,
             step = ResolutionStep.MANIFEST,
@@ -110,8 +110,8 @@ class QuickDownloadFailuresTest {
 
     @Test
     fun detailsNameTheRequestAndWhatTheBrowserItselfGotForTheLink() {
-        // P45: the owner's 474 came from a HEAD; Details now say which request and what the
-        // browser's own engine answered for the same link.
+        // The owner's 474 came from a HEAD; Details now say which request and what the browser's
+        // own engine answered for the same link.
         val refused = VariantResolutionResult.Failure(
             VariantResolutionFailure.HTTP_STATUS,
             httpStatusCode = 474,

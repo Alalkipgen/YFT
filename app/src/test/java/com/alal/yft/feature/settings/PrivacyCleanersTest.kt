@@ -60,7 +60,7 @@ class PrivacyCleanersTest {
             publish(candidate.pageUrl, "Page", listOf(candidate))
         }
         val selection = PreviewSelectionStore().apply { select(candidate) }
-        // P17: a lookup remembered with the cleared session goes as well.
+        // Lookup reuse: a lookup remembered with the cleared session goes as well.
         val key = SiteLookupKey("fixture", "1", session = true)
         val lookups = SiteLookupCache().apply {
             put(key, SiteAdapterOutcome.Detected("fixture", listOf(candidate)), 1L)
@@ -75,7 +75,7 @@ class PrivacyCleanersTest {
 
     @Test
     fun sessionMediaCleanerDropsEveryDownloadsSourceAndItsRenewalLines() = runTest {
-        // Track E (E-D2): where a download came from goes with the cleared session.
+        // Fresh link renewal: where a download came from goes with the cleared session.
         val candidate = MediaCandidate(
             pageUrl = "https://example.test/watch",
             mediaUrl = "https://cdn.example.test/video.mp4?sig=secret",

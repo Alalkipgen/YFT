@@ -9,13 +9,14 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import com.alal.yft.feature.home.HOME_DOWNLOAD_LINK_KEY
 import com.alal.yft.ui.navigation.YftDestination
 
 /**
- * Opens the Updates screen by itself, once per found version (§4.5): at once when Home is in
+ * Opens the Updates screen by itself, once per found version: at once when Home is in
  * front, else at the next app open — never over another screen or a sheet, never as a dialog.
  * Back is "not now": the screen does not open again for that version. It also starts Android's
- * install confirmation once the checks passed (§4.4 step 7). Both are collected only while the app
+ * install confirmation once the checks passed. Both are collected only while the app
  * is in front, so nothing opens from the background: a confirmation that came then waits for it.
  */
 @Composable
@@ -30,10 +31,17 @@ fun UpdateAutoOpen(
     val pending = state.autoOpen
     LaunchedEffect(pending?.version?.name, route) {
         val update = pending ?: return@LaunchedEffect
-        when (route) {
-            // The graph is not set yet.
+        // The graph is not set yet.
+        if (route == null) return@LaunchedEffect
+        // Where the app is now, not where it was when this started: a tab asked for in the same
+        // frame (a download notification's tap, ShowRequestedTab) may have left Home already.
+        when (navController.currentDestination?.route) {
             null -> Unit
-            YftDestination.HOME.route -> {
+            // A link Home is about to look up (a share at a cold start; the browser's Download)
+            // comes first, as its sheet opens: the screen waits for the next open.
+            YftDestination.HOME.route -> if (homeHasALinkToLookUp(navController)) {
+                viewModel.deferAutoOpen()
+            } else {
                 viewModel.markOpened(update.version.name)
                 navController.navigate(YftDestination.UPDATES.route) { launchSingleTop = true }
             }
@@ -56,4 +64,9 @@ fun UpdateAutoOpen(
             viewModel.confirmFailed(request.sessionId)
         }
     }
+}
+
+private fun homeHasALinkToLookUp(navController: NavHostController): Boolean {
+    val home = navController.currentBackStackEntry ?: return false
+    return home.savedStateHandle.get<String>(HOME_DOWNLOAD_LINK_KEY) != null
 }

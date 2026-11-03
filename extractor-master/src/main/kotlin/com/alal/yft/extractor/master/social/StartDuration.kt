@@ -3,7 +3,7 @@ package com.alal.yft.extractor.master.social
 import com.alal.yft.extractor.master.verify.SegmentIndexReader
 
 /**
- * Social plan S1a (10): a file's length (its playing time) from the first bytes V read of it
+ * Social ladders: a file's length (its playing time) from the first bytes the Row check read of it
  * ([SocialRowCheck.START_BYTES]), for a row that states none: the plugin player's answer (F1)
  * names no length, and F2's rows state one only where the page does. ISO BMFF only, three ways:
  *
@@ -18,7 +18,7 @@ import com.alal.yft.extractor.master.verify.SegmentIndexReader
  * header, no ISO BMFF). Pure: never decodes, plays or asks anything, and nothing is logged.
  */
 internal object StartDuration {
-    /** The longest length counted (48 hours), as the R4 reader's. */
+    /** The longest length counted (48 hours), as the Media fingerprint reader's. */
     private const val MAX_SECONDS = 172_800L
     private const val MAX_BOXES = 256
 

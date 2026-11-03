@@ -54,7 +54,7 @@ class BrowserRequestContextTest {
 
     @Test
     fun aPagesLinkOnAnotherOriginIsAskedWithThePagesOriginAsOriginAndReferer() {
-        // P45: a link the page's markup or script names, before any request of it was seen.
+        // A link the page's markup or script names, before any request of it was seen.
         val context = BrowserRequestContext.pageLink(
             pageUrl = "https://www.tube.example.test/view_video?key=1",
             mediaUrl = "https://cdn.example.test/v/1/master.m3u8?token=t",

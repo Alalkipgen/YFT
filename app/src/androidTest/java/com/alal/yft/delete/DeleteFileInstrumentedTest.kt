@@ -46,7 +46,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * P42 on the CI emulator (API 34) with the real MediaStore: a small file saved through the
+ * On the CI emulator (API 34) with the real MediaStore: a small file saved through the
  * Download/YFT path, then Downloads → Delete file → Delete. MediaStore no longer finds it and
  * the record is gone. The JVM twin is `DownloadsViewModelDeleteFileTest`.
  */

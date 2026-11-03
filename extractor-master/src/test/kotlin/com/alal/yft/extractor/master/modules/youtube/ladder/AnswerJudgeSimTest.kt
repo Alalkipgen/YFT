@@ -20,7 +20,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Phase 1.3 D2 (MASTER_KEY_PHASE1_3_PLAN.md §4 D2): V7 in the simulator, live-backed.
+ * Answer change test: case V7 in the simulator, live-backed.
  *
  * visionOS refuses one client's way — the simulator's V7 ("not available on this app") or video
  * 6's "This video is not available" as the census saw it — and [AnswerJudge] calls it `REFUSED`,
@@ -28,7 +28,7 @@ import org.junit.Test
  * Android, MWEB, provisional) are asked as the census asks them: the watch page's signals, no
  * cookie or token, S on every protected row with the world's own solver, V on every row. A world
  * is complete when one rung gives a V-checked adaptive video and audio pair; the walk stops there.
- * MCF (plan §5.1) = a wrong row, or no complete rung although the world has one. Controls: T2's
+ * MCF (a Master-caused failure) = a wrong row, or no complete rung although the world has one. Controls: T2's
  * and T3's verdicts stop at visionOS with no O request; T3's removed video (main's unavailable
  * answer, `REFUSED` by the V7 rule) asks the O rungs, which refuse too, and stops with no row.
  * The lines go to `build/ladder-sim/v7-live-backed.txt` (never an address or value).
@@ -174,7 +174,7 @@ class AnswerJudgeSimTest {
         )
     }
 
-    /** One player request as the census makes it (R6's headers, no cookie), judged. */
+    /** One player request as the census makes it (the Master YouTube module's headers, no cookie), judged. */
     private suspend fun ask(world: SimWorld, profile: YouTubeClientProfile, signals: YouTubePageSignals): AnswerJudge.Verdict {
         val result = world.http.postJson(
             url = YouTubeUrls.innerTubeUrl(signals.apiKey),
@@ -203,7 +203,7 @@ class AnswerJudgeSimTest {
 
     /**
      * Each stream's address: a protected row's signature and every n through one player script
-     * request (the world's solver), appended and replaced as R6 does; a row S cannot give is dropped.
+     * request (the world's solver), appended and replaced as the module does; a row S cannot give is dropped.
      */
     private suspend fun addresses(
         world: SimWorld,

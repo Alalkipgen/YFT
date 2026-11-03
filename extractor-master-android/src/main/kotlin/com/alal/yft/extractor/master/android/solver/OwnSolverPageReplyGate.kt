@@ -1,7 +1,7 @@
 package com.alal.yft.extractor.master.android.solver
 
 /**
- * Phase 1.2 N4 (strategy E): which message from the page environment ends the run.
+ * Own-solver ladder (strategy E): which message from the page environment ends the run.
  *
  * Only the host page posts (its reply object exists only in frames of the app's origin), and it
  * posts once. The gate still checks every message: one from another frame or origin is ignored;

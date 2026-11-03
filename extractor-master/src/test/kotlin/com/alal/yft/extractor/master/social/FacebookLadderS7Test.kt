@@ -35,13 +35,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S1a (5), S7: stops and budgets for Facebook's ladder. No endpoint is asked twice in
+ * Social limits: stops and budgets for Facebook's ladder. No endpoint is asked twice in
  * a lookup, by main or by Master; a 429 or a bot check (the plugin player's, main's, a checkpoint
  * address) cools F1 for 30 minutes across lookups while F2 still reads main's pages; a bot check
  * main met stops F1's host in the lookup; the lookup's request, time and byte budgets (main's asks
  * and time included) stop F1 before it asks, and F1 reads at most the bytes and waits at most the
- * time left. Lines: short labels, never a link, an ID or a page's words. Main's real Facebook
- * adapter over synthetic pages, a fake clock; no live calls.
+ * time left. Lines: short labels, never a link, an ID or a page's words. Main's real
+ * Facebook adapter over synthetic pages, a fake clock; no live calls.
  */
 class FacebookLadderS7Test {
     @Test

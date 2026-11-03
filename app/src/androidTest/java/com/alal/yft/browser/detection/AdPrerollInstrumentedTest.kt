@@ -65,7 +65,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * P43 on a real WebView (FIX_ADD_PLAN item 7): a fixture page of a site without an adapter
+ * Ad filter on a real WebView: a fixture page of a site without an adapter
  * states a 10:05 video and its player setup names an HLS and an MP4 of it whose links answer
  * HTTP 410. Its player asks for an ad break by a query (`output=vast`) and fetches the
  * 30-second file the VAST answer names, from another site. The requests the page really made

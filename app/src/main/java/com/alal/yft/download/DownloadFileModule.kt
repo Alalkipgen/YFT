@@ -8,7 +8,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
-/** The deleter behind "Delete file" in Downloads and Delete in the Library (P42). */
+/** The deleter behind "Delete file" in Downloads and Delete in the Library. */
 @Module
 @InstallIn(SingletonComponent::class)
 object DownloadFileModule {

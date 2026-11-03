@@ -40,7 +40,7 @@ import org.junit.Test
 import com.alal.yft.extractor.sites.youtube.YouTubeExtractor as MainYouTubeExtractor
 
 /**
- * Phase 1.2 N5b A.8: the app's YouTube path as `SiteAdapterModule.provideSiteExtractors` builds
+ * Own-solver ladder: the app's YouTube path as `SiteAdapterModule.provideSiteExtractors` builds
  * it: main's reader (extractor-sites) through [YouTubeSignatureGuard], with the runner the app
  * builds (for ownSolverNext its stores on files). The core and the media server are scripted;
  * the reader, the guard, the gate, StreamCheck and the runner are the real ones.

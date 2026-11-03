@@ -15,10 +15,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S1a (2): [MainPageRecorder] keeps main's 2xx GET answers in the lookup's
+ * Social ladders: [MainPageRecorder] keeps main's 2xx GET answers in the lookup's
  * [MainPages] (the addresses, the status, the credentials flag and the page within the bound;
  * never a cookie the answer set) and only passes through without one, and for posts and file
- * checks. S2c: a refused GET only as its address, status and reason. Synthetic answers only; no
+ * checks. A refused GET only as its address, status and reason. Synthetic answers only; no
  * live calls.
  */
 class MainPagesTest {
@@ -135,7 +135,7 @@ class MainPagesTest {
 
         assertEquals(emptyList<MainPages.Page>(), first.pages())
         assertEquals(listOf(resolved), second.pages().map { it.url })
-        // S2c: the refused GET is kept as its address, status and reason only; not in another lookup.
+        // The refused GET is kept as its address, status and reason only; not in another lookup.
         val refusal = first.refusals().single()
         assertEquals(share, refusal.url)
         assertEquals(429, refusal.statusCode)

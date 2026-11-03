@@ -32,17 +32,17 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.withContext
 
 /**
- * Social plan S0c (`MASTER_KEY_SOCIAL_PLAN.md` §7.1): main's own lookup for the site census, as
- * Home runs it: the app's adapter coordinator ([SiteAdapterCoordinator]) over [registry] (the
- * four adapters, their asks through a recorder into the row's record), TikTok's hidden page
- * ([hiddenPages]), the phone's merge rule, always fresh (a new answer cache per lookup, nothing
- * remembered). There is no tab, so no tab data: the page read, then the hidden page, as main does.
+ * Site census: main's own lookup for the census, as Home runs it: the app's adapter coordinator
+ * ([SiteAdapterCoordinator]) over [registry] (the four adapters, their asks through a recorder
+ * into the row's record), TikTok's hidden page ([hiddenPages]), the phone's merge rule, always
+ * fresh (a new answer cache per lookup, nothing remembered). There is no tab, so no tab data: the
+ * page read, then the hidden page, as main does.
  *
  * The identity is the browser's: [userAgent] (the agent YFT's tab sends) and [cookies] (the
  * browser's cookies for the link; only whether a session was there reaches the report). The
  * hidden page's own loads are not asks of a client: only its mark comes back ([markOf]).
  *
- * Social plan 0.4 (§7.3): the coordinator keeps no answer line for rows, so [registry]'s adapters
+ * The coordinator keeps no answer line for rows, so [registry]'s adapters
  * are tapped ([Tapped]: each adapter as it is) and a successful answer's lines reach the lookup
  * ([AnswerLines], in its coroutine context): the post's item main's answer names ("item N of M")
  * comes from them. Main's own code is unchanged.
@@ -111,7 +111,7 @@ class SiteCensusLookup(
         /**
          * The census's five adapters as the app builds them (`SiteAdapterModule`): TikTok on its
          * own client ([tikTokHttp]: a short link's redirect cookies go on) and the WebView's agent;
-         * Facebook, X, Instagram and (VK-Master wave 2) VK on [http]. 0.4: each tapped ([Tapped]),
+         * Facebook, X, Instagram and VK on [http]. Each is tapped ([Tapped]),
          * so a lookup also gets its answer's lines.
          */
         fun registry(
@@ -123,7 +123,7 @@ class SiteCensusLookup(
                 TikTokExtractor(
                     http = tikTokHttp,
                     agents = TikTokAgents(webViewAgent = webViewAgent),
-                    // Decision 22: as the app, no download service (the census's main is the app's).
+                    // As the app, no download service (the census's main is the app's).
                     askDownloadService = false,
                 ),
                 FacebookExtractor(http),

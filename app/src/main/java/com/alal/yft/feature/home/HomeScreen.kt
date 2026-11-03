@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -22,8 +21,6 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
@@ -33,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
@@ -77,6 +75,7 @@ import com.alal.yft.thumbnail.rememberFileThumbnail
 import com.alal.yft.ui.LocalQuietRelease
 import com.alal.yft.ui.components.PromptboxStatus
 import com.alal.yft.ui.components.YftCard
+import com.alal.yft.ui.components.YftFitText
 import com.alal.yft.ui.components.YftIcon
 import com.alal.yft.ui.components.YftMediaKind
 import com.alal.yft.ui.components.YftOutlinedChip
@@ -91,6 +90,9 @@ import com.alal.yft.ui.format.YftFormat
 import com.alal.yft.ui.theme.YftIcons
 import com.alal.yft.ui.theme.YftShapes
 import com.alal.yft.ui.theme.YftTheme
+import com.alal.yft.update.HomeUpdateCard
+import com.alal.yft.update.UpdatesViewModel
+import com.alal.yft.update.homeCard
 
 @Composable
 fun HomeRoute(
@@ -100,9 +102,13 @@ fun HomeRoute(
     modifier: Modifier = Modifier,
     onOpenQuickDownload: () -> Unit = {},
     onOpenSearch: () -> Unit = {},
+    onOpenUpdates: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
+    /** The updater's state for the update card; null (screen tests): no card. */
+    updatesViewModel: UpdatesViewModel? = null,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val updateCard = updatesViewModel?.state?.collectAsStateWithLifecycle()?.value?.homeCard()
     val openQuickDownload by rememberUpdatedState(onOpenQuickDownload)
     LaunchedEffect(viewModel) {
         viewModel.quickDownloadRequests.collect { openQuickDownload() }
@@ -146,12 +152,15 @@ fun HomeRoute(
         copiedLinkHint = rememberCopiedLinkHint(),
         modifier = modifier,
         onOpenSearch = onOpenSearch,
+        updateCard = updateCard,
+        onOpenUpdates = onOpenUpdates,
     )
 }
 
 /**
  * Home from the design (`01-home-light`, `07-home-dark`): the YFT header, the Promptbox card
- * with Paste and Open browser, "Your sites" and the two newest downloads.
+ * with Paste and Open browser, a found update's card ([updateCard]), "Your sites" and the
+ * two newest downloads.
  *
  * The clipboard is read only inside the Paste and Use click handlers; [copiedLinkHint] comes
  * from the clip's description alone.
@@ -166,6 +175,8 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     copiedLinkHint: Boolean = false,
     onOpenSearch: () -> Unit = {},
+    updateCard: HomeUpdateCard? = null,
+    onOpenUpdates: () -> Unit = {},
 ) {
     val colors = YftTheme.colors
     LazyColumn(
@@ -188,6 +199,15 @@ fun HomeScreen(
                 onOpenSearch = onOpenSearch,
                 modifier = Modifier.padding(top = 22.dp),
             )
+        }
+        if (updateCard != null) {
+            item(key = "update") {
+                UpdateCard(
+                    card = updateCard,
+                    onClick = onOpenUpdates,
+                    modifier = Modifier.padding(top = 14.dp),
+                )
+            }
         }
         item(key = "sites") {
             SitesSection(
@@ -294,7 +314,7 @@ private fun LinkCard(
             onCancelSearch = { onAction(HomeAction.CancelSearch) },
             onEdit = { onAction(HomeAction.EditLink) },
         )
-        // Decision 30 (v): a quiet build's Copy details only with Show details on.
+        // Quiet details: a quiet build's Copy details only with Show details on.
         if (state.status is PromptboxStatus.NotFound && !LocalQuietRelease.current) {
             YftTonalButton(
                 text = "Copy details",
@@ -360,24 +380,37 @@ private fun SitesSection(
                 .takeIf { sites.isNotEmpty() || editing },
             actionTestTag = "home-sites-edit",
         )
-        // Four tiles fill the row as in the design; more scroll sideways.
-        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-            val gap = ((maxWidth - SITE_TILE_WIDTH * VISIBLE_TILES) / (VISIBLE_TILES - 1))
-                .coerceAtLeast(8.dp)
-            LazyRow(
-                modifier = Modifier.fillMaxWidth().testTag("home-sites"),
-                horizontalArrangement = Arrangement.spacedBy(gap),
-            ) {
-                items(sites, key = { it.url }) { site ->
-                    SiteTile(
-                        site = site,
-                        editing = editing,
-                        onOpen = { onOpenSite(site) },
-                        onRemove = { onAction(HomeAction.RemoveSite(site)) },
-                    )
-                }
-                if (!editing) {
-                    item(key = "add") { AddSiteTile(onClick = { onAction(HomeAction.AddSite) }) }
+        // Three tiles a row and as many rows as the sites need, so every site shows
+        // without a sideways swipe; the sites in their order, then Add (null here).
+        val cells: List<HomeSite?> = if (editing) sites else sites + null
+        Column(
+            modifier = Modifier.fillMaxWidth().testTag("home-sites"),
+            verticalArrangement = Arrangement.spacedBy(SITE_ROW_GAP),
+        ) {
+            cells.chunked(SITES_PER_ROW).forEach { row ->
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    row.forEach { site ->
+                        Box(
+                            modifier = Modifier.weight(1f),
+                            contentAlignment = Alignment.TopCenter,
+                        ) {
+                            if (site == null) {
+                                AddSiteTile(onClick = { onAction(HomeAction.AddSite) })
+                            } else {
+                                key(site.url) {
+                                    SiteTile(
+                                        site = site,
+                                        editing = editing,
+                                        onOpen = { onOpenSite(site) },
+                                        onRemove = { onAction(HomeAction.RemoveSite(site)) },
+                                        fillCell = true,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    // A short last row keeps the columns of the rows above.
+                    repeat(SITES_PER_ROW - row.size) { Spacer(modifier = Modifier.weight(1f)) }
                 }
             }
         }
@@ -391,11 +424,16 @@ internal fun SiteTile(
     onOpen: () -> Unit,
     onRemove: () -> Unit,
     tag: String = "home-site-${site.url}",
+    /**
+     * As wide as its cell on Home's grid (a third of the row), so a name fits in
+     * large text; the browser's start page keeps the tile's own width.
+     */
+    fillCell: Boolean = false,
 ) {
     val colors = YftTheme.colors
     Column(
         modifier = Modifier
-            .width(SITE_TILE_WIDTH)
+            .then(if (fillCell) Modifier.fillMaxWidth() else Modifier.width(SITE_TILE_WIDTH))
             .clip(YftShapes.thumbnail)
             .clickable(
                 role = Role.Button,
@@ -466,9 +504,10 @@ internal fun SiteTile(
 @Composable
 private fun AddSiteTile(onClick: () -> Unit) {
     val colors = YftTheme.colors
+    // As wide as its cell, as the sites' tiles are.
     Column(
         modifier = Modifier
-            .width(SITE_TILE_WIDTH)
+            .fillMaxWidth()
             .clip(YftShapes.thumbnail)
             .clickable(role = Role.Button, onClick = onClick)
             .testTag("home-site-add"),
@@ -501,17 +540,63 @@ private fun AddSiteTile(onClick: () -> Unit) {
     }
 }
 
+/** A name too long for its cell in large text is drawn smaller, not cut. */
 @Composable
 private fun SiteLabel(text: String) {
-    Text(
+    YftFitText(
         text = text,
         modifier = Modifier.padding(top = 6.dp, bottom = 2.dp),
         color = YftTheme.colors.textPrimary,
         style = MaterialTheme.typography.bodyMedium,
         textAlign = TextAlign.Center,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
     )
+}
+
+/** A found update: one small card under the Promptbox; a tap opens Updates. */
+@Composable
+private fun UpdateCard(card: HomeUpdateCard, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = YftTheme.colors
+    YftCard(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("home-update"),
+        onClick = onClick,
+        contentPadding = PaddingValues(start = 14.dp, top = 12.dp, end = 10.dp, bottom = 12.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(UPDATE_CIRCLE)
+                    .clip(CircleShape)
+                    .background(colors.accentSoft),
+                contentAlignment = Alignment.Center,
+            ) {
+                YftIcon(icon = YftIcons.Refresh, contentDescription = null, tint = colors.link)
+            }
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 12.dp, end = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    text = card.title,
+                    color = colors.textPrimary,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text = card.supporting,
+                    color = colors.textSecondary,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            YftIcon(
+                icon = YftIcons.ChevronRight,
+                contentDescription = null,
+                tint = colors.textSecondary,
+            )
+        }
+    }
 }
 
 @Composable
@@ -658,8 +743,10 @@ private val SITE_TILE_WIDTH = 72.dp
 private val SITE_CIRCLE = 64.dp
 private val SITE_LOGO = 30.dp
 private const val NIGHT_LETTER_LIGHTEN = 0.6f
-private const val VISIBLE_TILES = 4
+private const val SITES_PER_ROW = 3
+private val UPDATE_CIRCLE = 40.dp
+private val SITE_ROW_GAP = 12.dp
 private const val THUMBNAIL_RATIO = 16f / 9f
 
-/** Key on Home's back stack entry for a link the browser hands over to look up (T13). */
+/** Key on Home's back stack entry for a link the browser hands over to look up. */
 internal const val HOME_DOWNLOAD_LINK_KEY = "home_download_link"

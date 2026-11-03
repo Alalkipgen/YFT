@@ -4,8 +4,8 @@ import com.alal.yft.extractor.api.json.JsonValue
 import java.security.MessageDigest
 
 /**
- * Phase 1.3 D0: the key-name shape of one player answer (MASTER_KEY_PHASE1_3_PLAN.md §4 D0 and
- * W), so the census and the weekly check can tell when YouTube moved or renamed a field.
+ * Client census: the key-name shape of one player answer (for the census
+ * and the weekly check), so the census and the weekly check can tell when YouTube moved or renamed a field.
  *
  * Only key names are read, never a value. Arrays are collapsed (`a.b[].c`), a key that does not
  * look like a field name (`^[A-Za-z_][A-Za-z0-9_]{0,63}$`) or equals a redacted value (the video
@@ -41,7 +41,7 @@ internal class ShapeFingerprint private constructor(
 
         /**
          * The paths the copied parser reads to build rows. One of them disappearing is
-         * **BREAKING** in the weekly check. Plan adapted (D0): the parser's negative or
+         * **BREAKING** in the weekly check. Changed in the census: the parser's negative or
          * alternative signals (cipher fields, DRM fields, the SABR address, `isLive`, reason
          * texts) are left out, because their removal never loses a row; a lost row shows up as
          * a class or count line instead.
@@ -149,7 +149,7 @@ internal class ShapeFingerprint private constructor(
 }
 
 /**
- * Phase 1.3 D0: one run's key paths as a dictionary plus one bit string per answer, so a report
+ * Client census: one run's key paths as a dictionary plus one bit string per answer, so a report
  * and the state file list each path once (`parent:child,child`, top-level keys under the empty
  * parent) and each answer as hex digits (bit i = the i-th path in dictionary order).
  */

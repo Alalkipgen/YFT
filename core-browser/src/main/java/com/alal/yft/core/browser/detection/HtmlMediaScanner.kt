@@ -19,14 +19,14 @@ import java.net.URI
  * results are kept, because that is all YFT downloads. Input size is the caller's bound; the
  * candidate count is capped here.
  *
- * P24: no player runs here, so the page's own words say which file is its video. JSON-LD
+ * No player runs here, so the page's own words say which file is its video. JSON-LD
  * `VideoObject`s (`contentUrl`, `embedUrl`, with their `duration`), Open Graph and Twitter
  * video streams and a manifest (`.m3u8`, `.mpd`) named in the page's own scripts are
  * [PageMediaRole.MAIN]; clips from thumbnail attributes (`data-preview…`, `data-mediabook`,
  * `data-src` on thumbnails) and muted looping `<video>`s are [PageMediaRole.PREVIEW]. When the
  * page lists more than the cap, its own videos are kept first.
  *
- * P28: the files the page's own player is set up with ([PlayerSetupScanner]: JW Player,
+ * The files the page's own player is set up with ([PlayerSetupScanner]: JW Player,
  * Video.js, KVS `flashvars`, quality lists) are its video too, as qualities of one video with
  * the height their labels name; and [Result.facts] holds what the page states about its video
  * ([PageFactsReader]): its length, title and picture.
@@ -43,7 +43,7 @@ class HtmlMediaScanner(
     data class Result(
         val title: String?,
         val candidates: List<MediaCandidate>,
-        /** P28: what the page states about its own video. */
+        /** What the page states about its own video. */
         val facts: PageVideoFacts = PageVideoFacts(),
     )
 
@@ -66,7 +66,7 @@ class HtmlMediaScanner(
         ) {
             val url = resolve(base, rawUrl) ?: return
             found[url]?.let { known ->
-                // P24: the page's word on a file it lists twice: its video stays its video.
+                // The page's word on a file it lists twice: its video stays its video.
                 val upgraded = when {
                     known.pageRole == PageMediaRole.MAIN || role == null -> known.pageRole
                     else -> role
@@ -102,7 +102,7 @@ class HtmlMediaScanner(
             )
         }
 
-        // P28: the files of the page's own player setup, as qualities of one video each.
+        // The files of the page's own player setup, as qualities of one video each.
         var setups = 0
         fun offerSetup(script: String) {
             if (!PlayerSetupScanner.mentionsPlayer(script)) return
@@ -176,7 +176,7 @@ class HtmlMediaScanner(
             )
         }
 
-        // 3. JSON-LD VideoObject / AudioObject content URLs; P24: a VideoObject's are the page's
+        // 3. JSON-LD VideoObject / AudioObject content URLs; a VideoObject's are the page's
         // video, with its stated length, and so is an embedUrl that is a media file.
         JSON_LD.findAll(html).forEach { block ->
             val json = block.groupValues[1]
@@ -212,7 +212,7 @@ class HtmlMediaScanner(
             }
         }
 
-        // P24: a manifest the page's own scripts name is the page's video.
+        // A manifest the page's own scripts name is the page's video.
         INLINE_SCRIPT.findAll(html).forEach { script ->
             if (JSON_LD_TYPE.containsMatchIn(script.groupValues[1])) return@forEach
             offerSetup(script.groupValues[2])
@@ -232,12 +232,12 @@ class HtmlMediaScanner(
                 }
         }
 
-        // P24: clips in thumbnail attributes are previews of other pages' videos.
+        // Clips in thumbnail attributes are previews of other pages' videos.
         ANY_TAG.findAll(html).forEach { tag ->
             val raw = tag.groupValues[2]
             if (!raw.contains("data-", ignoreCase = true)) return@forEach
             val attributes = attributes(raw)
-            // P28: Video.js reads its setup from `data-setup`.
+            // Video.js reads its setup from `data-setup`.
             attributes["data-setup"]?.let(::offerSetup)
             val thumbnail = tag.groupValues[1].equals("img", ignoreCase = true) ||
                 THUMBNAIL_BOX.containsMatchIn(attributes["class"].orEmpty()) ||
@@ -283,7 +283,7 @@ class HtmlMediaScanner(
     }
 
     /**
-     * At most [maxCandidates], in the page's order; P24: a page that lists more keeps its own
+     * At most [maxCandidates], in the page's order; a page that lists more keeps its own
      * videos first, so they are never the ones cut.
      */
     private fun kept(candidates: List<MediaCandidate>): List<MediaCandidate> {
@@ -293,7 +293,7 @@ class HtmlMediaScanner(
     }
 
     /**
-     * P24: a `<video>` that loops without sound, or sits in a thumbnail box by its own class or
+     * A `<video>` that loops without sound, or sits in a thumbnail box by its own class or
      * id, is a preview.
      */
     private fun previewElementRole(raw: String, attributes: Map<String, String>): PageMediaRole? {
@@ -349,7 +349,7 @@ class HtmlMediaScanner(
     internal companion object {
         const val MAX_TITLE_LENGTH = 200
 
-        /** P24: how many more than the cap are read, so the page's own videos are not cut. */
+        /** How many more than the cap are read, so the page's own videos are not cut. */
         const val COLLECT_FACTOR = 4
         val OPTIONS = setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
 
@@ -376,7 +376,7 @@ class HtmlMediaScanner(
         val BOOLEAN_MUTED = Regex("""(?i)(?:^|\s)muted(?:\s|=|$)""")
         val BOOLEAN_LOOP = Regex("""(?i)(?:^|\s)loop(?:\s|=|$)""")
 
-        /** P24: the stream properties that name the page's video, not its sound. */
+        /** The stream properties that name the page's video, not its sound. */
         val MAIN_STREAM_PROPERTIES = setOf(
             "og:video:secure_url",
             "og:video:url",

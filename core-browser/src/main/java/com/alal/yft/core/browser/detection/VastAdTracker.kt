@@ -7,13 +7,13 @@ import com.alal.yft.core.model.media.PageMediaRole
 import java.net.URI
 
 /**
- * P28: tells the ad a page's player plays first from the page's video. A player asks for an ad
+ * Tells the ad a page's player plays first from the page's video. A player asks for an ad
  * break (a VAST or VMAP document, [BrowserObservationMapper.isAdBreakRequest]) and then fetches
  * the ad's file. A whole file (not a stream) first seen within [windowMillis] of such a request
  * in the same frame (the same `Referer` origin), from another site than the page's, is the
- * ad's: [PageMediaRole.PREVIEW], P43: with [AdSign.AD_BREAK]. A file seen before the request,
+ * ad's: [PageMediaRole.PREVIEW], with [AdSign.AD_BREAK]. A file seen before the request,
  * the page's own site's files, streams, and files a site adapter or the page named keep their
- * role. P43: an ad request is also told by its answer, a VAST or VMAP document ([onAnswer]),
+ * role. An ad request is also told by its answer, a VAST or VMAP document ([onAnswer]),
  * when its address says nothing. One page at a time; safe to call from any thread.
  */
 class VastAdTracker(
@@ -51,7 +51,7 @@ class VastAdTracker(
     }
 
     /**
-     * P43: notes the answer to a request of the page ([observation]) whose address said nothing:
+     * Notes the answer to a request of the page ([observation]) whose address said nothing:
      * one of [contentType] whose body starts with [bodyStart] that is a VAST or VMAP document
      * ([BrowserObservationMapper.isAdBreakAnswer]) asked for an ad break. The answer's body is
      * only looked at here, never kept or logged.
@@ -123,7 +123,7 @@ class VastAdTracker(
     }
 
     companion object {
-        /** P28: an ad's file follows its ad break request within a few seconds. */
+        /** An ad's file follows its ad break request within a few seconds. */
         const val DEFAULT_WINDOW_MILLIS = 6_000L
         private const val MAX_FILES = 200
     }

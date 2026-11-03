@@ -38,13 +38,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S1a (6), S6: row checks in Facebook's lookups. Every row Master offers in a social
+ * Row checks in Facebook's lookups. Every row Master offers in a social
  * lookup passes V (one read of its file's first 4096 bytes with the download's own headers, never
  * the user's session, on the host the answer gave when it is a media host) and the init check on
  * the same bytes; `unknown` is never a pass; a row the bytes prove wrong is not offered; an
  * encryption marker is DRM (final); at most 8 files a lookup, each read once; the link's lifetime
- * (`oe`); S1a (10): a row that states no length gets its file's own from the same bytes; task 16
- * (F6): a row that states no picture size gets its file's own from them too. Every
+ * (`oe`); a row that states no length gets its file's own from the same bytes;
+ * a row that states no picture size gets its file's own from them too. Every
  * other lookup: the engine's own V, unchanged. Main's real Facebook adapter over synthetic pages
  * and a fake file reader; no live calls.
  */
@@ -214,7 +214,7 @@ class FacebookLadderS6Test {
         assertEquals(AGENT, headers["User-Agent"])
 
         // A 429: that row fails and nothing more is read in the lookup: not the host that stopped
-        // (S7), not another media host (route B's rule: nothing new after a 429 in the lookup).
+        // (Social limits), not another media host (route B's rule: nothing new after a 429 in the lookup).
         val files = Files { url -> if ("-hd" in url) MediaStart.Failed(429) else start() }
         val check = SocialRowCheck(RecordingValidator(), files)
         val record = record()
@@ -233,7 +233,7 @@ class FacebookLadderS6Test {
 
     @Test
     fun `a row that states no length gets its file's own from the bytes read, and its own length stays`() = runTest {
-        // S1a (10): the plugin player's rows (and F2's here: the page states none) state no length.
+        // The plugin player's rows (and F2's here: the page states none) state no length.
         val progressive = Files { start(bytes = LengthBytes.progressive(LengthBytes.mvhd(1_000, 23_891))) }
         val passed = checked(SocialRowCheck(RecordingValidator(), progressive), row()) as ValidationResult.Valid
         assertEquals(23_891L, passed.candidate.durationMillis)
@@ -262,7 +262,7 @@ class FacebookLadderS6Test {
 
     @Test
     fun `a row that states no picture size gets its file's own from the bytes read, and its own size stays`() = runTest {
-        // Task 16 (F6): the plugin player's rows state no size (Facebook link 1 on the phone, 2026-10-23:
+        // The plugin player's rows state no size (Facebook link 1 on the phone, 2026-10-23:
         // "Quality unknown" on both of Master's rows).
         val hdStart = PictureBytes.progressive(PictureBytes.video(1_280, 720), PictureBytes.sound())
         val sdStart = PictureBytes.progressive(PictureBytes.video(640, 360), PictureBytes.sound())
@@ -320,7 +320,7 @@ class FacebookLadderS6Test {
         assertTrue(files.asked.isEmpty())
     }
 
-    /** One Facebook lookup in [record] (main's moved-key page, the plugin player with no data) through S6. */
+    /** One Facebook lookup in [record] (main's moved-key page, the plugin player with no data) through the Row check. */
     private suspend fun lookup(
         record: LookupRecord,
         files: MediaStartReader,

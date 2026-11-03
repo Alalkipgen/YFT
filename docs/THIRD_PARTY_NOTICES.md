@@ -2,7 +2,9 @@
 
 This file lists third-party code that is committed to this repository and shipped inside the
 app. Libraries resolved by Gradle (AndroidX, Jetpack Compose, Media3, OkHttp, Hilt, Room,
-kotlinx) are declared in `gradle/libs.versions.toml` and remain under their own licenses.
+kotlinx, and Google's Myanmar Tools 1.2.0 under the Apache License 2.0, which finds Zawgyi video
+titles and converts them to Unicode) are declared in `gradle/libs.versions.toml` and remain under
+their own licenses.
 
 ## YouTube player-script solver
 

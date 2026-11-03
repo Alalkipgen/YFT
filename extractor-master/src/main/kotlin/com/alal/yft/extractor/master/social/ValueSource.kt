@@ -5,22 +5,22 @@ import com.alal.yft.extractor.api.SiteExtractionFailure
 import kotlinx.coroutines.CancellationException
 
 /**
- * VK Master plan §8 (`docs/VK_MASTER_PLAN.md`; `MASTER_KEY_SOCIAL_PLAN.md` §3.2, guardrail S5):
+ * VK ladder (self-healed values only from a proven source):
  * where a rung's named value comes from — VK's web-client values today, Instagram's `doc_id` or
  * X's token later — YouTube's `VersionSource` rules (that file stays YouTube's) for any site.
  *
- * The S5 order for one value ([ValueKind]), a value rejected today ([rejected]) left out:
- * 1. an **R9-signed** value ([SignedValues]; for VK none: the owner's answer of 2026-10-25 is
- *    that R9 does not carry the web client's values, plan §2 and §9);
+ * The order for one value ([ValueKind]), a value rejected today ([rejected]) left out:
+ * 1. a **signed** value (Signed recipe config, [SignedValues]; for VK none: the owner's answer is
+ * that the signed config does not carry the web client's values);
  * 2. a **self-healed** value read today ([heal]; memory only, for the day);
- * 3. a **learned** value ([SiteHealth.learn]: kept only after an OK answer and a V pass; the
+ * 3. a **learned** value ([SiteHealth.learn]: kept only after an OK answer and a Row check pass; the
  *    health keeps the value itself only for a public version or a name with its own pattern
- *    ([SiteHealth.VALUES]: VK's client id and API version, agent D's wiring), never a secret);
+ *    ([SiteHealth.VALUES]: VK's client id and API version), never a secret);
  * 4. the **bundled** value the rung was built with;
  * 5. after a rejection, one heal read: **one** pattern-matched value ([ValueKind.anchor]'s match,
  *    read by [ValueKind.valueOf]: group 1 unless the kind says otherwise; the whole value matching
  *    [ValueKind.pattern]) from a [ValueReader] (VK: [VkClientSource],
- *    the source agent A proved); at most once a day per value (the health's clock, claimed before
+ *    the source the VK census proved); at most once a day per value (the health's clock, claimed before
  *    the read; a read cut short before its answer — a cancel such as a closed page, the lookup's
  *    deadline, no network — gives the day's read back, at most [MAX_GIVEN_BACK] times a day per
  *    value, so the next lookup may read), not while the site is stopped (a bot check or 429, which
@@ -61,7 +61,7 @@ internal class ValueSource(
 
     private class Healed(val candidate: Candidate, val at: Long)
 
-    /** The value healed today per kind: memory only, never stored before OK + V (S5). */
+    /** The value healed today per kind: memory only, never stored before OK + a Row check pass. */
     private val healed = HashMap<String, Healed>()
 
     /** The values rejected today per kind (memory only): never sent again that day. */
@@ -89,7 +89,7 @@ internal class ValueSource(
         value(kind, bundled) ?: heal(kind, userAgent).candidate ?: alternates(kind, bundled).firstOrNull()
 
     /**
-     * One self-heal read of [kind] (S5), only after a value of it was rejected today: the value
+     * One self-heal read of [kind], only after a value of it was rejected today: the value
      * healed today again, else one read of the source with the user's own [userAgent] — exactly
      * one pattern-matched value, not one rejected today. A read cut short before its answer (a
      * cancel, the caller's deadline: the exception goes on; no network: "given back") gives the
@@ -293,10 +293,10 @@ internal class ValueAlternate(val value: String, val source: String, val date: S
 }
 
 /**
- * R9's signed value for a kind (S5's first place): null when the config in use carries none. For
- * VK always null — the owner's answer (2026-10-25, VK plan §2 and §9): R9 does not carry the web
- * client's values (known limit: a rotated value with a broken source needs an APK; V3 serves
- * meanwhile). The slot stays for a site whose values R9 may carry later (S9).
+ * The Signed recipe config's value for a kind (the first place): null when the config in use carries none. For
+ * VK always null — the owner's answer: the signed config does not carry the web
+ * client's values (known limit: a rotated value with a broken source needs an APK; V3 (`vk V3` in Lookup details) serves
+ * meanwhile). The slot stays for a site whose values the signed config may carry later (data over code).
  */
 internal fun interface SignedValues {
     fun valueOf(kind: ValueKind): String?

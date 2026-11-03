@@ -9,7 +9,7 @@ import com.alal.yft.extractor.master.solver.SignatureVerdicts
 import kotlin.coroutines.coroutineContext
 
 /**
- * Phase 1.4 item 7 (YouTube routing B) R2: Master's player-script runner (the own solver) in a
+ * YouTube backup route: Master's player-script runner (the own solver) in a
  * route-B build. The runner fetches the player script with its own client — in a route-B build
  * [RouteBScriptClient], so under a [RouteBLookup] each fetch follows route B's rules and is
  * counted — and under a [RouteBLookup] the runner is not asked at all after a 429 in the lookup

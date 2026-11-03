@@ -37,14 +37,14 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * Task 9 (social plan S6, `MASTER_KEY_SOCIAL_PLAN.md` §7.3): S6 as the app's lookups and the site
- * census wire it ([SocialLadder.validator] over Master's client: one check, one reader, every
- * site). Each lookup's rows are read on its own site's media hosts: X's, TikTok's, Instagram's and
- * Facebook's files each reach the server once and pass, in the app's lookup and in the census's
- * Master part; another site's host (or a TikTok address outside its video paths) is refused
- * before route B lists an ask: never sent, no new ask, never `NETWORK`, counted refused; a file
- * that gets no answer is still `NETWORK`, one new ask. Flag off: the check given, no reader. A
- * local HTTPS server under the sites' media host names; made-up addresses and IDs; no live calls.
+ * Row check (docs/GLOSSARY.md): the check as the app's lookups and the site census wire it
+ * ([SocialLadder.validator] over Master's client: one check, one reader, every site). Each lookup's
+ * rows are read on its own site's media hosts: X's, TikTok's, Instagram's and Facebook's files each
+ * reach the server once and pass, in the app's lookup and in the census's Master part; another
+ * site's host (or a TikTok address outside its video paths) is refused before the backup route's
+ * client lists an ask: never sent, no new ask, never `NETWORK`, counted refused; a file that gets
+ * no answer is still `NETWORK`, one new ask. Flag off: the check given, no reader. A local HTTPS
+ * server under the sites' media host names; made-up addresses and IDs; no live calls.
  */
 class SocialLadderRowReadTest {
     private lateinit var server: MockWebServer
@@ -133,7 +133,8 @@ class SocialLadderRowReadTest {
                 val checked = withContext(lookup.context) { check.validate(row(file), NOW) }
 
                 assertEquals("${site.id} ($wiring)", SiteExtractionFailure.NO_MEDIA_FOUND, (checked as ValidationResult.Rejected).reason)
-                // Not new: route B listed no ask; refused once, however often the file is offered.
+                // Not new: the route's client listed no ask;
+                // refused once, however often the file is offered.
                 assertEquals(0, lookup.record.masterAsks)
                 assertTrue(lookup.record.asks().isEmpty())
                 assertEquals(1, refused(check, lookup.record))
@@ -173,7 +174,10 @@ class SocialLadderRowReadTest {
         /** The app's lookup ([SocialLadder.lookupContext]: its record with the site's labels, a MainPages naming the site). */
         APP,
 
-        /** The site census's Master part: route B over the slot's record, the record, a MainPages naming the site. */
+        /**
+         * The site census's Master part: the backup route's client over the slot's record,
+         * the record, a MainPages naming the site.
+         */
         CENSUS,
         ;
 
@@ -187,7 +191,9 @@ class SocialLadderRowReadTest {
         }
     }
 
-    /** The engine's own file check (never asked where S6 checks): how often it was asked. */
+    /**
+     * The engine's own file check (never asked where the row check runs): how often it was asked.
+     */
     private class Counting : MasterMediaValidator {
         val calls = AtomicInteger()
 

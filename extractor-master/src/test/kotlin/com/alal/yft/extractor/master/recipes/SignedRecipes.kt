@@ -9,7 +9,7 @@ import java.security.Signature
 import java.security.spec.ECGenParameterSpec
 
 /**
- * Social plan S4's tests: a recipe config signed with a throwaway key (made per test run, never
+ * Signed recipe config tests: a recipe config signed with a throwaway key (made per test run, never
  * written anywhere) and applied without a client (nothing is ever asked), and the recipe source a
  * ladder or the engine reads it with.
  */

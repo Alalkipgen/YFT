@@ -10,7 +10,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** After a merged download's tracks are in, the card says what it does and how far (P27). */
+/** After a merged download's tracks are in, the card says what it does and how far. */
 class MergeStageLabelsTest {
     @Test
     fun `a merging download shows the merge and its percent, not 99 percent`() {

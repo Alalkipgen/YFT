@@ -9,9 +9,9 @@ import com.alal.yft.extractor.api.SitePageIdentity
 import java.net.URI
 
 /**
- * R6: a site reader Master owns. A page a module claims is answered by that module alone: no
+ * A site reader Master owns, such as the Master YouTube module. A page a module claims is answered by that module alone: no
  * layer read, no browser capture and no media probe follows, and a module never runs after the
- * site adapter already looked the same video up (P12: one lookup per video).
+ * site adapter already looked the same video up (one lookup per video).
  */
 interface MasterSiteModule {
     val siteId: String

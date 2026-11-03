@@ -30,8 +30,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * P34 on the CI emulator: a download of about 40 s keeps going after Home with the download
- * service in the foreground, its notification shows the percent and the speed, and the
+ * Download queue on the CI emulator: a download of about 40 s keeps going after Home with the
+ * download service in the foreground, its notification shows the percent and the speed, and the
  * "Downloaded · …" notice follows. The process under instrumentation is never frozen, so this
  * proves the service and its notification, not HyperOS's freezer (the owner's phone does).
  */

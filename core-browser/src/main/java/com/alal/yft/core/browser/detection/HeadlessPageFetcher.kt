@@ -99,7 +99,7 @@ class HeadlessPageFetcher(
         .build()
 
     /**
-     * P37: the browser tab's own quiet re-read of its page: the WebView's [userAgent], the tab's
+     * The browser tab's own quiet re-read of its page: the WebView's [userAgent], the tab's
      * cookies for the page's own site ([cookieFor], from the browser's cookie store; never
      * logged, never sent to another site after a redirect) and no cached answer. Home's
      * cookie-free [fetch] never uses it.
@@ -113,7 +113,7 @@ class HeadlessPageFetcher(
 
     suspend fun fetch(url: String): Result = fetchPage(url, session = null)
 
-    /** P37: [url] read again for the browser tab ([TabSession]), with the same limits. */
+    /** [url] read again for the browser tab ([TabSession]), with the same limits. */
     suspend fun fetchForTab(url: String, session: TabSession): Result = fetchPage(url, session)
 
     private suspend fun fetchPage(url: String, session: TabSession?): Result {

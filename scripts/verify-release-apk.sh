@@ -133,7 +133,7 @@ ok "not debuggable"
 "$zipalign" -c 4 "$apk" >/dev/null 2>&1 || fail "APK is not zip-aligned"
 ok "zip-aligned"
 command -v python3 >/dev/null || fail "python3 is required for the debug-action safety check"
-# VK-Master wave 2 (agent D, item 7): the trial's own tools only in #12 trial (com.alal.yft.trial).
+# The trial's own tools are allowed only in the trial preview (com.alal.yft.trial).
 trial_tools=()
 if [[ "$expected_package" == "com.alal.yft.trial" ]]; then
   trial_tools=(--allow-trial-tools)

@@ -8,7 +8,7 @@ import org.json.JSONTokener
 /**
  * The link of the video in focus on a feed page, and how the page script found it.
  *
- * P39 (R25): [currentSrc] is the on-screen `<video>`'s own `https` file address, when it has
+ * [currentSrc] is the on-screen `<video>`'s own `https` file address, when it has
  * one, so the browser can offer the file its player plays when the site's page cannot be read.
  */
 data class FocusedVideo(
@@ -32,7 +32,7 @@ data class FocusedVideo(
 }
 
 /**
- * P5: finds the video in focus on a feed page (YouTube, Facebook, TikTok) when the browser's
+ * Finds the video in focus on a feed page (YouTube, Facebook, TikTok) when the browser's
  * Download button is tapped and the page has no single video of its own.
  *
  * [script] runs once per tap, on the main thread, through `WebView.evaluateJavascript`. It returns
@@ -42,7 +42,7 @@ data class FocusedVideo(
  * [parse] accepts that link only on the page's own site and only in a known video or post shape,
  * rebuilt on the site's main host without tracking parameters, so the site adapter can look it up.
  *
- * P36 (R19): TikTok's feeds put no video link beside the video. On TikTok the script then hands
+ * TikTok's feeds put no video link beside the video. On TikTok the script then hands
  * back the video's card instead: the id of the player's wrapper (`xgwrapper-<n>-<video id>`) or,
  * in the phone layout, the id the page's own slide holds, and the author's `/@handle` link of the
  * card, if any. [parse] turns it into `https://www.tiktok.com/@handle/video/<id>`, or
@@ -217,7 +217,7 @@ object FocusedVideoProbe {
         return FocusedVideo(url, source, currentSrc(item.opt("src")))
     }
 
-    /** P39: the player's own file address; only an absolute `https` address is kept. */
+    /** The player's own file address; only an absolute `https` address is kept. */
     private fun currentSrc(value: Any?): String? {
         val src = (value as? String)?.trim()?.takeIf { it.length in 1..MAX_URL_LENGTH }
             ?: return null
@@ -226,7 +226,7 @@ object FocusedVideoProbe {
     }
 
     /**
-     * P36: the link of a TikTok feed card without a video link: the video id from the player's
+     * The link of a TikTok feed card without a video link: the video id from the player's
      * wrapper id (`xgwrapper-<n>-<15–22 digits>`) or the slide's own id, and the author from the
      * card's `/@handle` link; `https://www.tiktok.com/@/video/<id>` when the card has none.
      */
@@ -386,7 +386,7 @@ object FocusedVideoProbe {
     private val STORY_PAGES = setOf("story.php", "permalink.php")
     private val GROUP_POSTS = setOf("posts", "permalink")
     private val FACEBOOK_WATCH = setOf("watch", "watch.php", "video", "video.php")
-    /** P36: `@` alone is TikTok's address of a video whose author the page did not show. */
+    /** `@` alone is TikTok's address of a video whose author the page did not show. */
     private val TIKTOK_USER = Regex("@[A-Za-z0-9._-]{0,40}")
     private val TIKTOK_CARD_ID = Regex("\\d{15,22}")
     private val XG_WRAPPER = Regex("xgwrapper-\\d{1,4}-(\\d{15,22})")

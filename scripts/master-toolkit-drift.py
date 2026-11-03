@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Master toolkit drift check (R3).
+"""Toolkit drift check: copied main symbols whose text changed in another ref.
 
 The Master toolkit (extractor-master/.../toolkit) copies pure helpers from main's site
 extractors instead of moving them, so main stays untouched. Each copy is listed in
 extractor-master/toolkit-provenance.tsv with the main file, the symbol it was copied from and
 the SHA-256 of that symbol's text at the base commit. This script extracts the same symbols
 from another ref (default origin/main) and reports every symbol whose text changed or vanished,
-so the copy can be reviewed before the next main merge. R6: the symbol `*` marks a whole-file
+so the copy can be reviewed before the next main merge. The symbol `*` marks a whole-file
 copy (the YouTube module); its text after the package line is hashed, and the Master copy
 must still hash the same.
 
@@ -80,7 +80,7 @@ def extent(lines, start):
 
 
 def body_after_package(source):
-    """A whole-file copy's text after its package line (R6: only the package differs)."""
+    """A whole-file copy's text after its package line (only the package differs)."""
     lines = source.splitlines()
     for index, line in enumerate(lines):
         if line.startswith("package "):

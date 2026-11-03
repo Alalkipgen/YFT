@@ -23,7 +23,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** P21: the failure details of a task are kept in `last_error_detail` across restarts. */
+/** The failure details of a task are kept in `last_error_detail` across restarts. */
 class RoomDownloadTaskStoreTest {
     private val dao = FakeDao()
 
@@ -73,7 +73,7 @@ class RoomDownloadTaskStoreTest {
         assertNull(restored.failure)
     }
 
-    /** D1 follow-up 3: a remuxed HLS download keeps its MP4's size after a restart. */
+    /** A remuxed HLS download keeps its MP4's size after a restart. */
     @Test
     fun aCompletedHlsTaskKeepsThePublishedFileSizeAfterARestart() = runBlocking {
         val task = hlsTask(DownloadTaskStatus.COMPLETED, shownBytes = 8)
@@ -87,7 +87,7 @@ class RoomDownloadTaskStoreTest {
         assertEquals(10L, restored.checkpoint.downloadedBytes)
     }
 
-    /** D1 follow-ups 3 and 4: a task that is not completed shows its checkpoint's bytes. */
+    /** A task that is not completed shows its checkpoint's bytes. */
     @Test
     fun anUnfinishedHlsTaskStillShowsItsCheckpointBytesAfterARestart() = runBlocking {
         RoomDownloadTaskStore(dao).save(hlsTask(DownloadTaskStatus.COMPLETED, shownBytes = 8))
@@ -100,7 +100,7 @@ class RoomDownloadTaskStoreTest {
         assertNull(restored.totalBytes)
     }
 
-    /** D1 follow-up 3: a completed HLS task saved before keeps the pieces' size it showed. */
+    /** A completed HLS task saved before keeps the pieces' size it showed. */
     @Test
     fun aCompletedHlsTaskSavedBeforeKeepsItsSize() = runBlocking {
         RoomDownloadTaskStore(dao).save(hlsTask(DownloadTaskStatus.COMPLETED, shownBytes = 10))
@@ -112,7 +112,7 @@ class RoomDownloadTaskStoreTest {
     }
 
     /**
-     * D1 follow-up 4: an MP3 or M4A made from a direct download keeps its own size after a
+     * An MP3 or M4A made from a direct download keeps its own size after a
      * restart, smaller or larger than its source, and its checkpoint keeps the source's bytes.
      */
     @Test
@@ -130,7 +130,7 @@ class RoomDownloadTaskStoreTest {
         }
     }
 
-    /** D1 follow-up 4: a merged or DASH download keeps its published file's size. */
+    /** A merged or DASH download keeps its published file's size. */
     @Test
     fun aCompletedMergedOrDashTaskKeepsThePublishedFileSizeAfterARestart() = runBlocking {
         listOf(
@@ -147,7 +147,7 @@ class RoomDownloadTaskStoreTest {
         }
     }
 
-    /** D1 follow-up 4: completed direct and merged rows saved before show what they showed. */
+    /** Completed direct and merged rows saved before show what they showed. */
     @Test
     fun completedDirectAndMergedRowsSavedBeforeKeepTheirSizes() = runBlocking {
         // An MP3 saved its source's 10 bytes (its own 25 as the total when the source's size was

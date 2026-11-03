@@ -1,5 +1,5 @@
 /*
- * Provenance (Master toolkit T1, copied, not moved; main 34a41890):
+ * Provenance (Master toolkit, copied, not moved; main 34a41890):
  *   extractor-sites/.../tiktok/TikTokPageParser.kt      scripts (by the opening tag's own `id`)
  *   extractor-sites/.../facebook/FacebookPageParser.kt  scriptPayloads (bounded JSON scripts)
  *   extractor-sites/.../instagram/InstagramMedia.kt     InstagramPageDocuments.documents
@@ -14,7 +14,7 @@ internal data class PageScript(val id: String?, val type: String?, val body: Str
 }
 
 /**
- * T1: data scripts found by their own `id`/`type`, never by the first mention of a name in the
+ * Master toolkit: data scripts found by their own `id`/`type`, never by the first mention of a name in the
  * page (a preload hint or another script's text cannot pose as the data script).
  */
 internal object PageScripts {

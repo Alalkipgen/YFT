@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 /**
- * What YFT knows about running in the background (P34): whether a download was ever started,
+ * What YFT knows about running in the background: whether a download was ever started,
  * the last time the phone froze YFT, and the cards the user put away. Nothing here names a
  * video, a site or an address.
  */

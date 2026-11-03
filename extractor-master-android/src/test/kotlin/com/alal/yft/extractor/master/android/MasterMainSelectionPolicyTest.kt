@@ -140,7 +140,7 @@ class MasterMainSelectionPolicyTest {
     /**
      * VK's pack proof (2026-10-26): VK's player plays WebM pieces of the DASH manifest it fetched
      * (the pieces name byte ranges; the sound's are audio). The manifest, as long as the player's
-     * video, is the main; F1 (V3's retest): no piece is checked at all.
+     * video, is the main; since the capture step's retest no piece is checked at all.
      */
     @Test
     fun thePlayersOwnDashManifestIsTheMainWhenItIsAsLongAsThePlayersVideo() = runBlocking {
@@ -173,7 +173,7 @@ class MasterMainSelectionPolicyTest {
     }
 
     /**
-     * F1 (V3's retest, 2026-10-26): lookup 2 offered VK's init piece (`…&bytes=0-1427`, 1.4 KB) as
+     * VK's pack proof (the capture step's retest, 2026-10-26): lookup 2 offered VK's init piece (`…&bytes=0-1427`, 1.4 KB) as
      * a row: its own start stated the whole video's length. A piece is never checked, never
      * selected: with pieces only there is no row.
      */
@@ -195,7 +195,7 @@ class MasterMainSelectionPolicyTest {
         assertNull(selector.presentation(pieces))
     }
 
-    /** F1: next to the page's manifest the pieces are no rows; the manifest is the main. */
+    /** Next to the page's manifest the pieces are no rows; the manifest is the main. */
     @Test
     fun withTheManifestTheManifestIsTheMainAndNoPieceIsARow() = runBlocking {
         val session = session()
@@ -219,7 +219,7 @@ class MasterMainSelectionPolicyTest {
     }
 
     /**
-     * F1: a piece whose address names no range: the page's request named none and its answer was
+     * A piece whose address names no range: the page's request named none and its answer was
      * a piece (a 206; the script marks it). It is never a row; another file of the page still is.
      */
     @Test
@@ -251,7 +251,7 @@ class MasterMainSelectionPolicyTest {
     }
 
     /**
-     * VK's page manifest's row (V3's retest): a picture file with its sound to merge. The sound's
+     * VK's page manifest's row (the capture step's retest): a picture file with its sound to merge. The sound's
      * check is asked with the sound file's own length, never the picture's (as the engine's).
      */
     @Test

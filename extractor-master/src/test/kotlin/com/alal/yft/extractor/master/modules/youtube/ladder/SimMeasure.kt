@@ -9,7 +9,7 @@ import com.alal.yft.extractor.api.SiteExtractionResult
 import com.alal.yft.extractor.master.modules.youtube.MasterYouTubeModule
 import com.alal.yft.extractor.master.modules.youtube.YouTubeUrls
 
-/** The reader a column runs (plan §4 D1); the ladder columns come with D6's seam. */
+/** The reader a column runs; the ladder's columns use the YouTube ladder's seam instead. */
 internal enum class SimColumn(val label: String) {
     R6_OFF("R6, own solver off"),
     R6_ON("R6, own solver on"),
@@ -17,10 +17,10 @@ internal enum class SimColumn(val label: String) {
 
 /** How one lookup ended, judged by what the world's media host would do with each row. */
 internal enum class SimOutcome(val label: String) {
-    /** P22: a video merged with its audio track and the audio track (or a good HLS row), all sized. */
+    /** The YouTube adapter's rule: a video merged with its audio track and the audio track (or a good HLS row), all sized. */
     COMPLETE("complete"),
 
-    /** P22's rule met, but a merged or audio row has no size. */
+    /** The adapter's rule met, but a merged or audio row has no size. */
     UNSIZED("without sizes"),
     PARTIAL("partial"),
     STOP("clean stop"),
@@ -49,9 +49,9 @@ internal data class SimRun(val case: SimCase, val column: SimColumn, val lookups
     val wrong: Int get() = lookups.sumOf { it.wrong.size }
 
     /**
-     * Plan §5.1: a lookup offers a wrong row, or ends without the complete correct rows although
+     * MCF, a Master-caused failure: a lookup offers a wrong row, or ends without the complete correct rows although
      * the world had a checkable complete path ([SimCase.paths]); a verdict about the video is never
-     * Master-caused. The paths count every simulated rung (the live-backed paths come with D0).
+     * Master-caused. The paths count every simulated rung (the live-backed paths come from the Client census).
      */
     val mcf: Int
         get() = lookups.count { lookup ->
@@ -81,7 +81,7 @@ internal data class SimRun(val case: SimCase, val column: SimColumn, val lookups
     }
 }
 
-/** Runs the cases in the simulated world and judges every row (plan §4 D1). */
+/** Runs the cases in the simulated world and judges every row. */
 internal object SimMeasure {
     suspend fun run(case: SimCase, column: SimColumn): SimRun {
         val world = case.world()
@@ -140,7 +140,7 @@ internal object SimMeasure {
     private fun sized(row: MediaCandidate): Boolean =
         (row.contentLengthBytes ?: 0L) > 0L && (row.audioCompanion?.let { (it.contentLengthBytes ?: 0L) > 0L } ?: true)
 
-    /** One §5 baseline cell: the class's runs in one column, over every base (and V mode). */
+    /** One baseline cell: the class's runs in one column, over every base (and V mode). */
     fun cell(runs: List<SimRun>): String {
         val outcomes = runs.flatMap { run -> run.lookups.map(SimLookup::outcome) }
         fun count(outcome: SimOutcome) = outcomes.count { it == outcome }

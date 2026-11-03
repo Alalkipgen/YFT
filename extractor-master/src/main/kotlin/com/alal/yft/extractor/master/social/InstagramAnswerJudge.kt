@@ -1,10 +1,10 @@
 /*
- * Provenance (social plan S2d part 1, copied, not moved; main 34a41890; listed in toolkit-provenance.tsv):
+ * Provenance (copied, not moved; main 34a41890; listed in toolkit-provenance.tsv):
  *   extractor-sites/.../instagram/InstagramExtractor.kt  LOGIN_STATUSES (401 and 403: a login
  *                                        wall), LOGIN_REQUIRED_MESSAGE (`require_login`, else the
  *                                        message `login_required`: a login wall)
  *   extractor-sites/.../instagram/InstagramUrls.kt  isLoginWall (the login and checkpoint paths:
- *                                        both a sign-in wall, as main and §6.3)
+ *                                        both a sign-in wall, as in main)
  */
 package com.alal.yft.extractor.master.social
 
@@ -21,13 +21,13 @@ import java.net.URI
 import java.util.Locale
 
 /**
- * Social plan S2d part 1: what Instagram's ladder ([InstagramLadder]) read in one of main's
+ * What the Instagram ladder ([InstagramLadder]) read in one of main's
  * answers for the link's post: [rows], the rows of the link's item read by Instagram's recipe
  * from the post's own node ([byShape]: the recipe's key table read nothing, its open read found
  * them, anchored to the post); [carousel], the answer holds a carousel's items; [photos], the
  * post's node (every item) is marked a photo; [post], the answer names the link's post (its code);
  * [otherPost], a JSON answer's post is another one; [videoTyped], the post (or an item) is a video
- * by its type, files or not. Task 15 (F2), counts and marks only, for a shape change's reason: a
+ * by its type, files or not. Counts and marks only, for a shape change's reason: a
  * page's [documents] (its JSON documents that name the post or a video, by main's rule,
  * [InstagramPageRule]) and [rulePost] (main's rule found the post in them); [files], the post's
  * files by main's rule (HTTPS `video_versions` and `video_url`, every item's).
@@ -46,38 +46,38 @@ internal data class InstagramReading(
 )
 
 /**
- * Social plan S2d part 1 (`MASTER_KEY_SOCIAL_PLAN.md` §6.4, §7.3, decision 19): Instagram's judge,
+ * Instagram's judge,
  * for main's own answers in this lookup (the app API when signed in, GraphQL, the post's page, the
  * embed page), which I2 reads with no new ask. Conservative, by status, address and shape; one
  * rate-limit wording (`Please wait a few minutes`, main asks in English) is the only words read.
  *
- * - Rows of the link's item, from the post's own node → the media checks (V, S6); rows by shape
+ * - Rows of the link's item, from the post's own node → the media checks (the row check); rows by shape
  *   (a renamed key) only for a post with one item (a carousel's: its item unknown).
  * - A 429 or the rate-limit answer → RATE_LIMITED (the site stops, the host cools); main's own
  *   bot check → BOT_CHECK, so too.
  * - 401, 403, the login or checkpoint address, a login-required or checkpoint answer → LOGIN_WALL
- *   (main's rule, `isLoginWall`, and §6.3's: "`require_login` or a checkpoint → `LOGIN_WALL`"): the
+ *   (main's rule, `isLoginWall`: "`require_login` or a checkpoint → `LOGIN_WALL`"): the
  *   browser, where the user's own session answers it; no stop.
  * - Photos and no video by the post's own marks (every item) → PHOTO_ONLY (final): main's words.
  * - GraphQL's or the app API's 400 or `errors` → VALUE_REJECTED: the ask's values, not the post.
  * - No post in a JSON answer (`null`), the embed's `EmbedIsBroken` and a page without the post's
  *   data → NEEDS_PLAYBACK: removed, private, gated or not embeddable alike (signed out these look
  *   the same: the census's removed post answered 401 and no data); never final. **REMOVED is never
- *   judged** in part 1: none of these answers tells a removed post apart (decision 19 (vi): the
+ *   judged**: none of these answers tells a removed post apart (the
  *   judge's call from what was read, and nothing read tells it yet).
- * - The embed page's video without files (signed out, by its design; task 13, observation (d))
- *   → VIDEO_WITHOUT_FILES: the tab-fetch rung's (decision 24), never a shape change. Task 15 (F2):
+ * - The embed page's video without files (signed out, by its design)
+ *   → VIDEO_WITHOUT_FILES: the Instagram tab-fetch step's, never a shape change; and
  *   a page's post is main's ([InstagramPageRule], a Master copy of main's rule), so the real embed
  *   page main calls "video without files" is so here too.
- * - L3 (the retest of 2026-10-23): a page that names the post's code only in a node without its
+ * - From the retest of 2026-10-23: a page that names the post's code only in a node without its
  *   data (no video mark, no file) where main's rule finds no post → NEEDS_PLAYBACK, as main's "no
  *   post" (its counts said), never a shape change; main's post without a video read stays one.
  * - Another host, another post, a video without files read elsewhere, a page whose post's files
- *   main's rule reads but the recipe read no row (task 15), not JSON → SHAPE_CHANGED; another
- *   status or no answer → TRANSIENT. Task 15 (F2): a shape change read in an answer says what was
+ *   main's rule reads but the recipe read no row, not JSON → SHAPE_CHANGED; another
+ *   status or no answer → TRANSIENT. A shape change read in an answer says what was
  *   read, counts and marks only: the answer's size (a page's JSON documents and main's post too),
  *   a video mark and the post's files.
- * - Task 13: the tab-fetch rung's answer ([SiteWays.TAB_FETCH], a JSON way) by the same rules:
+ * - The tab-fetch rung's answer ([SiteWays.TAB_FETCH], a JSON way) by the same rules:
  *   its 400 or `errors` → VALUE_REJECTED (the query's values; the tab's own playback next, never
  *   a guessed value), no post (`null`: gated or gone alike) → NEEDS_PLAYBACK.
  *
@@ -116,7 +116,7 @@ internal object InstagramAnswerJudge {
      * I2's answer from main's judged answers [judged] (in main's order): the first with rows bound
      * to the post (DIRECT), else the first by shape (PARTIAL); else a photo post only when no
      * answer shows a video ([readings]: a video by its type, or rows); else the strongest stop, in
-     * this order: RATE_LIMITED, BOT_CHECK, AGE_LIMITED, LOGIN_WALL, VIDEO_WITHOUT_FILES (task 13),
+     * this order: RATE_LIMITED, BOT_CHECK, AGE_LIMITED, LOGIN_WALL, VIDEO_WITHOUT_FILES,
      * NEEDS_PLAYBACK, VALUE_REJECTED, SHAPE_CHANGED, TRANSIENT. Null for none.
      */
     fun aggregate(judged: List<Pair<String, Judged>>, readings: List<InstagramReading>): Pair<String, Judged>? {
@@ -164,7 +164,7 @@ internal object InstagramAnswerJudge {
             return Judged(AnswerClass.NEEDS_PLAYBACK, null, "no post in the answer: removed, private or gated alike")
         }
         val evidence = when {
-            // Task 15 (F2): main's rule reads the post's files and the recipe read no row.
+            // Main's rule reads the post's files and the recipe read no row.
             reading.videoTyped && reading.files > 0 -> "a video with files, no rows read"
             reading.videoTyped -> "a video, no files read"
             else -> "no video read"
@@ -177,17 +177,17 @@ internal object InstagramAnswerJudge {
             Judged(AnswerClass.PHOTO_ONLY, AnswerClass.PHOTO_ONLY.reason, "photos only, no video")
         page.body.contains(EMBED_BROKEN) ->
             Judged(AnswerClass.NEEDS_PLAYBACK, null, "not embeddable: removed, private or not embeddable alike")
-        // Task 15 (F2): main's rule reads the post's files and the recipe read no row: the
+        // Main's rule reads the post's files and the recipe read no row: the
         // recipe's shape, never the embed's design.
         reading.videoTyped && reading.files > 0 -> shapeChanged("a video with files, no rows read", page, reading, true)
-        // Task 13 (observation d), task 15 (F2): the embed page signed out names the video and lists
+        // The embed page signed out names the video and lists
         // no file by its design — main's rule reads it so ("video without files"), and so does I2
-        // with main's post (a Master copy of main's rule): the tab-fetch rung's, not a shape change.
+        // with main's post (a Master copy of main's rule): the Instagram tab-fetch step's, not a shape change.
         reading.videoTyped && way == SiteWays.EMBED_PAGE ->
             Judged(AnswerClass.VIDEO_WITHOUT_FILES, null, "a video, no files read")
         reading.videoTyped -> shapeChanged("a video, no files read", page, reading, true)
         reading.post && reading.rulePost -> shapeChanged("no video read", page, reading, true)
-        // L3 (the retest of 2026-10-23): a node names the post's code without its data — no video
+        // From the retest of 2026-10-23: a node names the post's code without its data — no video
         // mark, no file, and main's rule finds no post in the page: main's "no post", so too here
         // (never a shape change), with what was read.
         reading.post -> Judged(AnswerClass.NEEDS_PLAYBACK, null, "no post data in the page, as main's rule reads it; " + read(page, reading, true))
@@ -214,8 +214,8 @@ internal object InstagramAnswerJudge {
         Judged(AnswerClass.SHAPE_CHANGED, AnswerClass.SHAPE_CHANGED.reason, evidence)
 
     /**
-     * Task 15 (F2): a shape change read in [answer] ([reading]; a [page] or a JSON answer): its
-     * [evidence], then what was read, counts and marks only (S8: never a link, an ID or the answer's
+     * A shape change read in [answer] ([reading]; a [page] or a JSON answer): its
+     * [evidence], then what was read, counts and marks only (never a link, an ID or the answer's
      * words) — the answer's size in characters (as main's line counts it; a page's JSON documents
      * and whether main's rule found the post in them too), a video mark and the post's files — so
      * the line says which marker was missing.
@@ -224,7 +224,7 @@ internal object InstagramAnswerJudge {
         return shapeChanged("$evidence; ${read(answer, reading, page)}")
     }
 
-    /** Task 15 (F2), L3: what was read in [answer], counts and marks only (a [page]'s or a JSON answer's). */
+    /** What was read in [answer], counts and marks only (a [page]'s or a JSON answer's). */
     private fun read(answer: ExtractorHttpResult.Success, reading: InstagramReading, page: Boolean): String {
         val read = if (page) {
             "the page: ${answer.body.length} characters; documents: ${reading.documents}; main's post: ${yes(reading.rulePost)}"

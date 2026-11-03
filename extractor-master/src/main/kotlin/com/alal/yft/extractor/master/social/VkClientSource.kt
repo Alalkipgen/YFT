@@ -1,5 +1,5 @@
 /*
- * Provenance (agent D's wiring, VK-Master plan §8; copied, not moved; rows in
+ * Provenance (copied, not moved; rows in
  * toolkit-provenance.tsv):
  *   extractor-sites/.../tiktok/TikTokAgents.kt  desktop, CHROME_MAJOR, FALLBACK_CHROME_MAJOR
  *                                             (desktop Chrome on Windows with the phone's Chrome
@@ -18,13 +18,13 @@ import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.coroutineContext
 
 /**
- * VK Master plan §8, part 2 (the owner's go, 2026-10-25, on agent A's recon,
- * `docs/VK_MASTER_CENSUS.md` §5 and §3.2a; agent D's live check, 2026-10-26): V2's live self-heal
- * source — vkvideo.ru's public web-player script — as a [ValueReader] for [ValueSource]. It heals
+ * The VK ladder's heal step's (`vk V2` in Lookup details) live self-heal source, from the VK
+ * census's findings (docs/TESTING.md) and a live check on 2026-10-26: vkvideo.ru's public
+ * web-player script, as a [ValueReader] for [ValueSource]. It heals
  * two values only, each one strict pattern match: [CLIENT_ID] (the web client's app ID that VK's
  * script exports as `VK_WEB_VKVIDEO_APP_ID`, written as hex or digits) and [API_VERSION] (the
  * version after `API_VERSION:`). Never the client secret: VK's token endpoint does not check it
- * today (A §3.2a), so the bundled one stays; any other kind, a look-alike under the same name too,
+ * today (VK census), so the bundled one stays; any other kind, a look-alike under the same name too,
  * is refused without a request.
  *
  * One read is [REQUESTS_PER_READ] GETs, each with desktop Chrome's User-Agent ([desktop]: the
@@ -41,9 +41,9 @@ import kotlin.coroutines.coroutineContext
  * whole: the app's client cannot stream an answer, and refuses one over its bound
  * (`RESPONSE_TOO_LARGE`) instead of cutting it, so a read cannot stop at the first match.
  *
- * Inside V2's [Pass] (the ladder's, one lookup): each GET goes by the lookup's rules
+ * Inside the heal step's [Pass] (one lookup): each GET goes by the lookup's rules
  * ([RouteBLookup]: listed in the record as Master's, nothing new after a 429), the pass counts its
- * asks and bytes for V2's line, and the script is read once for both values (the second value of
+ * asks and bytes for the heal step's line, and the script is read once for both values (the second value of
  * the pass is matched in the same text, no new request). [ValueSource] matches the value, reads at
  * most once a day per value, keeps a value only after an OK answer and a V pass, and stops the
  * site after a 429 or a bot check. Nothing here logs.
@@ -100,8 +100,8 @@ internal class VkClientSource(
     override fun toString(): String = "VkClientSource(vkvideo.ru)"
 
     /**
-     * One V2 pass of VK's ladder (one lookup): its GETs go by [route] (the lookup's record), [asks]
-     * and [bytes] count what went out and came back (for V2's line: numbers only), and [script]
+     * One heal pass of the VK ladder (one lookup): its GETs go by [route] (the lookup's record), [asks]
+     * and [bytes] count what went out and came back (for the heal step's line: numbers only), and [script]
      * keeps the common script read in it, so the pass's second value is matched in the same text
      * without a new request. Memory only, dropped with the pass.
      */
@@ -130,7 +130,7 @@ internal class VkClientSource(
         /** The source's ID in notes and the health ([SiteHealth.WORD]: never an address). */
         const val ID = "vkvideo-script"
 
-        /** vkvideo.ru's own page: it lists today's scripts (A §5). */
+        /** vkvideo.ru's own page: it lists today's scripts (VK census). */
         const val PAGE = "https://vkvideo.ru/"
 
         /** One read: the page, then the common script (VK's budget counts both: [VkSite.BUDGET]). */
@@ -143,7 +143,7 @@ internal class VkClientSource(
         const val COMMON_MAX_BYTES = ValueKind.MAX_BYTES
 
         /**
-         * The client id: the web client's app ID (A §3.2a: the value the token endpoint checks),
+         * The client id: the web client's app ID (VK census: the value the token endpoint checks),
          * which VK's common script exports by name and assigns nearby — `VK_WEB_VKVIDEO_APP_ID:()=>n`,
          * then `n=0x…` (hex, read as decimal) or digits.
          */

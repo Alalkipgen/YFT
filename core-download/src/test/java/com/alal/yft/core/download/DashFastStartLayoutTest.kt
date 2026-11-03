@@ -26,7 +26,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
-/** P41: the FAST_START file layout, its fingerprints, its switch and its start times. */
+/** The FAST_START file layout, its fingerprints, its switch and its start times. */
 class DashFastStartLayoutTest {
     @get:Rule
     val directory = TemporaryFolder()

@@ -1,4 +1,4 @@
-// Provenance (Master Phase 1.1 S5): adapted from main's
+// Provenance (YouTube own solver): adapted from main's
 //   app/src/main/java/com/alal/yft/detection/script/WebViewSolverEngine.kt (main 34a41890).
 // Same sandbox, own routes/assets/bridge; main's file stays unchanged and is still main's engine.
 package com.alal.yft.extractor.master.android.solver
@@ -25,7 +25,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Phase 1.1 S5: runs Master's own solver core in a private, offscreen WebView.
+ * YouTube own solver: runs Master's own solver core in a private, offscreen WebView.
  *
  * Each run gets a fresh WebView that is destroyed afterwards. Its page and every script are
  * served by the app from the reserved asset host ([OwnSolverPageRoutes], folder
@@ -42,7 +42,7 @@ class WebViewOwnSolverEngine(
         appContext.packageManager.hasSystemFeature(PackageManager.FEATURE_WEBVIEW)
     }
 
-    /** N5b: the job is "started" once the page read it (the input route). */
+    /** The job is "started" once the page read it (the input route). */
     override val reportsReady: Boolean get() = true
 
     override suspend fun run(input: String): String? = run(input, NO_EVENTS)

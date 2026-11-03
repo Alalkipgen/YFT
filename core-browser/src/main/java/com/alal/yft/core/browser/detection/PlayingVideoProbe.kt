@@ -7,9 +7,9 @@ import org.json.JSONTokener
 
 /**
  * Which video a page is playing, read once when the Download button is tapped on a page with
- * several videos, so the sheet opens for that one first (P12).
+ * several videos, so the sheet opens for that one first.
  *
- * P24: the script reports every `<video>` that plays or has started, in the page and in the
+ * The script reports every `<video>` that plays or has started, in the page and in the
  * frames it may read: its address, length, position, picture size, whether it is muted, loops
  * or autoplays, and whether it sits in a frame, a link to another page or a thumbnail box. A
  * stream the page builds itself (`blob:`) names no file; its length and start time then tell
@@ -69,7 +69,7 @@ object PlayingVideoProbe {
     fun parse(javascriptResult: String?): String? = playing(javascriptResult)?.url
 
     /**
-     * P24: the page's player from the script's [javascriptResult]: of the elements it reports,
+     * The page's player from the script's [javascriptResult]: of the elements it reports,
      * one that does not look like a preview first, then a playing one before a paused one, one
      * in the page before one in its frames, then the largest on screen, then the longest. An
      * older answer that is just an address gives that address. Null when nothing plays.

@@ -11,7 +11,7 @@ dependencies {
     implementation(project(":extractor-generic"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.okhttp)
-    // R6 parity only: main's YouTube extractor is compared, never called by Master code.
+    // Master YouTube module parity only: main's YouTube extractor is compared, never called by Master code.
     testImplementation(project(":extractor-sites"))
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
@@ -27,7 +27,7 @@ tasks.test {
         inputs.file(snapshot.get()).withPathSensitivity(PathSensitivity.NONE)
     }
 
-    // R1 offline parity: main's site fixtures and the frozen parity list are test inputs.
+    // Master parity check, offline: main's site fixtures and the frozen parity list are test inputs.
     val siteFixtures = rootProject.file("extractor-sites/src/test/resources/fixtures")
     val parityUrls = rootProject.file("app/src/androidTest/assets/parity/parity-urls.json")
     inputs.dir(siteFixtures).withPathSensitivity(PathSensitivity.RELATIVE)
@@ -38,11 +38,11 @@ tasks.test {
         "yft.parityBaselineFile",
         file("src/test/resources/parity/fixture-baseline.json").absolutePath,
     )
-    // R9: the recipe config's schema and example are checked against the reader.
+    // Signed recipe config: the recipe config's schema and example are checked against the reader.
     val recipeDocs = file("recipes")
     inputs.dir(recipeDocs).withPathSensitivity(PathSensitivity.RELATIVE)
     systemProperty("yft.recipeDocs", recipeDocs.absolutePath)
-    // R6 canary (owner-run, never in CI): `-Pyft.youtubeCanary=<video id>` asks YouTube live.
+    // Master YouTube canary (owner-run, never in CI): `-Pyft.youtubeCanary=<video id>` asks YouTube live.
     val canary = providers.gradleProperty("yft.youtubeCanary")
     if (canary.isPresent) {
         systemProperty("yft.youtubeCanary", canary.get())

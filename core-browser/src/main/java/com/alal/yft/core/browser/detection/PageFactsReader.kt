@@ -5,7 +5,7 @@ import com.alal.yft.extractor.generic.manifest.ManifestReader
 import java.net.URI
 
 /**
- * P28: reads what a page states about its own video ([PageVideoFacts]) from its meta tags and
+ * Reads what a page states about its own video ([PageVideoFacts]) from its meta tags and
  * JSON-LD only, never from its visible text: the length (`VideoObject.duration`, even when the
  * object names no media file, `og:video:duration`, `video:duration`, `itemprop="duration"`), the
  * title (`og:title`, the VideoObject's `name`, else the page title without the site's name) and

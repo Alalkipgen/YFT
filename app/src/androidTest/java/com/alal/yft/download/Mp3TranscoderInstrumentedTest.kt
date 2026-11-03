@@ -20,8 +20,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * T18 on a real device or emulator: MediaCodec decodes short AAC fixtures (made with ffmpeg's
- * AAC encoder) and LAME encodes them; Android's own extractor must read the MP3 back.
+ * MP3 conversion on a real device or emulator: MediaCodec decodes short AAC fixtures (made with
+ * ffmpeg's AAC encoder) and LAME encodes them; Android's own extractor must read the MP3 back.
  */
 @RunWith(AndroidJUnit4::class)
 class Mp3TranscoderInstrumentedTest {

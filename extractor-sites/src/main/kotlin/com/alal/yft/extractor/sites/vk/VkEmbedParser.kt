@@ -9,7 +9,7 @@ import com.alal.yft.extractor.api.json.asStringOrNull
 import com.alal.yft.extractor.api.json.get
 import java.util.Locale
 
-/** One real rendition of the requested video (VK_PLAN §4.2, the owner's answer 4). */
+/** One real rendition of the requested video. */
 internal data class VkRendition(
     val key: String,
     val url: String,
@@ -38,7 +38,7 @@ internal sealed interface VkEmbed {
     data object NotFound : VkEmbed
 
     /**
-     * VK5: `video_ext_msg` with VK's adult-content text or `embedErrorCallback(9)` — "may contain
+     * `video_ext_msg` with VK's adult-content text or `embedErrorCallback(9)` — "may contain
      * adult content … can't be viewed on external sites". VK's own site plays these signed out;
      * only this answer opens path D.
      */
@@ -51,7 +51,7 @@ internal sealed interface VkEmbed {
     data class Changed(val why: String) : VkEmbed
 }
 
-/** Path D's answer from api.vkvideo.ru's `video.get` (VK5). */
+/** Path D's answer from api.vkvideo.ru's `video.get`. */
 internal sealed interface VkApiAnswer {
     /** The item for the requested video (its renditions may be empty). */
     data class Found(val video: VkVideo) : VkApiAnswer
@@ -68,7 +68,7 @@ internal sealed interface VkApiAnswer {
 
 /**
  * Which addresses count as media: the embed's (v1: `*.okcdn.ru` in the table, `vkvd{N}.okcdn.ru`
- * in the shape scan) or path D's (VK5: the same, and `vk{N}-{N}.vkuser.net`).
+ * in the shape scan) or path D's (the same, and `vk{N}-{N}.vkuser.net`).
  */
 internal enum class VkMediaHosts(
     val table: (String) -> Boolean,
@@ -94,10 +94,10 @@ internal object VkEmbedParser {
     private const val NOT_FOUND_MARKER = "id=\"video_ext_msg\""
     private val SHELL_MARKERS = listOf("spa_root", "isRedirectChallenge")
 
-    /** VK5: the embed's error callback for adult content (VK's "Video not found." calls 7). */
+    /** The embed's error callback for adult content (VK's "Video not found." calls 7). */
     private val ADULT_CALLBACK = Regex("embedErrorCallback\\s*(?:\\?\\.)?\\s*\\(\\s*9\\s*\\)")
 
-    /** VK5: VK's adult-content text inside `video_ext_msg`, in English and Russian. */
+    /** VK's adult-content text inside `video_ext_msg`, in English and Russian. */
     private val ADULT_WORDS = listOf("adult content", "для взрослых")
     private const val MAX_MESSAGE_CHARS = 2_000
     private val SPACES = Regex("\\s+")
@@ -150,7 +150,7 @@ internal object VkEmbedParser {
     }
 
     /**
-     * Path D (VK5): api.vkvideo.ru's `video.get` answer — VK's error, or the `response.items[]`
+     * Path D: api.vkvideo.ru's `video.get` answer — VK's error, or the `response.items[]`
      * entry naming the link's video (the identity check), read by the embed's key table and shape
      * scan with path D's hosts. An item VK says it does not play is [VkApiAnswer.Restricted].
      */
@@ -170,7 +170,7 @@ internal object VkEmbedParser {
     }
 
     /**
-     * VK5: the embed's `video_ext_msg` holds VK's adult-content text, or the page calls
+     * The embed's `video_ext_msg` holds VK's adult-content text, or the page calls
      * `embedErrorCallback(9)` beside it. Free words elsewhere in the page never count.
      */
     private fun isAdult(html: String): Boolean {

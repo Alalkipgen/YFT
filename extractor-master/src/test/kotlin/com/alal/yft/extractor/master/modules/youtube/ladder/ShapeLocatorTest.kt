@@ -8,9 +8,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Phase 1.3 D5b: ShapeLocator, rung L step 1 (MASTER_KEY_PHASE1_3_PLAN.md §3 L) — what makes a
+ * YouTube shape reader: ShapeLocator, rung L's first step — what makes a
  * format, a video, a status, an HLS address and a DRM marker is read from values, under any key
- * names; the scan's bounds and its D2 flags. Small answers made here and the D1 simulator's 5
+ * names; the scan's bounds and its Answer judge flags. Small answers made here and the Answer change test's 5
  * bases; offline, no live calls.
  */
 class ShapeLocatorTest {
@@ -200,8 +200,8 @@ class ShapeLocatorTest {
             assertTrue(top.toString(), found.drm)
             assertEquals(top.toString(), path, found.drmPath)
         }
-        // Not one of the parser's keys, or a DRM text outside a format-like object: no marker. D7
-        // (2026-10-15): the old rule stopped L on live visionOS answers without DRM, likely on
+        // Not one of the parser's keys, or a DRM text outside a format-like object: no marker. On
+        // 2026-10-15 the old rule stopped L on live visionOS answers without DRM, likely on
         // player settings like these first two.
         val unmarked = listOf(
             "playerConfig" to linkedMapOf("webDrmConfig" to linkedMapOf("widevineServiceCert" to "Q0VSVA", "useCobaltWidevine" to true)),

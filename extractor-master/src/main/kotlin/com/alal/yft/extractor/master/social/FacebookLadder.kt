@@ -28,9 +28,9 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * Social plan S1a (3) (`MASTER_KEY_SOCIAL_PLAN.md` §6.1, §7.3): Facebook's ladder after main
- * failed (the pilot), in place of R8's unjudged ask. F1: the plugin player (`plugins/video.php`,
- * R8's recipe: desktop Safari, no session) asked once for the video, inside the lookup's record
+ * The Facebook ladder (`facebook F1`–`F3` in Lookup details): Facebook's steps after main
+ * failed (the first social ladder), in place of the site contract reader's unjudged ask. F1: the plugin player (`plugins/video.php`,
+ * the contract reader's recipe: desktop Safari, no session) asked once for the video, inside the lookup's record
  * under route B's rules ([RouteBLookup]: never the user's credentials, nothing new after a 429,
  * an endpoint asked once), read with the recipe's key table (rows bound to the video ID) and
  * judged ([FacebookAnswerJudge]): rows → the engine's media checks; a final answer only on
@@ -40,9 +40,9 @@ import kotlinx.coroutines.withTimeoutOrNull
  * playback). A link main resolves first (a share link, a post) is read through main's resolved
  * link ([MainPages.resolved]); one main did not resolve to a video is not asked about.
  *
- * S1a (4): F2, main's pages, when F1 leaves nothing to read: the pages main read in this lookup
+ * F2, main's pages, when F1 leaves nothing to read: the pages main read in this lookup
  * for the link ([MainPages]: the link's own page, the video's) are read with Master's layers, no
- * request (the data scripts that name the video; L4's keys and L3's shape search; rows bound to
+ * request (the data scripts that name the video; the recipe reader's keys and shape search; rows bound to
  * the video ID), each judged as F1's answer is. Rows → the engine's media checks (the page data);
  * DRM → final; the page's own route → final only when every page main read for the link was read
  * and says the same, a page read with the session among them ([MainPages.Page.authorized]), and
@@ -51,7 +51,7 @@ import kotlinx.coroutines.withTimeoutOrNull
  * main did not resolve to a video: its pages are judged for the route only (no rows); another
  * video's page (its final address names another video) is not read.
  *
- * S1a (5), S7: stops and budgets. F1 asks only when none of its hosts stopped in this lookup (a
+ * Social limits: stops and budgets. F1 asks only when none of its hosts stopped in this lookup (a
  * bot check in the lookup's record, main's asks included), none cools ([cooldown]: 30 minutes
  * after a host's last 429 or bot check, across lookups) and the lookup's [budget] holds (main's
  * and Master's asks so far, the time since the lookup began, Master's answers' characters); else
@@ -61,7 +61,7 @@ import kotlinx.coroutines.withTimeoutOrNull
  * and F1's own after its 429 or bot check (a checkpoint address) start their cooldown when the
  * stage ends.
  *
- * S1a (7): the rows bound to the video ID only when the answer holds one video under it
+ * The rows bound to the video ID only when the answer holds one video under it
  * ([FacebookIdentity]): F1's answer and each of F2's pages that gave rows are walked once more
  * (the same documents the readers read); two videos under the ID (an ID-less list of other or
  * whole videos, two objects with the ID giving one field disjoint files, a list item's file
@@ -69,11 +69,11 @@ import kotlinx.coroutines.withTimeoutOrNull
  * under another ID) or a walk over its bound → no rows from that answer (a short line says why;
  * F1: the next rung, F2 still reads; an F2 page: not staged).
  *
- * S4: a rung the signed recipe config turns off ([RungsOff]: F1, F2, F3) is not run, its line
+ * Signed recipe config: a rung the config turns off ([RungsOff]: F1, F2, F3) is not run, its line
  * says so; the config is asked for (when due, on its own) as the stage starts.
  *
  * Claims only a Facebook lookup with its own record ([LookupRecord]: the social-ladder build's,
- * `-Pyft.socialLadder`); every other lookup keeps R8's path. [identify] names a page's video (the
+ * `-Pyft.socialLadder`); every other lookup keeps the site contract reader's path. [identify] names a page's video (the
  * app's adapters); [contractsOf] builds the recipe source around the ladder's client (the app's
  * signed config when its build has one). Lines: short labels, never a link, an ID or the page's
  * words; nothing is logged.
@@ -87,7 +87,7 @@ class FacebookLadder(
 ) : SocialStage {
     private val contracts = contractsOf(Keeping(RouteBHttpClient(http)))
 
-    /** S7: the characters of Master's answers per lookup (its record), dropped with the record. */
+    /** The characters of Master's answers per lookup (its record), dropped with the record. */
     private val spent = WeakHashMap<LookupRecord, Long>()
 
     override suspend fun claims(request: MasterRequest): Boolean =
@@ -99,9 +99,9 @@ class FacebookLadder(
         details: MutableList<String>,
     ): SocialStage.Staged? {
         val record = coroutineContext[LookupRecord] ?: return null
-        // S4: the signed config's ask when due (outside the lookup), so its rungs off apply here.
+        // The signed config's ask when due (outside the lookup), so its rungs off apply here.
         contracts.refresh()
-        // S1a (5), S7: the hosts that answered a 429 or a bot check in this lookup (main's asks
+        // The hosts that answered a 429 or a bot check in this lookup (main's asks
         // included) cool from the stage's end, whatever it answers.
         return try {
             climb(record, request, policy, details)
@@ -110,7 +110,7 @@ class FacebookLadder(
         }
     }
 
-    /** S4: F3, the visible tab's own playback, when the signed config turns it off. */
+    /** F3, the visible tab's own playback, when the signed config turns it off. */
     override suspend fun captureOff(request: MasterRequest): String? =
         RungsOff.line(F3).takeIf { "F3" in contracts.rungsOff() }
 
@@ -122,7 +122,7 @@ class FacebookLadder(
         details: MutableList<String>,
     ): SocialStage.Staged? {
         val asked = request.identity?.takeIf { it.siteId == SITE_ID } ?: return null
-        // As R8: a sign-in or bot-check failure is the user's own playback's; another video's
+        // As with the site contract reader: a sign-in or bot-check failure is the user's own playback's; another video's
         // page is not asked about.
         if (TerminalRules.needsAuthorizedPlayback(request.primaryFailure) ||
             request.expectedContentId?.let { it != asked.contentId } == true
@@ -138,7 +138,7 @@ class FacebookLadder(
         if (identity == null) {
             details += "$LINE: a link main resolves first, no video in main's answer; not asked"
         }
-        // S4: a rung the signed config turns off is not run.
+        // A rung the signed config turns off is not run.
         val off = contracts.rungsOff()
         val plugin = when {
             identity == null || !contracts.reads(identity) -> null
@@ -153,7 +153,7 @@ class FacebookLadder(
             details += RungsOff.line(F2)
             return null
         }
-        // S1a (4): F2, main's pages (no request), when F1 left nothing to read.
+        // F2, main's pages (no request), when F1 left nothing to read.
         return pages?.let { mainPages(it, request, asked, identity, plugin?.judged, policy, details) }
     }
 
@@ -168,7 +168,7 @@ class FacebookLadder(
         policy: MasterPolicy,
         details: MutableList<String>,
     ): Plugin? {
-        // S1a (5), S7: a stopped or cooling host, or the lookup's budget spent: not asked.
+        // A stopped or cooling host, or the lookup's budget spent: not asked.
         stopped(record)?.let { why ->
             details += "$F1: $why; not asked"
             return null
@@ -183,7 +183,7 @@ class FacebookLadder(
         val outcome = withTimeoutOrNull(wait) {
             withContext(route + kept) { contracts.ask(read) }
         }
-        // S7: what went out counts against the lookup's characters (an answer over the bound
+        // What went out counts against the lookup's characters (an answer over the bound
         // spends them all: the client read up to it).
         if (route.newRequests > 0) spend(record, kept)
         details += "$LINE after ${request.primaryFailure.name}; ${route.summary()}"
@@ -201,7 +201,7 @@ class FacebookLadder(
         val contract = (outcome as? SiteContracts.Asked.Answer)?.snapshot?.contract
         val recipe = contract?.let { contracts.recipeOf(it.site) }
         val evidence = if (contract != null && recipe != null) ContractReader(read, recipe, contract).read() else null
-        // S1a (7): the rows only when the answer holds one video under the video ID.
+        // The rows only when the answer holds one video under the video ID.
         val candidates = evidence?.candidates.orEmpty()
         val mixed = if (contract != null && recipe != null && candidates.isNotEmpty()) {
             FacebookIdentity.read(
@@ -219,7 +219,7 @@ class FacebookLadder(
             namesVideo(contract.body, identity.contentId, recipe.nodeIdFields)
         val judged = FacebookAnswerJudge.judge(answer, rows, needsPlayback = needsPlayback, drm = drm)
         details += "$F1: ${judged.answerClass.name} (${judged.evidence}); next: ${judged.next.name}"
-        // S7: F1's own 429 or bot check (a checkpoint address, which the labels read as a login
+        // F1's own 429 or bot check (a checkpoint address, which the labels read as a login
         // page) cools F1's hosts too.
         if (route.newRequests > 0 && judged.next == Next.STOP_SITE) cooldown.note(hosts())
         val staged = when (judged.next) {
@@ -239,7 +239,7 @@ class FacebookLadder(
     }
 
     /**
-     * S1a (5), S7: why F1 may not ask in [record]'s lookup, or null. After a 429 in the lookup
+     * Why F1 may not ask in [record]'s lookup, or null. After a 429 in the lookup
      * route B's rule refuses the ask (null here); else not asked: a host F1 asks stopped in the
      * lookup (a bot check), one still cooling, or the lookup's request, time or byte budget spent.
      */
@@ -261,11 +261,11 @@ class FacebookLadder(
     private fun hosts(): Set<String> =
         contracts.recipeOf(SITE_ID)?.answerHosts.orEmpty().map { it.lowercase().trimEnd('.') }.toSet()
 
-    /** S7: the characters left of [record]'s lookup's byte budget for Master's answers. */
+    /** The characters left of [record]'s lookup's byte budget for Master's answers. */
     private fun bytesLeft(record: LookupRecord): Long =
         (budget.bytes - synchronized(spent) { spent[record] ?: 0L }).coerceAtLeast(0)
 
-    /** S7: [kept]'s answer's characters (its whole bound when it was over it) spent in [record]'s lookup. */
+    /** [kept]'s answer's characters (its whole bound when it was over it) spent in [record]'s lookup. */
     private fun spend(record: LookupRecord, kept: Kept) {
         val answer = kept.result
         val chars = when {
@@ -277,9 +277,9 @@ class FacebookLadder(
     }
 
     /**
-     * S1a (4): F2, the pages main read in this lookup for the link ([pages]), read without a
+     * F2, the pages main read in this lookup for the link ([pages]), read without a
      * request: each page's data scripts that name the video ([documents]) through Master's layers
-     * (L4's keys, L3's shape search: rows bound to the video ID), and the page judged as F1's
+     * (the recipe reader's keys, shape search: rows bound to the video ID), and the page judged as F1's
      * answer. Rows on a page → the page data's media checks; DRM → final; the page's own route →
      * final only when every page main read for the link was read and says the same, a page read
      * with the session ([MainPages.Page.authorized]: main's request carried the user's
@@ -330,7 +330,7 @@ class FacebookLadder(
                     } else {
                         evidence.candidates.filter { it.pageRole == PageMediaRole.MAIN && it.videoId == bound }
                     }
-                    // S1a (7): the rows only when the page holds one video under the video ID.
+                    // The rows only when the page holds one video under the video ID.
                     val mixed = if (identity != null && boundRows.isNotEmpty()) {
                         FacebookIdentity.read(documents, identity.contentId, boundRows.map { it.mediaUrl })
                             .takeIf { it != FacebookIdentity.Reading.ONE_VIDEO }
@@ -426,7 +426,7 @@ class FacebookLadder(
 
     /**
      * The rung's one HTTP answer, kept for the judge (each ask its own, in its context); [limit]:
-     * S7's characters left in the lookup, the most the ask reads.
+     * the characters left in the lookup (Social limits), the most the ask reads.
      */
     private class Kept(val limit: Long = Long.MAX_VALUE) : AbstractCoroutineContextElement(Kept) {
         @Volatile
@@ -436,7 +436,7 @@ class FacebookLadder(
     }
 
     /**
-     * The ladder's client: each answer (a refusal included) also kept in the ask's [Kept]; S7: an
+     * The ladder's client: each answer (a refusal included) also kept in the ask's [Kept]; an
      * ask reads at most the lookup's characters left ([Kept.limit]).
      */
     private class Keeping(private val http: ExtractorHttpClient) : ExtractorHttpClient {
@@ -468,7 +468,7 @@ class FacebookLadder(
         internal const val F1 = "master: facebook F1 plugin player"
         internal const val F2 = "master: facebook F2 main's pages"
 
-        /** S4: F3, the visible tab's own playback (its line only when the config turns it off). */
+        /** F3, the visible tab's own playback (its line only when the config turns it off). */
         internal const val F3 = "master: facebook F3"
 
         /**

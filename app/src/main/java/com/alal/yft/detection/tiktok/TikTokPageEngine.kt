@@ -14,7 +14,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** P40: one hidden page; it loads a link, answers scripts, and is destroyed at the end. */
+/** TikTok page reader: one hidden page; it loads a link, answers scripts, then is destroyed. */
 interface HiddenPageWindow {
     /** The agent the page is asked with. */
     val userAgent: String?
@@ -34,12 +34,12 @@ interface HiddenPageWindow {
     suspend fun destroy()
 }
 
-/** P40: makes hidden pages that run [storeScript] at document start; null without a WebView. */
+/** Makes hidden pages that run [storeScript] at document start; null without a WebView. */
 fun interface HiddenPageWindows {
     suspend fun open(storeScript: String): HiddenPageWindow?
 }
 
-/** P40: TikTok's cookies in the browser's cookie store; values are never logged. */
+/** TikTok page reader: TikTok's cookies in the browser's cookie store; values are never logged. */
 interface TikTokCookies {
     /** The cookie header the browser sends to [url]; null when none. */
     fun header(url: String): String?
@@ -49,11 +49,11 @@ interface TikTokCookies {
 }
 
 /**
- * P40 step 4 (G5, `TT_HIDDEN_PAGE=ON`): TikTok's own page for a link no tab shows, opened in a
- * hidden WebView the way `WebViewBotGuardEngine` runs YouTube's script (ADR-006).
+ * TikTok page reader (`TT_HIDDEN_PAGE=ON`): TikTok's own page for a link no tab shows, opened in a
+ * hidden WebView the way `WebViewBotGuardEngine` runs YouTube's script.
  *
  * The page is asked with desktop Chrome, JavaScript on, images off and media answered empty,
- * and the browser's shared cookie store (G3, `TT_HOME_COOKIES=ON`), so a check cookie and the
+ * and the browser's shared cookie store (`TT_HOME_COOKIES=ON`), so a check cookie and the
  * media token stay for the next lookups. The page script's store runs at document start; the
  * item script is polled every [pollMillis] until the post's data appears or [timeoutMillis]
  * pass, then the page is destroyed. One page at a time: a second lookup waits. A check TikTok's

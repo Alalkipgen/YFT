@@ -12,10 +12,10 @@ import java.net.URI
 import java.util.zip.GZIPInputStream
 
 /**
- * VK's pack proof (V3's retest, 2026-10-26): the DASH manifest VK's player fetched on its page
+ * VK's pack proof (the capture step's retest, 2026-10-26): the DASH manifest VK's player fetched on its page
  * (a capture row: [CandidateSource.REQUEST], `application/dash+xml`). VK's manifest names each
  * quality and each sound as one whole file (`BaseURL` + `SegmentBase`, the on-demand profile);
- * its player then asks for pieces of them (`&bytes=A-B`), which are never rows (F1). The app
+ * its player then asks for pieces of them (`&bytes=A-B`), which are never rows. The app
  * downloads no `SegmentBase` manifest, so the manifest's row is its tallest picture file with its
  * best sound file as the sound to merge, both whole files on the manifest's own host, as
  * Facebook's inline manifests give theirs ([InlineDashReader]).

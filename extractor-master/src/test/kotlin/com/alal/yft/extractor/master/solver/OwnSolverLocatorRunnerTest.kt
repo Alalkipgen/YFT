@@ -18,7 +18,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Phase 1.2 N5b A.4/A.5: the locator cache and the V ledger in [OwnPlayerScriptRunner]'s ladder
+ * Own-solver ladder: the locator cache and the V ledger in [OwnPlayerScriptRunner]'s ladder
  * (ownSolverNext only), on fake engines that answer like the core in locate mode: a part per kind
  * answered cleanly, a hit for a sent part that is the core's own. What is kept (only the chosen
  * step's clean part; a signature's after V), what each worker job is sent, what is dropped, and

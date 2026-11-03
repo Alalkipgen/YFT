@@ -98,7 +98,7 @@ class FacebookExtractorTest {
         val result = FacebookExtractor(http).extract(request(identity))
             as SiteExtractionResult.Success
 
-        // A /watch/ link skips the public page and the ladder (P23): Safari gets that page
+        // A /watch/ link skips the public page and the ladder: Safari gets that page
         // without the video, and this one states no reel or video page to ask instead.
         assertEquals(listOf(identity.canonicalPageUrl), http.requestedUrls)
         val headers = http.requestedHeaders.single()
@@ -161,7 +161,7 @@ class FacebookExtractorTest {
 
     @Test
     fun `a story page is asked on the owner's posts path and resolves to its video`() = runTest {
-        // P3-FIX: Facebook's desktop story.php is a login wall; /{owner}/posts/{id} redirects to
+        // Facebook's desktop story.php is a login wall; /{owner}/posts/{id} redirects to
         // the video's own page, whose ID then picks the right video node.
         val story =
             "https://m.facebook.com/story.php?story_fbid=9876543210987654&id=100012345678901"
@@ -175,7 +175,7 @@ class FacebookExtractorTest {
         val result = FacebookExtractor(http).extract(request(identity))
             as SiteExtractionResult.Success
 
-        // P23: a page with HD/SD files only asks the AVC ladder once, as Safari without the
+        // A page with HD/SD files only asks the AVC ladder once, as Safari without the
         // session, on the video page the post redirected to.
         assertEquals(
             listOf(
@@ -198,7 +198,7 @@ class FacebookExtractorTest {
 
     @Test
     fun `a story page that names its Page is asked on the Page's posts path`() = runTest {
-        // Decision 18: the Page's posts path answers, without a redirect, with the post's page
+        // The Page's posts path answers, without a redirect, with the post's page
         // and its one video.
         val story =
             "https://m.facebook.com/story.php?story_fbid=pfbid0AbCdEfGhIjKlMn&id=FixturePage"

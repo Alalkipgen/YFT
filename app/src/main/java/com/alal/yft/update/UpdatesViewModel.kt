@@ -13,7 +13,7 @@ class UpdatesViewModel @Inject constructor(
 ) : ViewModel() {
     val state: StateFlow<UpdateState> = controller.state
 
-    /** The in-app download, checks and Android's installer (U2). */
+    /** The in-app download, checks and Android's installer. */
     val install: StateFlow<InstallState> = installFlow.state
 
     fun checkNow() = controller.checkNow()
@@ -35,7 +35,7 @@ class UpdatesViewModel @Inject constructor(
     fun confirmFailed(sessionId: Int) = installFlow.confirmFailed(sessionId)
 }
 
-/** Settings → About's Updates row: its second line and the New badge (§4.5). */
+/** Settings → About's Updates row: its second line and the New badge. */
 data class UpdatesRow(val supporting: String, val isNew: Boolean)
 
 /**
@@ -54,6 +54,25 @@ fun UpdateState.settingsRow(): UpdatesRow? {
         else -> UpdatesRow(supporting = "Not checked yet", isNew = false)
     }
 }
+
+/** Home's small card while an update is found: its lines. */
+data class HomeUpdateCard(val title: String, val supporting: String)
+
+/**
+ * The card says only what the Settings row's New says: a found version, kept until the installed
+ * version reaches it. None before a find, and none in a build that never checks. No request of
+ * its own: Home reads the updater's state.
+ */
+fun UpdateState.homeCard(): HomeUpdateCard? {
+    if (mode == UpdateMode.OFF) return null
+    val update = found ?: return null
+    return HomeUpdateCard(
+        title = "Update available",
+        supporting = update.version.label + (if (testMode) TEST_SUFFIX else "") + SEE_WHATS_NEW,
+    )
+}
+
+private const val SEE_WHATS_NEW = " · See what's new"
 
 /** Test mode's mark on every offer (debug and preview builds). */
 internal const val TEST_SUFFIX = " (test)"

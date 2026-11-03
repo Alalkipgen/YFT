@@ -17,7 +17,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
- * Phase 1.3 D5c — the **H leg** (MASTER_KEY_PHASE1_3_PLAN.md §3 H, steps 1–3; guardrail 6): one
+ * The YouTube HLS rung — the **H leg**: one
  * HLS row that needs no format the copied parser can read.
  *
  * 1. The HLS address ([address]): the answer's `streamingData.hlsManifestUrl` (HTTPS on
@@ -26,24 +26,24 @@ import kotlinx.coroutines.sync.withLock
  * 2. The video's length ([length]): the copied parser's (its answer for the requested video), else
  *    L's binding, else the page's; none → no H rows. A verdict (ShapeNormalizer's `Stop`: not `OK`,
  *    DRM, live) → no H.
- * 3. The lookup's H check ([Lookup.run]): D0's [HlsCheck] (master playlist ≤ 256 KiB → highest
+ * 3. The lookup's H check ([Lookup.run]): the census's [HlsCheck] (master playlist ≤ 256 KiB → highest
  *    variant → its playlist ≤ 1 MiB; no key other than `METHOD=NONE`; the variant's duration within
  *    ±2 s of the length), whose one file check reads the first segment's start instead (`Range`
  *    ≤ [MAX_SEGMENT_BYTES]): its content type and container start must match (MPEG-TS sync byte;
  *    `ftyp` / `styp` / `moof` / `sidx` / `emsg` / `prft`; EBML); a generic binary type lets the start
- *    decide (the owner's (က), 2026-10-17, [startOf]). Pass → one [Row] of kind HLS (the
+ *    decide ([startOf]). Pass → one [Row] of kind HLS (the
  *    master address) for the app's existing HLS path; fail or unknown → none (unknown is never
  *    pass). Every address HTTPS on `googlevideo.com`; at most 3 requests and one H check per
  *    lookup; the media headers without cookies, credentials or a range.
  *
- * Step 4 (when the leg runs) is D6's wiring. Nothing is logged; outcomes print verdicts, reasons
+ * Step 4 (when the leg runs) is the ladder's wiring. Nothing is logged; outcomes print verdicts, reasons
  * and counts only, never an address or a playlist line.
  */
 internal class HlsLeg(
     private val http: ExtractorHttpClient,
     private val maxSegmentBytes: Long = MAX_SEGMENT_BYTES,
     /**
-     * Phase 1.4 item 2 (run 4): the first segment's start through the ladder's media reader, which
+     * The first segment's start through the ladder's media reader, which
      * keeps at most [maxSegmentBytes] even when the host ignores the range (live 2026-10-17:
      * YouTube's HLS segments answer 200 with the whole segment, so [http] failed as too large
      * and H gave no row on the phone). Null: [http], as before.
@@ -57,7 +57,7 @@ internal class HlsLeg(
         /** Step 1: no HLS address, or several. */
         NO_ADDRESS,
 
-        /** Step 2: no known length (guardrail 6). */
+        /** Step 2: no known length. */
         NO_LENGTH,
 
         /** This lookup's one H check went to another address. */
@@ -86,7 +86,7 @@ internal class HlsLeg(
     class Row internal constructor(
         val master: String,
         val lengthSeconds: Long,
-        /** D0's facts: variants, highest resolution, audio form, codec families. */
+        /** The census's facts: variants, highest resolution, audio form, codec families. */
         val result: HlsCheck.Result,
         /** `ts`, `mp4` or `webm`: the first segment's container. */
         val container: String,
@@ -200,7 +200,7 @@ internal class HlsLeg(
     /**
      * The first segment's content type and start bytes (as the client decoded them) agree. A
      * generic binary type (none, `application/octet-stream`, `binary/octet-stream`) names no
-     * container, so the start decides (the owner's (က), 2026-10-17, Phase 1.4 run 4b: YouTube
+     * container, so the start decides (seen in a phone run: YouTube
      * serves its HLS segments as `application/octet-stream`; was unknown, so H never passed). A
      * named type must match the start; a start that is no container fails either way.
      */

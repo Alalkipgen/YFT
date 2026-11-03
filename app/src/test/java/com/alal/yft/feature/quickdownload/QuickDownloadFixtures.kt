@@ -19,6 +19,23 @@ internal object QuickDownloadFixtures {
     const val LENGTH = 252_000L
     const val MIB = 1_048_576L
 
+    /**
+     * Zawgyi titles: "New Myanmar songs" as Zawgyi types it (ျမန္မာ သီခ်င္း အသစ္မ်ား); the
+     * detector's Zawgyi probability is 1.0.
+     */
+    const val ZAWGYI_TITLE = "\u103B\u1019\u1014\u1039\u1019\u102C " +
+        "\u101E\u102E\u1001\u103A\u1004\u1039\u1038 " +
+        "\u1021\u101E\u1005\u1039\u1019\u103A\u102C\u1038"
+
+    /** Zawgyi titles: [ZAWGYI_TITLE] in Unicode (မြန်မာ သီချင်း အသစ်များ); p = 4.0e-19. */
+    const val UNICODE_TITLE = "\u1019\u103C\u1014\u103A\u1019\u102C " +
+        "\u101E\u102E\u1001\u103B\u1004\u103A\u1038 " +
+        "\u1021\u101E\u1005\u103A\u1019\u103B\u102C\u1038"
+
+    /** Zawgyi titles: [youtube]'s lookup for a video named [title]. */
+    fun youtubeTitled(title: String): List<MediaCandidate> =
+        youtube().map { it.copy(title = it.title?.replace(TITLE, title)) }
+
     /** A whole MP4 a site adapter named; [merged] ones carry their sound as a companion. */
     fun video(
         height: Int?,
@@ -89,10 +106,10 @@ internal object QuickDownloadFixtures {
         audio(48, 2 * MIB),
     )
 
-    /** D2: [youtube]'s lookup as if [page] had given it, to compare the sites' audio rows. */
+    /** [youtube]'s lookup as if [page] had given it, to compare the sites' audio rows. */
     fun youtubeOn(page: String): List<MediaCandidate> = youtube().map { it.copy(pageUrl = page) }
 
-    /** P25: YouTube's full ladder, 4K to 144p merged with M4A, the 360p file and two M4As. */
+    /** YouTube's full ladder, 4K to 144p merged with M4A, the 360p file and two M4As. */
     fun youtubeLadder(): List<MediaCandidate> =
         listOf(2160, 1440, 1080, 720, 480, 240, 144).map { height ->
             video(height, height / 10 * MIB, merged = true)
@@ -100,19 +117,19 @@ internal object QuickDownloadFixtures {
 
     const val FACEBOOK_ID = "facebook:fixture25"
 
-    /** D2: Facebook's own page, so its rows follow the rule of a site that is not YouTube. */
+    /** Facebook's own page, so its rows follow the rule of a site that is not YouTube. */
     const val FACEBOOK_PAGE = "https://www.facebook.com/reel/fixture25"
 
     /**
-     * P25: Facebook's HD and SD files as its page lists them: no height, no codecs, no size,
-     * named only by the site's word.
+     * Facebook's HD and SD files as its page lists them: no height, no codecs, no size, named only
+     * by the site's word.
      */
     fun facebookFiles(): List<MediaCandidate> = listOf("HD" to 1, "SD" to 2).map { (word, at) ->
         video(null, label = word, videoId = FACEBOOK_ID, index = at, page = FACEBOOK_PAGE)
             .copy(codecs = emptyList())
     }
 
-    /** P25: Facebook's DASH tracks (1080p to 360p, merged with its M4A track) and HD/SD. */
+    /** Facebook's DASH tracks (1080p to 360p, merged with its M4A track) and HD/SD. */
     fun facebookDash(): List<MediaCandidate> =
         listOf(1080, 720, 480, 360).map { height ->
             video(height, merged = true, videoId = FACEBOOK_ID, page = FACEBOOK_PAGE)
@@ -122,8 +139,8 @@ internal object QuickDownloadFixtures {
     const val OTHER_PAGE = "https://videos.example.test/watch/sunrise"
 
     /**
-     * P25: another site's page: its HLS master (1080p, 720p, 480p, sizes estimated from the
-     * bitrate) and an MP4 of the same video whose page states 720p but no codecs.
+     * Another site's page: its HLS master (1080p, 720p, 480p, sizes estimated from the bitrate) and
+     * an MP4 of the same video whose page states 720p but no codecs.
      */
     fun otherSite(): List<SheetSource> {
         val master = video(null, kind = MediaKind.HLS, videoId = null, label = null, index = 1)

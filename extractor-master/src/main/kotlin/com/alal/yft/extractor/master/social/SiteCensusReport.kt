@@ -20,7 +20,7 @@ import java.nio.charset.StandardCharsets
 import java.util.Locale
 
 /**
- * S0b: a row's class, from main's answer as Master's engine sees its reason: [RECOVERABLE] (the
+ * A row's class, from main's answer as Master's engine sees its reason: [RECOVERABLE] (the
  * engine would ask Master's contract), [BROWSER] (`TerminalRules.BROWSER_REQUIRED`), [FINAL]
  * (`TerminalRules.NEVER_FALLBACK`); or main's rows, its time limit, no adapter, an error.
  */
@@ -43,11 +43,11 @@ internal enum class RowClass(val label: String) {
     }
 }
 
-/** S0b: how Master's way ran for a row. */
+/** How Master's way ran for a row. */
 internal enum class MasterRun(val label: String) { ROUTE_B("route B"), TRIAL("trial"), NOT_RUN("not run") }
 
 /**
- * S0b: main's part of a row: its answer, its asks (labelled) and the ways it did not reach. 0.4:
+ * Main's part of a row: its answer, its asks (labelled) and the ways it did not reach. Also
  * [bestMillis], the best row's duration; [item], the post's item main's answer names; [repeats]
  * and [variants], the record's split of the asks sent again ([repeated] is the endpoint's count).
  */
@@ -72,9 +72,9 @@ internal class MainPart(
 )
 
 /**
- * S0b: Master's part of a row: how it ran (or why not), its answer, route B's counts, V; 0.4: the
- * best row's duration; 0.4 (c): [stopped], the Master phase's stop the part met (not run because
- * of it or of an earlier one's cooldown, or its own ask, check or V got the 429 or the bot check):
+ * Master's part of a row: how it ran (or why not), its answer, route B's counts, the Row check; the
+ * best row's duration; [stopped], the Master phase's stop the part met (not run because
+ * of it or of an earlier one's cooldown, or its own ask, check or Row check got the 429 or the bot check):
  * the diff does not compare such a part.
  */
 internal class MasterPart(
@@ -98,7 +98,7 @@ internal class MasterPart(
 )
 
 /**
- * Task 6b: a Master part the site's ladder ran (the census's pack, a social-ladder build): each
+ * A Master part the site's ladder ran (the census's pack, a social-ladder build): each
  * rung's state ([rungs], [LadderRungs]) and Master's rows against main's ([compare]: `main`,
  * main's rows; `slot wants none`, no row of main's and the slot never downloads; `main none`, no
  * row of main's for a slot that downloads; null: Master found no row; [mainRows], main's rows):
@@ -135,8 +135,8 @@ internal class LadderPart(
 }
 
 /**
- * S0b: one row (a link in its [slot]); [skipped] says why it was not looked up. 0.4: a looked-up
- * row's [setupMillis] (main's identity of the link) and [millis] (end to end: main, V, Master);
+ * One row (a link in its [slot]); [skipped] says why it was not looked up. A looked-up
+ * row's [setupMillis] (main's identity of the link) and [millis] (end to end: main, Row check, Master);
  * [ambiguous]: the judge said neither way ([expected] null, its [note] says why).
  */
 internal class CensusRowResult(
@@ -159,11 +159,11 @@ internal class CensusRowResult(
 }
 
 /**
- * S0b: one site of a run; [bytes] is -1 when not measured; [cooldownFrom]: when a 429 or bot check
- * stopped it. 0.4 (c): [stop] is (i)'s; [masterStop], the stop in (ii) or (iii) (only the
+ * One site of a run; [bytes] is -1 when not measured; [cooldownFrom]: when a 429 or bot check
+ * stopped it. [stop] is (i)'s; [masterStop], the stop in (ii) or (iii) (only the
  * remaining Master parts skipped; [masterCooldownFrom]: when a 429 or bot check stopped them);
  * [masterCooldown]: an earlier Master-phase stop's cooldown skipped this run's Master parts.
- * Task 6b: [ladder], the site's Master parts are its ladder's (the census's pack).
+ * [ladder]: the site's Master parts are its ladder's (the census's pack).
  */
 internal class CensusSiteResult(
     val site: Site,
@@ -182,17 +182,17 @@ internal class CensusSiteResult(
 ) {
     val number: SiteNumber by lazy { SiteNumber(rows) }
 
-    /** 0.4 (c): whether a looked-up row had the site's session (the baseline's key). */
+    /** Whether a looked-up row had the site's session (the baseline's key). */
     val session: Boolean get() = rows.any { it.main != null && it.session }
 
-    /** 0.4 (c): "main N/M · trials incomplete (why)" when the Master phase stopped or cooled down. */
+    /** "main N/M · trials incomplete (why)" when the Master phase stopped or cooled down. */
     val incomplete: String?
         get() = (masterStop ?: masterCooldown)?.let { why ->
             "main ${rows.count { it.main != null }}/${rows.size} · trials incomplete ($why)"
         }
 }
 
-/** S0b: one run of the census; 0.4 (c): [vpn], whether Android's network was a VPN; task 8: [weekly], a W run. */
+/** One run of the census; [vpn], whether Android's network was a VPN; [weekly], a Weekly site check run. */
 internal class CensusRunResult(
     val atMillis: Long,
     val millis: Long,
@@ -203,10 +203,10 @@ internal class CensusRunResult(
 )
 
 /**
- * S0b: a site's number (§7.1): main's recoverable failures among the rows that should download
+ * A site's number: main's recoverable failures among the rows that should download
  * (the slot's kind wants rows, with the session when it was there), and how many of them Master's
- * way recovered (route B rows that passed V); the other classes, the rows not as expected (0.4:
- * and the ambiguous ones, which are not counted as either), V on main's rows and the trials
+ * way recovered (route B rows that passed the Row check); the other classes, the rows not as expected (
+ * and the ambiguous ones, which are not counted as either), the Row check on main's rows and the trials
  * beside it.
  */
 internal class SiteNumber(rows: List<CensusRowResult>) {
@@ -233,14 +233,14 @@ internal class SiteNumber(rows: List<CensusRowResult>) {
     val mainFail = looked.count { it.v?.verdict == SiteRowCheck.Verdict.FAIL }
     val mainUnknown = looked.count { it.v?.verdict == SiteRowCheck.Verdict.UNKNOWN }
 
-    /** Task 6b: the Master parts the site's ladder ran, and of them: with rows, the same video (or item), V pass. */
+    /** The Master parts the site's ladder ran, and of them: with rows, the same video (or item), V pass. */
     private val ladders = looked.filter { it.master?.ladder != null && it.master.run != MasterRun.NOT_RUN }
     val ladderParts = ladders.size
     val ladderRows = ladders.count { (it.master?.rows ?: 0) > 0 }
     val ladderSame = ladders.count { it.master?.ladder?.same == YES }
     val ladderPass = ladders.count { it.master?.v?.verdict == SiteRowCheck.Verdict.PASS }
 
-    /** Task 6b: Master's rows proven another post's, and those not proven either way, over the site's ladder parts. */
+    /** Master's rows proven another post's, and those not proven either way, over the site's ladder parts. */
     val ladderWrong = ladders.sumOf { it.master?.ladder?.wrong ?: 0 }
     val ladderUnknown = ladders.sumOf { it.master?.ladder?.unknown ?: 0 }
 
@@ -249,7 +249,7 @@ internal class SiteNumber(rows: List<CensusRowResult>) {
     }
 }
 
-/** S0b: the export (one run) as JSON: labels, counts, sizes and fingerprints only. */
+/** The export (one run) as JSON: labels, counts, sizes and fingerprints only. */
 internal object SiteCensusJson {
     fun dateOf(epochMillis: Long): String = CensusJson.dateOf(epochMillis)
 
@@ -260,7 +260,7 @@ internal object SiteCensusJson {
         field("date", dateOf(run.atMillis))
         field("ms", run.millis)
         field("vpn", run.vpn)
-        // Task 8: a W run's export says so (the census's has no such field, as before).
+        // A weekly check run's export says so (the census's has no such field, as before).
         if (run.weekly) field("mode", "weekly")
         strings("notes", run.notes)
         list("sites", run.sites.map(::site))
@@ -297,7 +297,7 @@ internal object SiteCensusJson {
                 field("vPass", number.mainPass)
                 field("vFail", number.mainFail)
                 field("vUnknown", number.mainUnknown)
-                // Task 6b: the ladder's numbers, at the end (an older export has none).
+                // The ladder's numbers, at the end (an older export has none).
                 if (result.ladder) {
                     field("ladderParts", number.ladderParts)
                     field("ladderRows", number.ladderRows)
@@ -370,7 +370,7 @@ internal object SiteCensusJson {
             master.v?.let { raw("v", checked(it)) }
             field("vSkipped", master.vSkipped)
         }
-        // Task 6b: the ladder's part, at the end (an older export has none).
+        // The ladder's part, at the end (an older export has none).
         master.ladder?.let { ladder ->
             field("ladder", true)
             if (master.run != MasterRun.NOT_RUN) {
@@ -459,7 +459,7 @@ internal object SiteCensusJson {
     }
 }
 
-/** S0b: the report's text: the headline, the rules, each site's number and each row. */
+/** The report's text: the headline, the rules, each site's number and each row. */
 internal object SiteCensusReport {
     fun headline(run: CensusRunResult): String =
         "${SiteCensus.TOOL_LABEL}: " + run.sites.joinToString(" · ") { site ->
@@ -470,7 +470,7 @@ internal object SiteCensusReport {
                     (site.incomplete?.let { ", $it" } ?: ""))
         }
 
-    /** The report; 0.4 (b): [diff], this run against the last one, after the rules. */
+    /** The report; [diff], this run against the last one, after the rules. */
     fun text(run: CensusRunResult, diff: SiteCensusDiff.Result? = null): String = buildString {
         val rows = run.sites.sumOf { it.rows.size }
         appendLine(
@@ -649,13 +649,13 @@ internal object SiteCensusReport {
 }
 
 /**
- * S0b: the screen's state file (`files/master/site-census-last.json`): each site's cooldown after
+ * The screen's state file (`files/master/site-census-last.json`): each site's cooldown after
  * a 429 or a bot check ([stops]: until when, why), the last run's time and its export ([lastJson]
- * to write). 0.4 (c), format 2: each site's cooldown after a Master-phase stop ([masterStops]:
+ * to write). Format 2: each site's cooldown after a Master-phase stop ([masterStops]:
  * only its Master parts wait) and its [baselines], one per site, VPN and session: the last run
  * whose (i) completed, pass or fail (its part of the export and each slot's link fingerprint,
  * local only). Format 1's cooldowns (and its last run's time) are read; its export is no baseline.
- * Task 8: the weekly check W's own baselines ([weekly], keyed alike; written only once W ran, so a
+ * The Weekly site check's own baselines ([weekly], keyed alike; written only once it ran, so a
  * census-only state is as before).
  */
 internal class SiteCensusState(
@@ -668,12 +668,12 @@ internal class SiteCensusState(
 ) {
     class Stop(val untilMillis: Long, val why: String)
 
-    /** 0.4 (c): a baseline's key: the site, the VPN (on or off, as Android read it) and the session. */
+    /** A baseline's key: the site, the VPN (on or off, as Android read it) and the session. */
     data class Key(val site: String, val vpn: Boolean, val session: Boolean) {
         val label: String get() = "VPN ${if (vpn) "on" else "off"}, signed ${if (session) "in" else "out"}"
     }
 
-    /** 0.4 (c): a site's baseline: its run's time and date, each slot's link fingerprint, the site's part of the export. */
+    /** A site's baseline: its run's time and date, each slot's link fingerprint, the site's part of the export. */
     class Baseline(val atMillis: Long, val date: String?, val links: Map<Int, String>, val site: JsonValue)
 
     companion object {
@@ -708,7 +708,7 @@ internal class SiteCensusState(
             raw("masterStops", stopsText(state.masterStops))
             field("lastAt", state.lastAtMillis)
             list("baselines", state.baselines.map { (key, baseline) -> entry(key, baseline) })
-            // Task 8: W's baselines, only once W ran (a census-only state as before).
+            // The weekly check's baselines, only once it ran (a census-only state as before).
             if (state.weekly.isNotEmpty()) list("weekly", state.weekly.map { (key, baseline) -> entry(key, baseline) })
             state.lastJson?.let { raw("last", it) }
         }
@@ -766,7 +766,7 @@ internal class SiteCensusState(
 }
 
 /**
- * S0b: privacy (S8): the values a row's link holds (the link, main's canonical address and post
+ * Privacy: the values a row's link holds (the link, main's canonical address and post
  * ID, the address's own pieces: a handle, a code; not the site's structural words) and the last
  * guard ([CensusSanitizer]: any address becomes `[address]`, each value `*`).
  */

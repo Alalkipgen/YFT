@@ -41,6 +41,10 @@ import com.alal.yft.thumbnail.DownloadThumbnails
 import com.alal.yft.thumbnail.LocalDownloadThumbnails
 import com.alal.yft.thumbnail.LocalRemoteThumbnails
 import com.alal.yft.thumbnail.RemoteThumbnails
+import com.alal.yft.ui.navigation.LookUpSharedLink
+import com.alal.yft.ui.navigation.SharedLinks
+import com.alal.yft.ui.navigation.ShowRequestedTab
+import com.alal.yft.ui.navigation.TabRequests
 import com.alal.yft.ui.navigation.YftBottomBar
 import com.alal.yft.ui.navigation.YftDestination
 import com.alal.yft.ui.navigation.YftNavHost
@@ -52,8 +56,9 @@ import com.alal.yft.update.UpdateAutoOpen
 /**
  * The whole app. [playback] is the Library's player, whose mini player sits above the bottom bar
  * on every tab while audio plays; [mediaDetails] gives saved files their real thumbnails,
- * [remoteThumbnails] videos on the web their pictures and [downloadThumbnails] downloads theirs
- * (P19).
+ * [remoteThumbnails] videos on the web their pictures and [downloadThumbnails] downloads theirs.
+ * [tabRequests] holds a tab asked for from outside, such as Downloads from a download
+ * notification; [sharedLinks] a link another app shared, for Home's lookup.
  */
 @Composable
 fun YftApp(
@@ -62,6 +67,8 @@ fun YftApp(
     mediaDetails: MediaDetailsSource = MediaDetailsSource.None,
     remoteThumbnails: RemoteThumbnails = RemoteThumbnails.None,
     downloadThumbnails: DownloadThumbnails = DownloadThumbnails.None,
+    tabRequests: TabRequests? = null,
+    sharedLinks: SharedLinks? = null,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val darkTheme = isDarkTheme(uiState.themeMode)
@@ -69,7 +76,7 @@ fun YftApp(
     PauseWhenStopped(playback)
     ReportPlaybackFailures(playback)
 
-    // Decision 30 (v): a quiet build stays quiet until About's hidden Show details is on.
+    // Quiet details: a quiet build stays quiet until About's hidden Show details is on.
     val context = LocalContext.current
     val showDetails by remember(context) { ShowDetails.get(context) }.on.collectAsState()
 
@@ -82,6 +89,10 @@ fun YftApp(
             LocalQuietRelease provides (ShowDetails.quietBuild && !showDetails),
         ) {
             val navController = rememberNavController()
+            // Before UpdateAutoOpen: a tab asked for or a link shared in the same frame wins;
+            // Updates waits.
+            tabRequests?.let { ShowRequestedTab(navController, it) }
+            sharedLinks?.let { LookUpSharedLink(navController, it) }
             UpdateAutoOpen(navController)
             YftAppShell(
                 navController = navController,

@@ -13,9 +13,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * P37 (G7): the sheet's quiet second read of the browser tab's page: asked as the tab would ask
- * (its agent and its cookies, no cache), one read at a time; a page without player data is not
- * used.
+ * Fresh link renewal: the sheet's quiet second read of the browser tab's page: asked as the tab
+ * would ask (its agent and its cookies, no cache), one read at a time; a page without player data
+ * is not used.
  */
 class TabPageReaderTest {
     private val page = "https://clips.example.test/watch/5"

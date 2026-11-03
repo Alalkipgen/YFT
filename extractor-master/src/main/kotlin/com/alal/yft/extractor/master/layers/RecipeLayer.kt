@@ -22,11 +22,11 @@ import com.alal.yft.extractor.master.toolkit.HtmlScan
 import com.alal.yft.extractor.master.toolkit.InlineDashReader
 
 /**
- * L4: a bounded walk over delivered JSON (JSON scripts, assigned player JSON, API responses)
+ * Recipe reader: a bounded walk over delivered JSON (JSON scripts, assigned player JSON, API responses)
  * that applies the data-only [PayloadRecipes]. No endpoint, signature or login is invented;
- * unaddressed/cipher-only formats wait for the browser's own decoded requests (L1).
+ * unaddressed/cipher-only formats wait for the browser's own decoded requests (Browser capture).
  *
- * R2: YouTube `streamingData` rows are off unless [youtubeStreams] is set, and never on a
+ * Backup finder: YouTube `streamingData` rows are off unless [youtubeStreams] is set, and never on a
  * YouTube host (only the site adapter, later its own module, answers YouTube). Its DRM
  * statement still stops Master everywhere.
  */

@@ -21,7 +21,7 @@ data class FoundUpdate(
     val sumsUrl: String?,
     /**
      * The release's body as written (Markdown), at most [GitHubReleases.MAX_NOTES] characters; the
-     * Updates screen shows it as plain text ([ReleaseNotes]).
+     * Updates screen renders its Markdown ([ReleaseNotes], [ReleaseNotesView]).
      */
     val notes: String,
     /** GitHub's `published_at`, such as "2026-10-25T09:00:00Z"; null when missing. */

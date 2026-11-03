@@ -1,4 +1,4 @@
 package com.alal.yft.core.data
 
-/** Room, DataStore and OkHttp providers are wired during Phase 1. */
+/** Namespace marker for the data module (Room, DataStore and OkHttp providers). */
 object DataFoundation

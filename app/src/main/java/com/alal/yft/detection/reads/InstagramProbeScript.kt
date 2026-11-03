@@ -17,25 +17,23 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * Social plan S2d (`MASTER_KEY_SOCIAL_PLAN.md` decisions 19 and 24, debug only, off by
- * default): Instagram's tab-fetch rung (part 1's probe) as the browser screen runs it in its
- * visible tab when Instagram's ladder asks ([InstagramTabProbe]), and how its answer is read. Pure
- * (the tab's `evaluateJavascript` and its cookies are passed in), so both are unit-tested.
+ * Instagram tab-fetch step (debug only, off by default): its probe as the browser screen runs it in
+ * its visible tab when Instagram's ladder asks ([InstagramTabProbe]), and how its answer is read.
+ * Pure (the tab's `evaluateJavascript` and its cookies are passed in), so both are unit-tested.
  *
- * Only on the post's own page on Instagram's web host ([onPost]) and only signed out (task 13:
- * the tab's own cookies for that host, as the browser's cookie store holds them, its session
- * cookie included, name no `sessionid`: [signedIn]): the page's own `fetch` of
- * yt-dlp's signed-out post query ([InstagramProbeQuery]), POST, same origin with the page's own
- * cookies (the tab's TLS, agent, cookies and origin: S3 forbids imitating them); its form in
- * yt-dlp's order with the page's LSD value (`<script id="__eqmc">`'s `l`, else
- * `["LSD",[],{"token":…}]`); the query's headers, `X-FB-LSD` and, when the tab has its
- * `csrftoken` cookie, `X-CSRFToken`. At most [InstagramProbeQuery.MAX_ANSWER_CHARS] bytes of the
- * answer are kept (over them: its size only), and the fetch is cut off after
- * [FETCH_TIMEOUT_MILLIS]. The answer is kept in `window.__yftProbe[key]` as one small object the
- * app reads back, then forgotten. Whether the tab shows a wall (a sign-in form, a login or
- * checkpoint address) is read when the answer arrives. Nothing is logged; the answer goes to
- * Instagram's ladder only, which reads its rows (the rung, decision 24) and never one from a page
- * with a wall.
+ * Only on the post's own page on Instagram's web host ([onPost]) and only signed out (the tab's own
+ * cookies for that host, as the browser's cookie store holds them, its session cookie included,
+ * name no `sessionid`: [signedIn]): the page's own `fetch` of yt-dlp's signed-out post query
+ * ([InstagramProbeQuery]), POST, same origin with the page's own cookies (the tab's TLS, agent,
+ * cookies and origin: the Social ladders never imitate them); its form in yt-dlp's order with the
+ * page's LSD value (`<script id="__eqmc">`'s `l`, else `["LSD",[],{"token":…}]`); the query's
+ * headers, `X-FB-LSD` and, when the tab has its `csrftoken` cookie, `X-CSRFToken`. At most
+ * [InstagramProbeQuery.MAX_ANSWER_CHARS] bytes of the answer are kept (over them: its size only),
+ * and the fetch is cut off after [FETCH_TIMEOUT_MILLIS]. The answer is kept in
+ * `window.__yftProbe[key]` as one small object the app reads back, then forgotten. Whether the tab
+ * shows a wall (a sign-in form, a login or checkpoint address) is read when the answer arrives.
+ * Nothing is logged; the answer goes to Instagram's ladder only, which reads its rows (the rung)
+ * and never one from a page with a wall.
  */
 internal object InstagramProbeScript {
     const val STORE = "__yftProbe"
@@ -43,7 +41,7 @@ internal object InstagramProbeScript {
     /** Instagram's web host, the query's origin: the tab must be on it. */
     const val WEB_HOST = "www.instagram.com"
 
-    /** Task 13: the address whose cookies (the tab's, for [WEB_HOST]) tell whether the tab is signed in. */
+    /** The address whose cookies (the tab's, for [WEB_HOST]) tell whether the tab is signed in. */
     const val COOKIE_PAGE = "https://$WEB_HOST/"
 
     /** The script cuts its fetch off after this long (within the ladder's 5 s). */
@@ -218,7 +216,7 @@ internal object InstagramProbeScript {
     /**
      * The probe for [request] in the tab at [tabUrl], by [evaluate] (the tab's own
      * `evaluateJavascript`, on the main thread): not asked off the post's page
-     * ([InstagramTabProbe.NOT_ON_POST]), signed in (task 13: [tabCookie], the tab's cookies for
+     * ([InstagramTabProbe.NOT_ON_POST]), signed in ([tabCookie], the tab's cookies for
      * [COOKIE_PAGE], name a session: [InstagramTabProbe.SIGNED_IN]), without the page's LSD value
      * ([InstagramTabProbe.NO_LSD]) or when the script did not run ([InstagramTabProbe.NO_ANSWER]:
      * nothing went out); else the tab's answer, or, without one in [waitMillis], a fetch with no
@@ -265,7 +263,7 @@ internal object InstagramProbeScript {
             result.await()
         }
 
-    /** Task 13: whether the tab's [cookie] (its cookie header for [COOKIE_PAGE]) names a session. */
+    /** Whether the tab's [cookie] (its cookie header for [COOKIE_PAGE]) names a session. */
     fun signedIn(cookie: String?): Boolean =
         cookie?.split(';')?.map(String::trim)?.any { part ->
             part.startsWith("$SESSION_COOKIE=") && part.substringAfter('=').let { it.isNotBlank() && it.none(Char::isWhitespace) }

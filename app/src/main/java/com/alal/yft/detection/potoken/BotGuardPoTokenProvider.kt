@@ -20,7 +20,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 
 /**
- * Mints YouTube proof-of-origin tokens the way YouTube's own web player does (ADR-006).
+ * Mints YouTube proof-of-origin tokens the way YouTube's own web player does.
  *
  * It reads the attestation key from YouTube's current player script, asks YouTube's
  * attestation service for today's BotGuard challenge, runs that challenge in [engine] (an

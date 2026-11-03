@@ -3,7 +3,7 @@ package com.alal.yft.update
 import java.util.Locale
 
 /**
- * A release's `SHA256SUMS` asset (§4.4 step 3): `sha256sum`'s lines, `<hex>  <name>` or
+ * A release's `SHA256SUMS` asset (step 3): `sha256sum`'s lines, `<hex>  <name>` or
  * `<hex> *<name>`, CRLF or LF, either hex case. Only the line for exactly the APK's name counts;
  * two lines for it that disagree mean no checksum at all.
  */

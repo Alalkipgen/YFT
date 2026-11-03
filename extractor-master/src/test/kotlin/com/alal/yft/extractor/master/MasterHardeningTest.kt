@@ -17,7 +17,7 @@ import org.junit.Test
 
 class MasterHardeningTest {
     private val enabled = MasterPolicy(enabled = true)
-    // R2: YouTube rows are off, so the shared companion budget is pinned on an inline MPD.
+    // YouTube rows are off, so the shared companion budget is pinned on an inline MPD.
     private val pair = """{"id":"pair","dash_manifest_xml_string":""" +
         """"<MPD xmlns='urn:mpeg:dash:schema:mpd:2011' type='static'><Period>""" +
         """<AdaptationSet mimeType='video/mp4' codecs='avc1.64001f'>""" +

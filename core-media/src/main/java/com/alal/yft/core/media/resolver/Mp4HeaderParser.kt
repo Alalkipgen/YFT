@@ -3,7 +3,7 @@ package com.alal.yft.core.media.resolver
 import java.util.Locale
 
 /**
- * What the boxes at the start of an MP4 file say about its picture and sound (P3).
+ * What the boxes at the start of an MP4 file say about its picture and sound.
  *
  * Only values the file states are returned; anything it does not state stays null.
  */
@@ -27,7 +27,7 @@ fun interface RangeReader {
 }
 
 /**
- * Finds an MP4 file's tracks from its `moov` box without downloading the media (P3).
+ * Finds an MP4 file's tracks from its `moov` box without downloading the media.
  *
  * The first read covers [FIRST_READ_BYTES]; a `moov` after the media data or a track beyond the
  * first read costs one small ranged read each, at most [MAX_READS] in all. Malformed or truncated

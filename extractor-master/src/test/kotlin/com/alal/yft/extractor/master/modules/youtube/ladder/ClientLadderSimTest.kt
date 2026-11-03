@@ -11,13 +11,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Phase 1.3 D6 (MASTER_KEY_PHASE1_3_PLAN.md §4 D6, §5): the ladder columns of the change
- * simulator. Every case of [SimCases] runs through R6 ([SimMeasure.run], the pinned baseline) and
+ * Answer change test: the ladder columns of the change
+ * simulator. Every case of [SimCases] runs through the Master YouTube module ([SimMeasure.run], the pinned baseline) and
  * through the same reader with the ladder ([MasterClientLadder]), own solver off and on, each in
- * its own world. The ladder never offers a wrong row, never ends a lookup worse than R6
- * (complete > without sizes > partial > clean stop), sends no player request R6 would not and
- * stays inside its per-lookup bounds (A, D5a: a version source read only after a version
- * rejection, once a day); the cells for plan §5 are written to
+ * its own world. The YouTube ladder never offers a wrong row, never ends a lookup worse than the module
+ * (complete > without sizes > partial > clean stop), sends no player request the module would not and
+ * stays inside its per-lookup bounds (A: a version source read only after a version
+ * rejection, once a day); the summary's cells are written to
  * `build/ladder-sim/ladder-summary.md` (never an address or value).
  */
 class ClientLadderSimTest {
@@ -51,8 +51,8 @@ class ClientLadderSimTest {
         assertEquals("worse than R6: $worse", emptyList<String>(), worse)
         val newWrong = pairs.filter { it.ladder.wrong > it.r6.wrong }.map { "${it.case.id} ${column(it.solver)}" }
         assertEquals("new wrong rows: $newWrong", emptyList<String>(), newWrong)
-        // Plan §5.2 budget: V1–V5 and L1–L15 no more player requests than R6; T1–T3, T1b–T1d no
-        // InnerTube request (player or page) R6 would not send.
+        // Budget: V1–V5 and L1–L15 no more player requests than the module; T1–T3, T1b–T1d no
+        // InnerTube request (player or page) the module would not send.
         val morePlayers = pairs.filter { pair ->
             val klass = pair.case.klass
             val budget = klass in BUDGET_CLASSES || klass.startsWith("T")
@@ -62,9 +62,9 @@ class ClientLadderSimTest {
         assertEquals("requests over the budget: $morePlayers", emptyList<String>(), morePlayers)
         assertTrue(pairs.all { pair -> pair.ladder.lookups.all { it.credentials == 0 } })
         assertTrue(pairs.all { it.reads <= ShapeNormalizer.MAX_OFFER * it.case.lookups })
-        // Phase 1.4 item 2: H's first segment through the reader, at most one per lookup (one H check).
+        // H's first segment through the reader, at most one per lookup (one H check).
         assertTrue(pairs.all { it.segmentReads <= it.case.lookups })
-        // A (D5a): a version source is read only after VERSION_REJECTED, at most once a day (one clock here).
+        // A: a version source is read only after VERSION_REJECTED, at most once a day (one clock here).
         val sourceReads = pairs.filter { it.sourceReads > (if (it.case.klass in A_CLASSES) 1 else 0) }.map { "${it.case.id} ${column(it.solver)}" }
         assertEquals("version source reads: $sourceReads", emptyList<String>(), sourceReads)
     }
@@ -155,7 +155,7 @@ class ClientLadderSimTest {
     internal class SimStartReader(private val world: SimWorld) : MediaStartReader {
         var reads = 0
 
-        /** Phase 1.4 item 2: H's first-segment reads (the H check's third request), apart from L's V reads. */
+        /** H's first-segment reads (the H check's third request), apart from L's V reads. */
         var segmentReads = 0
 
         override suspend fun read(url: String, headers: Map<String, String>, maxBytes: Int): MediaStart {

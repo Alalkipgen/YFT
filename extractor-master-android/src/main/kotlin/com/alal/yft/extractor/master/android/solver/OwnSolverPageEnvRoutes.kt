@@ -1,7 +1,7 @@
 package com.alal.yft.extractor.master.android.solver
 
 /**
- * Phase 1.2 N4 (strategy E): the only addresses the own solver's page environment may load, all
+ * Own-solver ladder (strategy E): the only addresses the own solver's page environment may load, all
  * served by the app, and the role (main frame or sub frame) each may be loaded in.
  *
  * Same model as [OwnSolverPageRoutes] (the worker's table, unchanged), with its own table: the

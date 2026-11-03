@@ -16,7 +16,7 @@ data class BrowserHistoryEntry(
     val visitCount: Int,
 )
 
-/** The in-app browser's history (P31): pages the user opened, newest first. */
+/** The in-app browser's history: pages the user opened, newest first. */
 interface BrowserHistoryRepository {
     fun newest(limit: Int): Flow<List<BrowserHistoryEntry>>
 
@@ -71,7 +71,7 @@ class RoomBrowserHistoryRepository @Inject constructor(
     }
 
     companion object {
-        /** Pages older than this are dropped (P31: 90 days). */
+        /** Pages older than this are dropped (90 days). */
         const val KEEP_DAYS = 90
         const val KEEP_MS = KEEP_DAYS * 24L * 60 * 60 * 1_000
 

@@ -46,6 +46,37 @@ class DownloadPlanFactoryTest {
     }
 
     @Test
+    fun `a size too small for the length is not the download's total`() {
+        // A 1:47:11 YouTube M4A once read "1 B" over a bad connection.
+        val replay = variant(
+            kind = MediaKind.DIRECT,
+            trackType = MediaTrackType.AUDIO,
+            container = "m4a",
+            mimeType = "audio/mp4",
+            size = 1L,
+            sizeAccuracy = MediaSizeAccuracy.EXACT,
+        ).copy(durationMillis = 6_431_000)
+        fun total(variant: MediaVariant) =
+            ((factory(variant) as DownloadPlanResult.Ready).request as DownloadRequest.Direct)
+                .plan.expectedBytes
+        assertNull(total(replay))
+        // A clip of a few seconds keeps its small size; so does a size with no length known.
+        assertEquals(6_000L, total(replay.copy(durationMillis = 5_000, sizeBytes = 6_000)))
+        assertEquals(1L, total(replay.copy(durationMillis = null)))
+        // A merge's stated sound length the same: the download asks for it.
+        val merged = variant(
+            url = "https://rr3---sn-a.googlevideo.com/videoplayback?itag=136&sig=private",
+            container = "mp4",
+        ).copy(
+            codecs = listOf("avc1.4d401f"),
+            audioCompanion = companion().copy(contentLengthBytes = 1),
+            durationMillis = 6_431_000,
+        )
+        val request = (factory(merged) as DownloadPlanResult.Ready).request as DownloadRequest.Mux
+        assertEquals(WholeFileTrack(), request.plan.audio.wholeFile)
+    }
+
+    @Test
     fun `an mp3 choice downloads its aac file and is named and typed as mp3`() {
         val source = variant(
             id = "m4a",
@@ -230,11 +261,11 @@ class DownloadPlanFactoryTest {
         assertEquals(companion().mediaUrl, plan.audio.manifestUrl)
         assertEquals(MediaTrackType.AUDIO, plan.audio.trackType)
         assertEquals(listOf("mp4a.40.2"), plan.audio.codecs)
-        // The page's length, for a live stream's pieces (run 4f).
+        // The page's length, for a live stream's pieces.
         assertEquals(10_103_000L, plan.video.expectedDurationMillis)
         assertEquals(10_103_000L, plan.audio.expectedDurationMillis)
-        // YouTube states the sound's length, so its download needs no length request (P41).
-        assertEquals(WholeFileTrack(totalBytes = 1_024), plan.audio.wholeFile)
+        // YouTube states the sound's length, so its download needs no length request.
+        assertEquals(WholeFileTrack(totalBytes = 163_000_000), plan.audio.wholeFile)
         assertEquals(5_000L, plan.expiresAtEpochMs)
         assertTrue(plan.video.taskId != plan.audio.taskId)
     }
@@ -288,6 +319,77 @@ class DownloadPlanFactoryTest {
             DownloadFailureReason.INCOMPATIBLE_TRACKS,
             (factory(hevc) as DownloadPlanResult.Rejected).reason,
         )
+    }
+
+    @Test
+    fun `a DASH quality with its manifest's sound becomes a merge of two representations`() {
+        // Sound pairing: a page's one-file (SegmentBase) quality and its manifest's sound.
+        val manifest = "https://media.example.test/dash/stream.mpd"
+        val sound = companion().copy(
+            mediaUrl = manifest,
+            contentLengthBytes = null,
+            representationId = "a1",
+        )
+        val quality = variant(
+            url = manifest,
+            kind = MediaKind.DASH,
+            label = "360p",
+            container = "DASH",
+        ).copy(
+            manifestVariantId = "v5",
+            codecs = listOf("avc1.42401e"),
+            audioCompanion = sound,
+            dashOneFile = true,
+        )
+
+        val request = (factory(quality) as DownloadPlanResult.Ready).request as DownloadRequest.Mux
+
+        val plan = request.plan
+        assertEquals("Fixture 360p.mp4", request.fileName)
+        assertEquals("video/mp4", plan.outputMimeType)
+        assertEquals(manifest, plan.video.manifestUrl)
+        assertEquals("v5", plan.video.representationId)
+        assertEquals(MediaTrackType.VIDEO, plan.video.trackType)
+        assertFalse(plan.video.hlsPlaylist)
+        assertNull(plan.video.wholeFile)
+        assertEquals("Fixture 360p.video.mp4", plan.video.suggestedFileName)
+        assertEquals(manifest, plan.audio.manifestUrl)
+        assertEquals("a1", plan.audio.representationId)
+        assertEquals(MediaTrackType.AUDIO, plan.audio.trackType)
+        assertFalse(plan.audio.hlsPlaylist)
+        assertNull(plan.audio.wholeFile)
+        assertEquals(listOf("mp4a.40.2"), plan.audio.codecs)
+        assertEquals("Fixture 360p.audio.m4a", plan.audio.suggestedFileName)
+
+        // VP9 with its Opus sound: one WebM from Android 10, as other merges.
+        val webm = quality.copy(
+            mimeType = "video/webm",
+            codecs = listOf("vp09.00.21.08"),
+            audioCompanion = sound.copy(mimeType = "audio/webm", codecs = listOf("opus")),
+        )
+        val webmRequest = (factory(webm, sdkInt = 29) as DownloadPlanResult.Ready).request
+            as DownloadRequest.Mux
+        assertEquals("video/webm", webmRequest.plan.outputMimeType)
+        assertEquals("Fixture 360p.webm", webmRequest.fileName)
+        assertEquals("Fixture 360p.audio.webm", webmRequest.plan.audio.suggestedFileName)
+        assertEquals(
+            DownloadFailureReason.INCOMPATIBLE_TRACKS,
+            (factory(webm, sdkInt = 28) as DownloadPlanResult.Rejected).reason,
+        )
+
+        // A DASH video merges only with its manifest's sound, and a file never with one.
+        val fileSound = quality.copy(audioCompanion = companion())
+        val noRepresentation = quality.copy(manifestVariantId = null)
+        val fileWithManifestSound = variant(label = "720p").copy(
+            codecs = listOf("avc1.64001f"),
+            audioCompanion = sound,
+        )
+        for (refused in listOf(fileSound, noRepresentation, fileWithManifestSound)) {
+            assertEquals(
+                DownloadFailureReason.UNSUPPORTED_SOURCE,
+                (factory(refused) as DownloadPlanResult.Rejected).reason,
+            )
+        }
     }
 
     @Test
@@ -364,9 +466,39 @@ class DownloadPlanFactoryTest {
         assertEquals("video/mp4", merged.plan.outputMimeType)
     }
 
+    /**
+     * With a debug build's AV1 merge switch on, Android 14 or newer plans AV1 +
+     * AAC as one MP4 merge; Android 13 still refuses it, and the default (the release: the switch
+     * absent, AV1 merges off) refuses it everywhere.
+     */
+    @Test
+    fun `with the AV1 test switch on Android 14 merges AV1 and AAC into one MP4`() {
+        val av1 = variant(label = "1080p", container = "mp4").copy(
+            codecs = listOf("av01.0.08M.08"),
+            audioCompanion = companion(),
+        )
+
+        val merged = (factory(av1, sdkInt = 34, av1Enabled = true) as DownloadPlanResult.Ready)
+            .request as DownloadRequest.Mux
+        val android13 = factory(av1, sdkInt = 33, av1Enabled = true) as DownloadPlanResult.Rejected
+        val switchOff = factory(av1, sdkInt = 36) as DownloadPlanResult.Rejected
+        // The default: the switch as the app holds it (off; a release build has none).
+        val byDefault = DownloadPlanFactory.create(asset(), av1, "task-1", 1_000L, sdkInt = 36)
+            as DownloadPlanResult.Rejected
+
+        assertEquals("video/mp4", merged.plan.outputMimeType)
+        assertEquals("video/mp4", merged.mimeType)
+        assertEquals(listOf("av01.0.08M.08"), merged.plan.video.codecs)
+        assertEquals("Fixture 1080p.video.mp4", merged.plan.video.suggestedFileName)
+        assertEquals("Fixture 1080p.audio.m4a", merged.plan.audio.suggestedFileName)
+        assertEquals(DownloadFailureReason.INCOMPATIBLE_TRACKS, android13.reason)
+        assertEquals(DownloadFailureReason.INCOMPATIBLE_TRACKS, switchOff.reason)
+        assertEquals(DownloadFailureReason.INCOMPATIBLE_TRACKS, byDefault.reason)
+    }
+
     @Test
     fun `VP9 WebM video with its Opus track becomes a WebM merge from Android 10`() {
-        // P6: YouTube's 2K and 4K rows are VP9 WebM paired with the Opus WebM track.
+        // Merge: YouTube's 2K and 4K rows are VP9 WebM paired with the Opus WebM track.
         val webm = variant(
             url = "https://rr3---sn-a.googlevideo.com/videoplayback?itag=313&sig=private",
             label = "2160p",
@@ -511,11 +643,50 @@ class DownloadPlanFactoryTest {
     }
 
     @Test
-    fun `D3 a long Latin title is cut at 96 characters as before`() {
+    fun `D3 N9 a long Latin title is cut after its last whole word within 96 characters`() {
         val name = DownloadPlanFactory.fileName(asset("Holiday ".repeat(30)), variant(label = null))
 
-        assertEquals("Holiday ".repeat(11) + "Holi.mp4", name)
-        assertEquals(DownloadPlanFactory.MAX_FILE_NAME_LENGTH, name.length)
+        assertEquals(List(11) { "Holiday" }.joinToString(" ") + ".mp4", name)
+        assertTrue(name.length <= DownloadPlanFactory.MAX_FILE_NAME_LENGTH)
+    }
+
+    @Test
+    fun `N9 a long Myanmar title keeps its quality and ends with a whole word`() {
+        // The Zawgyi test video's name lost " 480p" and ended "[Lyric V". ဘယ်ဆီမှာ: 24 bytes.
+        val word = "\u1018\u101A\u103A\u1006\u102E\u1019\u103E\u102C"
+        val title = List(12) { word }.joinToString(" ") + " [Lyric Video]"
+
+        val name = DownloadPlanFactory.fileName(asset(title), variant(label = "480p"))
+
+        // 219 bytes before ".mp4", 5 of them " 480p": 8 words and their spaces fit in 214.
+        assertEquals(List(8) { word }.joinToString(" ") + " 480p.mp4", name)
+        assertTrue(FileNames.utf8Bytes(name) <= FileNames.MAX_NAME_BYTES)
+        assertTrue(name.length <= DownloadPlanFactory.MAX_FILE_NAME_LENGTH)
+    }
+
+    @Test
+    fun `N9 a long Myanmar title with no space near the cut keeps its quality and its graphemes`() {
+        val word = "\u101E\u1010\u1039\u1010\u101D\u102B"
+
+        val name = DownloadPlanFactory.fileName(asset(word.repeat(30)), variant(label = "480p"))
+
+        // Never before ါ nor after ္: the 12th သတ္တဝါ stops before its ဝ.
+        assertEquals(word.repeat(11) + "\u101E\u1010\u1039\u1010 480p.mp4", name)
+        assertTrue(FileNames.utf8Bytes(name) <= FileNames.MAX_NAME_BYTES)
+    }
+
+    @Test
+    fun `N9 a long English title keeps its quality and ends with a whole word`() {
+        val title = "The Quick Brown Fox Jumps Over The Lazy Dog ".repeat(4) + "[Official Video]"
+
+        val name = DownloadPlanFactory.fileName(asset(title), variant(label = "1080p60"))
+
+        assertEquals(
+            "The Quick Brown Fox Jumps Over The Lazy Dog The Quick Brown Fox Jumps Over The " +
+                "Lazy 1080p60.mp4",
+            name,
+        )
+        assertTrue(name.length <= DownloadPlanFactory.MAX_FILE_NAME_LENGTH)
     }
 
     @Test
@@ -642,17 +813,22 @@ class DownloadPlanFactoryTest {
             userAgent = "fixture-agent",
             cookie = null,
         ),
-        contentLengthBytes = 1_024,
+        contentLengthBytes = 163_000_000,
         expiresAtEpochMs = expiresAt,
     )
 
-    private fun factory(variant: MediaVariant, sdkInt: Int = 24): DownloadPlanResult =
+    private fun factory(
+        variant: MediaVariant,
+        sdkInt: Int = 24,
+        av1Enabled: Boolean = false,
+    ): DownloadPlanResult =
         DownloadPlanFactory.create(
             asset = asset(),
             variant = variant,
             taskId = "task-1",
             nowEpochMs = 1_000L,
             sdkInt = sdkInt,
+            av1Enabled = av1Enabled,
         )
 
     private fun asset(title: String? = "Fixture") = MediaAsset(

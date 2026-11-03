@@ -3,6 +3,7 @@ package com.alal.yft.feature.quickdownload
 import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -55,6 +57,7 @@ import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.feature.preview.MeteredDownloadDialog
 import com.alal.yft.feature.preview.PreviewDownloadStatus
 import com.alal.yft.thumbnail.rememberRemoteThumbnail
+import com.alal.yft.ui.components.YftFilterChip
 import com.alal.yft.ui.components.YftMediaKind
 import com.alal.yft.ui.components.YftMetaChip
 import com.alal.yft.ui.LocalQuietRelease
@@ -82,6 +85,8 @@ fun QuickDownloadRoute(
     QuickDownloadScreen(
         state = state,
         onSelect = viewModel::select,
+        onSelectPostItem = viewModel::selectPostItem,
+        onToggleOriginalTitle = viewModel::toggleOriginalTitle,
         onPickEarly = viewModel::pickEarly,
         onDownload = {
             requestNotificationPermission()
@@ -91,23 +96,24 @@ fun QuickDownloadRoute(
         onDismissMetered = viewModel::dismissMeteredDownload,
         onOpenDetails = { if (viewModel.openDetails()) onOpenDetails() },
         onRetry = viewModel::retry,
-        // P37: the browser reloads its tab without the cache; the sheet closes until then.
+        // Fresh link renewal: the browser reloads its tab without the cache; the sheet closes until
+        // then.
         onReload = { if (viewModel.reloadPage()) onNavigateBack() },
         onOpenDownloads = onOpenDownloads,
         onClose = onNavigateBack,
-        // Decision 30 (v): a quiet build's Show check opens TikTok's check in the browser.
+        // Quiet details: a quiet build's Show check opens TikTok's check in the browser.
         onShowCheck = { if (viewModel.showSiteCheck()) onNavigateBack() },
     )
 }
 
 /**
- * The download sheet (P3, P3-FIX): every way to download a video opens it — Home's View, Preview
- * in the found lists and the browser's Download button. The video's 16:9 picture (P19: loaded
+ * The Download sheet: every way to download a video opens it — Home's View, Preview
+ * in the found lists and the browser's Download button. The video's 16:9 picture (loaded
  * over HTTPS without cookies; its placeholder until then), the title, site and length; exactly
  * two sections, **Audio** (M4A, MP3
  * at 128 kbps in the short view) and **Video** (the preferred quality and the next lower one).
  * More formats expands the same sheet to every row, without changing the selection; only the
- * rows scroll. Details and Download with the size stay pinned below them. P16: the sheet opens at
+ * rows scroll. Details and Download with the size stay pinned below them. The sheet opens at
  * once; until the lookup and the qualities answer it shows what is known, placeholder rows and
  * "Getting qualities…".
  */
@@ -126,6 +132,8 @@ fun QuickDownloadScreen(
     onReload: () -> Unit = {},
     onPickEarly: (OptionSection) -> Unit = {},
     onShowCheck: () -> Unit = {},
+    onSelectPostItem: (String) -> Unit = {},
+    onToggleOriginalTitle: () -> Unit = {},
 ) {
     val quiet = LocalQuietRelease.current
     if (state.downloadStatus == PreviewDownloadStatus.ConfirmMetered) {
@@ -183,9 +191,25 @@ fun QuickDownloadScreen(
             )
             return@Column
         }
-        Header(header)
+        Header(header, title = state.shownTitle ?: header.title)
+        if (state.offersOriginalTitle) {
+            // Zawgyi titles: the header's title was converted from Zawgyi.
+            OriginalTitleToggle(
+                on = state.useOriginalTitle,
+                enabled = state.canChooseRow,
+                onToggle = onToggleOriginalTitle,
+            )
+        }
+        if (state.postItems.size > 1) {
+            PostItems(
+                items = state.postItems,
+                selected = state.postItemKey,
+                onSelect = onSelectPostItem,
+            )
+        }
         if (state.maybeAd) {
-            // P28: the page states a far longer video than this one, which did not come in time.
+            // Ad filter: the page states a far longer video than this one, which did not come in
+            // time.
             Text(
                 text = MAYBE_AD_MESSAGE,
                 modifier = Modifier
@@ -197,7 +221,8 @@ fun QuickDownloadScreen(
             )
         }
         if (state.freshLink) {
-            // P37: the first link was gone; this is the same video from a fresh link.
+            // Fresh link renewal: the first link was gone; this is the same video from a fresh
+            // link.
             Text(
                 text = FRESH_LINK_MESSAGE,
                 modifier = Modifier
@@ -210,7 +235,7 @@ fun QuickDownloadScreen(
             FailureDetails(state.attemptDetails, tag = "quick-fresh-link-details")
         }
         if (state.adSkipped) {
-            // P43: the player's first video was an ad; this is the page's own video.
+            // Ad filter: the player's first video was an ad; this is the page's own video.
             Text(
                 text = AD_SKIPPED_MESSAGE,
                 modifier = Modifier
@@ -224,7 +249,8 @@ fun QuickDownloadScreen(
         val choices = state.choices
         when {
             choices != null -> {
-                val compact = QuickDownloadChoices.compact(choices, state.defaultQuality)
+                val compact =
+                    QuickDownloadChoices.compact(choices, state.defaultQuality, state.selectedId)
                 Column(
                     modifier = Modifier
                         .weight(1f, fill = false)
@@ -236,10 +262,10 @@ fun QuickDownloadScreen(
                         state = state,
                         onSelect = onSelect,
                     )
-                    // VK-Master wave 2: the lookup's own lines after a success, as a failed
-                    // lookup's Details (Copy details too); a quiet build only with Show details.
+                    // The lookup's own lines after a success, as a failed lookup's Details (Copy
+                    // details too); a quiet build only with Show details.
                     FailureDetails(
-                        lines = state.lookupDetails,
+                        lines = state.lookupDetailLines,
                         tag = LOOKUP_DETAILS_TAG,
                         copyTag = LOOKUP_COPY_TAG,
                         label = LOOKUP_DETAILS,
@@ -278,7 +304,7 @@ fun QuickDownloadScreen(
                 onDownload = onDownload,
                 onPickEarly = onPickEarly,
             )
-            // Decision 30 (v): a quiet build says one line (TikTok's check keeps its Show check).
+            // Quiet details: a quiet build says one line (TikTok's check keeps its Show check).
             quiet -> QuietFailure(
                 line = QuietLines.of(state.failure, state.siteCheck),
                 onShowCheck = onShowCheck.takeIf { state.siteCheck },
@@ -288,15 +314,16 @@ fun QuickDownloadScreen(
                 onRetry = onRetry.takeIf { state.canRetry },
                 details = state.failureDetails,
                 onReload = onReload.takeIf { state.canReload },
+                lookupDetails = state.lookupDetailLines,
             )
         }
     }
 }
 
 /**
- * Decision 30 (v): the quiet build's failure — one line and nothing else (no Details, Copy
- * details, Master lines, Try again or reload): Download again looks up again. TikTok's check
- * keeps one Show check, which opens the check in the browser ([onShowCheck]).
+ * Quiet details: the quiet build's failure — one line and nothing else (no Details, Copy details,
+ * Master lines, Try again or reload): Download again looks up again. TikTok's check keeps one Show
+ * check, which opens the check in the browser ([onShowCheck]).
  */
 @Composable
 private fun ColumnScope.QuietFailure(line: String, onShowCheck: (() -> Unit)?) {
@@ -320,8 +347,40 @@ private fun ColumnScope.QuietFailure(line: String, onShowCheck: (() -> Unit)?) {
     )
 }
 
+/**
+ * The post's video items ("Video 2 of 4"), the one shown selected; a tap shows that item's
+ * qualities. One row, scrolled sideways when the post has many.
+ */
 @Composable
-private fun Header(header: SheetHeader) {
+private fun PostItems(
+    items: List<PostItemChoice>,
+    selected: String?,
+    onSelect: (String) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(bottom = 8.dp)
+            .selectableGroup()
+            .testTag(POST_ITEMS_TAG),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        items.forEach { item ->
+            YftFilterChip(
+                label = item.label,
+                selected = item.key == selected,
+                onClick = { onSelect(item.key) },
+                modifier = Modifier.testTag("$POST_ITEM_TAG${item.number}"),
+                outlined = true,
+            )
+        }
+    }
+}
+
+@Composable
+private fun Header(header: SheetHeader, title: String = header.title) {
     val colors = YftTheme.colors
     Row(
         modifier = Modifier
@@ -349,28 +408,43 @@ private fun Header(header: SheetHeader) {
                 .padding(start = 14.dp),
         ) {
             Text(
-                text = header.title,
+                text = title,
+                modifier = Modifier.testTag(HEADER_TITLE_TAG),
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
             )
+            // The length is always shown whole ("14:05"); a long site name ("vksport.vkvideo.ru")
+            // in large text ends in an ellipsis instead of cutting it.
             Row(modifier = Modifier.padding(top = 4.dp)) {
                 header.source?.let { site ->
                     Text(
-                        text = if (header.durationMillis != null) "$site · " else site,
-                        modifier = Modifier.testTag("quick-source"),
+                        text = site,
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .testTag("quick-source"),
                         color = colors.textSecondary,
                         style = MaterialTheme.typography.bodyMedium,
                         maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 header.durationMillis?.let { length ->
+                    if (header.source != null) {
+                        Text(
+                            text = " · ",
+                            color = colors.textSecondary,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                        )
+                    }
                     Text(
                         text = YftFormat.duration(length),
                         modifier = Modifier.testTag("quick-length"),
                         color = colors.textSecondary,
                         style = MaterialTheme.typography.bodyMedium,
                         maxLines = 1,
+                        softWrap = false,
                     )
                 }
             }
@@ -378,7 +452,41 @@ private fun Header(header: SheetHeader) {
     }
 }
 
-/** Audio, then Video: each row one format with its real quality and size (P3-FIX). */
+/**
+ * Zawgyi titles: "Use original title" under a title converted from Zawgyi. On, the header shows and
+ * the next Download takes the title as the video gave it; off again, its Unicode form. A checkbox
+ * to screen readers; not while a Download is being queued.
+ */
+@Composable
+private fun OriginalTitleToggle(on: Boolean, enabled: Boolean, onToggle: () -> Unit) {
+    val colors = YftTheme.colors
+    Row(
+        modifier = Modifier
+            .padding(bottom = 4.dp)
+            .clip(YftShapes.pill)
+            .toggleable(
+                value = on,
+                enabled = enabled,
+                role = Role.Checkbox,
+                onValueChange = { onToggle() },
+            )
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 8.dp)
+            .testTag(ORIGINAL_TITLE_TAG),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        YftRadioMark(selected = on)
+        Text(
+            text = USE_ORIGINAL_TITLE,
+            color = if (enabled) colors.link else colors.textSecondary,
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+            maxLines = 1,
+        )
+    }
+}
+
+/** Audio, then Video: each row one format with its real quality and size. */
 @Composable
 private fun Sections(
     choices: QuickChoices,
@@ -459,7 +567,7 @@ private fun FormatRow(
                 .padding(start = 14.dp),
         ) {
             Text(text = title, style = MaterialTheme.typography.bodyLarge)
-            // P25: one line under the title says what the quality is for.
+            // One line under the title says what the quality is for.
             description?.let { line ->
                 Text(
                     text = line,
@@ -500,9 +608,9 @@ private fun FormatRow(
 }
 
 /**
- * P16: the sheet opens before the qualities are known. "Getting qualities…", then two Audio and
- * two Video placeholder rows where the real rows will appear, and Download. P18: the first row
- * of each section is a choice — "M4A", or the Default quality ("720p") — and Download queues it
+ * The sheet opens before the qualities are known. "Getting qualities…", then two Audio and two
+ * Video placeholder rows where the real rows will appear, and Download. The first row of each
+ * section is a choice — "M4A", or the Default quality ("720p") — and Download queues it
  * ("Starts when ready…") until the rows arrive.
  */
 @Composable
@@ -525,7 +633,7 @@ private fun ColumnScope.Waiting(
             strokeWidth = 3.dp,
         )
         Text(
-            // P28: the sheet waits for the page's own video after what may be its ad.
+            // Ad filter: the sheet waits for the page's own video after what may be its ad.
             text = if (state.findingPageVideo) FINDING_PAGE_VIDEO_MESSAGE else WAITING_MESSAGE,
             modifier = Modifier.padding(start = 12.dp),
             color = YftTheme.colors.textSecondary,
@@ -564,7 +672,7 @@ private fun ColumnScope.Waiting(
     DownloadAction(state = state, onDownload = onDownload, onOpenDownloads = {})
 }
 
-/** P18: a waiting section's first row, which an early Download takes. */
+/** A waiting section's first row, which an early Download takes. */
 private class EarlyChoice(
     val title: String,
     val selected: Boolean,
@@ -573,7 +681,7 @@ private class EarlyChoice(
     val tag: String,
 )
 
-/** P18: "M4A", or the Default quality: "720p", "Highest available", "Smallest file". */
+/** "M4A", or the Default quality: "720p", "Highest available", "Smallest file". */
 internal fun earlyTitle(section: OptionSection, quality: QualityPreference): String =
     when {
         section == OptionSection.AUDIO -> "M4A"
@@ -583,8 +691,8 @@ internal fun earlyTitle(section: OptionSection, quality: QualityPreference): Str
     }
 
 /**
- * A row's shape without its text: the radio mark, the quality, its detail and the size. P18: a
- * [choice] row names what it stands for and can be picked.
+ * A row's shape without its text: the radio mark, the quality, its detail and the size. A [choice]
+ * row names what it stands for and can be picked.
  */
 @Composable
 private fun PlaceholderRow(modifier: Modifier = Modifier, choice: EarlyChoice? = null) {
@@ -642,9 +750,11 @@ private fun PlaceholderBar(color: Color, modifier: Modifier) {
 }
 
 /**
- * The sheet's failure: its message and Details, then Try again and the reload. Social plan task 15
- * (F3): the message and the Details scroll, and Try again and the reload stay pinned under them,
- * so long Details never hide them; the Details, once shown, offer Copy details ([copiedDetails]).
+ * The sheet's failure: its message and Details, then Try again and the reload. The message and the
+ * Details scroll, and Try again and the reload stay pinned under them, so long Details never hide
+ * them; the Details, once shown, offer Copy details ([copiedDetails]). A format's failure after the
+ * lookup found the video keeps that lookup's [lookupDetails] under its own Details
+ * ("Lookup details", as under a success's rows).
  */
 @Composable
 private fun ColumnScope.Failure(
@@ -652,6 +762,7 @@ private fun ColumnScope.Failure(
     onRetry: (() -> Unit)?,
     details: List<String> = emptyList(),
     onReload: (() -> Unit)? = null,
+    lookupDetails: List<String> = emptyList(),
 ) {
     Column(
         modifier = Modifier
@@ -671,8 +782,14 @@ private fun ColumnScope.Failure(
             textAlign = TextAlign.Center,
         )
         FailureDetails(details, copyTag = "quick-error-copy")
+        FailureDetails(
+            lines = lookupDetails,
+            tag = LOOKUP_DETAILS_TAG,
+            copyTag = LOOKUP_COPY_TAG,
+            label = LOOKUP_DETAILS,
+        )
     }
-    // P12: a protected video has no Try again; asking again would not change it.
+    // A protected video has no Try again; asking again would not change it.
     onRetry ?: return
     YftTonalButton(
         text = "Try again",
@@ -682,7 +799,8 @@ private fun ColumnScope.Failure(
             .testTag("quick-retry"),
         icon = YftIcons.Refresh,
     )
-    // P37: nothing fresh came from the page; the browser may reload it without its cache.
+    // Fresh link renewal: nothing fresh came from the page; the browser may reload it without its
+    // cache.
     onReload ?: return
     YftTextButton(
         text = RELOAD_AND_RETRY,
@@ -703,7 +821,7 @@ private fun ColumnScope.DownloadAction(
     val status = state.downloadStatus
     YftPrimaryButton(
         text = when {
-            // P18: Download tapped before the qualities came.
+            // Download tapped before the qualities came.
             state.startsWhenReady -> STARTS_WHEN_READY
             status == PreviewDownloadStatus.Enqueuing -> "Queueing download…"
             else -> downloadLabel(state.selectedOption)
@@ -731,7 +849,7 @@ private fun ColumnScope.DownloadAction(
 
         is PreviewDownloadStatus.Rejected -> status.message
     }
-    // P18: which quality a Download tapped before the qualities took.
+    // Which quality a Download tapped before the qualities took.
     state.startedNote?.takeIf { status is PreviewDownloadStatus.Queued }?.let { note ->
         Text(
             text = note,
@@ -775,12 +893,13 @@ private fun ColumnScope.DownloadAction(
 }
 
 /**
- * P24: "Details" under a failure: the step, the host and the status of the request that failed,
- * so a screenshot tells what went wrong. Hidden until asked for. P29: also under the line about
- * the next video ([tag] `quick-next-video-details`), with both attempts. P43: under the line
- * about a skipped ad without a tag ([tag] null). Social plan task 15 (F3): with a [copyTag] (the
- * sheet's failure), the shown Details offer "Copy details" beside "Hide details". VK-Master wave
- * 2: under a success's rows the lookup's own lines, named by [label] ("Lookup details").
+ * Page video finder: "Details" under a failure: the step, the host and the status of the request
+ * that failed, so a screenshot tells what went wrong. Hidden until asked for. Fresh link renewal:
+ * also under the line about the next video ([tag] `quick-next-video-details`), with both attempts.
+ * Ad filter: under the line about a skipped ad without a tag ([tag] null). With a [copyTag] (the
+ * sheet's failure), the shown Details offer "Copy details" beside "Hide details". Under a success's
+ * rows the lookup's own lines, named by [label] ("Lookup details"); under a format's failure after
+ * that success too.
  */
 @Composable
 private fun ColumnScope.FailureDetails(
@@ -789,7 +908,7 @@ private fun ColumnScope.FailureDetails(
     copyTag: String? = null,
     label: String = "Details",
 ) {
-    // Decision 30 (v): a quiet build shows Details only with the hidden Show details on.
+    // Quiet details: a quiet build shows Details only with the hidden Show details on.
     if (lines.isEmpty() || LocalQuietRelease.current) return
     var shown by rememberSaveable(lines) { mutableStateOf(false) }
     val hide = "Hide ${label.lowercase()}"
@@ -828,7 +947,7 @@ private fun ColumnScope.FailureDetails(
     }
 }
 
-/** Task 15 (F3): "Copy details" puts [copiedDetails] of [lines] on the clipboard. */
+/** "Copy details" puts [copiedDetails] of [lines] on the clipboard. */
 @Composable
 private fun CopyDetails(lines: List<String>, tag: String) {
     val context = LocalContext.current
@@ -847,10 +966,9 @@ private fun CopyDetails(lines: List<String>, tag: String) {
 }
 
 /**
- * Social plan task 15 (F3): what "Copy details" copies — the Details' [lines] as shown, one per
- * line, each cleaned once more ([DiagnosticTextSanitizer.redact]: a link as its site's origin, no
- * query, no credential line) and each origin as its bare host, so the copy holds words only,
- * never a link.
+ * What "Copy details" copies — the Details' [lines] as shown, one per line, each cleaned once more
+ * ([DiagnosticTextSanitizer.redact]: a link as its site's origin, no query, no credential line) and
+ * each origin as its bare host, so the copy holds words only, never a link.
  */
 internal fun copiedDetails(lines: List<String>): String =
     lines.joinToString("\n") { line -> DiagnosticTextSanitizer.redact(line).replace(SCHEME, "") }
@@ -868,39 +986,51 @@ private val QuickDownloadUiState.canChooseRow: Boolean
 
 internal const val SHEET_TITLE = "Download"
 
-/** P16: what the waiting sheet says until the lookup and the qualities answer. */
+/** What the waiting sheet says until the lookup and the qualities answer. */
 internal const val WAITING_MESSAGE = "Getting qualities…"
 
-/** P28: the sheet waits a few seconds for the page's own video after what may be its ad. */
+/** Ad filter: the sheet waits a few seconds for the page's own video after what may be its ad. */
 internal const val FINDING_PAGE_VIDEO_MESSAGE = "Finding the page's video…"
 
 /**
- * P28: the video may be the ad the page's player shows before its video. P45: the sheet shows
- * only the page's own video, so the way on is the player, not another video.
+ * Ad filter: the video may be the ad the page's player shows before its video. The sheet shows only
+ * the page's own video, so the way on is the player, not another video.
  */
 internal const val MAYBE_AD_MESSAGE =
     "This may be an ad. Play the video for a moment, then open Download again."
 
-/** P37: the first link was gone, so the sheet shows the same video from a fresh link. */
+/**
+ * Fresh link renewal: the first link was gone, so the sheet shows the same video from a fresh link.
+ */
 internal const val FRESH_LINK_MESSAGE = "The first link is gone — using a fresh link"
 
-/** P43: the player's first video was an ad, so the sheet shows the page's own video. */
+/** Ad filter: the player's first video was an ad, so the sheet shows the page's own video. */
 internal const val AD_SKIPPED_MESSAGE = "That was an ad — showing the page's video"
 
-/** P37: the error's way to reload the browser's page without its cache. */
+/** Fresh link renewal: the error's way to reload the browser's page without its cache. */
 internal const val RELOAD_AND_RETRY = "Reload page and try again"
 
-/** VK-Master wave 2: the success sheet's toggle of the lookup's own lines. */
+/** The success sheet's toggle of the lookup's own lines. */
 internal const val LOOKUP_DETAILS = "Lookup details"
 
-/** VK-Master wave 2: the Lookup details toggle (its lines: `quick-lookup-detail-text`). */
+/** Zawgyi titles: the switch under a title converted from Zawgyi. */
+internal const val USE_ORIGINAL_TITLE = "Use original title"
+internal const val ORIGINAL_TITLE_TAG = "quick-original-title"
+internal const val HEADER_TITLE_TAG = "quick-header-title"
+
+/** The Lookup details toggle (its lines: `quick-lookup-detail-text`). */
 internal const val LOOKUP_DETAILS_TAG = "quick-lookup-details"
 
-/** VK-Master wave 2: Lookup details' Copy details. */
+/** Lookup details' Copy details. */
 internal const val LOOKUP_COPY_TAG = "quick-lookup-copy"
 
-/** P18: Download's label once it was tapped before the qualities came. */
+/** Download's label once it was tapped before the qualities came. */
 internal const val STARTS_WHEN_READY = "Starts when ready…"
+
+/** The row of a post's video items, and each item's chip with its number. */
+internal const val POST_ITEMS_TAG = "quick-post-items"
+internal const val POST_ITEM_TAG = "quick-post-item-"
+
 private const val PLACEHOLDER_ROWS = 2
 private const val SIZE_UNKNOWN = "Size unknown"
 private val SHEET_TOP_GAP = 48.dp

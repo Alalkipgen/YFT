@@ -23,7 +23,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
-/** What the release's `SHA256SUMS` gave for its APK (§4.4 step 3). */
+/** What the release's `SHA256SUMS` gave for its APK. */
 sealed interface SumsResult {
     /** The APK's SHA-256, uppercase hex. */
     data class Found(val sha256: String) : SumsResult
@@ -38,7 +38,7 @@ sealed interface SumsResult {
     data object Failed : SumsResult
 }
 
-/** What downloading the APK gave (§4.4 step 4). */
+/** What downloading the APK gave. */
 sealed interface DownloadResult {
     /** The file, its size and SHA-256 those of the release. */
     data class Done(val file: File) : DownloadResult
@@ -69,7 +69,7 @@ interface ApkSource {
 }
 
 /**
- * Steps 3 and 4 of §4.4: the release's `SHA256SUMS` (at most [Sha256Sums.MAX_BYTES]) and its APK
+ * The release's `SHA256SUMS` (at most [Sha256Sums.MAX_BYTES]) and its APK
  * (exactly the asset's size, at most [MAX_APK_BYTES]) over [UpdateHttp] — HTTPS to GitHub's hosts
  * only, redirects checked one by one, no cookie, no cache. The APK goes to one fixed file in the
  * app's cache, its SHA-256 computed while it is written; another size or hash deletes it. Logs

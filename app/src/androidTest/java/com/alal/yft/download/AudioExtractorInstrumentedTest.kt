@@ -17,7 +17,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * P3 on a real device or emulator: the sound of a one-second MP4 (MPEG-4 video and AAC, made
+ * On a real device or emulator: the sound of a one-second MP4 (MPEG-4 video and AAC, made
  * with ffmpeg) is copied into an M4A that Android's own extractor reads back as AAC only.
  */
 @RunWith(AndroidJUnit4::class)

@@ -8,7 +8,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** P40 step 1: the post's data a page already holds, carried by the extraction request. */
+/** The post's data a page already holds, carried by the extraction request. */
 class SitePageDataTest {
     @Test
     fun `page data is limited to 64 KB of UTF-8 and is never blank`() {

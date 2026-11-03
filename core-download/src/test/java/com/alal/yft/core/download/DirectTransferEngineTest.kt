@@ -366,7 +366,7 @@ class DirectTransferEngineTest {
     }
 
     /**
-     * P20 (R1): a new MediaStore row has no file until its first "rw" open, so reading its length
+     * A new MediaStore row has no file until its first "rw" open, so reading its length
      * before prepare() throws. The old engine read it first and failed every fresh video at 0 B
      * with STORAGE_UNAVAILABLE. The queue starts a new task with an empty checkpoint, not null.
      */
@@ -503,7 +503,7 @@ class DirectTransferEngineTest {
     }
 
     /**
-     * P21: a failed write ends the download as a failure of the file at the write step, with the
+     * A failed write ends the download as a failure of the file at the write step, with the
      * error's class and message kept for Details. It is not retried as a network error.
      */
     @Test
@@ -527,7 +527,7 @@ class DirectTransferEngineTest {
     }
 
     /**
-     * P21: closing the file after good writes is part of writing it. The old engine let the
+     * Closing the file after good writes is part of writing it. The old engine let the
      * close error through as a dropped connection, asked the server again and ended with
      * NETWORK.
      */
@@ -552,7 +552,7 @@ class DirectTransferEngineTest {
     }
 
     /**
-     * P21: a connection that drops while the body is read is a network failure of the read step.
+     * A connection that drops while the body is read is a network failure of the read step.
      * Its detail names the error, never the address it came from.
      */
     @Test
@@ -587,7 +587,7 @@ class DirectTransferEngineTest {
         }
 
     /**
-     * P21: an IllegalStateException while the body is read is the connection's problem, not the
+     * An IllegalStateException while the body is read is the connection's problem, not the
      * file's. The old engine called every IllegalStateException STORAGE_UNAVAILABLE.
      */
     @Test

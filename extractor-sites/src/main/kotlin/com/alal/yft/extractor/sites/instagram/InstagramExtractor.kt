@@ -7,6 +7,7 @@ import com.alal.yft.core.model.media.CompanionAudio
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.PageNavigationHeaders
+import com.alal.yft.core.model.media.PostVideoItem
 import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.ExtractorHttpResult
 import com.alal.yft.extractor.api.SiteExtractionFailure
@@ -27,13 +28,13 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 /**
- * P49: Instagram adapter for a post's or reel's video.
+ * Instagram adapter for a post's or reel's video.
  *
  * It asks Instagram's own answers in order and stops at the first that holds the post: the app
  * API (`/api/v1/media/{id}/info/`, only with the browser's Instagram sign-in), the GraphQL post
  * query the web app sends, the post's page (with the browser's cookies, if any) and the public
  * embed page. A post's whole files (`video_versions`, with sound) are rows as they are; its DASH
- * manifest adds every other picture size merged with its best AAC sound, like Facebook's (P4),
+ * manifest adds every other picture size merged with its best AAC sound, like Facebook's,
  * and that sound alone for Audio. The cookie goes to www.instagram.com only, never to the CDN.
  * A post that needs sign-in fails with [SiteExtractionFailure.LOGIN_REQUIRED] and a message that
  * says where to sign in; a photo post with [SiteExtractionFailure.NO_MEDIA_FOUND].
@@ -100,6 +101,18 @@ class InstagramExtractor(
                 details = details,
                 message = PHOTOS_MESSAGE,
             )
+
+            // Unread on a private post's code (the link's own hint): the
+            // private words instead of "could not be read"; the reason stays. Also
+            // behind the login wall, which Instagram shows for a private post; only a
+            // line failure (no answer at all) keeps its own words.
+            InstagramUrls.isPrivateCode(code) &&
+                (loginWall || lastFailure == null || lastFailure.reason !in LINE_FAILURES) ->
+                SiteExtractionResult.Failure(
+                    SiteExtractionFailure.RESPONSE_CHANGED,
+                    details = details + PRIVATE_CODE_LINE,
+                    message = PRIVATE_MESSAGE,
+                )
 
             loginWall -> SiteExtractionResult.Failure(
                 SiteExtractionFailure.LOGIN_REQUIRED,
@@ -181,7 +194,14 @@ class InstagramExtractor(
         }
     }
 
-    /** The rows of the item the link names (a carousel's `img_index`), else its first video. */
+    /**
+     * The rows of the item the link names (a carousel's `img_index`), else its first video.
+     * On a post with several video items they carry the rows of the post's other
+     * video items, in the post's order, each item under its own name ([PostVideoItem]: its place
+     * among the post's video items, and `instagram:{code}:{img_index}`), so the sheet offers every
+     * item. Photos are skipped; a video the answer gives no file for is named in Details and not
+     * asked for. The same answer holds every item: no request more.
+     */
     private fun offers(
         post: InstagramPost,
         request: SiteExtractionRequest,
@@ -190,14 +210,58 @@ class InstagramExtractor(
         val wanted = InstagramUrls.itemOf(request.identity.canonicalPageUrl)
         val index = wanted?.minus(1)?.takeIf { post.items.getOrNull(it)?.isPlayable == true }
             ?: post.items.indexOfFirst(InstagramItem::isPlayable)
-        val item = post.items[index]
         val pageUrl = request.identity.canonicalPageUrl
         val context = BrowserRequestContext(pageUrl, request.requestContext.userAgent, null)
-        val now = request.nowEpochMs
+        val title = displayTitle(post)
+        val rowsOf = { item: InstagramItem ->
+            itemRows(item, title, pageUrl, context, request.nowEpochMs)
+        }
+        val linked = rowsOf(post.items[index])
+        val summary = "item ${index + 1} of ${post.items.size}: ${linked.words}"
+        if (linked.rows.isEmpty()) {
+            return SiteExtractionResult.Failure(
+                if (linked.expired) SiteExtractionFailure.EXPIRED_LINK else SiteExtractionFailure
+                    .NO_MEDIA_FOUND,
+                details = details + summary,
+            )
+        }
+        val videos = post.items.indices.filter { post.items[it].isVideo }
+        if (videos.size < 2) return SiteExtractionResult.Success(linked.rows, details + summary)
+        val lines = mutableListOf<String>()
+        val others = videos.filter { it != index }.flatMap { at ->
+            val item = post.items[at]
+            val place = "also item ${at + 1} of ${post.items.size}"
+            val read = if (item.isPlayable) rowsOf(item) else null
+            when {
+                read == null -> lines += "$place: a video without files, not offered"
+                read.rows.isEmpty() -> lines += "$place: ${read.words}, " +
+                    if (read.expired) "links expired, not offered" else "not offered"
+                else -> lines += "$place: ${read.words}"
+            }
+            val postItem = PostVideoItem(videos.indexOf(at) + 1, videos.size)
+            val videoId = "$id:${request.identity.contentId}:${at + 1}"
+            read?.rows.orEmpty().map { it.copy(videoId = videoId, postItem = postItem) }
+        }
+        val postItem = PostVideoItem(videos.indexOf(index) + 1, videos.size, others)
+        return SiteExtractionResult.Success(
+            linked.rows.map { it.copy(postItem = postItem) },
+            details + summary + lines,
+        )
+    }
+
+    /** One item's rows, its Details words ("1 files (1080), DASH none"), and whether it expired. */
+    private class ItemRows(val rows: List<MediaCandidate>, val words: String, val expired: Boolean)
+
+    /** An item's whole files as they are, then its manifest's merged sizes and sound. */
+    private fun itemRows(
+        item: InstagramItem,
+        title: String?,
+        pageUrl: String,
+        context: BrowserRequestContext,
+        now: Long,
+    ): ItemRows {
         val manifest = item.dashManifest?.let(FacebookDashManifests::parse)
         val durationMillis = item.durationMillis ?: manifest?.durationMillis
-        val title = displayTitle(post)
-
         val files = item.files.filterNot { isExpired(it.url, now) }.map { file ->
             MediaCandidate(
                 pageUrl = pageUrl,
@@ -220,32 +284,24 @@ class InstagramExtractor(
         }
         val tracks = manifest?.tracks.orEmpty().filterNot { isExpired(it.url, now) }
         val merged = trackCandidates(tracks, title, item, durationMillis, context, pageUrl, now)
-        val candidates = files + merged
-        val summary = buildString {
-            append("item ${index + 1} of ${post.items.size}: ")
+        val words = buildString {
             append("${files.size} files")
             files.mapNotNull(MediaCandidate::height).takeIf(List<Int>::isNotEmpty)
                 ?.let { append(" (${it.joinToString("/")})") }
             append(", DASH ")
             append(if (manifest == null) "none" else FacebookDashOffers.summary(tracks))
         }
-        if (candidates.isEmpty()) {
-            val expired = (item.files.map(InstagramFile::url) +
-                manifest?.tracks.orEmpty().map(FacebookDashTrack::url))
-                .any { isExpired(it, now) }
-            return SiteExtractionResult.Failure(
-                if (expired) SiteExtractionFailure.EXPIRED_LINK else SiteExtractionFailure
-                    .NO_MEDIA_FOUND,
-                details = details + summary,
-            )
-        }
-        return SiteExtractionResult.Success(candidates, details + summary)
+        val expired = (item.files.map(InstagramFile::url) +
+            manifest?.tracks.orEmpty().map(FacebookDashTrack::url))
+            .any { isExpired(it, now) }
+        return ItemRows(files + merged, words, expired)
     }
 
     /**
      * The manifest's picture sizes, each merged with the best AAC sound, and that sound alone
-     * (P4's Facebook rows). A manifest without sound (a silent video) gives its pictures as they
-     * are, without a stated size, so the resolver reads from each file's header that it has none.
+     * (the Facebook adapter's rows). A manifest without sound (a silent video) gives its pictures
+     * as they are, without a stated size, so the resolver reads from each file's header that it has
+     * none.
      */
     private fun trackCandidates(
         tracks: List<FacebookDashTrack>,
@@ -403,5 +459,14 @@ class InstagramExtractor(
             "Instagram did not show this post to your account. Open it in YFT's browser " +
                 "and play the video, then try again."
         const val PHOTOS_MESSAGE = "This post has photos only, no video."
+
+        /**
+         * A lookup that ends unread on a private post's code, in the words the
+         * app gives every site's private or removed post.
+         */
+        const val PRIVATE_MESSAGE = "This Instagram post is private or no longer available."
+
+        /** Its Details line; the link itself is never shown. */
+        const val PRIVATE_CODE_LINE = "link: a private post's code (longer than 11 characters)"
     }
 }

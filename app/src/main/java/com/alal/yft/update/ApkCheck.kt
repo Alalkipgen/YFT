@@ -18,7 +18,7 @@ fun interface ApkReader {
     fun read(file: File): ApkFacts?
 }
 
-/** Checks 2 and 3 of §4.4: the first that fails, or [Passed]. */
+/** The install flow's checks 2 and 3: the first that fails, or [Passed]. */
 sealed interface ApkVerdict {
     data object Passed : ApkVerdict
 
@@ -39,7 +39,7 @@ object ApkCheck {
     /**
      * A release's APK: check 2, the signature — the SHA-256 set of its current signers equals the
      * installed app's (neither empty); then check 3, the package — this app's own — and the
-     * version: a stable tag's APK has exactly the tag's code (§4.2), above the installed one; a
+     * version: a stable tag's APK has exactly the tag's code, above the installed one; a
      * prerelease's (test mode only; no rule code) is not below the installed one.
      */
     fun release(
@@ -61,7 +61,7 @@ object ApkCheck {
     }
 
     /**
-     * The reinstall test (§4.4 step 9): this build's own APK — the same signer, the same package,
+     * The reinstall test: this build's own APK — the same signer, the same package,
      * exactly the installed versionCode.
      */
     fun ownBuild(facts: ApkFacts?, installed: InstalledApp, installedLabel: String): ApkVerdict {

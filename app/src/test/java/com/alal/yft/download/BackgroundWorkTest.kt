@@ -10,7 +10,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** P34: which step a task is at, and the freeze detector's arithmetic. */
+/** Download queue: which step a task is at, and the freeze detector's arithmetic. */
 class BackgroundWorkTest {
     @Test
     fun everyStepOfATaskIsWorkAndOnlyDownloadingUsesTheNetwork() {

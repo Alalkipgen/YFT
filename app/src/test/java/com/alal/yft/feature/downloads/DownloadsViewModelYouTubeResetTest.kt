@@ -31,7 +31,7 @@ import org.junit.Rule
 import org.junit.Test
 
 /**
- * Item 7 Track B3: "Reset YouTube session" (the screen asks first) runs the reset once and says
+ * "Reset YouTube session" (the screen asks first) runs the reset once and says
  * in the snackbar what went and what to do next; the downloads stay as they were.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -130,7 +130,7 @@ class DownloadsViewModelYouTubeResetTest {
         ioDispatcher = mainDispatcherRule.dispatcher,
     )
 
-    /** A download YouTube refused while its link had time left (B1). */
+    /** A download YouTube refused while its link had time left. */
     private fun refused(id: String): StoredDownloadTask = StoredDownloadTask(
         id = id,
         displayName = "$id.mp4",

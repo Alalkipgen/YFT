@@ -17,9 +17,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S0a: a record given the census's labels writes each ask's way, its 2xx answer's
+ * Lookup record: a record given the census's labels writes each ask's way, its 2xx answer's
  * reading and shape, and counts repeated asks, asks after a stop and bot checks; a record given
- * none (every lookup of the app, route B included) is as before. 0.4: a labelled record also
+ * none (every lookup of the app, route B included) is as before. A labelled record also
  * splits the asks sent again into repeats (its report key: method, address, body, identity class)
  * and variants (the same method and address, another body or identity class). No live calls.
  */
@@ -154,7 +154,7 @@ class LookupRecordLabelsTest {
         )
         assertEquals(4, record.repeatAsks)
         assertEquals(3, record.variantAsks)
-        // The endpoint's own count (route B's R2 key: method, address and body, any headers) is as before.
+        // The endpoint's own count (route B's wrapper key: method, address and body, any headers) is as before.
         assertEquals(
             listOf(false, true, true, true, true, false, false, true, false, true),
             asks.map { it.repeated },

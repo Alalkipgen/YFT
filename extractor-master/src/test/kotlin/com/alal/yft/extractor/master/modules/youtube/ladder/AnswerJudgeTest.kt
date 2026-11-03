@@ -17,8 +17,8 @@ import org.junit.Assert.fail
 import org.junit.Test
 
 /**
- * Phase 1.3 D2 (MASTER_KEY_PHASE1_3_PLAN.md §4 D2): the answer judge's class for every kind of
- * answer — main's fixtures, the simulator's L layout changes, V7's one-client refusals, the
+ * Answer judge: the judge's class for every kind of
+ * answer — main's fixtures, the Answer change test's L layout changes, V7's one-client refusals, the
  * definite markers that keep a verdict terminal, HTTP failures, V's 403 and the HLS host rule.
  * No request; every answer is a fixture or made in code.
  */
@@ -126,7 +126,7 @@ class AnswerJudgeTest {
                 "The following content is not available on this app.",
                 subreason = "Watch this content on the latest version of YouTube.",
             ),
-            // Video 6 (made for kids) as visionOS answered it in valid runs 1–3, built in code.
+            // Video 6 (made for kids) as visionOS answered it in the first valid census runs, built in code.
             "video 6" to VIDEO_6_LIKE,
             // The embedded player's error 152-18 (census videos 2 and 6).
             "embedded 152-18" to refusal(
@@ -329,7 +329,7 @@ class AnswerJudgeTest {
             YouTubePageSignals(null, null, null, null, null, null, null),
         )
 
-        /** Video 6 (made for kids) as visionOS answered it in valid runs 1–3: no formats, the video's details. */
+        /** Video 6 (made for kids) as visionOS answered it in the first valid census runs: no formats, the video's details. */
         val VIDEO_6_LIKE = "{\"responseContext\":{},\"playabilityStatus\":{\"status\":\"UNPLAYABLE\"," +
             "\"reason\":\"This video is not available\",\"playableInEmbed\":true}," +
             "\"videoDetails\":{\"videoId\":\"$VIDEO\",\"title\":\"Fixture video title\",\"lengthSeconds\":\"212\"," +

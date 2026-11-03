@@ -27,12 +27,12 @@ import org.junit.Rule
 import org.junit.Test
 
 /**
- * P43 (FIX_ADD_PLAN item 7): on a site without an adapter the sheet never offers the 0:30
- * pre-roll as the page's video. The page states 10:05; its player setup names an HLS and an MP4
- * whose links answer HTTP 410; the player fetched a 30-second MP4 from a host no list knows,
- * of a length nothing stated. Before P43 the fresh-link chain took that request as the
- * "player's link" and offered 0:30. These tests use only what the sheet had before P43, so
- * they also run against the code before it (the regression proof).
+ * Ad filter: on a site without an adapter the sheet never offers the 0:30 pre-roll as the page's
+ * video. The page states 10:05; its player setup names an HLS and an MP4 whose links answer
+ * HTTP 410; the player fetched a 30-second MP4 from a host no list knows, of a length nothing
+ * stated. Before the Ad filter the fresh-link chain took that request as the "player's link" and
+ * offered 0:30. These tests use only what the sheet had before the Ad filter, so they also run
+ * against the code before it (the regression proof).
  */
 class QuickDownloadPrerollTest {
     @get:Rule
@@ -120,7 +120,7 @@ class QuickDownloadPrerollTest {
             main.mediaUrl to read(main, MAIN_LENGTH),
         )
         harness.store.publish(PAGE, TITLE, listOf(ad, main), facts = facts)
-        // The browser selected what its player played: the pre-roll, maybe an ad (P28).
+        // The browser selected what its player played: the pre-roll, maybe an ad (Ad filter).
         harness.store.select(MediaGroups.of(listOf(ad)).single(), maybeAd = true)
 
         val sheet = harness.sheet()

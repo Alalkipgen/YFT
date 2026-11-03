@@ -37,7 +37,7 @@ internal object FacebookUrls {
     /** A profile, page or group name as it appears in a path. */
     private val HANDLE = Regex("^[A-Za-z0-9._-]{1,80}$")
 
-    /** A Page's name in story.php's `id` (decision 18): a [HANDLE] with at least one letter. */
+    /** A Page's name in story.php's `id`: a [HANDLE] with at least one letter. */
     private val PAGE_NAME = Regex("^(?=.*[A-Za-z])[A-Za-z0-9._-]{1,80}$")
 
     private const val DESKTOP = "https://www.facebook.com"
@@ -143,12 +143,12 @@ internal object FacebookUrls {
 
     fun isNumericId(value: String): Boolean = NUMERIC_ID.matches(value)
 
-    /** True for a reel's page, the only surface Safari is asked first (P15, P23). */
+    /** True for a reel's page, the only surface Safari is asked first. */
     fun isReel(identity: SitePageIdentity): Boolean =
         !identity.requiresCanonicalResolution && kindOf(identity.canonicalPageUrl) == PostKind.REEL
 
     /**
-     * The page Safari is asked for a video's AVC ladder (P23): the first of [addresses] (the page
+     * The page Safari is asked for a video's AVC ladder: the first of [addresses] (the page
      * the session request ended on, then the permalink the page states) that is this video's
      * reel or `/{page}/videos/{id}/` page. A /watch/ or video.php page is never asked: Safari
      * got those without the video (about 1 KB, no redirect), while the `/{page}/videos/{id}/`
@@ -258,7 +258,7 @@ internal object FacebookUrls {
     private data class Post(val id: String, val kind: PostKind)
 
     /**
-     * The address of a post that may hold a video, with the post's ID (P3-FIX).
+     * The address of a post that may hold a video, with the post's ID.
      *
      * story.php and permalink.php need the owner's `id`, profiles and pages use /posts/, groups
      * /posts/ or /permalink/. Only the post's page names its video, so the identity stays
@@ -266,7 +266,7 @@ internal object FacebookUrls {
      * but redirects /{owner}/posts/{id} to the video's own page (sandbox live check,
      * 2026-10-05), so that is the address the adapter asks.
      *
-     * The owner's `id` is a numeric ID or a Page's name (decision 18): the app's browser opens a
+     * The owner's `id` is a numeric ID or a Page's name: the app's browser opens a
      * Page post's desktop link as Facebook's mobile page, whose story.php names the Page, not its
      * ID. The Page's /posts/ path answers with the post's page and its one video, without a
      * redirect (sandbox live check, 2026-10-21). A name that is a Facebook surface is no owner.

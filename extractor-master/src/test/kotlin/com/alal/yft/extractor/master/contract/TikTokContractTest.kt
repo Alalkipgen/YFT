@@ -18,7 +18,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * R8 TikTok: Master asks the embed player page (`embed/v2/{id}`) as the browser, without the
+ * Site contract reader, TikTok: Master asks the embed player page (`embed/v2/{id}`) as the browser, without the
  * user's cookies, and reads it with the TikTok key table, which also reads main's page shapes.
  * Parity with main's adapter on main's fixtures; only DRM and a photo post stop, because an
  * anonymous embed's wording says nothing about what the signed-in user may watch.
@@ -174,7 +174,7 @@ class TikTokContractTest {
         assertEquals(listOf(EMBED_FILE), rows.map { it.mediaUrl })
         rows.forEach { assertEquals(KEY, it.videoId) }
 
-        // Task 18 (O1): a play address on the answer's own host is a file, not the video's page.
+        // A play address on the answer's own host is a file, not the video's page.
         val play = "https://www.tiktok.com/aweme/v1/play/?file_id=fixture&item_id=$VIDEO&is_play_url=1"
         val onHost = renamed.replace(EMBED_FILE, play).replace("\"videoMeta\":{", "\"width\":720,\"videoMeta\":{")
         val played = contractEngine(answering(embedUrl(identity) to onHost, contentType = "text/html"))

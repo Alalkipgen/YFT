@@ -1,10 +1,12 @@
 package com.alal.yft.ui.format
 
+import com.alal.yft.detection.Av1MergeSwitch
+import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
- * P25: the names and one-line descriptions a quality has wherever YFT lists it — the Download
+ * The names and one-line descriptions a quality has wherever YFT lists it — the Download
  * sheet on every site and the found list — so they read the same: "1080p · Full HD",
  * "720p · HD", "480p"; "M4A"; "MP3 · 128 kbps". Pure, so the table is unit-tested.
  */
@@ -34,10 +36,31 @@ object YftQualityNames {
         return "${standardHeight}p${rate.orEmpty()}"
     }
 
-    /** "2160p · 4K", "1440p · 2K", "1080p · Full HD", "720p · HD", "480p", "360p", "144p". */
-    fun videoName(standardHeight: Int, framesPerSecond: Double? = null): String =
-        listOfNotNull(quality(standardHeight, framesPerSecond), resolutionName(standardHeight))
-            .joinToString(" · ")
+    /**
+     * "2160p · 4K", "1440p · 2K", "1080p · Full HD", "720p · HD", "480p", "360p", "144p";
+     * AV1 merge switch: an AV1 merge ([av1]) is named with "AV1": "1080p · Full HD · AV1".
+     */
+    fun videoName(standardHeight: Int, framesPerSecond: Double? = null, av1: Boolean = false): String =
+        listOfNotNull(
+            quality(standardHeight, framesPerSecond),
+            resolutionName(standardHeight),
+            AV1.takeIf { av1 },
+        ).joinToString(" · ")
+
+    /**
+     * AV1 merge switch: whether a row is named with "AV1": AV1 video merged with its separate sound
+     * ([merged]) while AV1 merges are on ([mergesOn]: a debug build's test switch). The release's
+     * are off, so its rows are named as before.
+     */
+    fun isAv1Merge(
+        codecs: List<String>,
+        merged: Boolean,
+        mergesOn: Boolean = Av1MergeSwitch.merges(),
+    ): Boolean = mergesOn && merged &&
+        codecs.any { it.trim().lowercase(Locale.US).startsWith(AV1_CODEC_PREFIX) }
+
+    /** The word an AV1 merge's row is named with. */
+    const val AV1 = "AV1"
 
     /** The line under a video row, by the height it is named (HD as 720, SD as 480) after. */
     fun videoDescription(height: Int?): String = when {
@@ -71,5 +94,6 @@ object YftQualityNames {
     }
 
     private const val HIGH_FRAME_RATE = 31.0
+    private const val AV1_CODEC_PREFIX = "av01"
     private const val BIT_MILLIS_PER_BYTE = 8_000.0
 }

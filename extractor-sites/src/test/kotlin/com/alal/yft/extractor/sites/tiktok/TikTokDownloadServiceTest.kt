@@ -16,7 +16,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** P46 (owner's choice B): the public download service after TikTok's own pages. */
+/** The public download service after TikTok's own pages. */
 class TikTokDownloadServiceTest {
     @Test
     fun `a post both TikTok pages call private comes from the service without cookies`() =

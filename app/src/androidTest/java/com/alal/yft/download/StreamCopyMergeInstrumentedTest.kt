@@ -27,15 +27,15 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * P35 on the CI emulator: the stream copy against today's MediaMuxer way, on the one-second test
- * tracks, on P27's 20-minute input and on a 1-hour-sized input (the test tracks' fragments
- * repeated to about 260,000 samples, [LongFragmentedMp4]). The inputs and both merged files are
- * read side by side: the same tracks and the same samples byte for byte; the stream copy's
- * sample times are the inputs' within one tick, and today's within one tick after each track's
- * first sample (MediaMuxer takes a sample's presentation time as its decode time, so it moves
- * the start of a video with B-frames: 59 ms later for the test video on API 34). The stream
- * copy's file must play in Media3 ExoPlayer (prepare, duration, seek to the middle). Each case
- * prints both merge times in a `YFT-DIAG fast-merge` line; on the long input the stream copy
+ * Fast merge on the CI emulator: the stream copy against today's MediaMuxer way, on the one-second
+ * test tracks, on the Merge speed test's 20-minute input and on a 1-hour-sized input (the test
+ * tracks' fragments repeated to about 260,000 samples, [LongFragmentedMp4]). The inputs and both
+ * merged files are read side by side: the same tracks and the same samples byte for byte; the
+ * stream copy's sample times are the inputs' within one tick, and today's within one tick after
+ * each track's first sample (MediaMuxer takes a sample's presentation time as its decode time, so
+ * it moves the start of a video with B-frames: 59 ms later for the test video on API 34). The
+ * stream copy's file must play in Media3 ExoPlayer (prepare, duration, seek to the middle). Each
+ * case prints both merge times in a `YFT-DIAG fast-merge` line; on the long input the stream copy
  * must be at least 3 times faster.
  */
 @RunWith(AndroidJUnit4::class)

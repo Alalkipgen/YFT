@@ -63,7 +63,7 @@ fun YftThumbnail(
             Image(
                 bitmap = image,
                 contentDescription = null,
-                // P19: tests tell a loaded picture from the placeholder by this tag.
+                // Tests tell a loaded picture from the placeholder by this tag.
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag(YFT_THUMBNAIL_IMAGE_TAG),

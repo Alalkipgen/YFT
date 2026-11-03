@@ -37,10 +37,10 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * Track E (E1): a fresh link through the real engines and a local media host. The same file
+ * Fresh link renewal: a fresh link through the real engines and a local media host. The same file
  * resumes from what it kept; another file (other validators or length, other pieces) starts
  * again at byte 0 and ends right; a fresh link refused before the engine reads the saved state
- * keeps it (G1); a merge's finished track of another length is fetched again (G3); an MP3 or
+ * keeps it; a merge's finished track of another length is fetched again; an MP3 or
  * M4A source resumes in its workspace. Every request names its download and link.
  */
 class FreshLinkSameFileTest {
@@ -95,7 +95,7 @@ class FreshLinkSameFileTest {
         val request = renewal.requests.single()
         assertEquals(2 * CHUNK, request.bytesKept)
         assertEquals(2 * CHUNK, request.bytesFromThisLink)
-        // E1 (11): each request names its download and link; the server never sees it.
+        // Each request names its download and link; the server never sees it.
         assertEquals(setOf(DownloadRequestTag("file", 0)), tagsOf("old"))
         assertEquals(setOf(DownloadRequestTag("file", 1)), tagsOf("new"))
     }
@@ -190,7 +190,7 @@ class FreshLinkSameFileTest {
             )
         }
 
-    /** G3: a merge's finished track is kept only while the fresh plan states its length. */
+    /** A merge's finished track is kept only while the fresh plan states its length. */
     @Test
     fun `a merge fetches a finished track again when its fresh link states another length`() =
         runBlocking {
@@ -276,7 +276,7 @@ class FreshLinkSameFileTest {
     }
 
     /**
-     * G1: a fresh link that fails before its engine reads the saved state (an expired link, a
+     * A fresh link that fails before its engine reads the saved state (an expired link, a
      * refused playlist, manifest or length request) keeps the saved state; a Retry's fresh link
      * then goes on from it.
      */

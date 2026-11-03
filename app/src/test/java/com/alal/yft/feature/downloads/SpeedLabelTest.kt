@@ -3,7 +3,7 @@ package com.alal.yft.feature.downloads
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** P34 (G8): one speed format on the cards and in the notification. */
+/** Download queue: one speed format on the cards and in the notification. */
 class SpeedLabelTest {
     @Test
     fun wholeKilobytesUpTo1023ThenOneDecimal() {

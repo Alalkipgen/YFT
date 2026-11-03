@@ -26,7 +26,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Phase 1.4 item 7 (YouTube routing B) R2: the two paths of Master's YouTube module that do not
+ * YouTube backup route: the two paths of Master's YouTube module that do not
  * go through its HTTP client — the ladder's media-start reader (L rows' V and init check, H's
  * first segment) and the player-script runner (the own solver) — under route B. No live calls.
  */

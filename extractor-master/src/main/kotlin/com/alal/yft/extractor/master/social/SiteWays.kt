@@ -1,5 +1,5 @@
 /*
- * Provenance (social plan S0a, copied, not moved; main 34a41890; listed in toolkit-provenance.tsv):
+ * Provenance (Lookup record, copied, not moved; main 34a41890; listed in toolkit-provenance.tsv):
  *   extractor-sites/.../tiktok/TikTokUrls.kt  isPlayerMedia, MEDIA_HOSTS (TikTok's video files)
  *   extractor-sites/.../x/XSyndication.kt  VIDEO_HOST (X's video files)
  */
@@ -15,14 +15,14 @@ import com.alal.yft.extractor.master.lookup.AskLabels
 import java.net.URI
 
 /**
- * Social plan S0a (`MASTER_KEY_SOCIAL_PLAN.md` §7.1): what one census slot's kind expects of a
+ * Site census: what one census slot's kind expects of a
  * lookup. [rows]: the kind should download (a video kind); otherwise the site's final answer
  * about the post, one of [reasons], is the right answer and anything else is "not as expected".
  * [rowsWithSession]: a sign-in-only kind downloads when the browser has the site's session.
  * [minHeight]: the tallest row should be at least this tall (a post only the desktop page lists
- * in HD). Social plan 0.4: [ambiguousWithoutSession]: main's reasons that, without the site's
+ * in HD). [ambiguousWithoutSession]: main's reasons that, without the site's
  * session in the browser, say nothing about this kind (Instagram asks every signed-out visitor to
- * sign in, S0d): such a row is neither as expected nor not, but "ambiguous (no session)".
+ * sign in): such a row is neither as expected nor not, but "ambiguous (no session)".
  */
 data class Expect(
     val rows: Boolean,
@@ -35,13 +35,13 @@ data class Expect(
     fun wantsRows(session: Boolean): Boolean = rows || rowsWithSession && session
 }
 
-/** S0a: a census slot's kind ([label], §6's census lists) and what it [expect]s. */
+/** A census slot's kind ([label], the census lists) and what it [expect]s. */
 data class Kind(val label: String, val expect: Expect)
 
 /**
- * S0a: one site of the census: its way labels (main's [mainWays] in main's order, Master's
- * [masterWay], today's R8 contract), its [slots] (the owner's links, numbered from 1), the media
- * hosts its one-row check (V) may ask, and its labels for a record ([labels], a new instance per
+ * One site of the census: its way labels (main's [mainWays] in main's order, Master's
+ * [masterWay], the site contract reader's contract), its [slots] (the owner's links, numbered from 1), the media
+ * hosts its one-row check (Row check) may ask, and its labels for a record ([labels], a new instance per
  * census row: Facebook's tell the public page from the AVC ladder by order).
  */
 class Site internal constructor(
@@ -73,21 +73,21 @@ class Site internal constructor(
 }
 
 /**
- * S0a: the census's site table: the four sites, their way labels and their census lists (§6). The
+ * The census's site table: the four sites, their way labels and their census lists. The
  * labels name the way an ask belongs to from its address and identity alone (never a cookie's
  * value); the readings ([SiteReadings]) mark what a 2xx answer held. The census kinds:
  *
  * - **Facebook** (13): 3 videos, 3 reels, a watch link, a share link, a post with a video, a group
  *   post, a live replay; sign-in-only (rows with the session, else sign-in is asked; signed out,
- *   main's private or changed-page answer is ambiguous: 0.4 (c)); removed.
+ *   main's private or changed-page answer is ambiguous); removed.
  * - **TikTok** (10): 4 single videos, a long video; a photo post (no media); private (private or
- *   sign-in); region-limited (region, or private: TikTok's status for one page is not final, P46);
+ *   sign-in); region-limited (region, or private: TikTok's status for one page is not final, as the TikTok adapter has it);
  *   removed; a post only the desktop page lists in HD (rows, at least 720 lines).
  * - **Instagram** (10): 3 single videos, 3 reels, a carousel with videos; photo-only (no media);
  *   sign-in-only (as Facebook's); removed (signed out, main's sign-in answer is ambiguous: 0.4).
  * - **X** (8): 3 videos, a GIF, a quoted post's video, several videos; age-limited and removed. X's
  *   main answers a post its widget does not show (a 404, an empty answer, a tombstone) with no
- *   media and its own message (P48), so those kinds also accept [NO_MEDIA_FOUND].
+ *   media and its own message (X adapter), so those kinds also accept [NO_MEDIA_FOUND].
  */
 object SiteWays {
     /** Any site: a one-byte file check (`ExtractorHttpClient.probe`). */
@@ -111,9 +111,9 @@ object SiteWays {
     const val EMBED_PAGE = "embed page"
 
     /**
-     * S2d: the tab-fetch rung's ask (part 1's probe, decision 19 (v); part 2's rung, decision 24,
-     * task 13; its switch off by default): the visible tab's own fetch of yt-dlp's signed-out
-     * query, Master's; its rows bound to the post go to V.
+     * Instagram tab-fetch step: the rung's ask (the probe first, then the step;
+     * its switch off by default): the visible tab's own fetch of yt-dlp's signed-out
+     * query, Master's; its rows bound to the post go to the Row check.
      */
     const val TAB_FETCH = "tab fetch"
 
@@ -140,7 +140,7 @@ object SiteWays {
             Kind("post with a video", Expect(rows = true)),
             Kind("group post", Expect(rows = true)),
             Kind("live replay", Expect(rows = true)),
-            // 0.4 (c): signed out, Facebook answers a friends-only post as it answers a missing one,
+            // Signed out, Facebook answers a friends-only post as it answers a missing one,
             // so without the session that answer is neither way; no sign-in answer is guessed.
             Kind("sign-in-only", signInOnly.expect.copy(ambiguousWithoutSession = setOf(PRIVATE_OR_UNAVAILABLE, RESPONSE_CHANGED))),
             removed,
@@ -185,7 +185,7 @@ object SiteWays {
             Kind("carousel with videos", Expect(rows = true)),
             Kind("photo-only", Expect(rows = false, reasons = setOf(NO_MEDIA_FOUND))),
             signInOnly,
-            // 0.4: Instagram answers every signed-out ask with sign-in (S0d), so without the
+            // Instagram answers every signed-out ask with sign-in, so without the
             // session that answer cannot tell a removed post from a shown one.
             Kind("removed", removed.expect.copy(ambiguousWithoutSession = setOf(LOGIN_REQUIRED))),
         ),
@@ -210,7 +210,7 @@ object SiteWays {
         newLabels = ::XLabels,
     )
 
-    /** The census's sites, in the screen's order (VK Master wave 2: VK's, agent B's [VkSite], last). */
+    /** The census's sites, in the screen's order (the VK ladder's [VkSite] last). */
     val ALL: List<Site> = listOf(FACEBOOK, TIKTOK, INSTAGRAM, X, VkSite.SITE)
 
     /** The site with [id] (main's site ID), or null. */

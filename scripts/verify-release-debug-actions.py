@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Reject the debug-only crash action in a production APK, without printing DEX contents.
 
-VK-Master wave 2 (agent D, item 7): the trial's own tools (TRIAL_TOOL_MARKERS: the VK value break;
-Track E: Downloads' "Break this download's link") are rejected too, but in #12 trial
+The trial's own tools (TRIAL_TOOL_MARKERS: the VK value break; Fresh link renewal: Downloads'
+"Break this download's link") are rejected too, but not in the trial preview
 (--allow-trial-tools, com.alal.yft.trial only).
 """
 

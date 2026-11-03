@@ -1,5 +1,5 @@
 /*
- * Provenance (VK-Master plan §5, Appendix B step 2; copied, not moved; main 50fb8d0f: "# pending"
+ * Provenance (copied, not moved; main 50fb8d0f: "# pending"
  * rows in toolkit-provenance.tsv's header, as VkClient's):
  *   extractor-sites/.../vk/VkEmbedParser.kt  NOT_FOUND_MARKER, SHELL_MARKERS, ADULT_CALLBACK,
  *                                         ADULT_WORDS, MAX_MESSAGE_CHARS, SPACES, isAdult,
@@ -20,7 +20,7 @@ import com.alal.yft.extractor.api.json.get
 import java.util.Locale
 
 /**
- * VK-Master plan §5: what VK's reader ([VkReader]) found in one answer for the link's video:
+ * What VK's reader ([VkReader]) found in one answer for the link's video:
  * [rows], files bound to the video (`owner_id` + `id`) on VK's video servers ([byShape]: by the
  * shape scan, not VK's key table); [refused], files under VK's keys on other hosts; [item], an
  * entry names the video; [otherVideo], entries name other videos only; [live], a broadcast that is
@@ -39,8 +39,9 @@ internal data class VkReading(
 )
 
 /**
- * VK-Master plan §5: VK's judge, for main's answers that the ladder ([VkLadder]) re-reads (V1: the
- * embed pages, main's token ask by its status, main's `video.get`) and for V2's own two answers.
+ * VK's judge, for main's answers that the VK ladder ([VkLadder]) re-reads (its re-read step, `vk V1`
+ * in Lookup details: the embed pages, main's token ask by its status, main's `video.get`) and for
+ * the heal step's own two answers (`vk V2`).
  * Conservative: a final answer only on positive evidence that does not depend on the page's
  * language; an unknown error is [AnswerClass.TRANSIENT], never final.
  *
@@ -52,7 +53,7 @@ internal data class VkReading(
  *   deleted, private and list-only alike) → [AnswerClass.NEEDS_PLAYBACK], never final; VK's SPA
  *   shell → [AnswerClass.TRANSIENT].
  * - The token refused (HTTP 400 or 401, an answer without a token) or `video.get`'s errors for
- *   the web client's values ([VALUE_ERRORS]: 5 the token, …) → [AnswerClass.VALUE_REJECTED] (V2).
+ *   the web client's values ([VALUE_ERRORS]: 5 the token, …) → [AnswerClass.VALUE_REJECTED] (the heal step).
  * - A captcha (API error 14, the token answer's `captcha_sid`) → [AnswerClass.BOT_CHECK]; a 429 or
  *   VK's rate errors ([RATE_ERRORS]) → [AnswerClass.RATE_LIMITED]: the site stops and cools.
  * - `restriction.can_play` 0 with VK's deleted icon → [AnswerClass.REMOVED] (final); any other
@@ -64,7 +65,7 @@ internal data class VkReading(
  *   another host, another video's entry, no entry, no file or files on unknown hosts →
  *   [AnswerClass.SHAPE_CHANGED].
  *
- * The codes and the deleted icon fit agent A's taxonomy (docs/VK_MASTER_CENSUS.md §3: VK's own
+ * The codes and the deleted icon fit the VK census's error list (docs/TESTING.md: VK's own
  * `API_ERROR_*` names; 5, 8 and the deleted icon seen live). Evidence: a status, a code, a marker's
  * kind; never the page's words, a link or an ID, and none of the words a diagnostic line is dropped
  * for (DiagnosticTextSanitizer: a credential's name). Reads only; no request, no log.
@@ -74,12 +75,12 @@ internal object VkAnswerJudge {
     const val CAPTCHA_ERROR = 14L
 
     /**
-     * API error 8 ("Invalid request"): as VK answers an API version it no longer takes (agent D's
-     * live check: `v=2.0` and `v=5.0`), so V2 heals the API version for it ([VkLadder]).
+     * API error 8 ("Invalid request"): as VK answers an API version it no longer takes (a live
+     * check: `v=2.0` and `v=5.0`), so the heal step heals the API version for it ([VkLadder]).
      */
     const val VERSION_ERROR = 8L
 
-    /** VK's API errors for the web client's values (A's census §3.1: 5 AUTH and 8 REQUEST seen live). */
+    /** VK's API errors for the web client's values (VK census: 5 AUTH and 8 REQUEST seen live). */
     val VALUE_ERRORS: Set<Long> = setOf(
         TOKEN_ERROR, // User authorization failed: the token
         VERSION_ERROR, // Invalid request: as for an API version VK no longer takes
@@ -94,10 +95,10 @@ internal object VkAnswerJudge {
     /** API error 13300 (`API_ERROR_ACCESS_GEO`): VK does not show the video in the viewer's region. */
     const val GEO_ERROR = 13_300L
 
-    /** VK's icon for a deleted video in `restriction` (A's census §3.1: seen live, `delete_outline`). */
+    /** VK's icon for a deleted video in `restriction` (VK census: seen live, `delete_outline`). */
     const val DELETED_ICON = "delete_outline"
 
-    /** Main's embed answer (B, B again, B2) for the link's video, read into [reading]. */
+    /** Main's embed answer for the link's video (record asks `B`, `B again`, `B2`), read into [reading]. */
     fun embed(answer: ExtractorHttpResult, reading: VkReading = VkReading()): Judged {
         val page = when (answer) {
             is ExtractorHttpResult.Failure -> return failure(answer)
@@ -157,7 +158,7 @@ internal object VkAnswerJudge {
         }
     }
 
-    /** `video.get`'s answer (main's or V2's) for the link's video, read into [reading]. */
+    /** `video.get`'s answer (main's or the heal step's) for the link's video, read into [reading]. */
     fun api(answer: ExtractorHttpResult, reading: VkReading = VkReading()): Judged {
         val page = when (answer) {
             is ExtractorHttpResult.Failure -> return failure(answer)
@@ -202,7 +203,8 @@ internal object VkAnswerJudge {
     }
 
     /**
-     * Main's adult answer (VK5): the embed's `video_ext_msg` holds VK's adult-content text, or the
+     * Main's adult answer (what sends main to its web-client path for 18+ videos): the embed's
+     * `video_ext_msg` holds VK's adult-content text, or the
      * page calls `embedErrorCallback(9)` beside it. Free words elsewhere in the page never count.
      */
     fun isAdult(html: String): Boolean {
@@ -293,10 +295,10 @@ internal object VkAnswerJudge {
     private const val NOT_FOUND_MARKER = "id=\"video_ext_msg\""
     private val SHELL_MARKERS = listOf("spa_root", "isRedirectChallenge")
 
-    /** VK5: the embed's error callback for adult content (VK's "Video not found." calls 7). */
+    /** The embed's error callback for adult content (VK's "Video not found." calls 7). */
     private val ADULT_CALLBACK = Regex("embedErrorCallback\\s*(?:\\?\\.)?\\s*\\(\\s*9\\s*\\)")
 
-    /** VK5: VK's adult-content text inside `video_ext_msg`, in English and Russian. */
+    /** VK's adult-content text inside `video_ext_msg`, in English and Russian. */
     private val ADULT_WORDS = listOf("adult content", "для взрослых")
     private const val MAX_MESSAGE_CHARS = 2_000
     private val SPACES = Regex("\\s+")

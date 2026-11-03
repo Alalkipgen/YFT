@@ -21,9 +21,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Track E (E1): a download whose link died while its page is looked up again
+ * Fresh link renewal: a download whose link died while its page is looked up again
  * ([DownloadTaskStatus.RENEWING_LINK]) still counts as moving work: its row, its slot, the
- * service, its locks and the notification (G5).
+ * service, its locks and the notification.
  */
 class RenewingLinkStatusTest {
     private var now = 100_000L

@@ -7,9 +7,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The version code rule (§4.2) on this build's own `yft.versionName` / `yft.versionCode`: a
- * stable name has exactly the rule's code (1.0.0 → 1000000), a prerelease a code below its
- * version's — so the updater's tag codes and Android's versionCode agree. CI and
+ * The version code rule (docs/RELEASE.md) on this build's own `yft.versionName` /
+ * `yft.versionCode`: a stable name has exactly the rule's code (1.0.0 → 1000000), a prerelease a
+ * code below its version's — so the updater's tag codes and Android's versionCode agree. CI and
  * `scripts/release-prep.sh` run it.
  */
 class VersionCodeRuleTest {

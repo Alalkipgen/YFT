@@ -5,7 +5,7 @@ import java.net.URLDecoder
 import java.util.Locale
 
 /**
- * The address a page is remembered under (P31): HTTPS pages only, without the fragment, without
+ * The address a page is remembered under: HTTPS pages only, without the fragment, without
  * a user name or password and without the tracking parameters ads and shares add, so the same
  * page opened from two shares is one entry. Everything else (the start page, `about:`, `data:`,
  * plain HTTP, files) is never remembered.

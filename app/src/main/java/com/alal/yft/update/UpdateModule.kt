@@ -43,7 +43,7 @@ object UpdateModule {
         clock = System::currentTimeMillis,
     )
 
-    /** One install flow for the process: a download goes on when the screen closes (U2). */
+    /** One install flow for the process: a download goes on when the screen closes. */
     @Provides
     @Singleton
     fun provideUpdateInstallFlow(

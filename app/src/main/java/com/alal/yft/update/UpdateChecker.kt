@@ -38,7 +38,7 @@ fun interface ReleaseCheck {
 }
 
 /**
- * The check (U1): `GET https://api.github.com/repos/Alalkipgen/YFT/releases?per_page=10` with
+ * The check: `GET https://api.github.com/repos/Alalkipgen/YFT/releases?per_page=10` with
  * GitHub's JSON media type and API version and nothing else — no token, no cookie, no account. A
  * client derived from the shared one (the system's CAs only): connect 15 s, the whole call 30 s,
  * redirects followed here only to the updater's HTTPS hosts. At most [GitHubReleases.MAX_BYTES]
@@ -141,7 +141,7 @@ class UpdateChecker internal constructor(
 }
 
 /**
- * HTTPS calls to the updater's hosts only (§4.6): GitHub's API, its release links and the
+ * HTTPS calls to the updater's hosts only: GitHub's API, its release links and the
  * download hosts behind their redirects. Redirects are followed here, at most [MAX_REDIRECTS],
  * each checked before it is asked; any other host or plain HTTP is refused. No cookies, no cache.
  * The addresses of redirects are never logged or kept: they carry GitHub's signatures.

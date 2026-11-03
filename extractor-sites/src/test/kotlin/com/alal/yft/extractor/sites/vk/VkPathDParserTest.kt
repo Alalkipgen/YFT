@@ -9,7 +9,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** VK5 (path D, VK_PLAN §13): the embed's adult answer, the API's answer, the token, the hosts. */
+/** Path D: the embed's adult answer, the API's answer, the token, the hosts. */
 class VkPathDParserTest {
     @Test
     fun `vk's adult answer is its own, before not-found and the shell`() {

@@ -14,7 +14,9 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** P34: the ongoing notification's lines, the finished notice and Android's pause notice. */
+/**
+ * Download queue: the ongoing notification's lines, the finished notice and Android's pause notice.
+ */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class DownloadNotificationFactoryBackgroundTest {

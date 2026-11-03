@@ -17,6 +17,124 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class InstagramExtractorTest {
+    private companion object {
+        /** 2023-11-14: after `oe=5F000000` (2020), before `oe=7A000000` (2034). */
+        const val NOW = 1_700_000_000_000L
+
+        /** A private post's code, longer than a public post's 11 characters. */
+        const val PRIVATE_CODE = "C9fixtREEL1AbCdEfGhIjKlMnOpQrStUv"
+        const val PRIVATE_REEL = "https://www.instagram.com/reel/$PRIVATE_CODE/"
+
+        /**
+         * A carousel of a video, a photo, a video without files, a video and a
+         * video whose link expired. Here, not under `fixtures/`: Master's offline parity reads
+         * every file there against its own baseline, so Master's files stay as they are.
+         */
+        val MIXED_CAROUSEL = """
+            {
+             "data": {
+              "xdt_shortcode_media": {
+               "__typename": "XDTGraphSidecar",
+               "id": "5",
+               "shortcode": "C9fixtMIXD1",
+               "display_url": "https://instagram.fxyz1-1.fna.fbcdn.net/v/m.jpg",
+               "is_video": false,
+               "owner": {
+                "username": "fixture.creator",
+                "full_name": "Fixture Creator"
+               },
+               "edge_media_to_caption": {
+                "edges": [
+                 {
+                  "node": {
+                   "text": "Four moments from the beach day\nsecond line"
+                  }
+                 }
+                ]
+               },
+               "edge_sidecar_to_children": {
+                "edges": [
+                 {
+                  "node": {
+                   "__typename": "XDTGraphVideo",
+                   "id": "51",
+                   "shortcode": "C9fixtMXC1",
+                   "display_url": "https://instagram.fxyz1-1.fna.fbcdn.net/v/m1.jpg",
+                   "is_video": true,
+                   "video_url": "https://instagram.fxyz1-1.fna.fbcdn.net/o1/v/t16/f2/m86/mix1.mp4?oh=00_m1&oe=7A000000",
+                   "dimensions": {
+                    "height": 1280,
+                    "width": 720
+                   },
+                   "video_duration": 5.0
+                  }
+                 },
+                 {
+                  "node": {
+                   "__typename": "XDTGraphImage",
+                   "id": "52",
+                   "shortcode": "C9fixtMXC2",
+                   "display_url": "https://instagram.fxyz1-1.fna.fbcdn.net/v/m2.jpg",
+                   "is_video": false,
+                   "dimensions": {
+                    "height": 1080,
+                    "width": 1080
+                   }
+                  }
+                 },
+                 {
+                  "node": {
+                   "__typename": "XDTGraphVideo",
+                   "id": "53",
+                   "shortcode": "C9fixtMXC3",
+                   "display_url": "https://instagram.fxyz1-1.fna.fbcdn.net/v/m3.jpg",
+                   "is_video": true,
+                   "dimensions": {
+                    "height": 1080,
+                    "width": 1080
+                   },
+                   "video_duration": 6.0
+                  }
+                 },
+                 {
+                  "node": {
+                   "__typename": "XDTGraphVideo",
+                   "id": "54",
+                   "shortcode": "C9fixtMXC4",
+                   "display_url": "https://instagram.fxyz1-1.fna.fbcdn.net/v/m4.jpg",
+                   "is_video": true,
+                   "video_url": "https://instagram.fxyz1-1.fna.fbcdn.net/o1/v/t16/f2/m86/mix4.mp4?oh=00_m4&oe=7A000000",
+                   "dimensions": {
+                    "height": 640,
+                    "width": 640
+                   },
+                   "video_duration": 3.5
+                  }
+                 },
+                 {
+                  "node": {
+                   "__typename": "XDTGraphVideo",
+                   "id": "55",
+                   "shortcode": "C9fixtMXC5",
+                   "display_url": "https://instagram.fxyz1-1.fna.fbcdn.net/v/m5.jpg",
+                   "is_video": true,
+                   "video_url": "https://instagram.fxyz1-1.fna.fbcdn.net/o1/v/t16/f2/m86/mix5.mp4?oh=00_m5&oe=5F000000",
+                   "dimensions": {
+                    "height": 480,
+                    "width": 480
+                   },
+                   "video_duration": 2.0
+                  }
+                 }
+                ]
+               }
+              }
+             },
+             "status": "ok"
+            }
+        """.trimIndent()
+    }
+
     private val agent = "Mozilla/5.0 (Linux; Android 14) Fixture"
     private val session = "csrftoken=csrfFixture; sessionid=555%3Asecret; ds_user_id=555"
 
@@ -89,6 +207,8 @@ class InstagramExtractorTest {
             assertEquals(15_200L, row.durationMillis)
             assertEquals("https://www.instagram.com/reel/C9fixtREEL1/", row.pageUrl)
             assertNotNull(row.expiresAtEpochMs)
+            // A post of one video names no item.
+            assertNull(row.postItem)
         }
         assertEquals("session: none", result.details.first())
         assertEquals(
@@ -195,6 +315,98 @@ class InstagramExtractorTest {
         assertEquals(SiteExtractionFailure.LOGIN_REQUIRED, failure.reason)
     }
 
+    /**
+     * A lookup that ends unread on a private post's code (longer than 11
+     * characters) says the post is private, with a line saying why; the reason, the other lines
+     * and an 11-character code stay as they were (the login wall, below).
+     */
+    @Test
+    fun `a private post's code left unread says the post is private`() = runTest {
+        fun unread() = client(
+            graphQl = json("graphql_null.json"),
+            page = html("embed_no_video.html"),
+            embed = html("embed_no_video.html"),
+        )
+
+        val private = InstagramExtractor(unread()).extract(request(PRIVATE_REEL))
+            as SiteExtractionResult.Failure
+        val public = InstagramExtractor(unread()).extract(
+            request("https://www.instagram.com/reel/C9fixtREEL1/"),
+        ) as SiteExtractionResult.Failure
+
+        assertEquals(SiteExtractionFailure.RESPONSE_CHANGED, private.reason)
+        assertEquals("This Instagram post is private or no longer available.", private.message)
+        assertEquals(
+            public.details + "link: a private post's code (longer than 11 characters)",
+            private.details,
+        )
+        assertTrue(private.details.none { PRIVATE_CODE in it })
+        assertEquals(public.allowsGenericFallback, private.allowsGenericFallback)
+        assertEquals(public.httpStatusCode, private.httpStatusCode)
+        // An 11-character code: the app's words for a changed answer, as before; no line.
+        assertEquals(SiteExtractionFailure.RESPONSE_CHANGED, public.reason)
+        assertNull(public.message)
+        assertTrue(public.details.none { "private" in it })
+
+    }
+
+    /**
+     * Instagram shows its login wall for a private post, so on a
+     * private post's code the wall says the post is private too (the wall's lines kept, then the
+     * code's); an 11-character code keeps the wall's words, and a line failure (no answer) its own.
+     */
+    @Test
+    fun `a private post's code behind the login wall says the post is private`() = runTest {
+        fun wall() = client(
+            graphQl = ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 401),
+            page = html(
+                "embed_no_video.html",
+                finalUrl = "https://www.instagram.com/accounts/login/?next=%2Freel%2F",
+            ),
+            embed = html("embed_no_video.html"),
+        )
+
+        val private = InstagramExtractor(wall()).extract(request(PRIVATE_REEL))
+            as SiteExtractionResult.Failure
+        assertEquals(SiteExtractionFailure.RESPONSE_CHANGED, private.reason)
+        assertEquals("This Instagram post is private or no longer available.", private.message)
+        assertEquals(
+            listOf(
+                "session: none",
+                "GraphQL GET failed (HTTP_STATUS 401)",
+                "page: login page",
+                "embed page: 200 (98 characters), no post",
+                "link: a private post's code (longer than 11 characters)",
+            ),
+            private.details,
+        )
+        // GraphQL's own login answer is the wall as well.
+        val answered = InstagramExtractor(
+            client(graphQl = json("graphql_login.json"), page = html("embed_no_video.html")),
+        ).extract(request(PRIVATE_REEL)) as SiteExtractionResult.Failure
+        assertEquals(InstagramExtractor.PRIVATE_MESSAGE, answered.message)
+        assertEquals(SiteExtractionFailure.RESPONSE_CHANGED, answered.reason)
+
+        // An 11-character code behind the wall: the wall's words, as before.
+        val public = InstagramExtractor(wall()).extract(
+            request("https://www.instagram.com/reel/C9fixtREEL1/"),
+        ) as SiteExtractionResult.Failure
+        assertEquals(SiteExtractionFailure.LOGIN_REQUIRED, public.reason)
+        assertEquals(InstagramExtractor.LOGIN_MESSAGE, public.message)
+        assertTrue(public.details.none { "private" in it })
+
+        // No answer at all on a private post's code: the line failure's own words, as before.
+        val offline = InstagramExtractor(
+            client(
+                graphQl = ExtractorHttpResult.Failure(SiteExtractionFailure.NETWORK),
+                page = ExtractorHttpResult.Failure(SiteExtractionFailure.NETWORK),
+                embed = ExtractorHttpResult.Failure(SiteExtractionFailure.NETWORK),
+            ),
+        ).extract(request(PRIVATE_REEL)) as SiteExtractionResult.Failure
+        assertEquals(SiteExtractionFailure.NETWORK, offline.reason)
+        assertNull(offline.message)
+    }
+
     @Test
     fun `a carousel link picks its item, else the first video`() = runTest {
         val http = client(graphQl = json("graphql_carousel.json"))
@@ -207,10 +419,79 @@ class InstagramExtractorTest {
             request("https://www.instagram.com/p/C9fixtSIDE1/?img_index=1"),
         ) as SiteExtractionResult.Success
 
-        assertTrue(third.candidates.single().mediaUrl.contains("side3.mp4"))
-        assertEquals(4_000L, third.candidates.single().durationMillis)
-        assertTrue(first.candidates.single().mediaUrl.contains("side2.mp4"))
-        assertEquals("item 2 of 3: 1 files (1080), DASH none", first.details.last())
+        assertEquals("one request each", 2, http.requestedUrls.size)
+        val linked = third.candidates.single()
+        assertTrue(linked.mediaUrl.contains("side3.mp4"))
+        assertEquals(4_000L, linked.durationMillis)
+        assertEquals(2 to 2, linked.postItem?.let { it.number to it.count })
+        // The post's other video comes with it, under its own name.
+        val other = linked.postItem!!.others.single()
+        assertTrue(other.mediaUrl.contains("side2.mp4"))
+        assertEquals("instagram:C9fixtSIDE1:2", other.videoId)
+        assertEquals(1 to 2, other.postItem?.let { it.number to it.count })
+        // The photo names no video: the first video comes first.
+        val firstRow = first.candidates.single()
+        assertTrue(firstRow.mediaUrl.contains("side2.mp4"))
+        assertEquals(1 to 2, firstRow.postItem?.let { it.number to it.count })
+        assertTrue(firstRow.postItem!!.others.single().mediaUrl.contains("side3.mp4"))
+        assertEquals(
+            listOf(
+                "item 2 of 3: 1 files (1080), DASH none",
+                "also item 3 of 3: 1 files (720), DASH none",
+            ),
+            first.details.takeLast(2),
+        )
+    }
+
+    @Test
+    fun `every video item of a carousel is offered, the linked one first`() = runTest {
+        val http = client(
+            graphQl = FakeExtractorHttpClient.json(MIXED_CAROUSEL, "https://www.instagram.com/x"),
+        )
+        val extractor = InstagramExtractor(http)
+
+        val fourth = extractor.extract(
+            request("https://www.instagram.com/p/C9fixtMIXD1/?img_index=4", now = NOW),
+        ) as SiteExtractionResult.Success
+
+        assertEquals("the answer holds every item: no request more", 1, http.requestedUrls.size)
+        val linked = fourth.candidates.single()
+        assertTrue(linked.mediaUrl.contains("mix4.mp4"))
+        assertNull("the lookup names the linked item", linked.videoId)
+        assertEquals("Four moments from the beach day", linked.title)
+        val item = linked.postItem!!
+        assertEquals("Video 3 of 4", item.label)
+        // Item 1 is offered; the photo (2) is skipped, item 3 has no file, item 5's links expired.
+        val other = item.others.single()
+        assertTrue(other.mediaUrl.contains("mix1.mp4"))
+        assertEquals("instagram:C9fixtMIXD1:1", other.videoId)
+        assertEquals("Video 1 of 4", other.postItem!!.label)
+        assertTrue(other.postItem!!.others.isEmpty())
+        assertEquals(1280, other.height)
+        assertEquals(5_000L, other.durationMillis)
+        assertEquals(linked.pageUrl, other.pageUrl)
+        assertNull(other.requestContext.cookie)
+        assertEquals(
+            listOf(
+                "item 4 of 5: 1 files (640), DASH none",
+                "also item 1 of 5: 1 files (1280), DASH none",
+                "also item 3 of 5: a video without files, not offered",
+                "also item 5 of 5: 0 files, DASH none, links expired, not offered",
+            ),
+            fourth.details.takeLast(4),
+        )
+
+        val plain = extractor.extract(
+            request("https://www.instagram.com/p/C9fixtMIXD1/", now = NOW),
+        ) as SiteExtractionResult.Success
+        val firstVideo = plain.candidates.single()
+        assertTrue(firstVideo.mediaUrl.contains("mix1.mp4"))
+        assertEquals("Video 1 of 4", firstVideo.postItem!!.label)
+        assertEquals(
+            listOf("instagram:C9fixtMIXD1:4"),
+            firstVideo.postItem!!.others.map { it.videoId },
+        )
+        assertEquals("Video 3 of 4", firstVideo.postItem!!.others.single().postItem!!.label)
     }
 
     @Test

@@ -1,5 +1,5 @@
 /*
- * Provenance (VK-Master plan §4 V2, Appendix B step 1; copied, not moved; main 50fb8d0f): main's VK
+ * Provenance (copied, not moved; main 50fb8d0f): main's VK
  * files came after the provenance base 34a41890, so their rows wait as "# pending" lines in the
  * header of toolkit-provenance.tsv until the base moves past them (the owner's call):
  *   extractor-sites/.../vk/VkWebClientProfile.kt  CLIENT_ID, CLIENT_SECRET, APP_ID, SCOPES,
@@ -28,9 +28,10 @@ import java.net.URI
 import java.util.Locale
 
 /**
- * VK-Master plan §4 (V2), §8: vkvideo.ru's own web client as main's path D (VK5) asks with it
+ * vkvideo.ru's own web client, as main's web-client path for 18+ videos asks with it
  * signed out — an anonymous token from login.vk.ru, then `video.get` on api.vkvideo.ru — copied for
- * Master's heal (V2: one token in memory, one `video.get`, only after the embed's adult answer and
+ * the VK ladder's heal step (`vk V2` in Lookup details: one token in memory, one `video.get`, only
+ * after the embed's adult answer and
  * a refused value). The identifiers are VK's web client's, read from vkvideo.ru's public JavaScript
  * ([BUNDLED_DATE]); they belong to no user and no user's value is ever added. A token lives in
  * memory only: never stored, logged, shown or put into an address. Media: VK's video servers only,
@@ -49,7 +50,7 @@ object VkClient {
     const val TOKEN_VERSION = "1"
     const val API_VERSION = "5.289"
 
-    /** The day main's values were read from vkvideo.ru's public JavaScript (VK5's recon). */
+    /** The day main's values were read from vkvideo.ru's public JavaScript. */
     const val BUNDLED_DATE = "2026-10-25"
 
     /** The two hosts the web player asks signed out (and only these, besides the media). */
@@ -62,15 +63,15 @@ object VkClient {
     const val ORIGIN = "https://vkvideo.ru"
     const val REFERER = "$ORIGIN/"
 
-    /** Main's embed hosts and page (paths B and B2): the answers V1 re-reads. */
+    /** Main's embed hosts and page (asks `B` and `B2`): the answers the re-read step (`vk V1`) reads again. */
     const val COM_HOST = "vk.com"
     const val RU_HOST = "vk.ru"
     const val EMBED_PATH = "/video_ext.php"
 
-    /** Every host main's VK lookup or V2 asks: the stop rules' and the cooldown's names. */
+    /** Every host main's VK lookup or the heal step asks: the stop rules' and the cooldown's names. */
     val HOSTS: Set<String> = setOf(COM_HOST, RU_HOST, TOKEN_HOST, API_HOST)
 
-    /** Main's bounds for path D's two asks; V2 keeps them. */
+    /** Main's bounds for its web-client path's two asks; the heal step keeps them. */
     const val MAX_TOKEN_BYTES: Long = 16L * 1024
     const val MAX_API_BYTES: Long = 1L * 1024 * 1024
     const val REQUEST_MS: Long = 8_000
@@ -94,10 +95,10 @@ object VkClient {
         /** Main's values, bundled with this build ([BUNDLED]). */
         BUNDLED("bundled"),
 
-        /** The signed config's values (§8, agent C's source). */
+        /** The signed config's values (one of the heal step's sources). */
         SIGNED("signed"),
 
-        /** Values read from the web player's public script (§8, agent C's source). */
+        /** Values read from the web player's public script (one of the heal step's sources). */
         SCRIPT("script"),
 
         /** A debug build's mutate hook (the owner's phone proof). */
@@ -234,7 +235,7 @@ object VkClient {
 
     /**
      * VK's anonymous token for signed-out viewers (main's `VkApiToken`), never a user's: in memory
-     * for one V2 only, usable until [usableUntilEpochMs]. Its text names no value.
+     * for one heal only, usable until [usableUntilEpochMs]. Its text names no value.
      */
     class Token internal constructor(internal val value: String, val usableUntilEpochMs: Long) {
         fun usableAt(nowEpochMs: Long): Boolean = nowEpochMs < usableUntilEpochMs

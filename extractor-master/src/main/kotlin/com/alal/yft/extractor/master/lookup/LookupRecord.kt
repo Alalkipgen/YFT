@@ -13,8 +13,7 @@ import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.CancellationException
 
 /**
- * Phase 1.4 item 7 (YouTube routing B, `MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §3 R1; social plan
- * decision 8): the **per-lookup request record**. One record per user lookup (main + Master),
+ * Lookup record: the **per-lookup request record**. One record per user lookup (main + Master),
  * carried in the lookup's coroutine context, in memory only and dropped with the lookup.
  * [LookupRecorder] writes main's asks into it: it wraps the client main's adapters share and,
  * with no record in the context, only passes through.
@@ -24,11 +23,11 @@ import kotlinx.coroutines.CancellationException
  * start and how long it took ([elapsedMillis], [timeLeftMillis]: no time budget of its own). It
  * knows each endpoint asked ([asked]: method, address and body) and whether any 429 came
  * ([rateLimited]; also one of main's player-script fetches, which are not listed: [unlisted]).
- * F2: when main's answer reached the lookup without main asking in it (P17's remembered answer, or
+ * When main's answer reached the lookup without main asking in it (Lookup reuse's remembered answer, or
  * another caller's running lookup, which records into that caller's record), it notes how
  * ([reuse]), so a skipped route B can say why.
  *
- * Kept for replay ([replay]; route B's Master wrapper, R2): only main's unauthenticated answers
+ * Kept for replay ([replay]; route B's Master wrapper): only main's unauthenticated answers
  * ([LookupAsk.authorized] false) to an HTTPS address that is not a media host
  * ([LookupMemo.memoable]) — a success without the cookies it set, or a failure (no body). A file
  * check is never kept. Each kept answer serves one identical request (method, address, body and
@@ -36,7 +35,7 @@ import kotlinx.coroutines.CancellationException
  * most [MAX_LISTED] asks listed (more are counted). Nothing is logged; [toString] and the counts
  * show no address, body or header.
  *
- * F5 (the owner's cookie decision, `MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §8): a record that names
+ * Main's watch page for route B (the owner's cookie rule): a record that names
  * the lookup's video ([watchPageVideoId], set by the app's route-B build for a YouTube lookup) also
  * keeps main's answer to that video's watch page GET (`YouTubeUrls.watchPageFetchUrl`, no body)
  * when main's request carried the tab's cookie and no other credential — main's first such GET in
@@ -46,7 +45,7 @@ import kotlinx.coroutines.CancellationException
  * Every other authorized answer is still never kept. Without a name (every other record) nothing
  * changes.
  *
- * Social plan S0a (`MASTER_KEY_SOCIAL_PLAN.md` §7.1, the site census): a record given [AskLabels]
+ * For the Site census: a record given [AskLabels]
  * also writes each listed ask's way ([Ask.way]) and its 2xx answer's reading ([Ask.mark],
  * [Ask.shape]: a mark and a short fingerprint, never a value), and counts [repeatedAsks] (an
  * endpoint already asked in this lookup), [asksAfterStop] (an ask to a host that had stopped: it
@@ -55,21 +54,21 @@ import kotlinx.coroutines.CancellationException
  * rate limit here: [rateLimited] stays the 429 (route B's rule 3). Without labels (every lookup of
  * the app, route B included) the record is as before: no label, nothing more counted.
  *
- * Social plan 0.4 (§7.3, the census fixes): a labelled record also splits the asks main sent
+ * For the census's repeat counts: a labelled record also splits the asks main sent
  * again by a report key of its own — the method, address, body and identity class (whether the
  * ask carries the user's credentials, and the agent it names; never a cookie's value), hashed: an
  * ask whose key was seen is a repeat ([Ask.repeat], [repeatAsks]); one whose method and address
  * were asked with another body or identity class is a variant ([Ask.variant], [variantAsks]).
- * The key is the report's only: [LookupAsk.endpoint] (route B's R2 key), the endpoint rule, its
+ * The key is the report's only: [LookupAsk.endpoint] (route B's wrapper key), the endpoint rule, its
  * enforcement and the host stops stay as they are, and no key or hash leaves the record.
  */
 class LookupRecord(
     private val clock: () -> Long = System::currentTimeMillis,
     private val maxKept: Int = MAX_KEPT,
     private val maxKeptChars: Long = MAX_KEPT_CHARS,
-    /** F5: the lookup's YouTube video ID; null (or not an ID): no watch page is kept. */
+    /** The lookup's YouTube video ID; null (or not an ID): no watch page is kept. */
     watchPageVideoId: String? = null,
-    /** S0a: the site census's labels for each ask; null (every lookup of the app): none. */
+    /** The site census's labels for each ask; null (every lookup of the app): none. */
     private val labels: AskLabels? = null,
 ) : AbstractCoroutineContextElement(LookupRecord) {
     init {
@@ -81,8 +80,8 @@ class LookupRecord(
     enum class Asker { MAIN, MASTER }
 
     /**
-     * F2 (`MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §8): how main's answer reached this lookup without
-     * main asking in it (P17's shared lookup): its remembered answer, or another caller's running
+     * How main's answer reached this lookup without
+     * main asking in it (Lookup reuse's shared lookup): its remembered answer, or another caller's running
      * lookup, whose requests go to that caller's record.
      */
     enum class Reuse(val label: String) {
@@ -108,15 +107,15 @@ class LookupRecord(
         /** Milliseconds from the lookup's start to the ask, and how long it took. */
         val atMillis: Long,
         val tookMillis: Long,
-        /** S0a: the way that asked ([AskLabels.way]); null without labels or when none fits. */
+        /** The way that asked ([AskLabels.way]); null without labels or when none fits. */
         val way: String? = null,
-        /** S0a: what the 2xx answer held ([AskLabels.read]); null without labels or not read. */
+        /** What the 2xx answer held ([AskLabels.read]); null without labels or not read. */
         val mark: AnswerMark? = null,
-        /** S0a: the answer's short shape fingerprint; null when not read. */
+        /** The answer's short shape fingerprint; null when not read. */
         val shape: String? = null,
-        /** S0a: the endpoint was already asked in this lookup (a labelled record only). */
+        /** The endpoint was already asked in this lookup (a labelled record only). */
         val repeated: Boolean = false,
-        /** S0a: the host had stopped (a 429 or a bot check) before this ask (a labelled record only). */
+        /** The host had stopped (a 429 or a bot check) before this ask (a labelled record only). */
         val afterStop: Boolean = false,
         /** 0.4: the same report key (method, address, body, identity class) was asked before. */
         val repeat: Boolean = false,
@@ -125,7 +124,7 @@ class LookupRecord(
     )
 
     /**
-     * S0a: an ask's labels, read outside the lock; null: the record has no labels. 0.4: [key] is
+     * An ask's labels, read outside the lock; null: the record has no labels. [key] is
      * the ask's report key and [target] its method and address, both hashed.
      */
     private class Label(val way: String?, val reading: AskReading?, val key: String, val target: String)
@@ -143,7 +142,7 @@ class LookupRecord(
     private var rateLimitedTotal = 0
     private var reused: Reuse? = null
 
-    /** S0a: each host that stopped (a 429 or a bot check) and when, in the order they stopped. */
+    /** Each host that stopped (a 429 or a bot check) and when, in the order they stopped. */
     private val stopAt = LinkedHashMap<String, Long>()
     private var repeatedTotal = 0
     private var afterStopTotal = 0
@@ -155,13 +154,13 @@ class LookupRecord(
     private var repeatTotal = 0
     private var variantTotal = 0
 
-    /** F5: the address of the lookup's watch page, or null when this record keeps none. */
+    /** The address of the lookup's watch page, or null when this record keeps none. */
     private val watchPage: String? = watchPageVideoId?.takeIf(VIDEO_ID::matches)?.let(YouTubeUrls::watchPageFetchUrl)
 
-    /** F5: main's first cookie GET of [watchPage] came (kept or over the caps). */
+    /** Main's first cookie GET of [watchPage] came (kept or over the caps). */
     private var watchPageTaken = false
 
-    /** F5 (guardrail 7): watch pages asked in this lookup, main's or Master's ([LookupAsk.watchPage]). */
+    /** Watch pages asked in this lookup, main's or Master's ([LookupAsk.watchPage]; one page per lookup). */
     private var watchPagesAsked = 0
 
     /** The lookup's clock, for an ask's start. */
@@ -182,10 +181,10 @@ class LookupRecord(
     /** Whether any ask of this lookup (main's or Master's) got HTTP 429 or a rate limit. */
     val rateLimited: Boolean get() = synchronized(lock) { rateLimitedTotal > 0 }
 
-    /** F2: how main's answer reached this lookup without main asking in it; null: not noted. */
+    /** How main's answer reached this lookup without main asking in it; null: not noted. */
     val reuse: Reuse? get() = synchronized(lock) { reused }
 
-    /** F2: main's answer reached this lookup [how] (P17), without main asking in it. */
+    /** Main's answer reached this lookup [how] (Lookup reuse), without main asking in it. */
     fun noteReuse(how: Reuse) {
         synchronized(lock) { reused = how }
     }
@@ -202,19 +201,19 @@ class LookupRecord(
     /** Whether [ask]'s endpoint (method, address and body, whatever the headers) was asked. */
     fun asked(ask: LookupAsk): Boolean = synchronized(lock) { ask.endpoint in endpoints }
 
-    /** F5 (guardrail 7): whether a watch page was asked in this lookup, by main or by Master. */
+    /** Whether a watch page was asked in this lookup, by main or by Master (one page per lookup). */
     val watchPageAsked: Boolean get() = synchronized(lock) { watchPagesAsked > 0 }
 
-    /** S0a: asks of an endpoint already asked in this lookup; 0 without labels. */
+    /** Asks of an endpoint already asked in this lookup; 0 without labels. */
     val repeatedAsks: Int get() = synchronized(lock) { repeatedTotal }
 
-    /** S0a: asks to a host after it stopped (a 429 or a bot check); 0 without labels. */
+    /** Asks to a host after it stopped (a 429 or a bot check); 0 without labels. */
     val asksAfterStop: Int get() = synchronized(lock) { afterStopTotal }
 
-    /** S0a: answers read as a bot check ([AnswerMark.BOT_CHECK]); 0 without labels. */
+    /** Answers read as a bot check ([AnswerMark.BOT_CHECK]); 0 without labels. */
     val botChecks: Int get() = synchronized(lock) { botCheckTotal }
 
-    /** S0a: the hosts that stopped (a 429 or a bot check), in order; empty without labels. */
+    /** The hosts that stopped (a 429 or a bot check), in order; empty without labels. */
     fun stopHosts(): List<String> = synchronized(lock) { stopAt.keys.toList() }
 
     /** 0.4: asks whose report key was asked before in this lookup (repeats); 0 without labels. */
@@ -224,7 +223,7 @@ class LookupRecord(
     val variantAsks: Int get() = synchronized(lock) { variantTotal }
 
     /**
-     * [ask]'s answer [result]; main's unauthenticated answer is kept for one replay, and (F5) main's
+     * [ask]'s answer [result]; main's unauthenticated answer is kept for one replay, and main's
      * first cookie GET of the named watch page, keyed without the cookie.
      */
     fun record(ask: LookupAsk, result: ExtractorHttpResult, startedAtMillis: Long, asker: Asker = Asker.MAIN) {
@@ -332,7 +331,7 @@ class LookupRecord(
     private fun keepable(ask: LookupAsk): Boolean =
         !ask.authorized && ask.method != LookupAsk.PROBE && LookupMemo.memoable(ask.url)
 
-    /** F5: a GET of the named watch page (no body) that carries the tab's cookie and no other credential. */
+    /** A GET of the named watch page (no body) that carries the tab's cookie and no other credential. */
     private fun isNamedPage(ask: LookupAsk): Boolean = watchPage != null && ask.method == LookupAsk.GET &&
         ask.url == watchPage && ask.body == null && ask.cookieOnly && LookupMemo.memoable(ask.url)
 
@@ -341,7 +340,7 @@ class LookupRecord(
         failure != null && (status == HTTP_TOO_MANY || failure == SiteExtractionFailure.RATE_LIMITED)
 
     /**
-     * S0a: [ask]'s way and, for a 2xx [success], its reading; null without labels. Outside the
+     * [ask]'s way and, for a 2xx [success], its reading; null without labels. Outside the
      * lock; a label that throws is none.
      */
     private fun label(ask: LookupAsk, success: ExtractorHttpResult.Success?): Label? {
@@ -363,7 +362,7 @@ class LookupRecord(
         startedAtMillis: Long,
         label: Label? = null,
     ) {
-        // S0a: only a labelled record counts repeats and stops (before this ask is noted).
+        // Only a labelled record counts repeats and stops (before this ask is noted).
         var labelledAt: Long? = null
         var repeated = false
         var afterStop = false
@@ -450,11 +449,11 @@ class LookupRecord(
             return sha.digest().joinToString("") { "%02x".format(it) }
         }
 
-        /** S0a: [url]'s host, lowercase without a trailing dot; null when it has none. */
+        /** [url]'s host, lowercase without a trailing dot; null when it has none. */
         private fun hostOf(url: String): String? = runCatching { URI(url).host }.getOrNull()
             ?.lowercase()?.trimEnd('.')?.takeIf(String::isNotEmpty)
 
-        /** S0a: [block]'s value, or null when it throws (a cancellation still ends the lookup). */
+        /** [block]'s value, or null when it throws (a cancellation still ends the lookup). */
         private inline fun <T> guarded(block: () -> T): T? = try {
             block()
         } catch (cancellation: CancellationException) {

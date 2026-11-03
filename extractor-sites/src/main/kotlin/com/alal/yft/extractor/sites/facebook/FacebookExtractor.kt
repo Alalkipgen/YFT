@@ -23,9 +23,9 @@ import com.alal.yft.extractor.api.SitePageIdentity
  * login, paywall or access-control bypass: a video the user cannot open in the browser fails with
  * a structured reason instead of being worked around.
  *
- * A reel is first asked as Safari without the user's session (P15): when that public page is the
+ * A reel is first asked as Safari without the user's session: when that public page is the
  * requested video with AVC video and an AAC track, it is the whole lookup, one page request
- * instead of two (P23). Anything else reads the page with the user's session. Share, short and
+ * instead of two. Anything else reads the page with the user's session. Share, short and
  * post links skip that step: Facebook redirects them only for the desktop identity. So do
  * /watch/ links: Safari gets those without the video (sandbox live check, 2026-10-06). The
  * tracks of every page read for the video are merged, and the AVC ladder is asked once on the
@@ -122,9 +122,9 @@ class FacebookExtractor(
     }
 
     /**
-     * The page asked as Safari without the user's session (P15), or null when the link is not
+     * The page asked as Safari without the user's session, or null when the link is not
      * a reel. Its [PublicPage.result] is set only when the page is the requested video with AVC
-     * video and an AAC track (P23), or when the line failed: asking again would wait on the same
+     * video and an AAC track, or when the line failed: asking again would wait on the same
      * line. Any other answer leaves the lookup to the page with the user's session; a page with
      * only HD/SD files is kept in [PublicPage.post] for the merge and in case that page fails.
      */
@@ -177,7 +177,7 @@ class FacebookExtractor(
 
     /**
      * The public page's own files when the session page could not be read: the video was public
-     * there, so its HD/SD files still download (P23). Null without such a page.
+     * there, so its HD/SD files still download. Null without such a page.
      */
     private fun publicFiles(
         request: SiteExtractionRequest,
@@ -228,8 +228,8 @@ class FacebookExtractor(
             }
             val whole = rendition.delivery == FacebookDelivery.PROGRESSIVE
             val encoding = if (whole) FacebookDashOffers.encodingOf(rendition.url, tracks) else null
-            // A file states its picture only with its sound's codec (P23): a stated size alone
-            // would stop the resolver reading the file's own header, which finds its sound (P3).
+            // A file states its picture only with its sound's codec: a stated size alone
+            // would stop the resolver reading the file's own header, which finds its sound.
             val codecs = if (encoding != null && sound != null) {
                 listOf(encoding.codec, sound.codec)
             } else {
@@ -291,7 +291,7 @@ class FacebookExtractor(
     }
 
     /**
-     * The manifest's tracks as download rows (P4): every mergeable picture size as one MP4 with
+     * The manifest's tracks as download rows: every mergeable picture size as one MP4 with
      * the best AAC track as its sound, like YouTube's merged rows, and that AAC track alone for
      * Audio (M4A, MP3). A merged row states no size: the resolver reads the video file's length
      * from the CDN and adds the sound's estimate (audio bitrate over the duration), because an
@@ -347,7 +347,7 @@ class FacebookExtractor(
                     width = video.width,
                     height = video.height,
                     framesPerSecond = video.framesPerSecond,
-                    // The address's average bitrate, never the manifest's peak (P23): the sheet
+                    // The address's average bitrate, never the manifest's peak: the sheet
                     // estimates a size from it until the CDN states the file's length.
                     bitrateBitsPerSecond = FacebookUrls.statedBitrate(video.url),
                 )
@@ -383,7 +383,7 @@ class FacebookExtractor(
      * states. A public video gets its AVC tracks and AAC sound; a video only the signed-in user
      * may see keeps the first page's tracks, and the cookie never travels with a second
      * identity. Only tracks of the same video ID are taken, and the public page already asked
-     * that way (P15) is not asked again.
+     * that way is not asked again.
      */
     private suspend fun avcLadder(
         post: FacebookPost,
@@ -497,7 +497,7 @@ class FacebookExtractor(
         return if (label.isNullOrBlank()) base else "$base — $label"
     }
 
-    /** Desktop Safari without any session: the public page (P15) and the AVC ladder (P4). */
+    /** Desktop Safari without any session: the public page and the AVC ladder. */
     private fun publicPageHeaders(): Map<String, String> = PageNavigationHeaders.withDefaults(
         mapOf(
             "User-Agent" to FacebookPageIdentity.AVC_LADDER_USER_AGENT,

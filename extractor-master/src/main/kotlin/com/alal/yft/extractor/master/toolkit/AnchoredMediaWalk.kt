@@ -1,5 +1,5 @@
 /*
- * Provenance (Master toolkit T3, copied, not moved; main 34a41890):
+ * Provenance (Master toolkit, copied, not moved; main 34a41890):
  *   extractor-sites/.../facebook/FacebookPageParser.kt  mediaNode/search (prefer the node whose ID
  *                                                       matches the page; related videos lose)
  *   extractor-sites/.../instagram/InstagramMedia.kt     find (the post with the code, else none)
@@ -14,7 +14,7 @@ import com.alal.yft.extractor.api.json.asStringOrNull
 import com.alal.yft.extractor.api.json.get
 
 /**
- * T3: a media-node walk **anchored to the expected content ID**. Every object learns the
+ * Master toolkit: a media-node walk **anchored to the expected content ID**. Every object learns the
  * nearest content ID above it (its own first). With an expected ID, only objects under that ID
  * are offered to the visitor; a suggested or related video's node carries its own ID and is
  * counted in [rejected] instead. Without an expected ID nothing is anchored and the visitor
@@ -80,7 +80,7 @@ internal class AnchoredMediaWalk(
         }
     }
 
-    /** L4's ID rule first (so L3 anchors wherever L4 does), then an entity's own `id`. */
+    /** The Recipe reader's ID rule first (so Shape search anchors wherever the Recipe reader does), then an entity's own `id`. */
     private fun contentId(
         node: JsonValue.Object,
         key: String?,

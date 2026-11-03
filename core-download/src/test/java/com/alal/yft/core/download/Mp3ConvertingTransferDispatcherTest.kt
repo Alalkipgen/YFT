@@ -46,16 +46,35 @@ class Mp3ConvertingTransferDispatcherTest {
     private val transcoder = FakeTranscoder(mp3)
     private val m4a = "ftyp-and-sound".toByteArray()
     private val extractor = FakeExtractor(m4a)
+    private val details = mutableListOf<Pair<String, String>>()
     private val dispatcher = Mp3ConvertingTransferDispatcher(
         delegate = delegate,
         transcoder = transcoder,
         workspaceRoot = workspaces,
         audioExtractor = extractor,
+        onDetail = { taskId, line -> details += taskId to line },
     )
 
     @After
     fun cleanUp() {
         root.deleteRecursively()
+    }
+
+    @Test
+    fun aFinishedMp3GivesItsDetailsLineToItsTask() = runBlocking {
+        // The sound's length and the decode and encode times, in the row's Details.
+        transcoder.detail = "MP3: 3:19 of sound, decode 1.2 s, encode 6.8 s"
+        val mp3Plan = plan()
+
+        val result = dispatcher.transfer(mp3Plan, metadata(), destination, null, {}, {})
+
+        assertTrue(result is QueueTransferResult.Completed)
+        assertEquals(listOf(mp3Plan.taskId to transcoder.detail!!), details)
+        // A failed conversion gives no line.
+        details.clear()
+        transcoder.failWith = DownloadFailureReason.INCOMPATIBLE_TRACKS
+        dispatcher.transfer(plan(), metadata(), destination, null, {}, {})
+        assertTrue(details.isEmpty())
     }
 
     @Test
@@ -224,7 +243,7 @@ class Mp3ConvertingTransferDispatcherTest {
         assertEquals(1, delegate.discards)
     }
 
-    /** D1 follow-up 4: an MP3 made from a direct download shows the MP3's size, not the AAC's. */
+    /** An MP3 made from a direct download shows the MP3's size, not the AAC's. */
     @Test
     fun aQueuedMp3ShowsTheMp3sSizeAndKeepsTheAacCheckpoint() = runBlocking {
         val store = MemoryStore()
@@ -237,7 +256,7 @@ class Mp3ConvertingTransferDispatcherTest {
         assertEquals(completed, store.loadAll().single())
     }
 
-    /** D1 follow-up 4: the M4A kept from a video's sound shows its own size, not the video's. */
+    /** The M4A kept from a video's sound shows its own size, not the video's. */
     @Test
     fun aQueuedAudioOnlyDownloadShowsTheM4asSize() = runBlocking {
         val video = plan(mp3 = null).copy(audioOnly = true, mimeType = "audio/mp4")
@@ -251,7 +270,7 @@ class Mp3ConvertingTransferDispatcherTest {
         assertEquals(completed, store.loadAll().single())
     }
 
-    /** D1 follow-up 4: a plain direct download still shows the bytes it downloaded. */
+    /** A plain direct download still shows the bytes it downloaded. */
     @Test
     fun aQueuedPlainDownloadStillShowsTheBytesItDownloaded() = runBlocking {
         val completed = completeInQueue(plan(mp3 = null), MemoryStore())
@@ -353,6 +372,7 @@ class Mp3ConvertingTransferDispatcherTest {
         val encodings = mutableListOf<Mp3Encoding>()
         var failWith: DownloadFailureReason? = null
         var failDetail: String? = null
+        var detail: String? = null
         val calls get() = sources.size
 
         override suspend fun transcode(
@@ -365,7 +385,7 @@ class Mp3ConvertingTransferDispatcherTest {
             output.writeBytes(this.output.copyOf(this.output.size / 2))
             failWith?.let { return Mp3TranscodeResult.Failure(it, failDetail) }
             output.writeBytes(this.output)
-            return Mp3TranscodeResult.Completed(this.output.size.toLong())
+            return Mp3TranscodeResult.Completed(this.output.size.toLong(), detail)
         }
     }
 

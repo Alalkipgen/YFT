@@ -9,17 +9,17 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Decision 30 (v) (`MASTER_KEY_SOCIAL_PLAN.md` section 8): the quiet release — the debug and
- * trial APKs find the bugs; the release shows none of their tools. True while a quiet build
- * ([BuildConfig.QUIET_RELEASE]: the release and #12 normal) has Show details off ([ShowDetails]):
- * the browser shows no lookup notice and no Try again, the download sheet one line
- * ([QuietLines]), and Details and Copy details (the sheet, Home, Downloads) are hidden. False in
- * the debug APK and #12 trial, which show everything as before, and wherever nothing provides it.
+ * Quiet details: the quiet release — the debug and trial APKs find the bugs; the release shows none
+ * of their tools. True while a quiet build ([BuildConfig.QUIET_RELEASE]: the release and the normal
+ * Preview APK) has Show details off ([ShowDetails]): the browser shows no lookup notice and no Try
+ * again, the download sheet one line ([QuietLines]), and Details and Copy details (the sheet, Home,
+ * Downloads) are hidden. False in the debug APK and the Trial preview, which show everything as
+ * before, and wherever nothing provides it.
  */
 val LocalQuietRelease = compositionLocalOf { false }
 
 /**
- * Decision 30 (v): the hidden "Show details" of a quiet build — the About screen's version line
+ * Quiet details: the hidden "Show details" of a quiet build — the About screen's version line
  * tapped 7 times turns it on or off; off by default, not in Settings. On, the app shows Details
  * and Copy details as the debug APK does (the owner asks a friend for them). App preferences, one
  * per process.
@@ -44,7 +44,7 @@ class ShowDetails internal constructor(
         const val PREFERENCES = "yft_show_details"
         const val KEY = "show_details"
 
-        /** Whether this build is quiet at all (the release and #12 normal). */
+        /** Whether this build is quiet at all (the release and the normal Preview APK). */
         val quietBuild: Boolean get() = BuildConfig.QUIET_RELEASE
 
         @Volatile
@@ -62,7 +62,7 @@ class ShowDetails internal constructor(
 }
 
 /**
- * Decision 30 (v): the quiet build's one line for a lookup that failed — the download sheet's
+ * Quiet details: the quiet build's one line for a lookup that failed — the download sheet's
  * (the browser's and Home's) and the browser's notice for the video on screen. TikTok's check
  * keeps its function (the sheet's Show check); the capture asks for the video to be played;
  * everything else is "Couldn't get this video.". Download again looks up again, as Try again did.

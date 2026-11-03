@@ -18,13 +18,12 @@ import java.net.URI
 import java.util.Locale
 
 /**
- * VK-Master plan §10, Appendix B step 4: VK's ways for a labelled record (the site census; agent D
- * registers [VkSite.SITE]), from the ask's method and address alone — never a header's value, so
- * never a cookie or the `Authorization` bearer:
+ * VK's ways for a labelled record (the site census registers [VkSite.SITE]), from the ask's
+ * method and address alone — never a header's value, so never a cookie or the `Authorization` bearer:
  *
- * - [EMBED]: a GET of `/video_ext.php` on vk.com or vk.ru (main's B, B again and B2);
- * - [TOKEN]: a POST of login.vk.ru's `?act=get_anonym_token` (main's path D, V2's);
- * - [VIDEO_GET]: api.vkvideo.ru's `/method/video.get` (main's path D, V2's);
+ * - [EMBED]: a GET of `/video_ext.php` on vk.com or vk.ru (main's embed asks `B`, `B again` and `B2`);
+ * - [TOKEN]: a POST of login.vk.ru's `?act=get_anonym_token` (main's web-client path, the heal step's);
+ * - [VIDEO_GET]: api.vkvideo.ru's `/method/video.get` (main's web-client path, the heal step's);
  * - [MANIFEST]: a GET of a file on VK's video servers ([VkClient.mediaFile]) whose address names a
  *   manifest (its path ends `.m3u8` or `.mpd`, as [VkReader] types a file by its address): main's
  *   manifest reads (at most two, only for an answer without MP4);
@@ -107,13 +106,13 @@ internal class VkLabels : AskLabels {
     }
 
     companion object {
-        /** Main's embed page (B, B again, B2): `/video_ext.php` on vk.com or vk.ru. */
+        /** Main's embed page (asks `B`, `B again`, `B2`): `/video_ext.php` on vk.com or vk.ru. */
         const val EMBED = SiteWays.EMBED_PAGE
 
-        /** login.vk.ru's anonymous token for signed-out viewers (main's path D, V2's). */
+        /** login.vk.ru's anonymous token for signed-out viewers (main's web-client path, the heal step's). */
         const val TOKEN = "anonymous token"
 
-        /** api.vkvideo.ru's `video.get` (main's path D, V2's). */
+        /** api.vkvideo.ru's `video.get` (main's web-client path, the heal step's). */
         const val VIDEO_GET = "video.get"
 
         /** Main's manifest read (an answer without MP4): a manifest-shaped file of VK's video servers. */

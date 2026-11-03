@@ -39,7 +39,7 @@ internal data class FacebookPost(
     val thumbnailUrl: String?,
     val durationMillis: Long?,
     val renditions: List<FacebookRendition>,
-    /** The whole-file tracks of the page's inline DASH manifest (P4). */
+    /** The whole-file tracks of the page's inline DASH manifest. */
     val dashTracks: List<FacebookDashTrack> = emptyList(),
     /** The video's own page as the page states it (`permalink_url`), for the AVC ladder. */
     val permalinkUrl: String? = null,
@@ -122,7 +122,7 @@ internal object FacebookPageParser {
     )
 
     /**
-     * Social plan 0.3 fix (A1): Facebook's own route for the page (`initialRouteInfo.route`), the
+     * Facebook's own route for the page (`initialRouteInfo.route`), the
      * same in every language: the error route with its root's `privacy: true` (the "content isn't
      * available" page) and the video's not-found route. Read only after [ACCESS_MARKERS] found
      * nothing, so only on a page without playable media; at most [MAX_ROUTE_INFOS] route infos,
@@ -147,7 +147,7 @@ internal object FacebookPageParser {
         val manifests = inlineManifests(node)
         val dash = manifests.mapNotNull(FacebookDashManifests::parse)
         val tracks = dash.flatMap(FacebookDashManifest::tracks).distinctBy(FacebookDashTrack::url)
-        // The manifest's own files replace its address, which only lists streams (P4).
+        // The manifest's own files replace its address, which only lists streams.
         val renditions = renditions(node, manifests).filter { rendition ->
             tracks.isEmpty() || rendition.delivery != FacebookDelivery.DASH_MANIFEST
         }
@@ -412,7 +412,7 @@ internal object FacebookPageParser {
             ?: routeFailure(html)
 
     /**
-     * A1: the page's own route as an access outcome: the error route with its root's `privacy` a
+     * The page's own route as an access outcome: the error route with its root's `privacy` a
      * JSON `true`, or the video's not-found route → `PRIVATE_OR_UNAVAILABLE`; else null (the
      * caller's reason, as before): no route, another one, no flag or another value, two routes
      * that disagree.

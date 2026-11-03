@@ -32,7 +32,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * Social plan S0b: what the census needs of a link before main's lookup: main's identity of the
+ * Site census: what the census needs of a link before main's lookup: main's identity of the
  * post ([page]) and the browser's identity for the link: the agent YFT's tab sends ([userAgent])
  * and the browser's cookies for the link ([cookie]). [toString] shows neither value.
  */
@@ -46,7 +46,7 @@ class LinkIdentity(
 }
 
 /**
- * Social plan 0.4 (§7.3): which item of the post main's answer is, [number] of [count], as main's
+ * Which item of the post main's answer is, [number] of [count], as main's
  * answer line says it ([of]). X: the place a `/video/N` link names (among the post's media, the
  * card's or the quoted post's) of the post's videos; Instagram: the carousel's item of the post's
  * items. Numbers only.
@@ -72,7 +72,7 @@ data class PostItem(val number: Int, val count: Int) {
     }
 }
 
-/** S0b: main's answer to one census lookup; [hiddenPage]: the hidden page's mark when main read it. */
+/** Main's answer to one census lookup; [hiddenPage]: the hidden page's mark when main read it. */
 sealed interface MainAnswer {
     val hiddenPage: AnswerMark?
 
@@ -101,7 +101,7 @@ sealed interface MainAnswer {
 }
 
 /**
- * S0b: main's own lookup as the app builds it (the app's adapter coordinator: the four adapters,
+ * Main's own lookup as the app builds it (the app's adapter coordinator: the four adapters,
  * TikTok's hidden page and download service, fresh). [lookup]'s asks go through a recorder
  * (`LookupRecorder`) into the caller's record ([LookupRecord], in the coroutine context); the
  * hidden page's own loads are not asks of a client, so only its mark comes back.
@@ -115,14 +115,14 @@ interface MainLookup {
 }
 
 /**
- * Social plan S0b (`MASTER_KEY_SOCIAL_PLAN.md` §7.1): the site census's engine. It measures only:
+ * The Site census's engine. It measures only:
  * main's lookups, Master's engine and its contracts stay as they are. For each site of a run, each
  * of the owner's links (its slot of [Site.slots]) is one row:
  *
  * - **Main:** [MainLookup.lookup], fresh, with the browser's identity, at most [ROW_MILLIS] (Home's
  *   limit), inside the row's own [LookupRecord] with the site's labels: each ask with its way,
  *   status, reading and shape; the ways main did not reach are named.
- * - **Master:** today's R8 way of the site (the engine with no module and no capture, its
+ * - **Master:** the site contract reader's way of the site (the engine with no module and no capture, its
  *   contracts on [masterHttp] through [RouteBHttpClient]), once, inside [RouteBLookup] over the
  *   same record (main's identical unauthenticated answer replayed, an endpoint main asked not asked
  *   again, nothing new after a 429; all counted). After main's failure with a reason Master's
@@ -133,15 +133,15 @@ interface MainLookup {
  * - **V:** [SiteRowCheck] on main's best row and on Master's best row.
  * - **Judge:** the row's class from main's reason as Master's engine sees it (recoverable,
  *   browser, final) against the slot's [Expect]; a reason the slot calls ambiguous without the
- *   session ([Expect.ambiguousWithoutSession]) is "ambiguous (no session)", neither way (0.4).
+ *   session ([Expect.ambiguousWithoutSession]) is "ambiguous (no session)", neither way.
  *
- * Social plan 0.4 (§7.3, the census fixes): each row also holds its setup time (main's identity
+ * Each row also holds its setup time (main's identity
  * of the link) and its end-to-end time, the best row's duration and the post's item main's answer
  * names (main's and Master's), and the record's repeats and variants (its report key, beside the
- * endpoint rule). 0.4 (b): after its rules the report holds the diff against the last run the
+ * endpoint rule). After its rules the report holds the diff against the last run the
  * state kept ([SiteCensusDiff]: per slot CHANGED / BREAKING lines).
  *
- * Social plan 0.4 (c) (§7.4 step 2): a site runs in three phases: (i) every slot's main and V on
+ * A site runs in three phases: (i) every slot's main and the Row check on
  * main's best row, in slot order; (ii) route B after main's failures; (iii) the trials, after the
  * site's final answers about the post first, then after main's rows, each in slot order. A slot's
  * Master part runs in the slot's own record (the replay rules unchanged): each record keeps at
@@ -161,11 +161,11 @@ interface MainLookup {
  * hold sites, slots, kinds, way labels, classes, counts, sizes and short fingerprints only; a last
  * guard masks any address and the links' values. It runs only when called (the owner's tap).
  *
- * **Task 6b, the ladder** (a social-ladder build: the screen gives a [Pack]): a site of the
- * pack's [Pack.sites] runs its Master parts with the site's ladder instead of the R8 way — the
- * engine as the app builds it (the pack's [Pack.stage] first; R8's contracts after a ladder that
- * does not claim the lookup; no tab), with S6's file check around the census's media checks
- * ([Pack.validator]) and S7's stops and budgets, over the row's own record and main's pages
+ * **The ladder** (a social-ladder build: the screen gives a [Pack]): a site of the
+ * pack's [Pack.sites] runs its Master parts with the site's ladder instead of the site contract reader's way — the
+ * engine as the app builds it (the pack's [Pack.stage] first; the site contract reader's contracts after a ladder that
+ * does not claim the lookup; no tab), with the Row check around the census's media checks
+ * ([Pack.validator]) and the Social limits' stops and budgets, over the row's own record and main's pages
  * ([MainPages], kept by main's clients during main's lookup in (i): at most [MainPages.MAX_PAGES]
  * pages and [MainPages.MAX_CHARS] characters per row, dropped once the row's Master part ran or
  * will not run). The row's record clock stops between main's lookup and the Master part, so the
@@ -177,7 +177,7 @@ interface MainLookup {
  * parts, the phases, the stops and the budgets are unchanged; without a pack (every other build)
  * the census is exactly as before, its export and report byte for byte.
  *
- * **Task 8, the weekly check W** (S3, §7.5; [run] with [ClientCensus.Mode.WEEKLY], the screen's W
+ * **The Weekly site check** ([run] with [ClientCensus.Mode.WEEKLY], the screen's W
  * button in a social-ladder build): the same steps on [SiteWeekly.SLOTS] only (three per site, by case kind), Master's part
  * on [SiteWeekly.MASTER_SLOT] only, per site [weeklyCaps] (at most 60 s, 2 MB and
  * [SiteWeekly.MAX_REQUESTS] requests, each checked before every step; the time left also bounds
@@ -206,11 +206,11 @@ class SiteCensus(
     }
 
     /**
-     * Task 6b: the social ladders, as a social-ladder build of the app builds them: [stage], the
-     * sites' ladders (Master's own client, the app's cooldown); [validator], S6's file check around
+     * The Social ladders, as a social-ladder build of the app builds them: [stage], the
+     * sites' ladders (Master's own client, the app's cooldown); [validator], the Row check around
      * the census's media checks; [identify], main's adapters (the video a resolved link names);
      * [sites], the sites whose Master parts the ladder runs; [cooldown], where main's 429s and bot
-     * checks cool (the app's; null: nowhere); S4: [contracts], the engine's recipes as the app
+     * checks cool (the app's; null: nowhere); Signed recipe config: [contracts], the engine's recipes as the app
      * builds them (its signed config's, the ladders' own source; null: the bundled ones).
      */
     class Pack(
@@ -240,10 +240,10 @@ class SiteCensus(
     /**
      * Runs [sites] (their order) over [links] (site ID → slot → link) against the stored
      * [stateJson] (the screen's state file, or null). [context] lines (the network type) go into
-     * the notes; 0.4 (c): [vpn], whether Android's network is a VPN (the screen reads it), keys each
+     * the notes; [vpn], whether Android's network is a VPN (the screen reads it), keys each
      * site's baseline with the site's session; [onStep] gets short progress labels (site, slot,
-     * step; never a link). Task 8: [mode] [ClientCensus.Mode.WEEKLY] runs the weekly check W
-     * ([SiteWeekly]); [ClientCensus.Mode.A_CHECK] is YouTube's only. Task 15 (F5): a W run whose
+     * step; never a link). [mode] [ClientCensus.Mode.WEEKLY] runs the Weekly site check
+     * ([SiteWeekly]); [ClientCensus.Mode.A_CHECK] is YouTube's only. A weekly run whose
      * every ask of a site got its login wall is never that site's baseline ([SiteWeekly.walled]).
      */
     suspend fun run(
@@ -267,7 +267,7 @@ class SiteCensus(
             if (active != null) {
                 CensusSiteResult(site, skipped = "cooldown ${minutesLeft(active, startedAt)} min (${active.why})")
             } else {
-                // 0.4 (c): a Master-phase stop's cooldown skips only the site's Master parts.
+                // A Master-phase stop's cooldown skips only the site's Master parts.
                 val masterCooldown = masterStops[site.id]?.let { "cooldown ${minutesLeft(it, startedAt)} min (${it.why})" }
                 runSite(site, links[site.id].orEmpty(), masterCooldown, secrets, onStep, weekly).also { result ->
                     if (result.cooldownFrom != null && result.stop != null) {
@@ -290,10 +290,10 @@ class SiteCensus(
         val json = CensusText.clean(SiteCensusJson.run(run), secrets)
         val export = SiteCensusDiff.parse(json)
         val exported = export["sites"].asArrayOrEmpty.associateBy { it["site"].asStringOrNull }
-        // 0.4 (c): each site against its own baseline (the run's VPN, the site's session); the
+        // Each site against its own baseline (the run's VPN, the site's session); the
         // last run whose (i) completed, pass or fail, becomes it. A slot whose link's fingerprint
-        // changed reads "new link" and starts again in the new baseline. Task 8: W keeps its own
-        // baselines (its slots and caps), apart from the full census's. Task 15 (F5): in W, a
+        // changed reads "new link" and starts again in the new baseline. The weekly check keeps its own
+        // baselines (its slots and caps), apart from the full census's. In the weekly check, a
         // site whose every ask got its login wall (SiteWeekly.walled) keeps its lines and one note,
         // and is never the baseline; a stored baseline that was walled is set aside.
         val kept = if (weekly) state.weekly else state.baselines
@@ -365,7 +365,7 @@ class SiteCensus(
             .map { "slot $it: outside the site's list, skipped" }
         val listed = links.filter { (slot, link) -> slot in 1..site.slots.size && link.isNotBlank() }.toSortedMap()
         listed.values.forEach { secrets += CensusText.secretsOf(it, null) }
-        // Task 8: W runs its slots only (a W slot the owner left empty: a note).
+        // The weekly check runs its slots only (a slot the owner left empty: a note).
         val chosen = if (weekly) SiteWeekly.linksOf(site, listed).toSortedMap() else listed
         val notes = if (weekly) outside + SiteWeekly.missing(site, listed) else outside
         if (chosen.isEmpty()) return CensusSiteResult(site, skipped = if (weekly) SiteWeekly.NO_LINKS else "no links", notes = notes)
@@ -407,11 +407,11 @@ class SiteCensus(
         )
     }
 
-    /** Task 6b: the pack when [site]'s Master parts are its ladder's, else null. */
+    /** The pack when [site]'s Master parts are its ladder's, else null. */
     private fun ladderOf(site: Site): Pack? = pack?.takeIf { site.id in it.sites }
 
     /**
-     * Task 6b: a ladder row's record clock: [pause]d after main's lookup, [resume]d for the row's
+     * A ladder row's record clock: [pause]d after main's lookup, [resume]d for the row's
      * Master part, so the ladder's time budget counts the row's own time (not the other slots').
      */
     private class RowClock(private val clock: () -> Long) {
@@ -438,10 +438,10 @@ class SiteCensus(
     }
 
     /**
-     * 0.4 (c): one site's run across its phases: the budget, the stop in (i) ([stop]: the site
+     * One site's run across its phases: the budget, the stop in (i) ([stop]: the site
      * stops) and the stop in (ii) or (iii) ([masterStop]: only the remaining Master parts are
      * skipped), and an earlier Master-phase stop's [cooldown] (the site's Master parts skipped).
-     * Task 8: [weekly], a W run (Master's part on [SiteWeekly.MASTER_SLOT] only).
+     * [weekly]: a weekly check run (Master's part on [SiteWeekly.MASTER_SLOT] only).
      */
     private class Phases(
         val site: Site,
@@ -464,14 +464,14 @@ class SiteCensus(
         var cooled = false
             private set
 
-        /** (i)'s stop at [now], the first one only; the budget's (task 8: and W's caps') has no cooldown. */
+        /** (i)'s stop at [now], the first one only; the budget's (and the weekly check's caps') has no cooldown. */
         fun stopSite(why: String?, now: Long) {
             if (why == null || stop != null) return
             stop = why
             if (why !in Budget.STOPS) cooldownFrom = now
         }
 
-        /** (ii)'s or (iii)'s stop at [now], the first one only; the budget's (task 8: and W's caps') has no cooldown. */
+        /** (ii)'s or (iii)'s stop at [now], the first one only; the budget's (and the weekly check's caps') has no cooldown. */
         fun stopMaster(why: String?, now: Long) {
             if (why == null || masterStop != null) return
             masterStop = why
@@ -507,14 +507,14 @@ class SiteCensus(
         private var session = false
         private var setup = 0L
 
-        /** 0.4 (c): the row's time, the sum of its own steps (setup, main, V, Master, V). */
+        /** The row's time, the sum of its own steps (setup, main, V, Master, V). */
         private var millis = 0L
         private var v: SiteRowCheck.Checked? = null
         private var vSkipped: String? = null
         private var plan: Plan? = null
         private var masterPart: MasterPart? = null
 
-        /** Task 6b: the pack when the site's ladder runs the row's Master part; main's pages and the record's clock. */
+        /** The pack when the site's ladder runs the row's Master part; main's pages and the record's clock. */
         private val ladder: Pack? = ladderOf(phases.site)
         private var pages: MainPages? = null
         private var rowClock: RowClock? = null
@@ -549,7 +549,7 @@ class SiteCensus(
             }
             this.identity = identity
             session = sessionOf(site.id, identity.cookie)
-            // Task 6b: a ladder row's record runs on its own clock and keeps main's pages.
+            // A ladder row's record runs on its own clock and keeps main's pages.
             val rowClock = ladder?.let { RowClock(clock) }
             this.rowClock = rowClock
             val record = LookupRecord(
@@ -562,14 +562,14 @@ class SiteCensus(
             val pages = ladder?.let { MainPages(site = site.id) }
             this.pages = pages
             val started = clock()
-            // Task 8: W's time left bounds main's lookup too (shorter than main's own limit).
+            // The weekly check's time left bounds main's lookup too (shorter than main's own limit).
             val limit = phases.budget.limit(ROW_MILLIS)
             val answer = withContext(if (pages != null) record + pages else record) {
                 guarded { withTimeoutOrNull(limit) { Looked.Answer(main.lookup(link, identity)) } ?: Looked.TimeLimit }
                     ?: Looked.Error
             }
             rowClock?.pause()
-            // Task 6b, S7: main's 429s and bot checks cool the hosts in the pack's cooldown, as in the app.
+            // Social limits: main's 429s and bot checks cool the hosts in the pack's cooldown, as in the app.
             ladder?.cooldown?.let { cooldown -> record.stopHosts().takeIf { it.isNotEmpty() }?.let(cooldown::note) }
             this.answer = answer
             val lookupMillis = (clock() - started).coerceAtLeast(0)
@@ -579,7 +579,7 @@ class SiteCensus(
             phases.budget.add(record.mainAsks)
             phases.stopSite(stopOf(record, mainPart.reason, mainPart.hiddenPage, botChecksBefore = 0), clock())
             if (answer == Looked.TimeLimit && limit < ROW_MILLIS) {
-                // Task 8: W's time cut main's lookup: the slot is not run (never a pass), the site's rest neither.
+                // The weekly check's time cut main's lookup: the slot is not run (never a pass), the site's rest neither.
                 phases.budget.cut()
                 phases.stopSite(SiteWeekly.TIME, clock())
                 skipped = SiteWeekly.TIME
@@ -595,7 +595,7 @@ class SiteCensus(
         /** After (i): how Master's way runs; a row whose Master part will not run drops its kept answers. */
         fun planMaster() {
             val identity = identity ?: return
-            // Task 8: W's Master part runs on its slot 1 only (each way once); its other slots: main only.
+            // The weekly check's Master part runs on its slot 1 only (each way once); its other slots: main only.
             val plan = if (phases.weekly && slot != SiteWeekly.MASTER_SLOT) Plan.notRun(SiteWeekly.MAIN_ONLY) else planOf(identity, answer)
             this.plan = plan
             if (plan.notRun != null) {
@@ -610,7 +610,7 @@ class SiteCensus(
             val plan = checkNotNull(plan)
             val record = checkNotNull(record)
             masterPart = runMaster(identity, plan, record)
-            // 0.4 (c): nothing replays main's answers after the slot's Master part (task 6b: nor reads its pages).
+            // Nothing replays main's answers after the slot's Master part (nor reads its pages).
             record.clear()
             pages = null
         }
@@ -657,7 +657,7 @@ class SiteCensus(
             val within = guarded { phases.budget.within { rowCheck.check(site, best, clock()) } }
             millis += (clock() - started).coerceAtLeast(0)
             if (within == null && phases.budget.timeUp()) {
-                // Task 8: W's time cut V: not run (never a pass); the phase's rest stops.
+                // The weekly check's time cut V: not run (never a pass); the phase's rest stops.
                 if (master) phases.stopMaster(SiteWeekly.TIME, clock()) else phases.stopSite(SiteWeekly.TIME, clock())
                 return null to SiteWeekly.TIME
             }
@@ -677,14 +677,14 @@ class SiteCensus(
             }
             step("Master")
             val checks = RowValidator(validator, record)
-            // Task 9: the pack's file check (S6), kept so its refused files count in the part.
+            // The pack's file check (Row check), kept so its refused files count in the part.
             val fileCheck = ladder?.validator?.invoke(checks)
             val engine = MasterFallbackEngine(
                 fileCheck ?: checks,
                 NoPlaybackCaptureProvider,
                 POLICY,
                 modules = emptyList(),
-                // S4: the pack's recipes (the app's signed config) when it has them.
+                // The pack's recipes (the app's Signed recipe config) when it has them.
                 contracts = ladder?.contracts ?: contracts,
                 social = ladder?.stage,
             )
@@ -700,7 +700,7 @@ class SiteCensus(
             val route = RouteBLookup(record)
             val botChecks = record.botChecks
             val replayed = record.replayedCount
-            // Task 6b: the ladder reads the row's record and main's pages from the lookup's context.
+            // The ladder reads the row's record and main's pages from the lookup's context.
             val context: CoroutineContext = if (ladder != null) route + record + (pages ?: MainPages(site = site.id)) else route
             rowClock?.resume()
             val started = clock()
@@ -709,13 +709,13 @@ class SiteCensus(
             millis += masterMillis
             phases.budget.add(record.masterAsks + checks.calls)
             phases.stopMaster(stopOf(record, null, null, botChecks) ?: STOP_429.takeIf { checks.rateLimited }, clock())
-            // Task 8: W's time cut Master's part: not finished (never a pass); Master's rest stops.
+            // The weekly check's time cut Master's part: not finished (never a pass); Master's rest stops.
             val cut = result == null && phases.budget.timeUp()
             if (cut) phases.stopMaster(SiteWeekly.TIME, clock())
             val rows = (result as? MasterResult.Success)?.result?.candidates.orEmpty()
             val (v, vSkipped) = checkBest(rows, master = true)
             val ladderPart = ladder?.let { pack -> ladderPart(pack, identity, result, rows) }
-            // Task 9: S6's files off the site's media hosts (refused before any ask) count as refused.
+            // Row check: files off the site's media hosts (refused before any ask) count as refused.
             val fileRefused = (fileCheck as? SocialRowCheck)?.refused(record) ?: 0
             return MasterPart(
                 run = plan.run,
@@ -729,7 +729,7 @@ class SiteCensus(
                 rows = rows.size,
                 tallest = SiteRowCheck.tallest(rows),
                 bestMillis = SiteRowCheck.best(rows)?.durationMillis,
-                // Task 6b: the ladder's rungs and S6 ask through their own route B over the record.
+                // The ladder's rungs and the Row check ask through their own route B over the record.
                 replayed = if (ladder != null) record.replayedCount - replayed else route.replayed,
                 newRequests = if (ladder != null) record.masterAsks else route.newRequests,
                 refused = route.refused + (if (ladder != null) LadderRungs.refusedOf(site.id, result) + fileRefused else 0),
@@ -738,14 +738,14 @@ class SiteCensus(
                 v = v,
                 vSkipped = vSkipped,
                 millis = masterMillis,
-                // 0.4 (c): this part's own ask, check or V met the Master phase's stop.
+                // This part's own ask, check or V met the Master phase's stop.
                 stopped = phases.masterStop,
                 ladder = ladderPart,
             )
         }
 
         /**
-         * Task 6b: the ladder's part of [result]: each rung's state and Master's [rows] against
+         * The ladder's part of [result]: each rung's state and Master's [rows] against
          * main's (main's rows carry the link's key: a link main resolves first counts as the video
          * its resolved link names, as in the app); without main's rows, every row is wrong where the
          * slot wants none and proven neither way where it downloads.
@@ -786,7 +786,7 @@ class SiteCensus(
                 is Looked.Answer -> answer.answer
             }
             if (main is MainAnswer.NotHandled) return Plan.notRun(NOT_HANDLED)
-            // Task 6b: the ladder reads a link main resolves first from main's pages.
+            // The ladder reads a link main resolves first from main's pages.
             if (ladder == null && !contracts.reads(identity.page)) {
                 return Plan.notRun(if (identity.page.requiresCanonicalResolution) "short link" else "no contract")
             }
@@ -855,16 +855,16 @@ class SiteCensus(
 
     /**
      * A site's spend so far: requests counted by the census, bytes by [meter] (when it measures).
-     * Task 8: in W, [caps] instead of the census's (and the time, from the site's start by [clock]).
+     * In the weekly check, [caps] instead of the census's (and the time, from the site's start by [clock]).
      */
     private class Budget(private val meter: Meter, private val clock: () -> Long, private val caps: SiteWeekly.Caps? = null) {
         private val start = meter.bytes()
-        /** Task 8: W's start (the census reads no clock here). */
+        /** The weekly check's start (the census reads no clock here). */
         private val startedAt = if (caps != null) clock() else 0L
         var requests = 0
             private set
 
-        /** Task 8: W's time cut a step. */
+        /** The weekly check's time cut a step. */
         private var cut = false
 
         fun add(count: Int) {
@@ -874,21 +874,21 @@ class SiteCensus(
         /** Bytes since the site's start, or -1 when not measured. */
         fun bytes(): Long = if (start < 0) -1 else (meter.bytes() - start).coerceAtLeast(0)
 
-        /** Task 8: W's time left for the site; the census has no such cap. */
+        /** The weekly check's time left for the site; the census has no such cap. */
         private fun millisLeft(): Long = caps?.let { (it.millis - (clock() - startedAt)).coerceAtLeast(0) } ?: Long.MAX_VALUE
 
-        /** Task 8: [max], or W's time left when that is shorter. */
+        /** [max], or the weekly check's time left when that is shorter. */
         fun limit(max: Long): Long = minOf(max, millisLeft())
 
-        /** Task 8: whether W's time is spent (or cut a step); never in the census. */
+        /** Whether the weekly check's time is spent (or cut a step); never in the census. */
         fun timeUp(): Boolean = caps != null && (cut || millisLeft() == 0L)
 
-        /** Task 8: W's time cut a step. */
+        /** The weekly check's time cut a step. */
         fun cut() {
             if (caps != null) cut = true
         }
 
-        /** Task 8: [block] within W's time left (null: the time cut it); in the census, [block] as it is. */
+        /** [block] within the weekly check's time left (null: the time cut it); in the census, [block] as it is. */
         suspend fun <T : Any> within(block: suspend () -> T): T? {
             if (caps == null) return block()
             val value = withTimeoutOrNull(millisLeft()) { block() }
@@ -896,7 +896,7 @@ class SiteCensus(
             return value
         }
 
-        /** [STOP] when a cap is reached, else null; task 8: in W, the cap's own word. */
+        /** [STOP] when a cap is reached, else null; in the weekly check, the cap's own word. */
         fun over(): String? {
             val caps = caps ?: return STOP.takeIf { requests >= MAX_REQUESTS || bytes() >= MAX_BYTES }
             return when {
@@ -970,12 +970,12 @@ class SiteCensus(
         /** 0.4: the judge's word for a reason that, without the session, says nothing about the slot. */
         const val AMBIGUOUS = "ambiguous (no session)"
 
-        /** 0.4 (c): the word of a Master part skipped by an earlier Master-phase stop's cooldown. */
+        /** The word of a Master part skipped by an earlier Master-phase stop's cooldown. */
         const val COOLDOWN = "cooldown"
         private const val MINUTE_MILLIS = 60_000L
         private const val FINGERPRINT_BYTES = 8
 
-        /** Master's engine as route B builds it: on, no module, no capture, the R8 time shares. */
+        /** Master's engine as route B builds it: on, no module, no capture, the site contract reader's time shares. */
         private val POLICY = MasterPolicy(enabled = true, timeoutMillis = 20_000, contractTimeoutMillis = 6_000)
 
         /** The site's final answers about the post after which Master's way runs once as a trial. */
@@ -1001,7 +1001,7 @@ class SiteCensus(
             }
         }
 
-        /** The screen's status line: the last run and each site's cooldown (0.4 (c): and its Master parts'). */
+        /** The screen's status line: the last run and each site's cooldown (and its Master parts'). */
         fun statusOf(stateJson: String?, nowMillis: Long): String {
             val state = SiteCensusState.read(stateJson)
             val last = if (state.lastAtMillis <= 0) {
@@ -1016,7 +1016,7 @@ class SiteCensus(
                 (if (master.isEmpty()) "" else " Master's parts stopped: $master.")
         }
 
-        /** 0.4 (c): a link's local fingerprint (the state's only, never exported): 16 hex digits of its SHA-256. */
+        /** A link's local fingerprint (the state's only, never exported): 16 hex digits of its SHA-256. */
         internal fun fingerprintOf(link: String): String =
             MessageDigest.getInstance("SHA-256").digest(link.trim().toByteArray(Charsets.UTF_8))
                 .take(FINGERPRINT_BYTES).joinToString("") { "%02x".format(it) }

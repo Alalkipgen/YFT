@@ -13,6 +13,8 @@ import com.alal.yft.R
 import com.alal.yft.core.download.StoredDownloadTask
 import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.download.policy.TransferNetworkState
+import com.alal.yft.ui.navigation.TabRequests
+import com.alal.yft.ui.navigation.YftDestination
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -36,7 +38,7 @@ class DownloadNotificationFactory @Inject constructor(
                 lockscreenVisibility = Notification.VISIBILITY_PRIVATE
             },
         )
-        // P34 (G5): "Downloaded · <title>" and "Download failed · …" once a download ends.
+        // Download queue: "Downloaded · <title>" and "Download failed · …" once a download ends.
         manager.createNotificationChannel(
             NotificationChannel(
                 FINISHED_CHANNEL_ID,
@@ -55,7 +57,7 @@ class DownloadNotificationFactory @Inject constructor(
         .build()
 
     /**
-     * The one ongoing notification (P34): [bytesPerSecond] holds the measured speed of running
+     * The one ongoing notification: [bytesPerSecond] holds the measured speed of running
      * tasks by id and [network] says why waiting tasks wait.
      */
     fun active(
@@ -132,7 +134,7 @@ class DownloadNotificationFactory @Inject constructor(
             .build()
     }
 
-    /** Android stopped the download service: what to do, without names (P34). */
+    /** Android stopped the download service: what to do, without names. */
     fun pausedByAndroid(text: String): Notification =
         // On the finished channel, which alerts: the downloads stopped until YFT is opened.
         NotificationCompat.Builder(context, FINISHED_CHANNEL_ID)
@@ -157,10 +159,11 @@ class DownloadNotificationFactory @Inject constructor(
         .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
         .setContentIntent(openAppIntent())
 
+    /** A tap opens YFT on its Downloads tab: the open YFT when there is one. */
     private fun openAppIntent(): PendingIntent = PendingIntent.getActivity(
         context,
         0,
-        Intent(context, MainActivity::class.java),
+        TabRequests.showing(Intent(context, MainActivity::class.java), YftDestination.DOWNLOADS),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 
@@ -177,7 +180,9 @@ class DownloadNotificationFactory @Inject constructor(
         const val CHANNEL_ID = "active_downloads"
         const val NOTIFICATION_ID = 4_001
 
-        /** P34: the finished notice's channel and the id of Android's "paused" notice. */
+        /**
+         * Download queue: the finished notice's channel and the id of Android's "paused" notice.
+         */
         const val FINISHED_CHANNEL_ID = "finished_downloads"
         const val FINISHED_CHANNEL_NAME = "Finished downloads"
         const val FINISHED_NOTIFICATION_ID = 4_002
@@ -194,7 +199,7 @@ class DownloadNotificationFactory @Inject constructor(
             "Android paused downloads in the background. Open YFT to resume."
 
         /**
-         * The statuses the service runs for. Track E (G5): a download getting a fresh link
+         * The statuses the service runs for. A download getting a fresh link
          * stays here, so the service and the end-of-download notice keep watching it.
          */
         val FOREGROUND_STATUSES = setOf(

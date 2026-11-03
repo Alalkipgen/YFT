@@ -25,7 +25,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** P42: "Delete file" on finished rows only, and the question before it deletes. */
+/** "Delete file" on finished rows only, and the question before it deletes. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w360dp-h780dp")
 class DeleteFileScreenTest {

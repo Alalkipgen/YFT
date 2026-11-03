@@ -24,7 +24,7 @@ data class UpdateEnvironment(
     val testMode: Boolean
         get() = mode == UpdateMode.TEST
 
-    /** The code releases must beat: in test mode 0, so every release qualifies (§4.1). */
+    /** The code releases must beat: in test mode 0, so every release qualifies. */
     val comparedCode: Long
         get() = if (testMode) 0 else installedCode
 
@@ -51,7 +51,7 @@ data class UpdateState(
     val lastGoodAt: Long? = null,
     val checking: Boolean = false,
     val line: CheckLine? = null,
-    /** A found version the Updates screen should open for by itself (§4.5); null when none. */
+    /** A found version the Updates screen should open for by itself; null when none. */
     val autoOpen: FoundUpdate? = null,
 ) {
     val testMode: Boolean
@@ -59,7 +59,7 @@ data class UpdateState(
 }
 
 /**
- * The updater's state and its rules (§4.3, §4.5). [onAppOpened] (MainActivity.onStart) asks
+ * The updater's state and its rules. [onAppOpened] (MainActivity.onStart) asks
  * GitHub only when the build checks, Check automatically is on, no check is running, no rate
  * limit is pending and GitHub's last answer is 24 h old or more (or dated in the future: the
  * clock went back). Every answer from GitHub starts the next 24 h; no connection is not counted.

@@ -52,11 +52,11 @@ data class DownloadDestinationSpec(
  * URLs, cookies and request headers remain in [runtimeTasks]. After process death every incomplete
  * task therefore becomes `NEEDS_REFRESH` while its verified segment checkpoint remains available.
  *
- * Track E: when a file's link dies after the download started, [linkRenewal] is asked for a fresh
- * link of the same file ([DownloadTaskStatus.RENEWING_LINK]), in the task's own job: the task
- * keeps its slot, and Pause, Cancel and a lost network stop the lookup as they stop a transfer.
- * At most [MAX_AUTOMATIC_RENEWALS] fresh links come without a tap, another only after the last
- * one gave bytes (E-D3); a Retry of a "Link expired" row asks once more (E-D6).
+ * Fresh link renewal: when a file's link dies after the download started, [linkRenewal] is asked
+ * for a fresh link of the same file ([DownloadTaskStatus.RENEWING_LINK]), in the task's own job:
+ * the task keeps its slot, and Pause, Cancel and a lost network stop the lookup as they stop a
+ * transfer. At most [MAX_AUTOMATIC_RENEWALS] fresh links come without a tap, another only after the
+ * last one gave bytes; a Retry of a "Link expired" row asks once more.
  */
 class DownloadQueue(
     private val store: DownloadTaskStore,
@@ -299,7 +299,7 @@ class DownloadQueue(
         check(current.status != DownloadTaskStatus.COMPLETED)
         val checkpoint = current.checkpoint.takeIf { current.planType == planType }
             ?: emptyCheckpoint
-        // A new link of the app's own: the next link number, the automatic renewals kept (E-D3).
+        // A new link of the app's own: the next link number, the automatic renewals kept.
         val previous = runtimeTasks[id]
         runtimeTasks[id] = runtime.copy(
             link = previous?.let { it.link + 1 } ?: 0,
@@ -346,8 +346,8 @@ class DownloadQueue(
             return@withLock
         }
         val runtime = runtimeTasks[id]
-        // Track E: a task whose link died looks its page up again first; a tap's lookup is not
-        // counted in the automatic ones (E-D6).
+        // Fresh link renewal: a task whose link died looks its page up again first; a tap's lookup
+        // is not counted in the automatic ones.
         val due = runtime?.due?.takeIf { linkRenewal !== DownloadLinkRenewal.None }
         if (runtime == null || runtime.parked && due == null) {
             saveAndPublishLocked(
@@ -406,7 +406,7 @@ class DownloadQueue(
     }
 
     /**
-     * Whether a Retry must start over from byte 0 (P21): after the storage failed, or when the
+     * Whether a Retry must start over from byte 0: after the storage failed, or when the
      * partial file a direct download wrote is gone or shorter than its checkpoint. Other
      * failures resume from the checkpoint.
      */
@@ -433,7 +433,8 @@ class DownloadQueue(
     private suspend fun startOver(runtime: RuntimeTask): RuntimeTask {
         val renewed = runtime.destination.renew()
         runCatching { transferDispatcher.discard(runtime.plan) }
-        return runtime.copy(destination = renewed ?: runtime.destination)
+        // The link's bytes count again from byte 0, as the checkpoint does.
+        return runtime.copy(destination = renewed ?: runtime.destination, linkStartBytes = 0)
     }
 
     private fun StoredDownloadTask.startedOver(runtime: RuntimeTask): StoredDownloadTask {
@@ -642,7 +643,7 @@ class DownloadQueue(
                 ?.takeIf { it.status == DownloadTaskStatus.QUEUED }
                 ?: continue
             val runtime = runtimeTasks[id]
-            // Track E: a task whose link died gets a fresh one first, in its own job.
+            // Fresh link renewal: a task whose link died gets a fresh one first, in its own job.
             val due = runtime?.due?.takeIf { linkRenewal !== DownloadLinkRenewal.None }
             if (runtime == null || runtime.parked && due == null) {
                 saveAndPublishLocked(
@@ -681,7 +682,8 @@ class DownloadQueue(
             var task = initial
             var runtime = initialRuntime
             var renewal = firstRenewal
-            // Track E: a fresh link runs the engine again in this job, so the task keeps its slot.
+            // Fresh link renewal: a fresh link runs the engine again in this job, so the task keeps
+            // its slot.
             while (true) {
                 var freshLink = false
                 if (renewal != null) {
@@ -733,7 +735,7 @@ class DownloadQueue(
         // Stream engines state a length only in their progress, for example a merge of two
         // whole files; the next checkpoint gives the task that total.
         val reportedTotal = AtomicReference<Long?>(null)
-        // The bytes this run reported as written (P41), ahead of its checkpoints.
+        // The bytes this run reported as written, ahead of its checkpoints.
         val reportedBytes = AtomicLong(0)
         val kept = task.checkpoint.downloadedBytes
         val linkBytes = LinkBytes(kept)
@@ -773,7 +775,7 @@ class DownloadQueue(
                 completeTask(task.id, result)
                 null
             }
-            is QueueTransferResult.Failure -> failTask(task.id, result, linkBytes.gained)
+            is QueueTransferResult.Failure -> failTask(task.id, result, runBytes = linkBytes.gained)
         }
     }
 
@@ -905,7 +907,7 @@ class DownloadQueue(
         )
     }
 
-    /** The app does not renew this download: the failure ends as it did before Track E. */
+    /** The app does not renew this download: the failure ends as it would without renewal. */
     private suspend fun endWithoutRenewalLocked(
         current: StoredDownloadTask,
         runtime: RuntimeTask,
@@ -933,7 +935,7 @@ class DownloadQueue(
     }
 
     /**
-     * Shows the bytes a running stream task wrote between its checkpoints (P41): a DASH range
+     * Shows the bytes a running stream task wrote between its checkpoints: a DASH range
      * or a merged download's tracks report them as they come. Only the list moves; the store
      * keeps the checkpoints.
      */
@@ -944,10 +946,22 @@ class DownloadQueue(
         val downloaded = maxOf(current.downloadedBytes, progress.downloadedBytes)
         val total = progress.totalBytes?.takeIf { it >= downloaded }
             ?: current.totalBytes?.takeIf { it >= downloaded }
-        if (downloaded == current.downloadedBytes && total == current.totalBytes) {
+        // Shown only while the total is unknown (a live stream that has ended).
+        val estimate = progress.estimatedTotalBytes
+            ?.takeIf { total == null }
+            ?.coerceAtLeast(downloaded)
+        if (downloaded == current.downloadedBytes && total == current.totalBytes &&
+            estimate == current.estimatedTotalBytes
+        ) {
             return@withLock
         }
-        publishLocked(current.copy(downloadedBytes = downloaded, totalBytes = total))
+        publishLocked(
+            current.copy(
+                downloadedBytes = downloaded,
+                totalBytes = total,
+                estimatedTotalBytes = estimate,
+            ),
+        )
     }
 
     private suspend fun persistCheckpoint(
@@ -960,7 +974,7 @@ class DownloadQueue(
         if (!current.planType.accepts(checkpoint)) return@withLock
         val checkpointTotal = (checkpoint as? DirectTransferCheckpoint)?.totalBytes
             ?: reportedTotal
-        // A running stream task keeps the bytes it showed (P41); a stopped one shows its
+        // A running stream task keeps the bytes it showed; a stopped one shows its
         // checkpoint, which is what a resume keeps.
         val downloaded = if (
             current.status == DownloadTaskStatus.RUNNING &&
@@ -987,12 +1001,12 @@ class DownloadQueue(
     ) = gate.withLock {
         val current = taskLocked(id) ?: return@withLock
         val publishedUri = runtimeTasks[id]?.destination?.publishedUri
-        // D1 follow-ups 3 and 4: a download shows the size of the file it published, one size
+        // A download shows the size of the file it published, one size
         // on every screen, for every plan type: an HLS download's MP4, an MP3 or M4A made from
         // a direct download, a merged video, a DASH file; not its pieces', source's or tracks'.
         // The checkpoint keeps what was downloaded.
         val publishedBytes = result.bytesWritten
-        // D1: a file kept in another format than planned shows the name it was published as.
+        // A file kept in another format than planned shows the name it was published as.
         val published = result.publishedAs
         val completed = current.copy(
             displayName = published?.displayName ?: current.displayName,
@@ -1012,22 +1026,31 @@ class DownloadQueue(
     }
 
     /**
-     * Stores [result]'s failure. Track E: a link that died (a reason in [REFRESH_FAILURES], or a
-     * 400 after this link gave [linkBytes]) keeps the resume point (G1) and, with a renewal
-     * source, comes back as the ask for a fresh link when one may come now (E-D3); else the task
-     * ends as before, a "Link expired" one keeping only its destination for Cancel and Delete
-     * (G2).
+     * Stores [result]'s failure. A link that died (a reason in [REFRESH_FAILURES], or a
+     * 400 after this link gave bytes) keeps the resume point and, with a renewal source,
+     * comes back as the ask for a fresh link when one may come now; else the task ends as
+     * before, a "Link expired" one keeping only its destination for Cancel and Delete.
+     *
+     * This link's bytes are the most of this run's ([runBytes]) and what the
+     * checkpoint gained since the link came ([RuntimeTask.linkStartBytes]): a run after a lost
+     * network, a Pause or a Retry goes on with the same link, and VK's link, bound to the network
+     * it was found on, answers 400 at that run's first request, before the run gave any.
      */
     private suspend fun failTask(
         id: String,
         result: QueueTransferResult.Failure,
-        linkBytes: Long,
+        runBytes: Long,
     ): RenewalAsk? = gate.withLock {
         val current = taskLocked(id) ?: return@withLock null
         val now = clock()
         val runtime = runtimeTasks[id]
         val plan = runtime?.plan
-        // Item 7 Track B1: YouTube refusing a link with time left on it is not an expired link.
+        val linkBytes = maxOf(
+            runBytes,
+            result.checkpoint.orSaved(current.checkpoint).downloadedBytes -
+                (runtime?.linkStartBytes ?: 0L),
+        )
+        // YouTube refusing a link with time left on it is not an expired link.
         val reported = if (
             plan != null && GoogleVideoLinkFacts.refusedWithTimeLeft(plan, result.failure, now)
         ) {
@@ -1036,7 +1059,9 @@ class DownloadQueue(
             result.failure
         }
         val needsRefresh = reported.reason in REFRESH_FAILURES
-        // F6 (debug spike): a YouTube media link's facts lead the details, without the link.
+        // A YouTube media link's facts lead the details, without the link.
+        // A live video not ready yet leads with how much of it is
+        // missing and where; after the facts (about 88 characters) the Details' cut at 120 hid it.
         val failure = plan
             ?.let { known ->
                 GoogleVideoLinkFacts.describe(
@@ -1047,11 +1072,12 @@ class DownloadQueue(
                 )
             }
             ?.let { facts ->
-                reported.copy(
-                    detail = DownloadFailureDetails.sanitize(
-                        listOfNotNull(facts, reported.detail).joinToString("; "),
-                    ),
-                )
+                val parts = if (reported.reason == DownloadFailureReason.LIVE_NOT_READY) {
+                    listOfNotNull(reported.detail, facts)
+                } else {
+                    listOfNotNull(facts, reported.detail)
+                }
+                reported.copy(detail = DownloadFailureDetails.sanitize(parts.joinToString("; ")))
             }
             ?: reported
         val linkDied = needsRefresh || (
@@ -1103,7 +1129,7 @@ class DownloadQueue(
     }
 
     private suspend fun saveAndPublishLocked(task: StoredDownloadTask) {
-        // The store keeps checkpoints (P41): bytes in flight are only shown while running.
+        // The store keeps checkpoints: bytes in flight are only shown while running.
         store.save(task.withCheckpointBytes())
         publishLocked(
             if (task.status == DownloadTaskStatus.RUNNING) task else task.withCheckpointBytes(),
@@ -1120,8 +1146,8 @@ class DownloadQueue(
     }
 
     /**
-     * A stopped stream task shows what its checkpoint keeps (P41), not the bytes in flight; a
-     * completed one the file it published (D1 follow-up 4).
+     * A stopped stream task shows what its checkpoint keeps, not the bytes in flight; a
+     * completed one the file it published.
      */
     private fun StoredDownloadTask.withCheckpointBytes(): StoredDownloadTask =
         if (planType.showsBytesInFlight && !status.showsPublishedBytes) {
@@ -1134,10 +1160,10 @@ class DownloadQueue(
         mutableTasks.value.firstOrNull { it.id == id }
 
     /**
-     * A task's link and destination, in memory only. Track E adds the link's facts: its number
-     * ([link], the requests' [DownloadRequestTag]), the checkpoint's bytes when it came, whether
-     * a renewal gave it, the automatic renewals so far (E-D3), whether a "YouTube refused" was
-     * renewed (E-D5': once), and the fresh link the task needs before it runs again ([due]).
+     * A task's link and destination, in memory only. Fresh link renewal adds the link's facts: its
+     * number ([link], the requests' [DownloadRequestTag]), the checkpoint's bytes when it came,
+     * whether a renewal gave it, the automatic renewals so far, whether a "YouTube refused" was
+     * renewed (once), and the fresh link the task needs before it runs again ([due]).
      */
     private data class RuntimeTask(
         val plan: DownloadPlan,
@@ -1148,20 +1174,20 @@ class DownloadQueue(
         val renewed: Boolean = false,
         val automaticRenewals: Int = 0,
         val youTubeRefusalRenewed: Boolean = false,
-        /** G2: only the destination is left; the dead link and its cookies are gone. */
+        /** Only the destination is left; the dead link and its cookies are gone. */
         val parked: Boolean = false,
         val due: RenewalAsk? = null,
     ) {
         /**
-         * Whether a fresh link may come without a tap (E-D3): at most [MAX_AUTOMATIC_RENEWALS],
-         * another only after the last fresh link gave bytes; "YouTube refused" once (E-D5').
+         * Whether a fresh link may come without a tap: at most [MAX_AUTOMATIC_RENEWALS],
+         * another only after the last fresh link gave bytes; "YouTube refused" once.
          */
         fun allowsAutomaticRenewal(reason: DownloadFailureReason, linkBytes: Long): Boolean =
             automaticRenewals < MAX_AUTOMATIC_RENEWALS &&
                 (!renewed || linkBytes > 0) &&
                 (reason != DownloadFailureReason.YOUTUBE_REFUSED || !youTubeRefusalRenewed)
 
-        /** G2: this task without its link, cookies and file facts; Cancel and Delete clean up. */
+        /** This task without its link, cookies and file facts; Cancel and Delete clean up. */
         fun parked(due: RenewalAsk?): RuntimeTask = copy(
             plan = plan.withoutLink(),
             metadata = null,
@@ -1170,7 +1196,7 @@ class DownloadQueue(
         )
     }
 
-    /** The failure that needs a fresh link, its link's bytes (E-D3) and whether a tap asks. */
+    /** The failure that needs a fresh link, its link's bytes and whether a tap asks. */
     private data class RenewalAsk(
         val failure: DownloadFailure,
         val bytesFromThisLink: Long,
@@ -1183,7 +1209,7 @@ class DownloadQueue(
     )
 
     /**
-     * The bytes one link gave (E-D3): each rise of the bytes its run reports. A drop is the
+     * The bytes one link gave: each rise of the bytes its run reports. A drop is the
      * engine starting again at byte 0 or a piece it could not keep, never a gain.
      */
     private class LinkBytes(start: Long) {
@@ -1206,17 +1232,17 @@ class DownloadQueue(
     private companion object {
         const val DEFAULT_STREAM_SEGMENT_COUNT = 1
 
-        /** Track E (E-D3): fresh links without a tap, per download. */
+        /** Fresh links without a tap, per download. */
         const val MAX_AUTOMATIC_RENEWALS = 3
 
-        /** Track E: one renewal's limit, as Home's lookup (`LinkInspector.TIMEOUT_MILLIS`). */
+        /** One renewal's limit, as Home's lookup (`LinkInspector.TIMEOUT_MILLIS`). */
         const val DEFAULT_RENEWAL_TIMEOUT_MILLIS = 90_000L
         const val MILLIS_PER_SECOND = 1_000L
 
-        /** VK's media hosts answer 400 for a link bound to another network (E-D1). */
+        /** VK's media hosts answer 400 for a link bound to another network. */
         const val HTTP_BAD_REQUEST = 400
 
-        /** An M4A kept from a video's sound (P3). */
+        /** An M4A kept from a video's sound. */
         const val AUDIO_ONLY_MIME_TYPE = "audio/mp4"
 
         val TERMINAL_STATUSES = setOf(
@@ -1235,7 +1261,7 @@ class DownloadQueue(
             DownloadFailureReason.AUTHENTICATION_REQUIRED,
             DownloadFailureReason.ACCESS_DENIED,
             DownloadFailureReason.GONE,
-            // Track B1: the refused link stays refused; a fresh lookup gives a new one.
+            // The refused link stays refused; a fresh lookup gives a new one.
             DownloadFailureReason.YOUTUBE_REFUSED,
         )
     }
@@ -1250,7 +1276,7 @@ private val DownloadPlan.planType: DownloadPlanType
         is AudioVideoMuxDownloadPlan -> DownloadPlanType.AUDIO_VIDEO_MUX
     }
 
-/** G2: this plan with no link and no request context; its task id and options stay. */
+/** This plan with no link and no request context; its task id and options stay. */
 private fun DownloadPlan.withoutLink(): DownloadPlan = when (this) {
     is DirectDownloadPlan -> copy(sourceUrl = PARKED_PLAN_LINK, requestContext = NO_PLAN_CONTEXT)
     is HlsDownloadPlan -> copy(playlistUrl = PARKED_PLAN_LINK, requestContext = NO_PLAN_CONTEXT)
@@ -1262,7 +1288,7 @@ private fun DashDownloadPlan.withoutLink(): DashDownloadPlan =
     copy(manifestUrl = PARKED_PLAN_LINK, requestContext = NO_PLAN_CONTEXT)
 
 /**
- * G1: an engine that failed before it read the saved state (an expired link's check, a
+ * An engine that failed before it read the saved state (an expired link's check, a
  * playlist's or manifest's refusal) returns an untouched, empty checkpoint; [saved] then stays.
  * Each engine checks the saved files again when it resumes.
  */
@@ -1295,6 +1321,6 @@ private fun HlsTransferCheckpoint.isUntouched(): Boolean =
 private fun DashTransferCheckpoint?.isUntouched(): Boolean =
     this == null || manifestFingerprint == null && chunks.isEmpty()
 
-/** G2: a parked plan's link: not a web address, so no engine could fetch it. */
+/** A parked plan's link: not a web address, so no engine could fetch it. */
 private const val PARKED_PLAN_LINK = "about:blank"
 private val NO_PLAN_CONTEXT = BrowserRequestContext(pageUrl = null, userAgent = null, cookie = null)

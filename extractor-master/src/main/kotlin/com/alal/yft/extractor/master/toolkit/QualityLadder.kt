@@ -1,5 +1,5 @@
 /*
- * Provenance (Master toolkit T7, copied, not moved; main 34a41890):
+ * Provenance (Master toolkit, copied, not moved; main 34a41890):
  *   extractor-sites/.../facebook/FacebookDashOffers.kt  videos, audio, merged/repeats, shortSide,
  *                                                       qualityName, MAX_VIDEO_OFFERS
  *   extractor-sites/.../tiktok/TikTokExtractor.kt       joinedTo, ROW_ORDER
@@ -13,7 +13,7 @@ import java.util.Locale
 import kotlin.math.abs
 
 /**
- * T7: which tracks become rows. Each picture size keeps one video (the best mergeable family,
+ * Master toolkit: which tracks become rows. Each picture size keeps one video (the best mergeable family,
  * AVC first, then its highest bitrate), the best AAC track is the sound, every encoding appears
  * once across pages, and joined answers add only sizes/codecs not listed yet. Pure: it never
  * invents a row and never probes.

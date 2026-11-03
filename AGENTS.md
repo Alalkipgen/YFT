@@ -1,117 +1,111 @@
-# YFT Agent Operating Rules
+# YFT agent rules
 
-These rules apply to every coding agent and every chat working on this repository.
+These rules apply to every coding agent and every chat that works on this repository.
 
-## Source of truth
+## Start of a session
 
-Do not rely on chat history. At the beginning of a session:
+Do not rely on chat history. A pushed branch is the only handoff; a local commit or a stash is not.
 
-1. Inspect `git status`, the current branch and recent commits.
+1. Look at the repository:
+
+   ```bash
+   git fetch --all --prune
+   git status
+   git branch --show-current
+   git log -5 --oneline
+   ```
+
 2. Read:
-   - `docs/PROJECT_CONTEXT.md`
-   - `docs/ARCHITECTURE.md`
-   - `docs/PHASE_STATUS.md`
-   - `docs/HANDOFF.md`
-   - `docs/SESSION_STATE.md`
-   - `docs/FIX_ADD_PLAN.md` (Phase 15: status board, decisions, findings, tasks and §0.7 file
-     ownership for parallel agents)
-3. Verify the existing build before editing.
-4. Phase 15 runs three agents at once (`docs/FIX_ADD_PLAN.md` §0.7): Agent A P39 → P40, Agent B
-   P41 → P42, Agent C P43, each on its own branch, folder and files; then P44 (Agent B merges
-   B → C → A, Preview #7) and P8 (signed release) with the owner's OK. Do only your agent's
-   tasks, task after task without asking; stop at `READY FOR MERGE`, for a failure you cannot
-   fix, or when the owner says stop.
+   - `docs/SESSION_STATE.md`: where the work stands and the next step;
+   - `docs/PLAN.md`: open release steps, owner decisions and known issues;
+   - `docs/ARCHITECTURE.md`: modules and data flow;
+   - `docs/GLOSSARY.md`: feature names;
+   - `docs/TESTING.md`: commands and runbooks.
+3. Check out the branch named in `docs/SESSION_STATE.md`, pull it, and run its recorded validation
+   before you edit.
 
-## Task workflow (Phase 15)
+If the docs and verified code disagree, build and test results win, and the docs must be fixed.
 
-- Do your agent's `docs/FIX_ADD_PLAN.md` tasks one at a time, following its prompt in
-  `docs/prompts/` (`A-tiktok.md`, `B-downloads.md`, `C-ads.md`; `M-merge-preview7.md` for
-  P44). Change only the files §0.7 gives your agent; in shared docs
-  (`docs/SESSION_STATE.md`, `CHANGELOG.md`, `docs/TEST_MATRIX.md`) edit only your own section.
-  Agents A, B and C record status in their SESSION_STATE section; only P44 edits
-  `docs/FIX_ADD_PLAN.md` and `docs/prompts/`.
-- Docs-only pushes (every file under `docs/` or ending in `.md`) start no CI; the newest commit
-  that changed code carries the CI result (`docs/FIX_ADD_PLAN.md` §0.3).
-- A change in another agent's files is a hand-off: write it in your SESSION_STATE section and
-  your report instead of making it.
-- A task that needs an owner decision still `PENDING` in FIX_ADD_PLAN §3 is blocked: ask the
-  owner in Burmese and stop instead of guessing.
-- Site tasks need a live check of a public page (`scripts/live-check.sh`). Report
-  status, host, path and markers only, never bodies, cookies or signed URLs.
-- Final reports to the owner are written in Burmese (FIX_ADD_PLAN §0.5, short). The app text stays English.
-- Product rules: [ADR-006](docs/decisions/ADR-006-owner-override-any-working-method.md) (owner, 2026-10-03) — any working technique
-  for public videos; no DRM, paid, private-content or age-gate bypass; adapters never sign in.
-- Anything outside the task goes to your SESSION_STATE section as a backlog note (P44 moves it
-  to FIX_ADD_PLAN §7 Backlog).
+## Product rules
 
-## Resuming work
+- Public videos must download. Any working method is allowed: app or device client identities,
+  proof-of-origin tokens, bot-check workarounds and the user's own browser session
+  (`docs/DECISIONS.md`).
+- No DRM, paid, private-content or age-check bypass. Adapters never sign in.
+- A `blob:` address is never a file.
+- App text is in English.
 
-A pushed branch is the only durable handoff; a local commit or a stash is not. A new chat runs:
+## How to work
 
-```bash
-git fetch --all --prune
-git status
-git branch --show-current
-git log -5 --oneline
-```
+- Do one task at a time. Change only the files the task needs.
+- A task that needs an owner decision still open in `docs/PLAN.md` is blocked: ask the owner and
+  stop instead of guessing.
+- Site work needs a live check of a public page (`bash scripts/live-check.sh <url>`). Report only
+  the status, host, path and markers, never bodies, cookies or signed URLs.
+- Anything outside the task goes to the backlog in `docs/PLAN.md`.
+- Final reports to the owner are short and in Burmese.
 
-Then it reads the files above, checks out its agent's branch recorded in `docs/SESSION_STATE.md`,
-pulls it and runs the recorded validation before editing. A `wip` checkpoint must be repaired before
-its task is marked done.
+## Docs and comments
 
-If documentation and verified code disagree, build/test results take priority and the documentation must be corrected.
+- Write plain English in short sentences.
+- Use the feature names in `docs/GLOSSARY.md`. Do not add work labels (task, plan, run or agent
+  names and numbers) to docs, code comments, commit messages or Lookup details. Literal app output
+  in backticks, build flags, class names, commit SHAs, version numbers and released `CHANGELOG.md`
+  sections stay as they are.
+- A new feature gets its name in `docs/GLOSSARY.md` first, in the same commit as its code. Use that
+  name in plans, comments and commit messages; never a new step or ID label.
+- Docs describe the current state only. History lives in git and in released changelog sections.
+- New owner decisions go to `docs/DECISIONS.md`, open questions to `docs/PLAN.md`, user-visible
+  changes to the unreleased section of `CHANGELOG.md`.
+- Never leave an empty file. Delete a file you would empty.
 
-## Branch policy
+## Branches
 
-- Never develop directly on `main`.
-- Use a branch named `work/phase-N-short-description`, for example:
-  - `work/phase-1-foundation`
-  - `work/phase-2-browser-detection`
-- Checkpoint pushes to `work/phase-*` branches are pre-authorized.
-- Merging or pushing phase-completion changes to `main` requires a green full validation and explicit user approval. In Phase 15 agents never push to `main`; P44 may fast-forward it only with the owner's `MAIN=OK`, and P8 runs only after the owner approves Preview #7 (`docs/FIX_ADD_PLAN.md` §5 P44, P8).
-- Publishing releases always requires explicit user approval. The signed `1.0.0-beta.4` draft (P8) waits for the owner's OK after his phone test of Preview #7.
+- Never develop on `main`. Work on a `work/phase-<name>` branch (now `work/phase-v102-easy`).
+- Pushes to `work/phase-*` branches are allowed. Never force-push.
+- Merging to `main` needs green CI and the owner's approval: a pull request, merged with a merge
+  commit.
+- Publishing a release always needs the owner's approval ([docs/RELEASE.md](docs/RELEASE.md)).
 
-## Mandatory checkpoint protocol
+## Checkpoints
 
-Do not wait until the end of a phase or until context is nearly exhausted. Create a remote checkpoint:
+Push a remote checkpoint:
 
-- after each meaningful, independently describable milestone;
-- after roughly 20–30 minutes of active implementation;
-- before a long build, migration or risky refactor;
-- before asking a blocking question;
-- before ending a response/session.
+- after each milestone you can describe on its own;
+- after about 20–30 minutes of work;
+- before a long build, a migration or a risky refactor;
+- before you ask a blocking question;
+- before you end a response or a session.
 
-For every checkpoint:
+For each checkpoint:
 
-1. Update `docs/SESSION_STATE.md` with the exact current state and next action.
-2. Run the relevant quick validation.
-3. Execute:
+1. Update `docs/SESSION_STATE.md` with the exact state and the next step.
+2. Run the quick validation that fits the change.
+3. Run `bash scripts/checkpoint.sh "short description"`. It refuses branches other than
+   `work/phase-*`, rejects sensitive files and likely secrets, runs validation, commits and pushes.
 
-```bash
-bash scripts/checkpoint.sh "short description"
-```
+If valuable work is broken and losing it is the bigger risk, write the exact failure in
+`docs/SESSION_STATE.md`, then run
+`CHECKPOINT_SKIP_TESTS=1 bash scripts/checkpoint.sh "wip: exact unfinished work"`. A `wip`
+checkpoint must be repaired before its task counts as done.
 
-The script stages changes, rejects sensitive files and obvious secrets, runs validation, commits and pushes the current `work/phase-*` branch.
+If a push fails, stop and report it. Do not pile up unpushed work.
 
-If valuable work is temporarily broken and context loss is a greater risk, record the exact failure in `SESSION_STATE.md`, then use:
+## CI
 
-```bash
-CHECKPOINT_SKIP_TESTS=1 bash scripts/checkpoint.sh "wip: exact unfinished work"
-```
+- A push that changes only docs (files under `docs/` or ending in `.md`) starts no checkpoint
+  check, and a commit message with `[skip ci]` starts no workflow. The newest code commit carries
+  the CI result.
+- When a fresh result is needed, run "Work-branch checkpoint validation" by hand (Actions → Run
+  workflow).
 
-This exception is allowed only on a `work/phase-*` branch. Never push knowingly broken work to `main`.
+## Finishing a task
 
-A local commit or `git stash` is not a remote backup. If a checkpoint push fails, stop and report it; do not continue accumulating unpushed work.
-
-## Phase completion
-
-Before declaring a phase complete:
-
-1. Run the full phase validation.
-2. Update `PHASE_STATUS.md`, `HANDOFF.md`, `SESSION_STATE.md` and other affected docs.
-3. Create and push a clean phase-completion commit on the work branch.
-4. Report exact commands, results, commit SHA, branch and known limitations.
-5. Do not merge to `main` or start the next phase without approval.
+1. Run the full validation ([docs/TESTING.md](docs/TESTING.md)).
+2. Update `docs/SESSION_STATE.md`, `CHANGELOG.md` and every affected doc.
+3. Push a clean commit on the work branch.
+4. Report the exact commands, results, commit SHA, branch and known limits.
+5. Do not merge to `main` or start the next release without approval.
 
 ## Security
 

@@ -18,8 +18,8 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.withContext
 
 /**
- * Phase 1.2 N5b: V for the own solver's signatures, around the reader. The reader is a whole-file
- * copy of main's and stays main's text (R3 drift check), so V lives here. N5b A.8: the gate guards
+ * Own-solver ladder: V (the Row check) for the own solver's signatures, around the reader. The reader is a whole-file
+ * copy of main's and stays main's text (the Toolkit drift check), so V lives here. The gate guards
  * every reader that runs on the own solver, Master's copy ([MasterYouTubeModule]) and main's reader
  * on the app's path ([YouTubeSignatureGuard]), with ownSolverNext on or off; [of] builds it.
  *

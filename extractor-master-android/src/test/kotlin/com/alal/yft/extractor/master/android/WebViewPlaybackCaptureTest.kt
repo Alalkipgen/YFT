@@ -65,7 +65,7 @@ class WebViewPlaybackCaptureTest {
     }
 
     /**
-     * V3's retest (2026-10-26): only a bind on VK's own pages (HTTPS, the default port, one of
+     * VK's pack proof (the capture step's retest, 2026-10-26): only a bind on VK's own pages (HTTPS, the default port, one of
      * the early origins) carries the page's manifests to the document's later binds.
      */
     @Test

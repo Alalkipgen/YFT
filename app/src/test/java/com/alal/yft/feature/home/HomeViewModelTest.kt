@@ -348,7 +348,7 @@ class HomeViewModelTest {
         val viewModel = viewModel()
         val opened = mutableListOf<Unit>()
         val collector = launch { viewModel.quickDownloadRequests.collect { opened += it } }
-        // Facebook's HD, SD and DASH items of one reel (P3 regression: "3 media found").
+        // Facebook's HD, SD and DASH items of one reel (regression: "3 media found").
         val reel = found(3).let { result ->
             result.copy(candidates = result.candidates.map { it.copy(videoId = "facebook:1") })
         }
@@ -372,6 +372,47 @@ class HomeViewModelTest {
     }
 
     @Test
+    fun theLookupsLinesGoWithTheFoundVideoToTheSheetAndViewKeepsThem() = runTest {
+        // Home's sheet shows its lookup's lines as Lookup details: a site
+        // reader's failure lines before the page itself gave the video, cleaned once more.
+        val viewModel = viewModel()
+        val collector = launch { viewModel.quickDownloadRequests.collect {} }
+        val lines = listOf("adapter fixture: RESPONSE_CHANGED", "page read: RESPONSE_CHANGED")
+        inspector.answer = { found(1).copy(details = lines + "Cookie: redaction-fixture") }
+
+        viewModel.onAction(HomeAction.LinkChanged("https://a.test/watch"))
+        viewModel.onAction(HomeAction.Submit)
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.quickDownload)
+        assertEquals(lines, store.lookupDetailsOf(store.selection.value))
+
+        // View after the browser found another page: the video again, its lines with it.
+        store.publish("https://b.test/other", "Other", found(1).candidates)
+        assertTrue(store.lookupDetailsOf(store.selection.value).isEmpty())
+        viewModel.selectFoundVideo()
+        assertEquals(lines, store.lookupDetailsOf(store.selection.value))
+
+        // A find without lines (a site reader's own success, a page alone): none.
+        inspector.answer = { found(1) }
+        viewModel.onAction(HomeAction.Submit)
+        advanceUntilIdle()
+        assertNotNull(store.selection.value)
+        assertTrue(store.lookupDetailsOf(store.selection.value).isEmpty())
+        viewModel.selectFoundVideo()
+        assertTrue(store.lookupDetailsOf(store.selection.value).isEmpty())
+
+        // The sheet that waits on a site's link takes the first video with the lines.
+        inspector.siteVideo = { SiteVideoLink(VIDEO_KEY, "https://a.test/watch") }
+        inspector.answer = { found(2).copy(details = lines) }
+        viewModel.onAction(HomeAction.Submit)
+        advanceUntilIdle()
+        assertEquals(PromptboxStatus.Found(2), viewModel.uiState.value.status)
+        assertNull(store.lookup.value)
+        assertEquals(lines, store.lookupDetailsOf(store.selection.value))
+        collector.cancel()
+    }
+
+    @Test
     fun aSupportedSitesLinkOpensItsSheetBeforeTheLookupEndsAndTheLookupFillsIt() = runTest {
         val viewModel = viewModel()
         val opened = mutableListOf<Unit>()
@@ -384,7 +425,7 @@ class HomeViewModelTest {
         viewModel.onAction(HomeAction.Submit)
         runCurrent()
 
-        // P16: the sheet is open while the lookup still runs, and waits on that lookup.
+        // The sheet is open while the lookup still runs, and waits on that lookup.
         assertEquals(1, opened.size)
         assertEquals(PromptboxStatus.Searching, viewModel.uiState.value.status)
         val waiting = store.lookup.value!!
@@ -485,7 +526,7 @@ class HomeViewModelTest {
 
     @Test
     fun aPageWithOneVideoAndItsPreviewsOpensThatVideoWithThePreviewsBehindIt() = runTest {
-        // P24 (plan step 8): the owner's case, a video page whose player names one stream,
+        // Page video finder: the owner's case, a video page whose player names one stream,
         // with 40 preview clips of other videos and an ad frame around it.
         val viewModel = viewModel()
         val opened = mutableListOf<Unit>()
@@ -512,7 +553,7 @@ class HomeViewModelTest {
 
     @Test
     fun aPageThatStatesItsVideoOpensItsPlayersQualitiesWithItsTitleAndPicture() = runTest {
-        // P28: the player setup names 480p and 720p; the page states 16:24, its title and
+        // Ad filter: the player setup names 480p and 720p; the page states 16:24, its title and
         // picture; the player element holds the ad.
         val viewModel = viewModel()
         val page = "https://tube.example.test/watch/77"
@@ -548,7 +589,7 @@ class HomeViewModelTest {
         assertEquals(LookupOwner.HOME, store.page.value?.owner)
     }
 
-    /** P24: a page like the owner's: a player config naming a stream, 40 previews, an ad. */
+    /** A page like the owner's: a player config naming a stream, 40 previews, an ad. */
     private fun previewGridPage(master: String): String = buildString {
         append("<title>Long walk by the river</title>\n")
         append("<iframe class=\"ad-slot\" src=\"https://ads.adnet.example.test/frame\"></iframe>\n")
@@ -564,8 +605,8 @@ class HomeViewModelTest {
 
     @Test
     fun theSheetsTryAgainReadsThePageHomeFoundAgainQuietly() = runTest {
-        // P29: Try again on the page Home found asks for its current addresses; the Promptbox
-        // keeps what it shows.
+        // Fresh link renewal: Try again on the page Home found asks for its current addresses; the
+        // Promptbox keeps what it shows.
         val viewModel = viewModel()
         inspector.answer = { found(1) }
         viewModel.onAction(HomeAction.LinkChanged("https://a.test/watch"))

@@ -1,9 +1,9 @@
 package com.alal.yft.extractor.master.social
 
 /**
- * Social plan task 16 (F6): a file's picture size (width × height, as the picture shows) from the
- * first bytes V read of it ([SocialRowCheck.START_BYTES]), for a row that states none: the plugin
- * player's answer names no size, as it names no length ([StartDuration], S1a (10)). ISO BMFF only,
+ * A file's picture size (width × height, as the picture shows) from the
+ * first bytes the Row check read of it ([SocialRowCheck.START_BYTES]), for a row that states none: the plugin
+ * player's answer names no size, as it names no length ([StartDuration]). ISO BMFF only,
  * inside the file's `moov` (a progressive file's, walked as far as the bytes go, or a fragmented
  * file's, whose tracks state their headers and sample entries as well), track by track:
  *
@@ -48,7 +48,7 @@ internal object StartPicture {
     fun of(bytes: ByteArray): Size? = read(bytes)?.first
 
     /**
-     * VK's pack proof (V3's retest 2): the picture track's sample entry as [of] finds that track
+     * VK's pack proof: the picture track's sample entry as [of] finds that track
      * (`avc1`, `avc3`, `hvc1`, `hev1`, `vp09`, `av01`), so a row that states no codecs names its
      * file's own (the phone's merge gate reads them); null when [of] finds no picture or the
      * track's `stsd` is past the bytes.

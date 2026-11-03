@@ -4,8 +4,8 @@ import java.net.URI
 import java.util.Locale
 
 /**
- * P40 (G3, `TT_HOME_COOKIES=ON`): Home's lookup of a TikTok link uses the cookies YFT's own
- * browser already has for `tiktok.com` (from the user's own visits), sent to TikTok only and
+ * TikTok page reader (`TT_HOME_COOKIES=ON`): Home's lookup of a TikTok link uses the cookies YFT's
+ * own browser already has for `tiktok.com` (from the user's own visits), sent to TikTok only and
  * never logged or stored elsewhere. With `TT_HOME_COOKIES=OFF` Home stays cookie-free.
  */
 object TikTokHomeSession {

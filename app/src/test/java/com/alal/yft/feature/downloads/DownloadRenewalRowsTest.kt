@@ -14,7 +14,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Track E (E-D6): the rows of downloads whose link YFT can renew, and their Details. */
+/** Fresh link renewal: the rows of downloads whose link YFT can renew, and their Details. */
 class DownloadRenewalRowsTest {
     @Test
     fun onlyALinkExpiredRowYftCanLookUpAgainOffersRetry() {
@@ -40,6 +40,63 @@ class DownloadRenewalRowsTest {
         assertTrue(DownloadAction.RETRY in rows.getValue("failed").availableActions)
         // A running one renews by itself: no Retry while it runs.
         assertFalse(DownloadAction.RETRY in rows.getValue("running").availableActions)
+    }
+
+    /** A row names the quality it was picked as while the app holds it. */
+    @Test
+    fun aRunningRowNamesThePickedQualityTheAppHolds() {
+        val state = DownloadsUiState.from(
+            listOf(
+                task("picked", DownloadTaskStatus.RUNNING),
+                task("restored", DownloadTaskStatus.RUNNING),
+            ),
+            renewals = DownloadRenewals(qualities = mapOf("picked" to "1080p")),
+        )
+
+        val rows = state.rows.associateBy(DownloadRowUiState::id)
+        assertEquals("1080p", rows.getValue("picked").pickedQuality)
+        assertEquals("1080p · MP4", metaLabel(rows.getValue("picked")))
+        // After a restart the app holds none: the line reads as before.
+        assertEquals(null, rows.getValue("restored").pickedQuality)
+        assertEquals("MP4", metaLabel(rows.getValue("restored")))
+    }
+
+    /** Save folder: a row the chosen folder could not take says so, finished or not. */
+    @Test
+    fun aRowTheChosenFolderCouldNotTakeCarriesItsNotice() {
+        val state = DownloadsUiState.from(
+            listOf(
+                task("moved", DownloadTaskStatus.RUNNING),
+                task("done", DownloadTaskStatus.COMPLETED),
+                task("kept", DownloadTaskStatus.RUNNING),
+            ),
+            renewals = DownloadRenewals(folderUnavailable = setOf("moved", "done")),
+        )
+
+        val rows = state.rows.associateBy(DownloadRowUiState::id)
+        assertTrue(rows.getValue("moved").folderUnavailable)
+        assertTrue(rows.getValue("done").folderUnavailable)
+        assertFalse(rows.getValue("kept").folderUnavailable)
+    }
+
+    /** A row whose page, read again, had no player data is marked; Retry stays. */
+    @Test
+    fun aRowWhosePageReadAgainHadNoPlayerIsMarkedAndKeepsRetry() {
+        val state = DownloadsUiState.from(
+            listOf(
+                task("notice", DownloadTaskStatus.NEEDS_REFRESH),
+                task("renewable", DownloadTaskStatus.NEEDS_REFRESH),
+            ),
+            renewals = DownloadRenewals(
+                renewable = setOf("notice", "renewable"),
+                noPlayer = setOf("notice"),
+            ),
+        )
+
+        val rows = state.rows.associateBy(DownloadRowUiState::id)
+        assertTrue(rows.getValue("notice").noPlayerOnPage)
+        assertTrue(DownloadAction.RETRY in rows.getValue("notice").availableActions)
+        assertFalse(rows.getValue("renewable").noPlayerOnPage)
     }
 
     @Test

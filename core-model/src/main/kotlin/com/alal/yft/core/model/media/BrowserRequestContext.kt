@@ -15,7 +15,7 @@ data class BrowserRequestContext(
             if (name.isReplayableHeader() && value.isNotBlank()) output[name] = value
         }
 
-        // P45: what the browser itself sent stands; the context fills only what is missing.
+        // What the browser itself sent stands; the context fills only what is missing.
         if (!userAgent.isNullOrBlank()) output.replaceCaseInsensitive("User-Agent", userAgent)
         output.replaceCaseInsensitive("Cookie", cookie)
         if (output.keys.none { it.equals("Referer", ignoreCase = true) }) {
@@ -28,7 +28,7 @@ data class BrowserRequestContext(
         return output
     }
 
-    /** P45: this context with the browser's [agent] when it names none itself. */
+    /** This context with the browser's [agent] when it names none itself. */
     fun withUserAgent(agent: String?): BrowserRequestContext =
         if (userAgent.isNullOrBlank() && !agent.isNullOrBlank()) copy(userAgent = agent) else this
 
@@ -62,13 +62,13 @@ data class BrowserRequestContext(
 
     companion object {
         /**
-         * P45: the context of a link a browser page names in its markup or its scripts before any
+         * The context of a link a browser page names in its markup or its scripts before any
          * request of it was seen, asked the way the page's own player asks for it in Chromium: a
          * file on another origin than the page's gets the page's origin as `Origin` and only that
          * origin as `Referer` (the browser's default `strict-origin-when-cross-origin`); a file on
          * the page's own origin gets the whole page address. Never a cookie: the page's cookies
          * belong to its site, not to the file's host. A CDN that refused YFT's bare request
-         * (FIX_ADD_PLAN P45: HTTP 410 and 474 on the owner's phone) gets what the browser sends.
+         * (HTTP 410 and 474 on the owner's phone) gets what the browser sends.
          */
         fun pageLink(
             pageUrl: String,

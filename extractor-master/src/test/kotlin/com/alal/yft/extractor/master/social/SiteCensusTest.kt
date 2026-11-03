@@ -53,8 +53,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S0b: the census engine ([SiteCensus]) over fake sites: main's lookup (the app's
- * adapters over fixtures, or a script), V on the best rows, Master's R8 way once under route B's
+ * Site census: the census engine ([SiteCensus]) over fake sites: main's lookup (the app's
+ * adapters over fixtures, or a script), V on the best rows, Master's site contract reader way once under route B's
  * rules (route B after a recoverable failure, a trial after rows or a final answer, never after a
  * browser-required reason, a time limit or for a short link), the judge, the stops (429, bot
  * check) with their cooldown, the budgets, and an export with no link, ID, handle or address.

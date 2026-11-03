@@ -9,7 +9,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 
 /**
- * A page's new window (P32) as a WebView that is never shown and never runs a script: it tells
+ * A page's new window as a WebView that is never shown and never runs a script: it tells
  * [onAddress] the first web address the window is sent to and then goes. The browser has one
  * tab, so that address opens there or is blocked. A window that gets no address in
  * [TIMEOUT_MS] goes too.

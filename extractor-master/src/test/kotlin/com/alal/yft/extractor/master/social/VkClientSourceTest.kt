@@ -18,7 +18,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * VK Master plan §8, part 2, as agent D's wiring reads it (the live check, 2026-10-26): V2's
+ * As the app's wiring reads it (the live check, 2026-10-26): V2's (`vk V2` in Lookup details)
  * self-heal source, vkvideo.ru's page then its one common script, with desktop Chrome's agent;
  * inside V2's pass, by the lookup's rules, counted, the script read once for both values. Made-up
  * fixtures only (`fixtures/vk-master-kit`), no network.

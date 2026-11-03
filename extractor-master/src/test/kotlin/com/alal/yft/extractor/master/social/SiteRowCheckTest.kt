@@ -23,7 +23,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S0b: the one-row check (V, [SiteRowCheck]): one byte of one row with the download's
+ * Site census: the one-row check (V, [SiteRowCheck]): one byte of one row with the download's
  * headers, only on the site's media hosts; HLS or another host is unknown, never a pass; a DASH
  * row checks its tallest video file; the best row is the tallest, then the highest bitrate.
  */

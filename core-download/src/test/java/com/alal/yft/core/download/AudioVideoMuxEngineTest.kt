@@ -72,7 +72,7 @@ class AudioVideoMuxEngineTest {
         val avcHeAac = plan().copy(audio = plan().audio.copy(codecs = listOf("mp4a.40.5")))
         val incompatibleVideo = MuxCompatibility.Incompatible(MuxIncompatibilityReason.VIDEO_CODEC)
 
-        // Off by default: the API 34 emulator's muxer failed the AV1 merge (P4 CI).
+        // Off by default: the API 34 emulator's muxer failed the AV1 merge in CI.
         assertFalse(AudioVideoMuxCompatibility.AV1_MP4_ENABLED)
         assertEquals(incompatibleVideo, AudioVideoMuxCompatibility.evaluate(av1, sdkInt = 34))
         assertEquals(incompatibleVideo, AudioVideoMuxCompatibility.evaluate(av1, sdkInt = 35))
@@ -91,7 +91,7 @@ class AudioVideoMuxEngineTest {
         assertTrue(AudioVideoMuxCompatibility.canWriteVideo(" AV01.0.05M.08", 34, true))
         assertFalse(AudioVideoMuxCompatibility.canWriteVideo("av01.0.05M.08", 33, true))
         assertFalse(AudioVideoMuxCompatibility.canWriteVideo("vp09.00.31.08", sdkInt = 35))
-        // Backlog item 5: VP9 only for an HLS video, by the stream copy, from Android 10.
+        // VP9 only for an HLS video, by the stream copy, from Android 10.
         assertTrue(AudioVideoMuxCompatibility.canWriteVideo("vp09.00.51.08", 29, hlsVp9 = true))
         assertFalse(AudioVideoMuxCompatibility.canWriteVideo("vp09.00.51.08", 28, hlsVp9 = true))
         assertFalse(AudioVideoMuxCompatibility.canWriteVideo("vp9", 35, hlsVp9 = true))
@@ -204,6 +204,74 @@ class AudioVideoMuxEngineTest {
     }
 
     @Test
+    fun `with the AV1 test switch on Android 14 merges AV1 and AAC and a failed merge says so`() = runTest {
+        // A debug build's switch, read at each download (the release: off).
+        val av1 = plan().copy(video = plan().video.copy(codecs = listOf("av01.0.08M.08")))
+        var switchOn = true
+        val runner = FakeDashRunner()
+        val muxer = FakeMuxer()
+        val files = files("av1-on.mp4")
+
+        val merged = engine(runner, muxer, directory.newFolder("av1-on"), sdkInt = 34, av1Merges = { switchOn })
+            .transfer(plan = av1, destination = files.destination)
+
+        assertTrue(merged.toString(), merged is AudioVideoMuxResult.Completed)
+        assertEquals(1, muxer.calls.get())
+        assertArrayEquals(muxer.outputFor(VIDEO_BYTES, AUDIO_BYTES), files.completed.readBytes())
+        // Android 13 or older: refused before any transfer, switch or not.
+        val oldRunner = FakeDashRunner()
+        val oldMuxer = FakeMuxer()
+        val old = engine(oldRunner, oldMuxer, directory.newFolder("av1-on-33"), sdkInt = 33, av1Merges = { true })
+            .transfer(plan = av1, destination = files("av1-on-33.mp4").destination)
+            as AudioVideoMuxResult.Failure
+        assertEquals(DownloadFailureReason.INCOMPATIBLE_TRACKS, old.failure.reason)
+        assertEquals(0, oldRunner.totalCalls())
+        assertEquals(0, oldMuxer.calls.get())
+        // The phone's muxer fails the AV1 merge (the API 34 emulator's failure in CI): the download
+        // ends "Incompatible tracks" at the merge, nothing published.
+        val failing = FakeMuxer(failure = DownloadFailureReason.INCOMPATIBLE_TRACKS)
+        val failedFiles = files("av1-fails.mp4")
+        val failed = engine(FakeDashRunner(), failing, directory.newFolder("av1-fails"), sdkInt = 34, av1Merges = { true })
+            .transfer(plan = av1, destination = failedFiles.destination)
+            as AudioVideoMuxResult.Failure
+        assertEquals(DownloadFailureReason.INCOMPATIBLE_TRACKS, failed.failure.reason)
+        assertEquals(1, failing.calls.get())
+        assertFalse(failedFiles.completed.exists())
+        // Switched off again: the next download is refused before any transfer, as before.
+        switchOn = false
+        val offRunner = FakeDashRunner()
+        val offMuxer = FakeMuxer()
+        val off = engine(offRunner, offMuxer, directory.newFolder("av1-off"), sdkInt = 34, av1Merges = { switchOn })
+            .transfer(plan = av1, destination = files("av1-off.mp4").destination)
+            as AudioVideoMuxResult.Failure
+        assertEquals(DownloadFailureReason.INCOMPATIBLE_TRACKS, off.failure.reason)
+        assertEquals(0, offRunner.totalCalls())
+        assertEquals(0, offMuxer.calls.get())
+    }
+
+    /**
+     * Today's way ends a track only when MediaExtractor has no sample left (-1 and
+     * no track), not at a time before 0 — a sound's first samples before its edit list's start,
+     * as tears-of-steel-av1's AAC (2,048 ticks at 48 kHz: -42,667 and -21,333 µs).
+     */
+    @Test
+    fun `today's way ends a track only when no sample is left, not at a time before 0`() {
+        var asked = 0
+        val sampleTrack = {
+            asked += 1
+            1
+        }
+
+        assertFalse(endsTrack(-42_667L, sampleTrack))
+        assertFalse(endsTrack(-21_333L, sampleTrack))
+        assertFalse(endsTrack(0L, sampleTrack))
+        assertEquals("the track is asked only at -1", 0, asked)
+        assertFalse("a sample at -1 µs", endsTrack(-1L, sampleTrack))
+        assertEquals(1, asked)
+        assertTrue("no sample left", endsTrack(NO_SAMPLE_TIME_US) { -1 })
+    }
+
+    @Test
     fun `incompatible tracks fail before transfer or destination work`() = runTest {
         val runner = FakeDashRunner()
         val muxer = FakeMuxer()
@@ -251,6 +319,25 @@ class AudioVideoMuxEngineTest {
         assertEquals(1, runner.callsFor(plan.audio))
         assertEquals(1, muxer.calls.get())
         assertTrue(workspace.listFiles().orEmpty().isEmpty())
+    }
+
+    /** A live track's Details lines come with the merged file. */
+    @Test
+    fun `the tracks' notes come with the merged file, video first`() = runTest {
+        val runner = FakeDashRunner(
+            notes = { type ->
+                if (type == MediaTrackType.VIDEO) listOf("video line") else listOf("sound line")
+            },
+        )
+        val files = files("notes.mp4")
+
+        val result = engine(runner, FakeMuxer(), directory.newFolder("notes-workspace"))
+            .transfer(
+                plan = plan(),
+                destination = files.destination,
+            ) as AudioVideoMuxResult.Completed
+
+        assertEquals(listOf("video line", "sound line"), result.notes)
     }
 
     @Test
@@ -369,12 +456,14 @@ class AudioVideoMuxEngineTest {
         muxer: FakeMuxer,
         workspace: File,
         sdkInt: Int = 24,
+        av1Merges: () -> Boolean = { AudioVideoMuxCompatibility.AV1_MP4_ENABLED },
     ): AudioVideoMuxEngine = AudioVideoMuxEngine(
         dashTransfer = runner,
         muxer = muxer,
         workspaceRoot = workspace,
         clock = { 100 },
         sdkInt = sdkInt,
+        av1Merges = av1Merges,
     )
 
     private fun plan(
@@ -401,7 +490,7 @@ class AudioVideoMuxEngineTest {
         suggestedFileName = "movie.mp4",
     )
 
-    /** YouTube's 4K: a VP9 video-only WebM and the Opus WebM sound, merged into WebM (P6). */
+    /** YouTube's 4K: a VP9 video-only WebM and the Opus WebM sound, merged into WebM. */
     private fun webmPlan(): AudioVideoMuxDownloadPlan = plan().let { base ->
         base.copy(
             video = base.video.copy(mimeType = "video/webm", codecs = listOf("vp09.00.51.08")),
@@ -448,6 +537,8 @@ class AudioVideoMuxEngineTest {
     private class FakeDashRunner(
         private val failFirstAudio: Boolean = false,
         private val reportTotals: Boolean = false,
+        /** Each finished track's Details lines. */
+        private val notes: (MediaTrackType) -> List<String> = { emptyList() },
     ) : DashTransferRunner {
         private val calls = ConcurrentHashMap<String, AtomicInteger>()
         val discarded = mutableListOf<String>()
@@ -497,7 +588,11 @@ class AudioVideoMuxEngineTest {
                 completed = true,
             )
             onCheckpoint(checkpoint)
-            return DashTransferResult.Completed(bytes.size.toLong(), checkpoint)
+            return DashTransferResult.Completed(
+                bytesWritten = bytes.size.toLong(),
+                checkpoint = checkpoint,
+                notes = notes(plan.trackType),
+            )
         }
 
         override suspend fun discard(plan: DashDownloadPlan) {

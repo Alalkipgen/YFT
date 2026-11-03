@@ -12,8 +12,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Phase 1.3 D5c (MASTER_KEY_PHASE1_3_PLAN.md §4 D5c; the owner's order of 2026-10-16): the
- * `h-only` trial, for the owner's phone download through H. Over every simulator class, own solver
+ * Ladder test switches: the `h-only` trial, for the owner's phone download through the
+ * YouTube HLS rung H (`ladder H` in Lookup details). Over every simulator class, own solver
  * off and on, each lookup's result is H's one HLS row alone (the chain's rows left out) or no row
  * with H's reason: never a wrong row or a credential, at most one H check (3 requests), and every
  * class with an H path ends complete. The H row carries the chain's video key in both modes (the

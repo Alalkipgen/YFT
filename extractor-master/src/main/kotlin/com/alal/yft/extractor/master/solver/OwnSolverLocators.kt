@@ -6,7 +6,7 @@ import com.alal.yft.extractor.master.solver.OwnSolverLocator.appendPart
 import com.alal.yft.extractor.master.solver.OwnSolverProtocol.appendJsonString
 
 /**
- * Phase 1.2 N5b A.4: the locator cache (ownSolverNext only): per player ID, the SHA-256 of the
+ * Own-solver ladder: the locator cache (ownSolverNext only): per player ID, the SHA-256 of the
  * player text it was learned from and, per kind, the part ([OwnSolverLocator]) of the worker step
  * the ladder took that kind from. [OwnPlayerScriptRunner] sends a step its parts; the core checks
  * them and keeps every check. An entry learned from other player text is dropped on [get].

@@ -9,6 +9,7 @@ import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.Mp3Variants
+import com.alal.yft.core.model.media.PlausibleSize
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.settings.QualityPreference
@@ -23,12 +24,14 @@ import kotlin.math.roundToInt
 /** One candidate of the video the sheet shows, with the variants its lookup found. */
 data class SheetSource(
     val candidate: MediaCandidate,
-    /** Null before resolution; stated whole-file metadata can still make a row (P11). */
+    /** Null before resolution; stated whole-file metadata can still make a row. */
     val asset: MediaAsset?,
     /** False when [asset] was built from what the site stated: Download looks it up first. */
     val resolved: Boolean,
     val failure: VariantResolutionFailure? = null,
-    /** P24: the whole failure behind [failure], for the sheet's message and Details. */
+    /**
+     * Page video finder: the whole failure behind [failure], for the sheet's message and Details.
+     */
     val failureDetail: VariantResolutionResult.Failure? = null,
 )
 
@@ -52,16 +55,21 @@ data class SheetOption(
     val quality: String? = null,
     /** The standard height the row is named after and ordered by; HD ranks 720, SD 480. */
     val rankHeight: Int? = null,
-    /** P25: the line under the title, "Clear view and quick play" or "Plays everywhere". */
+    /** The line under the title, "Clear view and quick play" or "Plays everywhere". */
     val description: String? = null,
 )
 
 /**
- * The sheet's content for one video (P3-FIX, owner's phone check): exactly two sections.
- * **Audio** holds an M4A and MP3 at each bitrate; **Video** one row per standard resolution.
+ * The sheet's content for one video: exactly two sections. **Audio** holds an M4A and MP3 at each
+ * bitrate; **Video** one row per standard resolution.
  */
 data class QuickChoices(
     val title: String,
+    /**
+     * Zawgyi titles: when [title] is the Unicode form of the video's Zawgyi title, that title and
+     * the detector's probability; the sheet's "Use original title" takes it instead.
+     */
+    val zawgyi: ZawgyiTitle? = null,
     /** The site, for example "facebook.com". */
     val source: String?,
     val durationMillis: Long?,
@@ -83,18 +91,19 @@ data class QuickChoices(
  * Builds the download sheet from the resolved candidates of one video. Pure, so the table of
  * cases is unit-tested.
  *
- * Audio offers the best M4A file, else the sound of an MP4 kept as M4A (P25: also when its
- * codecs are not stated), and that AAC converted to MP3 at the bitrates its page offers (D2:
- * [Mp3Variants.bitratesFor], 320, 192 and 128 kbps on YouTube, 192 on any other site); another
- * audio file only when there is no M4A. P25: every row has a one-line description and a
- * size, an estimate ("~") or "Size unknown"; rows are named the same on every site.
- * Video offers one row per standard resolution (240p, 360p, 480p, 720p, 1080p and higher):
- * a row is named after the nearest standard height of the picture's short side, so 848 × 478 is
- * "480p" while its detail keeps the real "848 × 478 · 30 fps". Of the files at one resolution
- * the row is the one with sound, a complete file before one merged on the phone (P4: Facebook's
- * HD file before its 720p video and audio tracks), a whole file before a stream, MP4 before
- * other containers, then the higher frame rate and bitrate. Labels never come from the page
- * title. A 2K or higher row the phone has no decoder for keeps a [MAY_NOT_PLAY] chip (P6).
+ * Audio offers the best M4A file, else the sound of an MP4 kept as M4A (also when its codecs are
+ * not stated), and that AAC converted to MP3 at the bitrates its page offers
+ * ([Mp3Variants.bitratesFor]: 320, 192 and 128 kbps on YouTube, 192 on any other site); another
+ * audio file only when there is no M4A. Every row has a one-line description and a size, an
+ * estimate ("~") or "Size unknown"; rows are named the same on every site. Video offers one row per
+ * standard resolution (240p, 360p, 480p, 720p, 1080p and higher): a row is named after the nearest
+ * standard height of the picture's short side, so 848 × 478 is "480p" while its detail keeps the
+ * real "848 × 478 · 30 fps". Of the files at one resolution the row is the one with sound, a
+ * complete file before one merged on the phone (Facebook adapter: the HD file before its 720p video
+ * and audio tracks), a whole file before a stream, MP4 before other containers, then the higher
+ * frame rate and bitrate; with the AV1 merge switch on (a debug build's test switch), an AV1 merge
+ * only where no other merge has that size. Labels never come from the page title. A 2K or higher
+ * row the phone has no decoder for keeps a [MAY_NOT_PLAY] chip (Merge).
  */
 object QuickDownloadChoices {
     /** The heights rows are named after, from 144p to 8K. */
@@ -105,7 +114,7 @@ object QuickDownloadChoices {
     /** On an MP3 row: the phone re-encodes the sound after the download. */
     const val SLOW = "Slow"
 
-    /** P6: on a 2K or 4K row whose picture this phone has no decoder for. */
+    /** Merge: on a 2K or 4K row whose picture this phone has no decoder for. */
     const val MAY_NOT_PLAY = "May not play on this phone"
 
     fun of(
@@ -133,10 +142,15 @@ object QuickDownloadChoices {
         if (videos.isEmpty() && audios.isEmpty()) return null
         val durationMillis = group.durationMillis
             ?: sources.firstNotNullOfOrNull { it.asset?.durationMillis?.takeIf { d -> d > 0 } }
+        val named = group.title
+            ?: sources.firstNotNullOfOrNull { MediaGroups.baseTitle(it.asset?.title) }
+        // Zawgyi titles: here the lookup's title becomes YFT's (the sheet's, the download's, so its
+        // file name, tags and Downloads row): a Zawgyi title in Unicode, when the detector is sure
+        // ([ZawgyiTitles]); every other title as it is.
+        val zawgyi = named?.let(ZawgyiTitles::unicode)
         return QuickChoices(
-            title = group.title
-                ?: sources.firstNotNullOfOrNull { MediaGroups.baseTitle(it.asset?.title) }
-                ?: if (videos.isEmpty()) "Audio" else "Video",
+            title = zawgyi?.unicode ?: named ?: if (videos.isEmpty()) "Audio" else "Video",
+            zawgyi = zawgyi,
             source = host(group.pageUrl),
             durationMillis = durationMillis,
             audio = audios,
@@ -164,10 +178,10 @@ object QuickDownloadChoices {
     }
 
     /**
-     * P18: what a Download tapped before the qualities came takes once they are in: the first
-     * Audio row when Audio was picked, else the Default quality's row as [preselect] finds it
-     * (that height, else the nearest lower, else the nearest higher one). A video without an
-     * Audio row takes its video, and audio alone takes its audio.
+     * What a Download tapped before the qualities came takes once they are in: the first Audio row
+     * when Audio was picked, else the Default quality's row as [preselect] finds it (that height,
+     * else the nearest lower, else the nearest higher one). A video without an Audio row takes its
+     * video, and audio alone takes its audio.
      */
     fun earlyPick(
         choices: QuickChoices,
@@ -177,8 +191,8 @@ object QuickDownloadChoices {
         ?: preselect(choices, quality)
 
     /**
-     * P18: which quality an early Download took: "Downloading 720p", or "Downloading 480p —
-     * 720p not available" when the Default quality's height (or the audio) was not there.
+     * Which quality an early Download took: "Downloading 720p", or "Downloading 480p — 720p not
+     * available" when the Default quality's height (or the audio) was not there.
      */
     fun earlyNote(pick: SheetOption, section: OptionSection, quality: QualityPreference): String {
         val taken = pick.quality ?: pick.title
@@ -195,13 +209,17 @@ object QuickDownloadChoices {
     }
 
     /**
-     * P9: two audio and two video rows. The full choices and their IDs stay untouched, so
-     * expanding/collapsing never changes the selection or lists an option twice.
-     * If no lower video exists, the nearest higher one is the second choice.
-     * D2: the audio rows are the first one (M4A) and the lowest MP3 offered: 128 kbps on
-     * YouTube, 192 on any other site.
+     * Two audio and two video rows. The full choices and their IDs stay untouched, so
+     * expanding/collapsing never changes the selection or lists an option twice. If no lower video
+     * exists, the nearest higher one is the second choice. The audio rows are the first one (M4A)
+     * and the lowest MP3 offered: 128 kbps on YouTube, 192 on any other site. The selected row
+     * ([selectedId]) always shows too, in its place in the full list.
      */
-    fun compact(choices: QuickChoices, quality: QualityPreference): QuickChoices {
+    fun compact(
+        choices: QuickChoices,
+        quality: QualityPreference,
+        selectedId: String? = null,
+    ): QuickChoices {
         val measured = choices.video.filter { it.variant.height != null }
         val videos = measured.ifEmpty { choices.video }
         val preferred = preselect(choices.copy(video = videos), quality)
@@ -211,7 +229,7 @@ object QuickDownloadChoices {
         }
         val next = lower ?: videos.filter { it.id != preferred?.id }
             .minByOrNull { it.rankHeight ?: Int.MAX_VALUE }
-        return choices.copy(
+        val short = choices.copy(
             audio = listOfNotNull(
                 choices.audio.firstOrNull(),
                 choices.audio.filter { it.variant.mp3 != null }
@@ -219,12 +237,20 @@ object QuickDownloadChoices {
             ).distinctBy(SheetOption::id),
             video = listOfNotNull(preferred, next).distinctBy(SheetOption::id),
         )
+        val selected = choices.option(selectedId)
+        if (selected == null || short.option(selected.id) != null) return short
+        fun withSelected(rows: List<SheetOption>, full: List<SheetOption>) =
+            (rows + selected).sortedBy(full::indexOf)
+        return when (selected.section) {
+            OptionSection.AUDIO -> short.copy(audio = withSelected(short.audio, choices.audio))
+            OptionSection.VIDEO -> short.copy(video = withSelected(short.video, choices.video))
+        }
     }
 
     /**
-     * P11: update only sizes/source status, never IDs, row order or chosen formats. P25: a row
-     * the site named only "HD"/"SD" takes its height's name in place once its file's picture is
-     * measured ("720p · HD"); it keeps its place and rank, so nothing moves.
+     * Update only sizes/source status, never IDs, row order or chosen formats. A row the site named
+     * only "HD"/"SD" takes its height's name in place once its file's picture is measured
+     * ("720p · HD"); it keeps its place and rank, so nothing moves.
      */
     fun updateSizes(choices: QuickChoices, source: SheetSource): QuickChoices {
         fun update(option: SheetOption): SheetOption {
@@ -261,15 +287,16 @@ object QuickDownloadChoices {
         YftQualityNames.standardHeight(width, height)
 
     /**
-     * P25: a video row named by the site's word or unknown whose file now states its picture
-     * takes the name, detail and line of its height.
+     * A video row named by the site's word or unknown whose file now states its picture takes the
+     * name, detail and line of its height.
      */
     private fun measured(option: SheetOption, file: MediaVariant): SheetOption {
         if (option.section != OptionSection.VIDEO || option.variant.height != null) return option
         val height = file.height?.takeIf { it > 0 } ?: return option
         val standard = standardHeight(file.width, height)
+        val av1 = YftQualityNames.isAv1Merge(file.codecs, merged = file.audioCompanion != null)
         return option.copy(
-            title = YftQualityNames.videoName(standard, file.framesPerSecond),
+            title = YftQualityNames.videoName(standard, file.framesPerSecond, av1),
             detail = pictureDetail(file),
             quality = YftQualityNames.quality(standard, file.framesPerSecond),
             description = YftQualityNames.videoDescription(standard),
@@ -277,18 +304,19 @@ object QuickDownloadChoices {
     }
 
     /**
-     * P25: the stated size, else an estimate from the bitrate and the length ("~54 MB", a
-     * merge's sound included), else null for "Size unknown"; a row never disappears for it.
+     * The stated size, else an estimate from the bitrate and the length ("~54 MB", a merge's sound
+     * included), else null for "Size unknown"; a row never disappears for it. A stated size too
+     * small for the length counts as not stated ([PlausibleSize]).
      */
     private fun sizeOf(variant: MediaVariant, length: Long?): String? {
-        variant.sizeText()?.let { return it }
         val duration = variant.durationMillis?.takeIf { it > 0 } ?: length
+        variant.sizeText(duration)?.let { return it }
         val picture = YftQualityNames.estimatedBytes(variant.bitrateBitsPerSecond, duration)
             ?: return null
         val companion = variant.audioCompanion
         val sound = when {
             companion == null -> 0L
-            else -> companion.contentLengthBytes
+            else -> PlausibleSize.of(companion.contentLengthBytes, duration)
                 ?: YftQualityNames.estimatedBytes(companion.bitrateBitsPerSecond, duration)
                 ?: return null
         }
@@ -302,8 +330,8 @@ object QuickDownloadChoices {
 
     /**
      * One row per standard resolution, highest first; files of unknown quality stay apart.
-     * P24: a page's quality playlist found beside its master is not a row of its own when the
-     * master names it with its height.
+     * Page video finder: a page's quality playlist found beside its master is not a row of its own
+     * when the master names it with its height.
      */
     private fun videoRows(options: List<SheetOption>): List<SheetOption> {
         val measured = options.filter { it.variant.height != null }
@@ -326,7 +354,7 @@ object QuickDownloadChoices {
 
     /**
      * The best M4A file, else the video's own sound kept as M4A, then MP3 made from it at every
-     * bitrate in [mp3Kbps] (D2: its page's); with no AAC at all the best other audio file alone.
+     * bitrate in [mp3Kbps] (its page's); with no AAC at all the best other audio file alone.
      */
     private fun audioRows(
         audio: List<SheetOption>,
@@ -351,14 +379,16 @@ object QuickDownloadChoices {
         val standard = height?.let { standardHeight(variant.width, it) }
         val hint = if (standard == null) qualityHint(source.candidate) else null
         val quality = standard?.let { YftQualityNames.quality(it, variant.framesPerSecond) } ?: hint
+        // AV1 merge switch: an AV1 merge (a debug build's test switch on) is named with "AV1".
+        val av1 = YftQualityNames.isAv1Merge(variant.codecs, merged = variant.audioCompanion != null)
         val title = when {
-            standard != null -> YftQualityNames.videoName(standard, variant.framesPerSecond)
+            standard != null -> YftQualityNames.videoName(standard, variant.framesPerSecond, av1)
             hint != null -> hint
             else -> QUALITY_UNKNOWN
         }
         val rank = standard ?: hint?.let(::hintHeight)
         val silent = variant.trackType == MediaTrackType.VIDEO
-        // Every phone YFT runs on plays Full HD; above it only some decode VP9 or AV1 (P6).
+        // Every phone YFT runs on plays Full HD; above it only some decode VP9 or AV1 (Merge).
         val unplayable = (standard ?: 0) > FULL_HD_HEIGHT && !playback.canPlay(variant)
         return SheetOption(
             id = optionId(index, variant),
@@ -415,7 +445,7 @@ object QuickDownloadChoices {
     }
 
     /**
-     * P25: "M4A" for the original sound (a file, or the video's own AAC copied: fastest) with its
+     * "M4A" for the original sound (a file, or the video's own AAC copied: fastest) with its
      * bitrate in the detail; "MP3 · 128 kbps" for MP3; another file by its format and bitrate.
      */
     private fun audioOption(index: Int, source: SheetSource, variant: MediaVariant): SheetOption {
@@ -452,8 +482,8 @@ object QuickDownloadChoices {
     }
 
     /**
-     * The sound of a video that has no audio file: an MP4 with sound whose AAC is stated before
-     * one whose sound's codec is not (P25), then the highest stated bitrate, then the smallest.
+     * The sound of a video that has no audio file: an MP4 with sound whose AAC is stated before one
+     * whose sound's codec is not, then the highest stated bitrate, then the smallest.
      */
     private fun soundOf(videos: List<SheetOption>): SheetOption? {
         val best = videos.filter { AudioFromVideo.canExtract(it.variant) }
@@ -509,8 +539,8 @@ object QuickDownloadChoices {
             ?.takeIf(String::isNotEmpty)
 
     /**
-     * P16: the link as the waiting sheet shows it before the video's title is known, without
-     * its scheme, "www." or fragment ("youtube.com/watch?v=…").
+     * The link as the waiting sheet shows it before the video's title is known, without its scheme,
+     * "www." or fragment ("youtube.com/watch?v=…").
      */
     internal fun shownLink(pageUrl: String): String? {
         val uri = runCatching { URI(pageUrl) }.getOrNull() ?: return null
@@ -536,6 +566,9 @@ object QuickDownloadChoices {
         .thenBy { if (it.variant.height != null) 0 else 1 }
         .thenBy { if (it.variant.trackType == MediaTrackType.AUDIO_VIDEO) 0 else 1 }
         .thenBy { if (it.variant.audioCompanion == null) 0 else 1 }
+        // AV1 merge switch: an AV1 merge (a debug build's switch on) only at a size no other file
+        // has: the AV1-only sizes. The release has none (its AV1 merges are off).
+        .thenBy { if (YftQualityNames.isAv1Merge(it.variant.codecs, it.variant.audioCompanion != null)) 1 else 0 }
         .thenBy { kindRank(it.variant.kind) }
         .thenBy { if (formatName(it.variant) == "MP4") 0 else 1 }
         .thenByDescending { it.variant.height ?: 0 }

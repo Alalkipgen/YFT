@@ -1,5 +1,6 @@
 package com.alal.yft.core.download
 
+import com.alal.yft.core.model.download.DownloadFailureDetails
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.DownloadFailureStage
 import com.alal.yft.core.model.download.DashDownloadPlan
@@ -282,7 +283,7 @@ class DashTransferEngineTest {
         assertArrayEquals(bytes, files.completed.readBytes())
         assertTrue(workspaceRoot.listFiles().orEmpty().isEmpty())
         val ranges = List(server.requestCount) { server.takeRequest().getHeader("Range") }
-        // FAST_START (P41): the first range states the length, so there is no bytes=0-0 probe.
+        // FAST_START: the first range states the length, so there is no bytes=0-0 probe.
         assertEquals(
             listOf("bytes=0-999", "bytes=1000-1999", "bytes=2000-2499"),
             ranges,
@@ -430,12 +431,92 @@ class DashTransferEngineTest {
         val files = files("short-live.mp4")
 
         val result = engine().transfer(
-            plan = livePlan("short-live", expectedDurationMillis = 10_000),
+            plan = livePlan("short-live", expectedDurationMillis = 600_000),
+            destination = files.destination,
+        ) as DashTransferResult.Failure
+
+        // 9m59s short is more than the 2 minutes a stopped stream may be short.
+        assertEquals(DownloadFailureReason.LIVE_NOT_READY, result.failure.reason)
+        assertEquals(
+            "live: 9m59s missing at the end, newest sq 3 stopped · 0h00m00s of 0h10m00s · " +
+                "4/4 pieces",
+            result.failure.detail,
+        )
+        // The HEAD, the 4 pieces, then the head asked again after each of the 3 waits.
+        assertEquals(listOf("HEAD", "HEAD", "HEAD", "HEAD"), heads(8))
+        assertFalse(files.completed.exists())
+    }
+
+    @Test
+    fun `a live stream whose head stopped a little short of its video is saved and says so`() =
+        runTest {
+            val (track, pieces) = livePieces()
+            server.dispatcher = livePieceDispatcher(pieces)
+            val files = files("little-short.mp4")
+
+            val result = engine().transfer(
+                plan = livePlan("little-short", expectedDurationMillis = 10_000),
+                destination = files.destination,
+            ) as DashTransferResult.Completed
+
+            assertSamples(track.samples, files.completed)
+            assertEquals(
+                listOf(
+                    "Live video saved 9 s short of 0h00m10s, at the end: YouTube's newest " +
+                        "piece (sq 3) stopped; no piece is missing",
+                ),
+                result.notes,
+            )
+            assertEquals(8, server.requestCount)
+        }
+
+    @Test
+    fun `a live stream whose head moves after the first read gets the newer pieces`() = runTest {
+        val (track, pieces) = livePieces()
+        // The first HEAD names sq 1, the next ones sq 3; sq 2 and 3 come only then.
+        server.dispatcher = livePieceDispatcher(pieces, heads = listOf(1, 3))
+        val files = files("moving.mp4")
+
+        val result = engine().transfer(
+            plan = livePlan("moving", expectedDurationMillis = 1_800),
+            destination = files.destination,
+        ) as DashTransferResult.Completed
+
+        assertSamples(track.samples, files.completed)
+        assertEquals(
+            listOf(
+                "Live video: YouTube's newest piece moved from sq 1 to sq 3 while it came; " +
+                    "2 more pieces were added",
+            ),
+            result.notes,
+        )
+        assertEquals(4, result.checkpoint.chunks.size)
+        assertTrue(result.checkpoint.chunks.all { it.completed && it.downloadedBytes > 0 })
+        // HEAD, sq 0 and 1, HEAD (sq 3), sq 2 and 3: whole, so nothing more is asked.
+        assertEquals(6, server.requestCount)
+    }
+
+    @Test
+    fun `a live tail that is never served is not ready and says where`() = runTest {
+        val (_, pieces) = livePieces()
+        server.dispatcher = livePieceDispatcher(pieces) { sq, _ -> 404.takeIf { sq >= 2 } }
+        val files = files("no-tail.mp4")
+
+        val result = engine().transfer(
+            plan = livePlan("no-tail", expectedDurationMillis = 1_800),
             destination = files.destination,
         ) as DashTransferResult.Failure
 
         assertEquals(DownloadFailureReason.LIVE_NOT_READY, result.failure.reason)
-        assertEquals("live 0h00m00s of 0h00m10s · 4/4 pieces", result.failure.detail)
+        assertEquals(
+            "live: 1 s missing at the end, sq 2\u20133 not served · 0h00m00s of 0h00m01s · " +
+                "2/4 pieces",
+            result.failure.detail,
+        )
+        // The tail asked once and after each of the 3 waits.
+        val asked = piecesAsked(server.requestCount)
+        assertEquals(4, asked.count { it == "2" })
+        assertEquals(4, asked.count { it == "3" })
         assertFalse(files.completed.exists())
     }
 
@@ -460,17 +541,205 @@ class DashTransferEngineTest {
         val files = files("hole.mp4")
 
         val result = engine().transfer(
-            plan = livePlan("hole"),
+            plan = livePlan("hole", expectedDurationMillis = 1_500),
             destination = files.destination,
         ) as DashTransferResult.Failure
 
-        assertEquals(DownloadFailureReason.NOT_FOUND, result.failure.reason)
-        assertEquals(404, result.failure.httpStatusCode)
-        assertTrue(
-            result.failure.detail.orEmpty(),
-            result.failure.detail.orEmpty().startsWith("live sq 1/3 · 404 "),
+        // Asked again after each wait, then not ready, with where and how much.
+        assertEquals(DownloadFailureReason.LIVE_NOT_READY, result.failure.reason)
+        assertEquals(
+            "live: sq 1 missing in the middle (1 piece, about 0 s), asked 4 times · newest sq 3",
+            result.failure.detail,
         )
+        assertEquals(4, piecesAsked(server.requestCount).count { it == "1" })
         assertFalse(files.completed.exists())
+    }
+
+    @Test
+    fun `a piece in the middle served late is asked again and the live file is whole`() =
+        runTest {
+            val (track, pieces) = livePieces()
+            server.dispatcher = livePieceDispatcher(pieces) { sq, ask ->
+                404.takeIf { sq == 1 && ask <= 2 }
+            }
+            val files = files("late.mp4")
+
+            val result = engine().transfer(
+                plan = livePlan("late"),
+                destination = files.destination,
+            ) as DashTransferResult.Completed
+
+            assertSamples(track.samples, files.completed)
+            assertEquals(emptyList<String>(), result.notes)
+        }
+
+    @Test
+    fun `a live stream whose first piece is not served is not ready and says the start`() =
+        runTest {
+            val (_, pieces) = livePieces()
+            server.dispatcher = livePieceDispatcher(pieces) { sq, _ -> 404.takeIf { sq == 0 } }
+            val files = files("no-start.mp4")
+
+            val result = engine().transfer(
+                plan = livePlan("no-start"),
+                destination = files.destination,
+            ) as DashTransferResult.Failure
+
+            assertEquals(DownloadFailureReason.LIVE_NOT_READY, result.failure.reason)
+            assertEquals(
+                "live: the start is missing, sq 0/3 · 404 text/plain len 0 sq -/3",
+                result.failure.detail,
+            )
+            // The HEAD, then sq 0 once and after each of the 2 waits; nothing more.
+            assertEquals(listOf("0", "0", "0"), piecesAsked(server.requestCount))
+            assertFalse(files.completed.exists())
+        }
+
+    @Test
+    fun `a first piece served late is asked again and the live file is whole`() = runTest {
+        val (track, pieces) = livePieces()
+        server.dispatcher = livePieceDispatcher(pieces) { sq, ask ->
+            404.takeIf { sq == 0 && ask == 1 }
+        }
+        val files = files("late-start.mp4")
+
+        engine().transfer(
+            plan = livePlan("late-start"),
+            destination = files.destination,
+        ) as DashTransferResult.Completed
+
+        assertSamples(track.samples, files.completed)
+    }
+
+    @Test
+    fun `the owner's live of 1556 pieces short of 2h10m33s fails as before without waits`() =
+        runTest {
+            server.dispatcher = livePieceDispatcher(ownersPieces(1_556))
+            val files = files("owner-before.mp4")
+
+            val result = engine(liveSettleWaitsMillis = emptyList()).transfer(
+                plan = livePlan("owner-before", expectedDurationMillis = OWNERS_LENGTH_MILLIS),
+                destination = files.destination,
+            ) as DashTransferResult.Failure
+
+            assertEquals(DownloadFailureReason.LIVE_NOT_READY, result.failure.reason)
+            assertEquals(
+                "live: 54 s missing at the end, newest sq 1555 · 2h09m39s of 2h10m33s · " +
+                    "1556/1556 pieces",
+                result.failure.detail,
+            )
+        }
+
+    @Test
+    fun `the owner's live of 1556 pieces whose head stopped is saved 54 s short and says so`() =
+        runTest {
+            server.dispatcher = livePieceDispatcher(ownersPieces(1_556))
+            val files = files("owner-stopped.mp4")
+
+            val result = engine().transfer(
+                plan = livePlan("owner-stopped", expectedDurationMillis = OWNERS_LENGTH_MILLIS),
+                destination = files.destination,
+            ) as DashTransferResult.Completed
+
+            assertEquals(7_779_500L, durationTicks(files.completed))
+            val note = "Live video saved 54 s short of 2h10m33s, at the end: YouTube's newest " +
+                "piece (sq 1555) stopped; no piece is missing"
+            assertEquals(listOf(note), result.notes)
+            assertTrue(note.length <= DownloadFailureDetails.MAX_CHARS)
+        }
+
+    @Test
+    fun `the owner's live whose head moves from sq 1555 to 1566 comes whole`() = runTest {
+        server.dispatcher = livePieceDispatcher(ownersPieces(1_567), heads = listOf(1_555, 1_566))
+        val files = files("owner-moving.mp4")
+
+        val result = engine().transfer(
+            plan = livePlan("owner-moving", expectedDurationMillis = OWNERS_LENGTH_MILLIS),
+            destination = files.destination,
+        ) as DashTransferResult.Completed
+
+        assertEquals(7_834_500L, durationTicks(files.completed))
+        assertEquals(1_567, result.checkpoint.chunks.size)
+        assertEquals(
+            listOf(
+                "Live video: YouTube's newest piece moved from sq 1555 to sq 1566 while it " +
+                    "came; 11 more pieces were added",
+            ),
+            result.notes,
+        )
+    }
+
+    @Test
+    fun `an ended live shows an estimated total once 10 of its pieces are in`() = runTest {
+        val pieces = ownersPieces(30)
+        val size = pieces.first().size.toLong()
+        assertTrue(pieces.all { it.size.toLong() == size })
+        server.dispatcher = livePieceDispatcher(pieces)
+        val files = files("estimate.mp4")
+        val progress = mutableListOf<DownloadProgress>()
+
+        engine(maxConcurrentChunks = 1, progressIntervalMillis = 0).transfer(
+            plan = livePlan("estimate"),
+            destination = files.destination,
+            onProgress = { progress += it },
+        ) as DashTransferResult.Completed
+
+        // The total stays unknown; the estimate is the average piece times the 30 pieces.
+        assertTrue(progress.all { it.totalBytes == null })
+        val estimates = progress.mapNotNull { it.estimatedTotalBytes }
+        assertTrue(estimates.isNotEmpty())
+        assertEquals(setOf(30 * size), estimates.toSet())
+        // Fewer than 10 pieces in: no estimate, so the row shows only the bytes so far.
+        val early = progress.filter { it.downloadedBytes < 10 * size }
+        assertTrue(early.isNotEmpty())
+        assertTrue(early.all { it.estimatedTotalBytes == null })
+        assertEquals(30 * size, progress.last().downloadedBytes)
+        assertEquals(30 * size, progress.last().estimatedTotalBytes)
+    }
+
+    @Test
+    fun `a live with fewer than 10 pieces shows no estimated total`() = runTest {
+        server.dispatcher = livePieceDispatcher(ownersPieces(9))
+        val files = files("few.mp4")
+        val progress = mutableListOf<DownloadProgress>()
+
+        engine(progressIntervalMillis = 0).transfer(
+            plan = livePlan("few"),
+            destination = files.destination,
+            onProgress = { progress += it },
+        ) as DashTransferResult.Completed
+
+        assertTrue(progress.isNotEmpty())
+        assertTrue(progress.all { it.totalBytes == null && it.estimatedTotalBytes == null })
+    }
+
+    @Test
+    fun `an ended live's estimated total grows when its newest piece moves`() = runTest {
+        val pieces = ownersPieces(30)
+        val size = pieces.first().size.toLong()
+        server.dispatcher = livePieceDispatcher(pieces, heads = listOf(19, 29))
+        val files = files("estimate-moving.mp4")
+        val progress = mutableListOf<DownloadProgress>()
+
+        val result = engine(progressIntervalMillis = 0).transfer(
+            plan = livePlan("estimate-moving", expectedDurationMillis = 150_000),
+            destination = files.destination,
+            onProgress = { progress += it },
+        ) as DashTransferResult.Completed
+
+        assertEquals(30, result.checkpoint.chunks.size)
+        // 20 pieces at first, 30 once the newest piece moved from sq 19 to sq 29.
+        assertEquals(
+            listOf(20 * size, 30 * size),
+            progress.mapNotNull { it.estimatedTotalBytes }.distinct(),
+        )
+        // All 20 pieces in, then the larger total: the percent drops before it goes on.
+        val before = progress.last { it.estimatedTotalBytes == 20 * size }
+        val after = progress.first { it.estimatedTotalBytes == 30 * size }
+        assertEquals(20 * size, before.downloadedBytes)
+        assertTrue(after.downloadedBytes < 30 * size)
+        assertTrue(progress.all { it.totalBytes == null })
+        assertEquals(30 * size, progress.last().estimatedTotalBytes)
     }
 
     @Test
@@ -615,6 +884,45 @@ class DashTransferEngineTest {
         assertFalse(files.completed.exists())
     }
 
+    /**
+     * The owner's live of 2026-10-31 as [count] pieces of 5 s (1000 ticks a second), one
+     * sample each, but sq 1555 of 4.5 s: its first 1,556 pieces last 2h09m39s (7,779.5 s).
+     */
+    private fun ownersPieces(count: Int): List<ByteArray> {
+        val random = kotlin.random.Random(7)
+        val track = Mp4TestFiles.Track(video = true, timescale = 1_000, fragments = emptyList())
+        val header = Mp4TestFiles.header(track)
+        var time = 0L
+        return List(count) { sq ->
+            val sample = Mp4TestFiles.Sample(
+                bytes = random.nextBytes(16),
+                duration = if (sq == 1_555) 4_500 else 5_000,
+            )
+            val piece = header + Mp4TestFiles.moof(track, sq + 1, time, listOf(sample)) +
+                Mp4TestFiles.box("mdat", sample.bytes)
+            time += sample.duration
+            piece
+        }
+    }
+
+    /** The joined file's track length in its ticks. */
+    private fun durationTicks(file: File): Long =
+        java.io.RandomAccessFile(file, "r").use { input ->
+            Mp4TrackReader(FileChannelMp4Source(input.channel), StreamCopyTrackKind.VIDEO)
+                .read()
+                .mediaDuration
+        }
+
+    /** The methods of the first [count] requests that were HEADs. */
+    private fun heads(count: Int): List<String> =
+        List(count) { server.takeRequest().method.orEmpty() }.filter { it == "HEAD" }
+
+    /** The `sq` of each piece among the first [count] requests, in order. */
+    private fun piecesAsked(count: Int): List<String> =
+        List(count) { server.takeRequest() }
+            .filter { it.method == "GET" }
+            .map { it.requestUrl?.queryParameter("sq").orEmpty() }
+
     /** A live stream of [count] pieces, each a fragmented MP4 with its own ftyp and moov. */
     private fun livePieces(count: Int = 4): Pair<Mp4TestFiles.Track, List<ByteArray>> {
         val track = Mp4TestFiles.video(fragments = count, perFragment = 5)
@@ -693,13 +1001,23 @@ class DashTransferEngineTest {
     private fun livePieceDispatcher(
         pieces: List<ByteArray>,
         head: Int? = pieces.lastIndex,
+        heads: List<Int>? = null,
         status: (sq: Int, ask: Int) -> Int? = { _, _ -> null },
     ): Dispatcher = object : Dispatcher() {
         private val asks = java.util.concurrent.ConcurrentHashMap<Int, AtomicInteger>()
+        private val headAsks = AtomicInteger()
+
+        // With [heads], the HEADs name them in turn (the last one stays), and a piece
+        // is served only once a HEAD named it.
+        @Volatile
+        private var newest: Int? = heads?.first() ?: head
 
         override fun dispatch(request: RecordedRequest): MockResponse {
+            if (request.method == "HEAD" && heads != null) {
+                newest = heads[minOf(headAsks.getAndIncrement(), heads.lastIndex)]
+            }
             val response = MockResponse().setHeader("Content-Type", "video/mp4")
-            head?.let { response.setHeader("X-Head-Seqnum", it) }
+            newest?.let { response.setHeader("X-Head-Seqnum", it) }
             if (request.method == "HEAD") return response.setResponseCode(200)
             if (request.getHeader("Range") != null) return MockResponse().setResponseCode(400)
             val sq = request.requestUrl?.queryParameter("sq")?.toIntOrNull()
@@ -710,7 +1028,9 @@ class DashTransferEngineTest {
                     .setHeader("Content-Type", "text/plain")
                     .setHeader("Retry-After", "0")
             }
-            val bytes = pieces.getOrNull(sq) ?: return response.setResponseCode(404)
+            val bytes = pieces.getOrNull(sq)
+                ?.takeIf { heads == null || sq <= (newest ?: -1) }
+                ?: return response.setResponseCode(404)
             return response.setResponseCode(200)
                 .setHeader("X-Sequence-Num", sq)
                 .setBody(Buffer().write(bytes))
@@ -792,9 +1112,15 @@ class DashTransferEngineTest {
         wholeFile = WholeFileTrack(totalBytes = totalBytes, maxRequestBytes = 1_000),
     )
 
+    /**
+     * A live file's waits are 0 here; [liveSettleWaitsMillis] empty: none, as before.
+     * [progressIntervalMillis] 0 reports every step of the progress.
+     */
     private fun engine(
         maxAttempts: Int = 3,
         maxConcurrentChunks: Int = 2,
+        liveSettleWaitsMillis: List<Long> = listOf(0, 0, 0),
+        progressIntervalMillis: Long = 250,
     ): DashTransferEngine = DashTransferEngine(
         client = OkHttpClient(),
         workspaceRoot = workspaceRoot,
@@ -803,6 +1129,9 @@ class DashTransferEngineTest {
             initialRetryDelayMillis = 0,
             maxConcurrentChunks = maxConcurrentChunks,
             bufferBytes = 1_024,
+            progressIntervalMillis = progressIntervalMillis,
+            liveSettleWaitsMillis = liveSettleWaitsMillis,
+            liveFirstPieceWaitsMillis = listOf(0, 0),
         ),
         clock = { 100 },
     )
@@ -870,5 +1199,8 @@ class DashTransferEngineTest {
 
     private companion object {
         val RANGE = Regex("""bytes=(\d+)-(\d+)""")
+
+        /** The owner's live's length on YouTube, 2h10m33s. */
+        const val OWNERS_LENGTH_MILLIS = 7_833_000L
     }
 }

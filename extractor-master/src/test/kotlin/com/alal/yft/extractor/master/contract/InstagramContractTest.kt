@@ -20,7 +20,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * R8 Instagram: Master asks the public embed page (`/p/{code}/embed/captioned/`) as the browser,
+ * Site contract reader, Instagram: Master asks the public embed page (`/p/{code}/embed/captioned/`) as the browser,
  * without the user's cookies, and reads its `contextJSON` post with the Instagram key table,
  * which also reads main's other answers (app API, GraphQL, the signed-in page). Parity with
  * main's adapter on main's fixtures; a photo post stops, while a missing, walled or fileless

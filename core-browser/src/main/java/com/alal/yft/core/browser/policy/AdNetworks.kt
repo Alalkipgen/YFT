@@ -1,9 +1,9 @@
 package com.alal.yft.core.browser.policy
 
 /**
- * YFT's own short list of pop-up, pop-under and redirect ad networks (P32), written for YFT from
+ * YFT's own short list of pop-up, pop-under and redirect ad networks, written for YFT from
  * what these networks are known for; not a copy of any filter list. A site's own video ads are
- * not the target (F4): networks that mainly serve players' pre-roll ads are not listed.
+ * not the target: networks that mainly serve players' pre-roll ads are not listed.
  *
  * A listed host and every subdomain of it is blocked as a top-level navigation and as a new
  * window. [Network.blockResources] also empties its scripts, frames and images, so the pop-up

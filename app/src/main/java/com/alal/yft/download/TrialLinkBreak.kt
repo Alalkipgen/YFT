@@ -17,7 +17,7 @@ import okio.ForwardingSource
 import okio.buffer
 
 /**
- * Track E (E-D9): the trial's tool for the phone test. Downloads ⋮ breaks a download's current
+ * Fresh link renewal: the trial's tool for the phone test. Downloads ⋮ breaks a download's current
  * link: every request of that link (the queue's [DownloadRequestTag]) gets this tool's own 403,
  * without the network, and a body still being read stops, so the download's next request meets
  * the 403 as a dead link's would. The download's next link, a fresh one, passes. Off in every

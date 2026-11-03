@@ -21,7 +21,7 @@ import org.junit.Rule
 import org.junit.Test
 
 /**
- * Track E (E-D9): the trial's "Break this download's link" refuses its download's current link
+ * Fresh link renewal: the trial's "Break this download's link" refuses its download's current link
  * alone, without the network, and stops a body still being read; outside the trial it does
  * nothing at all.
  */

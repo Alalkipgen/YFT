@@ -31,7 +31,7 @@ data class DomMediaObservation(
     val thumbnailUrl: String?,
     val durationMillis: Long?,
     val observedAtEpochMs: Long,
-    /** P24: what the page's markup says the file is ([PageMediaRole]); null when nothing. */
+    /** What the page's markup says the file is ([PageMediaRole]); null when nothing. */
     val pageRole: PageMediaRole? = null,
 )
 

@@ -93,7 +93,7 @@ class DetectedMediaScreenTest {
 
     @Test
     fun theQualitiesOfOneVideoAreOneRowWhosePreviewOpensThemAll() {
-        // Same page and length: one video in two qualities and its audio (P3).
+        // Same page and length: one video in two qualities and its audio.
         val qualities = listOf(
             candidate(0, "Fixture clip — 720p"),
             candidate(1, "Fixture clip — 480p"),
@@ -124,7 +124,7 @@ class DetectedMediaScreenTest {
 
     @Test
     fun aPagesPreviewsAreNotCountedAndFollowItsVideoUnderOtherVideos() {
-        // P24: the page's video comes first and is the count; its previews follow it.
+        // Page video finder: the page's video comes first and is the count; its previews follow it.
         val video = candidate(2, "Fixture clip").copy(durationMillis = 600_000)
         val previews = (0..1).map { index ->
             candidate(index, "Preview ${index + 1}").copy(pageRole = PageMediaRole.PREVIEW)

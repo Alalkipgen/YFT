@@ -43,7 +43,7 @@ class DefaultVariantResolverTest {
     @Before
     fun setUp() {
         server = MockWebServer()
-        // P24: an HLS master's playlist is read for its length; a test that serves none
+        // An HLS master's playlist is read for its length; a test that serves none
         // answers it with 404 at once instead of waiting.
         server.dispatcher = QueueDispatcher().apply { setFailFast(true) }
         redirectTarget = MockWebServer()
@@ -83,7 +83,7 @@ class DefaultVariantResolverTest {
         assertEquals(720, variant.height)
         assertEquals(1280, variant.width)
         assertEquals(30.0, variant.framesPerSecond!!, 0.0)
-        // The page title is never a quality label (P3, finding G2).
+        // The page title is never a quality label.
         assertNull(variant.label)
         assertEquals("HEAD", server.takeRequest().method)
         assertEquals(1, server.requestCount)
@@ -158,7 +158,7 @@ class DefaultVariantResolverTest {
 
     @Test
     fun `a stated sound track stays audio when the server labels the mp4 as video`() = runTest {
-        // Facebook's CDN serves a DASH manifest's sound-only track as video/mp4 (P4).
+        // Facebook's CDN serves a DASH manifest's sound-only track as video/mp4.
         repeat(2) {
             server.enqueue(
                 MockResponse()
@@ -274,7 +274,7 @@ class DefaultVariantResolverTest {
         val audio = result.asset.variants.single { it.trackType == MediaTrackType.AUDIO }
         assertEquals("en", audio.language)
         assertTrue(audio.playbackUrl.endsWith("/audio/en.m3u8"))
-        // P50: each quality is merged with its group's sound, not listed as "No sound".
+        // Each quality is merged with its group's sound, not listed as "No sound".
         assertEquals(MediaTrackType.AUDIO_VIDEO, fullHd.trackType)
         assertEquals(listOf("avc1.640028"), fullHd.codecs)
         val sound = requireNotNull(fullHd.audioCompanion)
@@ -316,8 +316,8 @@ class DefaultVariantResolverTest {
 
     @Test
     fun `YouTube HLS pairs AVC qualities with the AAC sound and VP9 only above them`() = runTest {
-        // Master Phase 1.3 D5c (h-only): the sound is one rendition without CODECS, named in each
-        // quality's CODECS first. Backlog item 5: VP9 with AAC goes into one MP4 by YFT's own
+        // YouTube's HLS answer (h-only): the sound is one rendition without CODECS, named in each
+        // quality's CODECS first. VP9 with AAC goes into one MP4 by YFT's own
         // stream copy, so a VP9 quality is paired where no AVC one has sound (2160p); at 1080p
         // the AVC row keeps the sound and the VP9 one stays "No sound".
         val stream = "#EXT-X-STREAM-INF:BANDWIDTH"
@@ -385,6 +385,142 @@ class DefaultVariantResolverTest {
         val audio = result.asset.variants.single { it.trackType == MediaTrackType.AUDIO }
         assertEquals(160_000L, audio.sizeBytes)
         assertEquals("en", audio.language)
+    }
+
+    @Test
+    fun `DASH notes each representation that is one file`() = runTest {
+        // A SegmentBase with the representation's own BaseURL, in a manifest
+        // that is not live, is one file; pieces, another file's initialization or a live
+        // manifest are not.
+        val manifest = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <MPD mediaPresentationDuration="PT10S" xmlns="urn:mpeg:dash:schema:mpd:2011">
+              <Period>
+                <AdaptationSet contentType="video" mimeType="video/mp4" codecs="avc1.4d401e">
+                  <Representation id="one" bandwidth="400000" width="640" height="360">
+                    <BaseURL>video-360.mp4</BaseURL>
+                    <SegmentBase indexRange="700-799"><Initialization range="0-699"/></SegmentBase>
+                  </Representation>
+                  <Representation id="pieces" bandwidth="800000" width="1280" height="720">
+                    <SegmentTemplate media="v720-${'$'}Number${'$'}.m4s" duration="2" startNumber="1"/>
+                  </Representation>
+                  <Representation id="elsewhere" bandwidth="600000" width="854" height="480">
+                    <BaseURL>video-480.mp4</BaseURL>
+                    <SegmentBase indexRange="700-799">
+                      <Initialization sourceURL="init-480.mp4" range="0-699"/>
+                    </SegmentBase>
+                  </Representation>
+                </AdaptationSet>
+                <AdaptationSet contentType="audio" mimeType="audio/mp4" codecs="mp4a.40.2" lang="en">
+                  <SegmentBase indexRange="500-579"><Initialization range="0-499"/></SegmentBase>
+                  <Representation id="sound" bandwidth="128000">
+                    <BaseURL>audio-en.m4a</BaseURL>
+                  </Representation>
+                </AdaptationSet>
+              </Period>
+            </MPD>
+        """.trimIndent()
+        server.enqueue(manifestResponse(manifest, "application/dash+xml"))
+        server.enqueue(
+            manifestResponse(
+                manifest.replace("<MPD ", "<MPD type=\"dynamic\" "),
+                "application/dash+xml",
+            ),
+        )
+
+        fun oneFile(result: VariantResolutionResult): Map<String?, Boolean> =
+            (result as VariantResolutionResult.Success).asset.variants
+                .associate { it.manifestVariantId to it.dashOneFile }
+
+        val static = oneFile(
+            resolver.resolve(candidate(server.url("/manifest.mpd").toString(), MediaKind.DASH)),
+        )
+        assertEquals(
+            mapOf("one" to true, "pieces" to false, "elsewhere" to false, "sound" to true),
+            static,
+        )
+        val live = oneFile(
+            resolver.resolve(candidate(server.url("/live.mpd").toString(), MediaKind.DASH)),
+        )
+        assertTrue(live.isNotEmpty())
+        assertTrue(live.values.none { it })
+    }
+
+    @Test
+    fun `DASH notes each representation in pieces and reads bbb_30fps's sound`() = runTest {
+        // A SegmentTemplate or SegmentList (the representation's, its adaptation
+        // set's or its period's), no SegmentBase beside it, in a manifest that is not live. The
+        // sound is bbb_30fps.mpd's: HE-AAC, no language, an Accessibility and a Role.
+        val manifest = """
+            <MPD mediaPresentationDuration="PT634.566S" type="static"
+              xmlns="urn:mpeg:dash:schema:mpd:2011">
+              <BaseURL>./</BaseURL>
+              <Period>
+                <AdaptationSet mimeType="video/mp4" contentType="video">
+                  <SegmentTemplate duration="120" timescale="30" startNumber="1"
+                    media="${'$'}RepresentationID${'$'}_${'$'}Number${'$'}.m4v"
+                    initialization="${'$'}RepresentationID${'$'}_0.m4v"/>
+                  <Representation id="template" codecs="avc1.640033" bandwidth="14931538"
+                    width="3840" height="2160" frameRate="30"/>
+                  <Representation id="both" codecs="avc1.64001f" bandwidth="4952892"
+                    width="1280" height="720">
+                    <SegmentBase indexRange="700-799"><Initialization range="0-699"/></SegmentBase>
+                  </Representation>
+                </AdaptationSet>
+                <AdaptationSet mimeType="video/mp4" codecs="avc1.64000d">
+                  <Representation id="list" bandwidth="254320" width="320" height="180">
+                    <SegmentList duration="4">
+                      <Initialization sourceURL="list/init.m4v"/>
+                      <SegmentURL media="list/1.m4v"/>
+                    </SegmentList>
+                  </Representation>
+                </AdaptationSet>
+                <AdaptationSet mimeType="audio/mp4" contentType="audio">
+                  <Accessibility schemeIdUri="urn:tva:metadata:cs:AudioPurposeCS:2007" value="6"/>
+                  <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+                  <SegmentTemplate duration="192512" timescale="48000" startNumber="1"
+                    media="${'$'}RepresentationID${'$'}_${'$'}Number${'$'}.m4a"
+                    initialization="${'$'}RepresentationID${'$'}_0.m4a"/>
+                  <Representation id="bbb_a64k" codecs="mp4a.40.5" bandwidth="67071"
+                    audioSamplingRate="48000">
+                    <AudioChannelConfiguration value="2"
+                      schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011"/>
+                  </Representation>
+                </AdaptationSet>
+              </Period>
+            </MPD>
+        """.trimIndent()
+        server.enqueue(manifestResponse(manifest, "application/dash+xml"))
+        server.enqueue(
+            manifestResponse(
+                manifest.replace("type=\"static\"", "type=\"dynamic\""),
+                "application/dash+xml",
+            ),
+        )
+
+        fun pieces(result: VariantResolutionResult) =
+            (result as VariantResolutionResult.Success).asset.variants
+
+        val static = pieces(
+            resolver.resolve(candidate(server.url("/bbb_30fps.mpd").toString(), MediaKind.DASH)),
+        )
+        assertEquals(
+            mapOf("template" to true, "both" to false, "list" to true, "bbb_a64k" to true),
+            static.associate { it.manifestVariantId to it.dashPieces },
+        )
+        assertTrue(static.none { it.dashOneFile })
+        val sound = static.single { it.trackType == MediaTrackType.AUDIO }
+        assertEquals("bbb_a64k", sound.manifestVariantId)
+        assertEquals(VariantSupport.SUPPORTED, sound.support)
+        assertEquals(listOf("mp4a.40.5"), sound.codecs)
+        assertEquals("audio/mp4", sound.mimeType)
+        assertEquals(67_071L, sound.bitrateBitsPerSecond)
+        assertNull(sound.language)
+        val live = pieces(
+            resolver.resolve(candidate(server.url("/live.mpd").toString(), MediaKind.DASH)),
+        )
+        assertEquals(4, live.size)
+        assertTrue(live.none { it.dashPieces || it.dashOneFile })
     }
 
     @Test
@@ -526,7 +662,7 @@ class DefaultVariantResolverTest {
 
     @Test
     fun `a pages HLS master is read with its Referer and Origin and states its length`() = runTest {
-        // P24: the owner's case: a page's player streams an HLS master that states no length.
+        // The owner's case: a page's player streams an HLS master that states no length.
         val pieces = (1..125).joinToString("") { "#EXTINF:6.0,\npiece$it.ts\n" }
         val playlist = "#EXTM3U\n#EXT-X-TARGETDURATION:6\n$pieces#EXTINF:4.5,\nlast.ts\n" +
             "#EXT-X-ENDLIST\n"
@@ -595,7 +731,7 @@ class DefaultVariantResolverTest {
     @Test
     fun `a file server that answers HEAD with a web page is asked for the file itself`() =
         runTest {
-            // P24 (live check): a file host sent HEAD to its home page, a web page, while a
+            // Seen in a live check: a file host sent HEAD to its home page, a web page, while a
             // one-byte GET of the same address got the video.
             server.dispatcher = object : Dispatcher() {
                 override fun dispatch(request: RecordedRequest): MockResponse = when {
@@ -628,7 +764,7 @@ class DefaultVariantResolverTest {
 
     @Test
     fun `a TikTok-shaped site file resolves to its one MP4 without a manifest step`() = runTest {
-        // P39 step 7: the owner's "Download · 1.4 MB" row was one MP4 on a TikTok file host,
+        // The owner's "Download · 1.4 MB" row was one MP4 on a TikTok file host,
         // sent with the page answer's cookie. On the JVM it resolves; the phone's failure came
         // from the request running on the sheet's main thread (see the next test).
         val file = Mp4Fixtures.file(width = 576, height = 1024, audioKbps = 128)
@@ -667,7 +803,7 @@ class DefaultVariantResolverTest {
     fun `responses are never read on the caller's thread, which Android forbids on main`() =
         runTest {
             // Stands in for NetworkOnMainThreadException: the sheet resolves from the main
-            // thread, and P38 closed the file check's range answer there, which reads its unread
+            // thread, and the file check closed its range answer there, which reads its unread
             // bytes on that thread; the error then escaped the resolver.
             val callerThread = AtomicReference<Thread>()
             val guarded = resolverReading {
@@ -714,7 +850,7 @@ class DefaultVariantResolverTest {
     @Test
     fun `a file server that answers HEAD with a server error is asked for the file itself`() =
         runTest {
-            // P39 live check: TikTok's file host answered the Download sheet's HEAD for the
+            // In a live check, TikTok's file host answered the Download sheet's HEAD for the
             // 540p H.265 file with 504, while a one-byte GET of the same address got the file.
             val file = Mp4Fixtures.file(width = 576, height = 1024, audioKbps = 128)
             server.enqueue(MockResponse().setResponseCode(504))
@@ -751,7 +887,7 @@ class DefaultVariantResolverTest {
             assertEquals(VariantResolutionFailure.HTTP_STATUS, refused.reason)
             assertEquals(502, refused.httpStatusCode)
             assertEquals(ResolutionStep.FILE_CHECK, refused.step)
-            // P39: a status failure has no exception class.
+            // A status failure has no exception class.
             assertNull(refused.error)
         }
 
@@ -769,7 +905,7 @@ class DefaultVariantResolverTest {
         assertEquals(VariantResolutionFailure.MALFORMED_MANIFEST, failure?.reason)
         assertEquals(ResolutionStep.MANIFEST, failure?.step)
         assertEquals(server.hostName, failure?.host)
-        // P39 step 7: the failure names its error's class.
+        // The failure names its error's class.
         assertEquals("IllegalStateException", failure?.error)
     }
 
@@ -788,14 +924,14 @@ class DefaultVariantResolverTest {
                 as VariantResolutionResult.Failure
 
             assertEquals(VariantResolutionFailure.NETWORK, failure.reason)
-            // P39: the class name only, never the message.
+            // The class name only, never the message.
             assertEquals("SocketTimeoutException", failure.error)
             assertEquals(server.hostName, failure.host)
         }
 
     @Test
     fun `a file whose HEAD answers 474 is asked by a range GET before failing`() = runTest {
-        // P45: the owner's adult-site file answered the sheet's HEAD with HTTP 474.
+        // The owner's adult-site file answered the sheet's HEAD with HTTP 474.
         server.enqueue(MockResponse().setResponseCode(474))
         server.enqueue(
             MockResponse()
@@ -819,7 +955,7 @@ class DefaultVariantResolverTest {
 
     @Test
     fun `a refused manifest is asked by the browser and its answer stands in`() = runTest {
-        // P45: the CDN answered YFT's request of a fresh HLS link with 410 while the page's
+        // The CDN answered YFT's request of a fresh HLS link with 410 while the page's
         // player played it; the browser's own engine gets it.
         val asked = mutableListOf<BrowserReadRequest>()
         val master = server.url("/v/master.m3u8").toString()
@@ -968,7 +1104,7 @@ class DefaultVariantResolverTest {
         const val NOW = 2_000_000_000_000L
         const val DISCARD_BYTES = 8_192L
 
-        /** P24: the codecs of the page's HLS master's two qualities. */
+        /** The codecs of the page's HLS master's two qualities. */
         const val AVC_720 = "avc1.4d401f,mp4a.40.2"
         const val AVC_1080 = "avc1.640028,mp4a.40.2"
     }

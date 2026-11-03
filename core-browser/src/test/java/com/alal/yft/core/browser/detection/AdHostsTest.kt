@@ -9,7 +9,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * P43: the signs that a file is an ad's (its host, its folder), the requests that start an ad
+ * The signs that a file is an ad's (its host, its folder), the requests that start an ad
  * break (Google IMA's, a VAST answer asked for by its query, a pre-roll request) and the answers
  * that are VAST or VMAP documents; the ad files after them carry [AdSign.AD_BREAK].
  */
@@ -44,7 +44,7 @@ class AdHostsTest {
 
     @Test
     fun theOwnersVideoCdnHostsAreNeverAdHosts() {
-        // P45: the hosts of the owner's Details (file check and manifest) serve the page's own
+        // The hosts of the owner's Details (file check and manifest) serve the page's own
         // video; only its ad network's hosts are ads.
         listOf(
             "https://ev.phncdn.com/videos/202610/09/1/720P_4000K_1.mp4?validfrom=1&hash=x",

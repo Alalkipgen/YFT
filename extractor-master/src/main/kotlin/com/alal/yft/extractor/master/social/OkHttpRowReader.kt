@@ -18,13 +18,13 @@ import okhttp3.Request
 import okio.BufferedSource
 
 /**
- * Social plan S1a (6), S6: V's read of a row's file for [SocialRowCheck]: one GET with
+ * Row check: the read of a row's file for [SocialRowCheck]: one GET with
  * `Range: bytes=0-(n - 1)` and `Accept-Encoding: identity`, HTTPS on one of the read's site's media
  * hosts only ([RowReadSite.address]: [Site.mediaHost]), the host the answer gave: **no redirect
  * followed** (a 3xx is no 2xx answer), no cookie and no credentials (dropped from the headers
  * given), at most `maxBytes` (≤ 64 KiB) read, a 10 s call timeout, no retry. Nothing is logged.
  *
- * Task 9: one reader for every site. It holds no site of its own: each read's site is the one
+ * One reader for every site. It holds no site of its own: each read's site is the one
  * [SocialRowCheck] chose for the read's lookup (its [MainPages]' site), named by the read's
  * [RowReadSite]. A read without one, or of an address off that site's media hosts, sends nothing
  * (a failure with no status); [SocialRowCheck] refuses such an address before route B lists the ask.
@@ -40,7 +40,7 @@ class OkHttpRowReader(client: OkHttpClient) : MediaStartReader {
 
     override suspend fun read(url: String, headers: Map<String, String>, maxBytes: Int): MediaStart {
         require(maxBytes in 1..MAX_BYTES)
-        // Task 9: the read's own site (the lookup's, chosen by the check), never one of the reader's.
+        // The read's own site (the lookup's, chosen by the check), never one of the reader's.
         val address = coroutineContext[RowReadSite]?.address(url) ?: return MediaStart.Failed(null)
         val builder = Request.Builder().url(address).get()
         headers.forEach { (name, value) ->
@@ -87,7 +87,7 @@ class OkHttpRowReader(client: OkHttpClient) : MediaStartReader {
 }
 
 /**
- * Task 9: the site whose media hosts a row's read may ask, in the read's context: the one
+ * The site whose media hosts a row's read may ask, in the read's context: the one
  * [SocialRowCheck] chose for the read's lookup (its [MainPages]' site), so one reader serves every
  * site's lookups. [address] is the one rule both apply: [SocialRowCheck] before route B lists an
  * ask (another host is refused there, never sent), [OkHttpRowReader] before it sends.

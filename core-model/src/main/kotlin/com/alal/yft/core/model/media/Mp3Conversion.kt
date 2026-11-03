@@ -4,7 +4,7 @@ import com.alal.yft.core.model.settings.SiteBrand
 import java.util.Locale
 
 /**
- * Marks a variant whose download is converted to MP3 on the phone (T18).
+ * Marks a variant whose download is converted to MP3 on the phone.
  *
  * The variant downloads the AAC file of [sourceVariantId] and encodes it as constant bitrate MP3
  * at [bitrateKbps]; previews play that source.
@@ -25,7 +25,7 @@ data class Mp3Conversion(
  * Only a whole AAC audio file (M4A) can be converted: the phone decodes it with MediaCodec and
  * LAME encodes the MP3. The best such file is the source of every MP3 bitrate. An M4A kept from
  * a video's sound ([AudioFromVideo]) is such a file too: the MP3 is made from the video's AAC
- * track. D2: YouTube offers every bitrate, any other site only 192 ([bitratesFor]).
+ * track. YouTube offers every bitrate, any other site only 192 ([bitratesFor]).
  */
 object Mp3Variants {
     const val MIME_TYPE = "audio/mpeg"
@@ -35,11 +35,11 @@ object Mp3Variants {
     /** Offered bitrates, best first: 320 high, 192 classic, 128 small. */
     val BITRATES_KBPS = listOf(320, 192, 128)
 
-    /** D2: the one bitrate a site other than YouTube offers, the classic. */
+    /** The one bitrate a site other than YouTube offers, the classic. */
     const val OTHER_SITE_KBPS = 192
 
     /**
-     * D2: the bitrates offered for a video on [pageUrl]: all of [BITRATES_KBPS] on YouTube, only
+     * The bitrates offered for a video on [pageUrl]: all of [BITRATES_KBPS] on YouTube, only
      * [OTHER_SITE_KBPS] on any site that is not YouTube (Facebook, Instagram, X, TikTok, VK, the
      * web). A chosen row is still rebuilt from its own bitrate ([of] takes any of them).
      */
@@ -95,7 +95,7 @@ object Mp3Variants {
     }
 
     /**
-     * [asset] with an MP3 variant per bitrate its page offers (D2: [bitratesFor] its
+     * [asset] with an MP3 variant per bitrate its page offers ([bitratesFor] its
      * [MediaAsset.sourcePageUrl]) after its best AAC file; unchanged without one.
      */
     fun addTo(asset: MediaAsset): MediaAsset {

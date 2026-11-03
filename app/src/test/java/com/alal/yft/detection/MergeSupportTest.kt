@@ -5,6 +5,8 @@ import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.CompanionAudio
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.MediaTrackType
+import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SiteExtractionRequest
 import com.alal.yft.extractor.api.SiteExtractionResult
@@ -17,7 +19,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** P4: AV1 merges are offered only where Android 14's muxer writes them and a decoder plays. */
+/** Merge: AV1 merges are offered only where Android 14's muxer writes them and a decoder plays. */
 class MergeSupportTest {
     private val file = candidate("file", listOf("avc1.42001e", "mp4a.40.2"), merged = false)
     private val avc = candidate("avc", listOf("avc1.64001f"))
@@ -26,11 +28,11 @@ class MergeSupportTest {
 
     @Test
     fun avcMergesEverywhereAndAv1OnlyFromAndroid14WithADecoder() {
-        val android13 = DeviceMergeSupport(sdkInt = 33, hasDecoder = { true }, av1Enabled = true)
+        val android13 = DeviceMergeSupport(sdkInt = 33, hasDecoder = { true }, av1Enabled = { true })
         val android14NoDecoder =
-            DeviceMergeSupport(sdkInt = 34, hasDecoder = { false }, av1Enabled = true)
+            DeviceMergeSupport(sdkInt = 34, hasDecoder = { false }, av1Enabled = { true })
         val android14 =
-            DeviceMergeSupport(sdkInt = 34, hasDecoder = { it == "video/av01" }, av1Enabled = true)
+            DeviceMergeSupport(sdkInt = 34, hasDecoder = { it == "video/av01" }, av1Enabled = { true })
 
         assertTrue(android13.canMerge(file))
         assertTrue(android13.canMerge(avc))
@@ -43,7 +45,7 @@ class MergeSupportTest {
 
     @Test
     fun av1MergesAreOffUntilAPhoneProvesThem() {
-        // The API 34 emulator's muxer failed the AV1 merge (P4 CI), so no phone offers it.
+        // The API 34 emulator's muxer failed the AV1 merge (in CI), so no phone offers it.
         val android15 = DeviceMergeSupport(sdkInt = 35, hasDecoder = { true })
 
         assertFalse(android15.canMerge(av1))
@@ -53,7 +55,7 @@ class MergeSupportTest {
 
     @Test
     fun vp9WebmWithOpusMergesFromAndroid10() {
-        // P6: YouTube's 2K and 4K are VP9 WebM, merged with the Opus WebM track into one WebM.
+        // Merge: YouTube's 2K and 4K are VP9 WebM, merged with the Opus WebM track into one WebM.
         val webm = webmCandidate(listOf("vp9"), listOf("opus"))
         val android9 = DeviceMergeSupport(sdkInt = 28, hasDecoder = { true })
         val android10 = DeviceMergeSupport(sdkInt = 29, hasDecoder = { false })
@@ -69,7 +71,7 @@ class MergeSupportTest {
 
     @Test
     fun vp9HlsWithAacMergesIntoOneMp4FromAndroid10() {
-        // Backlog item 5: YouTube's HLS 1440p and 2160p are VP9 with the AAC HLS sound, merged
+        // Merge: YouTube's HLS 1440p and 2160p are VP9 with the AAC HLS sound, merged
         // into one MP4 by YFT's own stream copy (Android's MP4 muxer takes no VP9).
         val hls = vp9.copy(kind = MediaKind.HLS, mimeType = "application/x-mpegURL")
 
@@ -99,11 +101,72 @@ class MergeSupportTest {
         assertTrue(phone.canMerge(file.copy(codecs = emptyList())))
     }
 
+    /**
+     * AV1 merge switch: the AV1 merge switch (a debug build's census box) is read at each row, so
+     * the sheet keeps AV1 + AAC rows as soon as it is on, and leaves them out again once it is
+     * off; Android 13 never keeps them. By default (no switch read: the release) they stay out.
+     */
+    @Test
+    fun theAv1TestSwitchIsReadAtEachRow() {
+        var on = false
+        val android16 = DeviceMergeSupport(sdkInt = 36, hasDecoder = { true }, av1Enabled = { on })
+        val android13 = DeviceMergeSupport(sdkInt = 33, hasDecoder = { true }, av1Enabled = { on })
+
+        assertFalse(android16.canMerge(av1))
+        on = true
+        assertTrue(android16.canMerge(av1))
+        assertTrue(android16.canMerge(avc))
+        assertFalse(android13.canMerge(av1))
+        on = false
+        assertFalse(android16.canMerge(av1))
+        assertFalse(DeviceMergeSupport(sdkInt = 36, hasDecoder = { true }).canMerge(av1))
+    }
+
+    /**
+     * Sound pairing: a page's DASH video representation and its manifest's sound take the
+     * candidate's gates: AVC with AAC anywhere, VP9 with Opus in WebM from Android 10, AV1 only
+     * with the switch, from Android 14 and with a decoder.
+     */
+    @Test
+    fun aDashVideoAndItsManifestsSoundTakeTheSameGates() {
+        fun dash(candidate: MediaCandidate) = MediaVariant(
+            id = "dash-video-0",
+            playbackUrl = "https://cdn.fixture.test/stream.mpd",
+            kind = MediaKind.DASH,
+            trackType = MediaTrackType.VIDEO,
+            requestContext = BrowserRequestContext(PAGE, null, null),
+            manifestVariantId = "v1",
+            mimeType = candidate.mimeType,
+            codecs = candidate.codecs,
+            dashOneFile = true,
+        )
+        fun sound(candidate: MediaCandidate) = requireNotNull(candidate.audioCompanion).copy(
+            mediaUrl = "https://cdn.fixture.test/stream.mpd",
+            representationId = "a1",
+        )
+        val android9 = DeviceMergeSupport(sdkInt = 28, hasDecoder = { true }, av1Enabled = { true })
+        val android10 = DeviceMergeSupport(sdkInt = 29, hasDecoder = { false }, av1Enabled = { false })
+        val android14 = DeviceMergeSupport(sdkInt = 34, hasDecoder = { true }, av1Enabled = { true })
+        val android14Off = DeviceMergeSupport(sdkInt = 34, hasDecoder = { true }, av1Enabled = { false })
+        val webm = webmCandidate(listOf("vp9"), listOf("opus"))
+        for (phone in listOf(android9, android10, android14, android14Off)) {
+            for (candidate in listOf(avc, av1, vp9, webm)) {
+                assertEquals(phone.canMerge(candidate), phone.canMerge(dash(candidate), sound(candidate)))
+            }
+        }
+        assertTrue(android9.canMerge(dash(avc), sound(avc)))
+        assertTrue(android10.canMerge(dash(webm), sound(webm)))
+        assertFalse(android9.canMerge(dash(webm), sound(webm)))
+        assertTrue(android14.canMerge(dash(av1), sound(av1)))
+        assertFalse(android14Off.canMerge(dash(av1), sound(av1)))
+        assertFalse(android14.canMerge(dash(vp9), sound(vp9)))
+    }
+
     @Test
     fun theDecoderListIsReadOnceAndOnlyForAv1() {
         var lookups = 0
         val support =
-            DeviceMergeSupport(sdkInt = 35, hasDecoder = { lookups += 1; true }, av1Enabled = true)
+            DeviceMergeSupport(sdkInt = 35, hasDecoder = { lookups += 1; true }, av1Enabled = { true })
 
         support.canMerge(avc)
         assertEquals(0, lookups)

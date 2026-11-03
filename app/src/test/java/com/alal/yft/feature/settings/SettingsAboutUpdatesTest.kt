@@ -22,7 +22,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** Settings → About: Version (the version on its second line), Updates, Licenses (§4.5). */
+/** Settings → About: Version (the version on its second line), Updates, Licenses. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w360dp-h780dp")
 class SettingsAboutUpdatesTest {

@@ -8,7 +8,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import java.io.File
 
-/** Android's side of the in-app update (§4.4 steps 1, 2, 7, 8 and 9); fakes in tests. */
+/** Android's side of the in-app update; fakes in tests. */
 interface InstallSystem {
     /** Step 1: may YFT ask Android to install? Before Android 8 its installer asks by itself. */
     fun canInstall(): Boolean
@@ -35,7 +35,7 @@ interface InstallSystem {
 }
 
 /**
- * [InstallSystem] on `PackageInstaller` (§4.4 step 7): a full-install session for this app's own
+ * [InstallSystem] on `PackageInstaller`: a full-install session for this app's own
  * package, the user's reason, the user's confirmation required (Android 12+), the checked file
  * written into it and committed with a mutable PendingIntent to the unexported
  * [InstallStatusReceiver]. Android's installer then asks the user; YFT never installs silently.

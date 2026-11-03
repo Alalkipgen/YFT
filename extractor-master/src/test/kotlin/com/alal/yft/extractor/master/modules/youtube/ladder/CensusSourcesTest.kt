@@ -8,7 +8,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Phase 1.3 D0: the public version sources are read as data, one pattern-matched value each. */
+/** Client version source: the public version sources are read as data, one pattern-matched value each. */
 class CensusSourcesTest {
     @Test
     fun `the reference tables give one value per identity`() {

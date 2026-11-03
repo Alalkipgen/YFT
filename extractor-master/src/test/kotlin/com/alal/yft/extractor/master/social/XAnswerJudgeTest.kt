@@ -12,9 +12,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S2c: X's judge, for main's answer from X's widget that X's ladder replays. Only a
+ * X ladder: X's judge, for main's answer from X's widget that X's ladder replays. Only a
  * photo post is final; rows bound to the post ID win; the widget's 404 needs playback, never final
- * (task 0: a 404 alone is no proof the post was deleted); an empty tombstone (the age-limited
+ * (a 404 alone is no proof the post was deleted); an empty tombstone (the age-limited
  * post's) is the browser's; a tombstone with X's notice link (a deleted post's and a protected
  * account's post's alike, live 2026-10-21) and any other tombstone need playback, never final;
  * `{}` (X's answer without the widget's token) is a rejected value; a 429 stops the site; another
@@ -47,7 +47,7 @@ class XAnswerJudgeTest {
             assertEquals("$answer", expected.second, judged.evidence)
             assertEquals("$answer", expected.third, judged.reason)
         }
-        // Task 0 (a): the widget's 404 is never final and names no reason (main's stays): the tab's playback next.
+        // The widget's 404 is never final and names no reason (main's stays): the tab's playback next.
         val notFound = XAnswerJudge.judge(ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 404))
         assertEquals(Next.PLAYBACK, notFound.next)
         assertFalse(notFound.next == Next.FINAL)
@@ -175,7 +175,7 @@ class XAnswerJudgeTest {
         val VIDEO: String by lazy { Fixtures.read("x/tweet_video.json") }
         const val EMPTY_TOMBSTONE = """{"__typename":"TweetTombstone","tombstone":{}}"""
 
-        /** Task 0: the 404's evidence (no post in the widget's answer, never proof of removal). */
+        /** The 404's evidence (no post in the widget's answer, never proof of removal). */
         const val NOT_FOUND = "status 404: no post in the widget's answer, not proof of removal"
 
         /** The live shape of a tombstone with X's notice (2026-10-21), the words made up. */

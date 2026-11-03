@@ -1,5 +1,5 @@
 /*
- * Provenance (social plan S2c, copied, not moved; main 34a41890; listed in toolkit-provenance.tsv):
+ * Provenance (copied, not moved; main 34a41890; listed in toolkit-provenance.tsv):
  *   extractor-sites/.../x/XSyndication.kt  HOST (the widget's answer host), TOMBSTONE, parse (an
  *                                        empty answer and a tombstone are no post: here judged
  *                                        by their shape)
@@ -17,7 +17,7 @@ import com.alal.yft.extractor.api.json.get
 import java.net.URI
 
 /**
- * Social plan S2c: what X's ladder ([XLadder]) read in main's answer for the link's post: [rows],
+ * What the X ladder ([XLadder]) read in main's answer for the link's post: [rows],
  * the rows of the link's item bound to the post ID ([byShape]: main's whole answer read by X's
  * recipe, its rows one item's); [shapeItems], the items such rows name when not one (1: rows that
  * name no item); [otherPost], the answer names another post; [photos], the post has photos and no
@@ -33,14 +33,14 @@ internal data class XReading(
 )
 
 /**
- * Social plan S2c (`MASTER_KEY_SOCIAL_PLAN.md` §6.4, §7.3): X's judge, for main's answer from X's
+ * X's judge, for main's answer from X's
  * embedded-post widget (`tweet-result`, asked with no X cookie) that X's ladder replays with no new
  * ask. Conservative, by the answer's shape only: the words are no evidence, in any language (live
  * shape check, 2026-10-21, signed out).
  *
- * - Rows of the link's item bound to the post ID → the media checks (V, S6); rows found by shape
+ * - Rows of the link's item bound to the post ID → the media checks (the row check); rows found by shape
  *   (a renamed key) only when they are one item's.
- * - A 404 from the widget's host → NEEDS_PLAYBACK, never final (the owner's call, task 0): the
+ * - A 404 from the widget's host → NEEDS_PLAYBACK, never final (the owner's call): the
  *   widget answers so for an ID with no post it shows, and a 404 alone does not prove the post was
  *   deleted, so it never ends the lookup as removed; the tab's own playback and the user's browser
  *   follow, and main's reason stays when they find nothing.
@@ -145,7 +145,7 @@ internal object XAnswerJudge {
     private fun failure(answer: ExtractorHttpResult.Failure): Judged = when {
         answer.statusCode == 429 || answer.reason == SiteExtractionFailure.RATE_LIMITED ->
             Judged(AnswerClass.RATE_LIMITED, AnswerClass.RATE_LIMITED.reason, "status 429")
-        // Task 0: a 404 alone is no proof the post was deleted: never final, the tab's playback next.
+        // A 404 alone is no proof the post was deleted: never final, the tab's playback next.
         answer.statusCode == HTTP_NOT_FOUND ->
             Judged(AnswerClass.NEEDS_PLAYBACK, null, "status 404: no post in the widget's answer, not proof of removal")
         else -> Judged(

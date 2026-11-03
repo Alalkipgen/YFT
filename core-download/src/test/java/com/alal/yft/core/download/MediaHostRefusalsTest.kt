@@ -12,7 +12,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** F8: the turns, waits and Detail of one whole file's 403 answers on YouTube's media hosts. */
+/** The turns, waits and Detail of one whole file's 403 answers on YouTube's media hosts. */
 class MediaHostRefusalsTest {
     private class Refused : Exception()
 
@@ -134,7 +134,7 @@ class MediaHostRefusalsTest {
 
             val failed = runCatching {
                 coroutineScope {
-                    // Three ranges in flight are refused, as V3's were (D7 run 13: "3 at once").
+                    // Three ranges in flight are refused, as in a phone run ("3 at once").
                     List(3) { index ->
                         launch {
                             while (true) {
@@ -155,8 +155,8 @@ class MediaHostRefusalsTest {
                 }
             }
 
-            // F8 trim (owner, 2026-10-19): one range is asked again alone 3 s after the last
-            // refusal; refused again, the file fails (a second ask would wait 6 s more).
+            // The trimmed wait (owner, 2026-10-19): one range is asked again alone 3 s after the
+            // last refusal; refused again, the file fails (a second ask would wait 6 s more).
             assertEquals(listOf(0L, 0L, 0L, 3_100L), asks.toList())
             assertEquals("403×4 at 1 MiB, 3 at once, 3 s", failed.exceptionOrNull()?.message)
         }

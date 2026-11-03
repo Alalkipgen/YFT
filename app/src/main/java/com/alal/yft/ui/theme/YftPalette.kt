@@ -3,7 +3,7 @@ package com.alal.yft.ui.theme
 import androidx.compose.ui.graphics.Color
 
 /**
- * Raw YFT brand tokens from the design brief (`docs/design/DESIGN-NOTES.md`). Screens should not
+ * Raw YFT brand tokens from the design brief (`docs/DESIGN.md`). Screens should not
  * use these directly; they go through [YftColors] or the Material color scheme so light and dark
  * themes stay in step.
  */

@@ -15,15 +15,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Phase 1.3 D0, the bot-check rule (owner, 2026-10-15): the census sends R6's requests. Its first
- * request is R6's first request, byte for byte (address, headers in order, body). After a bot
- * check on it, the census sends R6's watch page GET and, when the page gave visitor data, R6's
- * visionOS request with that visitor data — nothing else to YouTube for that video — V reads
- * one byte of a row that answer returned (a row the download reads) and, when that answer is
- * `DIRECT`, the H check reads its HLS playlists on `manifest.googlevideo.com` and one segment on
- * the media host ((က+), B5: no YouTube request); like R6, it does so for each video (each lookup)
- * on its own. R6 is Master's module as the app runs it: the copied extractor, the user's cookie
- * removed, no solver.
+ * Client census, the bot-check rule: the census sends the Master YouTube module's requests. Its
+ * first request is the module's first request, byte for byte (address, headers in order, body).
+ * After a bot check on it, the census sends the module's watch page GET and, when the page gave
+ * visitor data, the module's visionOS request with that visitor data — nothing else to YouTube
+ * for that video. V (the Row check) reads one byte of a row that answer returned (a row the
+ * download reads) and, when that answer is `DIRECT`, the H check reads its HLS playlists on
+ * `manifest.googlevideo.com` and one segment on the media host (no YouTube request); like the
+ * module, it does so for each video (each lookup) on its own. The module here is the one the app
+ * runs: the copied extractor, the user's cookie removed, no solver.
  */
 class CensusR6ParityTest {
     @Test
@@ -48,14 +48,14 @@ class CensusR6ParityTest {
         val result = MasterYouTubeModule(r6).extract(request(Census.V1))
         val outcome = census(census).run(Mode.FULL, mapOf(1 to Census.V1), null)
 
-        // R6 today: visionOS, the watch page, the page's own client (MWEB), visionOS with visitor data.
+        // The module today: visionOS, the watch page, the page's own client (MWEB), visionOS with visitor data.
         assertTrue(result is SiteExtractionResult.Success)
         assertEquals(listOf("VISIONOS", "MWEB", "VISIONOS"), r6.postedBodies.map(CensusWorld::clientOf))
         val r6Posts = posts(r6)
         assertEquals(listOf(r6Posts[0], r6Posts[2]), posts(census))
         assertEquals(Census.VISITOR, census.postedHeaders[1]["X-Goog-Visitor-Id"])
         assertEquals(gets(r6), youTubeGets(census))
-        // The rest: the H check's two playlists ((က+), B5), then the version sources.
+        // The rest: the H check's two playlists, then the version sources.
         assertEquals(
             listOf(Census.MASTER, Census.VARIANT) + CensusSources.DOCUMENTS.map { it.url },
             gets(census).map(Sent::url) - youTubeGets(census).map(Sent::url).toSet(),
@@ -77,13 +77,13 @@ class CensusR6ParityTest {
         val results = listOf(Census.V1, Census.V2).map { module.extract(request(it)) }
         val outcome = census(census).run(Mode.FULL, mapOf(1 to Census.V1, 2 to Census.V2), null)
 
-        // R6 answers each lookup on its own (owner, 2026-10-15): the same four requests per video.
+        // The module answers each lookup on its own: the same four requests per video.
         assertTrue(results.all { it is SiteExtractionResult.Success })
         assertEquals(List(2) { listOf("VISIONOS", "MWEB", "VISIONOS") }.flatten(), r6.postedBodies.map(CensusWorld::clientOf))
         val r6Posts = posts(r6)
         assertEquals(listOf(r6Posts[0], r6Posts[2], r6Posts[3], r6Posts[5]), posts(census))
         assertEquals(gets(r6), youTubeGets(census))
-        // Per video: V on one row and the H check's segment ((က+), B5).
+        // Per video: V on one row and the H check's segment.
         assertEquals(4, census.probedUrls.size)
         assertEquals(2, census.probedUrls.count { it == Census.SEGMENT })
         assertNull(outcome.stopped)
@@ -98,7 +98,7 @@ class CensusR6ParityTest {
         MasterYouTubeModule(r6).extract(request(Census.V1))
         val outcome = census(census).run(Mode.FULL, mapOf(1 to Census.V1), null)
 
-        // R6's chain runs as today (guardrail 4); the census stops after R6's third request.
+        // The module's chain runs as today (no bypass); the census stops after the module's third request.
         val r6Posts = posts(r6)
         assertEquals("VISIONOS", CensusWorld.clientOf(r6Posts[2].body!!))
         assertTrue(r6Posts.size > 3)
