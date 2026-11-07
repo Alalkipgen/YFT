@@ -18,16 +18,16 @@ Overwrite this file at each checkpoint (40 lines at most). Never append. History
 - Five unsigned YouTube replay pages (including HKlRo-QdaRY and cy1BQSHYtZg) returned
   login required; no current estimate/completed comparison. Do not bypass restrictions. The old
   240p guess was ~251 MB for a 145 MB file; another ~390 MB was progress, not a completed file.
-- Adult pages loaded in the host browser. Javtiful's Close redirected away; Play was covered.
-  Jav.guru and Roshy interactions produced single-rendition HLS near preview players, not verified
-  main ladders. Observed playlists were live windows. No YFT Found count or playback was verified.
+- Adult host browser: Javtiful Close redirected away; Play was covered. Jav.guru and Roshy had
+  single-rendition live HLS near previews, not verified main ladders. No YFT count or playback verified.
 - Earlier owner phone checks covered Wikimedia 1080p from Home and Browser, pause/resume, direct
   MP4/WebM and YouTube size display. They are not current-code tests. The 4K original preview and
   2.8 GB download remain untested. AV1 remains off in release pending the owner's phone test.
 ## Validation and next steps
 - Local `c205527a`: browser 158, media 60, app 1,624 tests (66 opt-in render skips), and
-  assembleDebug passed. Scripts: 87 run, 4 skipped. CI runs 42410587214 and 42410587180 are
-  running; minified 42410587158 and preview 42410587181 passed.
+  assembleDebug passed; scripts 87 passed with separately installed jsonschema. CI validation
+  42410587214, emulator 42410587180, minified 42410587158 and preview 42410587181 passed; API 34
+  ran 90 tests (7 skipped), API 28 ran 2 (0 skipped); neither tests these sites.
 - HLS host synthetic mixed-delay runs: 2029/2024/2025/2070 ms before and 1081/1080/1081/1123 ms
   after. Uniform runs: 287/334/324/318 and 270/309/314/312 ms. Not media or a device benchmark.
 - Emulator on `05e5316f` passed AV1 stream-copy and forced AAC edit-list seek/audio checks; neither
@@ -35,6 +35,6 @@ Overwrite this file at each checkpoint (40 lines at most). Never append. History
   2160p 32.5/25.1/26.2 ms; Android readback was stubbed. No format or merge path changed.
 - MP3 API 34 emulator: 4 min AAC to MP3, 6.3 s; 60 min, 126.1 s. Timers do not isolate CPU or
   I/O; no optimization. A local software emulator did not boot without KVM.
-- Browser fixture protects two named videos, their qualities and unknowns while hiding a known ad.
-  Download-listener ad signs and main-player provenance need more work. Finish CI; no APK.
+- Browser fixture protects two named videos, qualities and unknowns while hiding a known ad.
+  Download-listener ad signs and main-player provenance need more work; no APK.
 - Do not run VK promotion, merge to `main`, publish, or turn on AV1 release merging.
