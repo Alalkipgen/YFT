@@ -28,11 +28,12 @@ Overwrite this file at each checkpoint (40 lines at most). Never append. History
   MP4/WebM and YouTube size display. They are not current-code tests. The 4K original preview and
   2.8 GB download remain untested. AV1 remains off in release pending the owner's phone test.
 ## Validation and next steps
-- New code: local media 62, browser 158 and model 155 tests passed; earlier app 1,624 tests
-  (66 opt-in skips) and debug build passed on `c205527a`. Script tests 87 passed. New CI must run.
-  Prior emulator API 34 ran 90 tests (7 skipped), API 28 ran 2; neither tested the adult sites.
+- On `3cea4b9b`: local media 62, browser 158, model 155, app 1,624 tests (66 opt-in skips)
+  and debug build passed; script tests 87 passed. CI validation 42415423330, emulator 42415423334,
+  minified 42415423320 and preview 42415423432 passed. API 34 ran 90 tests (7 skipped); API 28
+  ran 2. The real YFT browser found public Wikimedia media in smoke; the adult sites were not tested.
 - AV1/AAC tests on `05e5316f` were emulator checks, not phone or full-stream passes.
 - Browser fixture protects two named videos, qualities and unknowns while hiding a known ad.
   Download-listener ad signs and main-player provenance need more work. A 1 GiB software emulator
-  stayed offline through 12 minutes with no KVM; real app tests on these sites remain blocked.
+  stayed offline through 12 minutes with no KVM; real app tests on these sites need phone evidence.
 - Do not run VK promotion, merge to `main`, publish, or turn on AV1 release merging.
