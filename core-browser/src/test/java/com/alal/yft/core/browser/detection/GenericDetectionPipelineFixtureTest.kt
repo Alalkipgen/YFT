@@ -3,6 +3,9 @@ package com.alal.yft.core.browser.detection
 import com.alal.yft.core.browser.session.PageCandidateStore
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.MediaGroups
+import com.alal.yft.core.model.media.PageMediaRole
+import com.alal.yft.extractor.generic.normalizer.CandidateNormalizer
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -131,6 +134,35 @@ class GenericDetectionPipelineFixtureTest {
 
         store.beginPage("https://fixture.test/next")
         assertTrue(store.candidates.value.isEmpty())
+    }
+
+    @Test
+    fun namedMainAndMultipleVideosStayVisibleWhenAnAdAndUnknownAreAlsoSeen() {
+        val namedAddress = "https://media.fixture.test/ads/ocean.mp4"
+        fun named(url: String, group: String) = BrowserObservationMapper.fromDom(
+            DomMediaObservation(pageUrl, url, "video/mp4", null, null, null, 10, PageMediaRole.MAIN),
+        )!!.copy(pageVideoKey = group)
+        val main = named(namedAddress, "first")
+        val variant = named("https://media.fixture.test/first-720.mp4", "first")
+        val second = named("https://media.fixture.test/second.mp4", "second")
+        val download = BrowserObservationMapper.fromDownload(
+            DownloadObservation(pageUrl, namedAddress, null, null, "video/mp4", null, null, 20),
+        )!!
+        val unknown = BrowserObservationMapper.fromRequest(
+            request("https://other.fixture.test/unknown.mp4", 21),
+        )!!
+        val ad = BrowserObservationMapper.fromRequest(
+            request("https://cdn.adtng.com/a/30s.mp4", 22),
+        )!!
+        val candidates = CandidateNormalizer().normalize(
+            pageUrl, listOf(main, download, variant, second, unknown, ad),
+        )
+        val shown = MediaGroups.ofPage(MediaGroups.pageVideos(candidates), hideAds = true).all
+        val shownUrls = shown.flatMap { it.candidates }.map { it.mediaUrl }.toSet()
+
+        assertEquals(setOf(namedAddress, variant.mediaUrl, second.mediaUrl, unknown.mediaUrl), shownUrls)
+        assertEquals(3, shown.size)
+        assertEquals(2, shown.single { group -> group.candidates.any { it.mediaUrl == namedAddress } }.candidates.size)
     }
 
     private fun request(url: String, observedAt: Long) = RequestObservation(

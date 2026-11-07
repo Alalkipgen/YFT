@@ -77,7 +77,9 @@ Not planned for the next release. Advice in brackets.
   reliable range. Byte-range sums describe input bytes, not the exact remuxed file.
 - Investigate reported single quality and high Found counts using generic player/manifest evidence.
   Observed thumbnail players are not confirmed main ladders; do not infer every extra item is an ad
-  or merge distinct video items without identity evidence.
+  or merge distinct video items without identity evidence. A download-listener-only candidate
+  carries no ad-address sign. Adding one blindly can hide a file the page names as its own after
+  observations merge; resolve conflicting provenance before changing this path.
 
 ## Risks
 

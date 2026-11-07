@@ -33,8 +33,8 @@ Overwrite this file at each checkpoint (40 lines at most). Never append. History
 - Emulator on `05e5316f` passed AV1 stream-copy and forced AAC edit-list seek/audio checks; neither
   is a phone or full-stream pass. Host six-second H.264/AAC MP4 stream-copy: 1440p 66.6/14.7/9.7 ms,
   2160p 32.5/25.1/26.2 ms; Android readback was stubbed. No format or merge path changed.
-- MP3 API 34 emulator baseline: 4 min AAC to 128 kbps MP3, 6.3 s wall; 60 min, 126.1 s. The
-  displayed decode time includes waiting and encode includes writes, so they do not isolate CPU or
-  I/O. No MP3 optimization was made. A local software emulator did not boot without KVM.
-- Investigate ad provenance and run final code CI. No APK or checklist until requested.
+- MP3 API 34 emulator: 4 min AAC to MP3, 6.3 s; 60 min, 126.1 s. Timers do not isolate CPU or
+  I/O; no optimization. A local software emulator did not boot without KVM.
+- Browser fixture protects two named videos, their qualities and unknowns while hiding a known ad.
+  Download-listener ad signs and main-player provenance need more work. Run final code CI; no APK.
 - Do not run VK promotion, merge to `main`, publish, or turn on AV1 release merging.
