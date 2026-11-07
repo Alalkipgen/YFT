@@ -15,6 +15,10 @@ one.
 - **VK**: a link whose embed page is VK's own app (a page that lists no file) now gets its
   qualities from VK's API instead of ending as an unsupported page. Files on the `vkuser.net`
   servers VK moved them to are read as before, and a video VK does not play says so.
+- **Downloads**: a download the app closed goes on from the bytes it kept when you tap Retry, also
+  when its link has expired: YFT looks the same file up again and opens the file it was writing.
+  When it cannot (the page no longer offers the video, or the bytes are gone), the row says why and
+  keeps them.
 - **Browser**: a page whose own address ends in a media extension is no longer read as the file.
   Wikimedia Commons' `File:Big_Buck_Bunny_4K.webm` page is HTML, and its address was offered as the
   video, so the download failed as an invalid address; now only the page's own files are offered. A

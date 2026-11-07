@@ -111,6 +111,8 @@ class SiteLinkRenewal(
     private val networkChanges: () -> Long = { 0L },
     private val clock: () -> Long = System::currentTimeMillis,
     private val pageReaders: PageReaders = PageReaders.None,
+    /** The app's files, to reopen a closed download's own one; none in a build without it. */
+    private val destinations: DownloadDestinationProvider? = null,
 ) : DownloadLinkRenewal {
     /** Each fresh link's first words ("Fresh link (403 at 41.0 MB)") until its run goes on. */
     private val pending = ConcurrentHashMap<String, String>()
@@ -144,6 +146,18 @@ class SiteLinkRenewal(
         if (answer is LinkRenewal.Fresh) {
             sources.renewed(request.taskId)
             pending[request.taskId] = headOf(request)
+            // The app closed since the download started: its file must be opened again, or the
+            // fresh link has nowhere to write what it kept.
+            if (request.reopenDestination) {
+                val saved = sources[request.taskId]?.saved
+                val destination = saved?.let { destinations?.reopen(it) }
+                return if (destination == null) {
+                    sources.note(request.taskId, "${headOf(request)}: the file could not be reopened")
+                    LinkRenewal.Unavailable(REOPEN_FAILED)
+                } else {
+                    answer.copy(destination = destination)
+                }
+            }
         }
         return answer
     }
@@ -355,6 +369,9 @@ class SiteLinkRenewal(
         internal const val NO_PLAYER =
             "the page read again has no player data (a notice or a check)"
         internal const val NOT_READ = "the page could not be read again"
+
+        /** After the app closed: its bytes are gone or its file cannot be opened again. */
+        internal const val REOPEN_FAILED = "the file downloaded so far could not be opened again"
 
         /** A site adapter's own name for VK (`VkUrls.SITE_ID`): its 400 is a link that died. */
         private const val VK_SITE_ID = "vk"

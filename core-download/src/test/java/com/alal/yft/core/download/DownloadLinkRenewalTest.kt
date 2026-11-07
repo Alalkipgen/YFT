@@ -590,8 +590,14 @@ class DownloadLinkRenewalTest {
         assertTrue(queue.tasks.value.all { it.status == DownloadTaskStatus.COMPLETED })
     }
 
+    /**
+     * The app closed while a download ran: its task reads back as a link that needs a fresh one,
+     * and a Retry asks the app for the same file again, with its own file to reopen. Before the
+     * fix a Retry after a restart never asked, so the row could only be got back by reopening
+     * the page.
+     */
     @Test
-    fun `a renewing download reads back as link expired after the app was closed`() = runTest {
+    fun `a retry after the app was closed asks for a fresh link of the same file`() = runTest {
         val saved = StoredDownloadTask(
             id = "restored",
             displayName = "restored.mp4",
@@ -609,7 +615,7 @@ class DownloadLinkRenewalTest {
             updatedAtEpochMs = 1,
             failure = DENIED,
         )
-        val renewal = FakeRenewal { error("no source after a restart") }
+        val renewal = FakeRenewal { LinkRenewal.Declined }
         val queue = queue(FakeEngine { _, _ -> Run.Complete }, renewal, InMemoryStore(listOf(saved)))
 
         queue.restore()
@@ -620,7 +626,10 @@ class DownloadLinkRenewalTest {
         assertEquals(DownloadTaskStatus.NEEDS_REFRESH, restored.status)
         assertTrue(restored.requiresLinkRefresh)
         assertEquals(4L, restored.checkpoint.downloadedBytes)
-        assertTrue(renewal.requests.isEmpty())
+        val request = renewal.requests.single()
+        assertTrue(request.reopenDestination)
+        assertTrue(request.byUser)
+        assertEquals(4L, request.bytesKept)
     }
 
     @Test

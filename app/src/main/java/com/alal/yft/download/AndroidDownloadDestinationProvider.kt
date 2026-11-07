@@ -2,6 +2,7 @@ package com.alal.yft.download
 
 import android.content.Context
 import android.os.Build
+import com.alal.yft.core.download.DownloadDestination
 import com.alal.yft.core.download.DownloadDestinationKind
 import com.alal.yft.core.download.DownloadDestinationSpec
 import com.alal.yft.core.download.FileDownloadDestination
@@ -139,8 +140,48 @@ class AndroidDownloadDestinationProvider(
                 ),
                 spec = DownloadDestinationSpec(kind = DownloadDestinationKind.APP_PRIVATE),
                 fileName = chosen,
+                partialName = partial.name,
             )
         }
+
+    /**
+     * The file of a download the app closed, reopened where its bytes are: the same pending
+     * MediaStore item, the same temporary document, or the same `.part` file in app storage. The
+     * record's text is used as a name, never as a path, and a file that is no longer there gives
+     * null, so the row says it cannot go on instead of writing somewhere else.
+     */
+    override fun reopen(saved: SavedDestination): DownloadDestination? {
+        if (!saved.reopenable) return null
+        return try {
+            when (saved.kind) {
+                DownloadDestinationKind.APP_PRIVATE -> {
+                    val partialName = saved.partialName ?: return null
+                    val root = File(context.noBackupFilesDir, APP_PRIVATE_DIRECTORY)
+                    val partial = File(root, partialName)
+                    when {
+                        partialName.any { it == '/' || it == '\\' } -> null
+                        !partial.isFile -> null
+                        else -> FileDownloadDestination(
+                            partialFile = partial,
+                            completedFile = File(root, saved.displayName),
+                        )
+                    }
+                }
+                DownloadDestinationKind.MEDIA_STORE -> saved.uri?.let { uri ->
+                    MediaStoreDownloadDestination.resume(context.contentResolver, uri)
+                }
+                DownloadDestinationKind.SAF_DOCUMENT -> saved.uri?.let { uri ->
+                    SafDownloadDestination.resume(
+                        resolver = context.contentResolver,
+                        temporaryDocumentUri = uri,
+                        displayName = saved.displayName,
+                    )
+                }
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
 
     private fun String.sanitizeId(): String = lowercase(Locale.US)
         .filter { it.isLetterOrDigit() }

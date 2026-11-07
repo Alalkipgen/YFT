@@ -207,6 +207,8 @@ data class DownloadSource(
     val fileName: String,
     val networkChanges: Long,
     val mediaPath: String? = null,
+    /** Where the download's bytes are, to reopen them after the app closed; null when unknown. */
+    val saved: SavedDestination? = null,
 ) {
     /** A page no adapter reads, read again quietly for the same file. */
     val rereadable: Boolean get() = videoId.isNullOrBlank() && !mediaPath.isNullOrBlank()
@@ -286,6 +288,7 @@ class DownloadSources(
         asset: MediaAsset,
         variant: MediaVariant,
         fileName: String,
+        saved: SavedDestination? = null,
     ) {
         val candidate = origin.candidate
         val owner = origin.owner ?: LookupOwner.BROWSER
@@ -311,6 +314,7 @@ class DownloadSources(
             fileName = fileName,
             networkChanges = networkChanges(),
             mediaPath = if (videoId == null) pagePath(candidate) else null,
+            saved = saved?.takeIf(SavedDestination::reopenable),
         )
         synchronized(lock) {
             sources[taskId] = source
@@ -319,6 +323,27 @@ class DownloadSources(
     }
 
     operator fun get(taskId: String): DownloadSource? = synchronized(lock) { sources[taskId] }
+
+    /** The downloads whose source this holds, for the queue's saved cards to be kept in step. */
+    fun known(): Set<String> = synchronized(lock) { sources.keys.toSet() }
+
+    /** [taskId]'s card, as the download's record keeps it; null when there is no source. */
+    fun card(taskId: String): String? =
+        synchronized(lock) { sources[taskId] }?.let(RenewalCard::encode)
+
+    /**
+     * A download the app closed: its source and where its bytes are, read back from its record, so
+     * its row offers Retry and Retry gets a fresh link of the same file. A card this version does
+     * not read leaves the download as it was.
+     */
+    fun restored(taskId: String, card: String) {
+        val (source, saved) = RenewalCard.decode(card) ?: return
+        synchronized(lock) {
+            if (taskId in sources) return
+            sources[taskId] = source.copy(saved = saved?.takeIf(SavedDestination::reopenable))
+            publishLocked()
+        }
+    }
 
     /** [taskId] was picked as [quality] ("1080p"), for its row until done. */
     fun picked(taskId: String, quality: String) {

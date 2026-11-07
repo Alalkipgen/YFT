@@ -108,8 +108,23 @@ Old records stay in git history. Feature names follow [GLOSSARY.md](GLOSSARY.md)
 - **Fresh link renewal.** A 401, 403, 410 or expired link starts one fresh lookup (VK's 400 only
   after bytes); at most 3 per download; never another quality. Why: long downloads outlive links.
   (2026-10-27)
-- **Renewal limits.** Not after the app's process died. Why: that needs saved page addresses.
-  (2026-10-27)
+- **Renewal after the app closed.** A download keeps the app's text about where it came from (its
+  page and the facts that name the same file there, and where its bytes are) in its record, and a
+  Retry after a restart asks for a fresh link of the same file and reopens the file it was writing,
+  so it goes on from the bytes it kept. Why: the owner asked for it, and the facts the old rule
+  named as missing (the page's address and the file's place) are the download's own. The text is
+  never shown, goes with the download's record, and Clear browsing data removes it, as it removes
+  the sources in memory. (2026-11-07)
+
+- **Android 9 has its own CI run.** The save path there (YFT's own storage, no public Downloads
+  row) is checked by an instrumented test on an API 28 emulator, not only by unit tests. Why: no
+  API 28 device is at hand, and the version's storage rules are the ones that differ. (2026-11-07)
+- **The download service keeps its type.** A `dataSync` foreground service on Android 10+ (with
+  `mediaProcessing` on Android 15+ while a merge, MP3 conversion or save runs) stays the way
+  downloads run; user-initiated data transfer jobs are not used. Why: the service is the supported
+  path and already reports Android 15's 6-hour limit as a notice; a job would replace the queue's
+  own progress, Pause and Resume for one limit that a single download rarely meets. Revisit only
+  with a phone run of a download longer than 6 hours. (2026-11-07)
 - **A page's own address is no file.** The request that made the page is never a media candidate,
   also when its address ends in a media extension; only the answer's content type can tell, so it
   goes to the probe. A file opened or pasted directly is the page, so it is probed and kept when the

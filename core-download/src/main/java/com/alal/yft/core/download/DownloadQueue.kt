@@ -50,13 +50,16 @@ data class DownloadDestinationSpec(
  * Owns a bounded in-process transfer queue while persisting only non-sensitive recovery state.
  *
  * URLs, cookies and request headers remain in [runtimeTasks]. After process death every incomplete
- * task therefore becomes `NEEDS_REFRESH` while its verified segment checkpoint remains available.
+ * task therefore becomes `NEEDS_REFRESH` while its verified segment checkpoint remains available,
+ * and the task keeps the app's text about where it came from ([setRenewalSource]).
  *
  * Fresh link renewal: when a file's link dies after the download started, [linkRenewal] is asked
  * for a fresh link of the same file ([DownloadTaskStatus.RENEWING_LINK]), in the task's own job:
  * the task keeps its slot, and Pause, Cancel and a lost network stop the lookup as they stop a
  * transfer. At most [MAX_AUTOMATIC_RENEWALS] fresh links come without a tap, another only after the
- * last one gave bytes; a Retry of a "Link expired" row asks once more.
+ * last one gave bytes; a Retry of a "Link expired" row asks once more. A Retry of a task the app
+ * closed asks for the task's own file again too ([LinkRenewalRequest.reopenDestination]), so the
+ * download goes on from the bytes it kept instead of starting over.
  */
 class DownloadQueue(
     private val store: DownloadTaskStore,
@@ -347,8 +350,13 @@ class DownloadQueue(
         }
         val runtime = runtimeTasks[id]
         // Fresh link renewal: a task whose link died looks its page up again first; a tap's lookup
-        // is not counted in the automatic ones.
+        // is not counted in the automatic ones. After the app closed the task has no runtime (its
+        // link and its file are gone), so the lookup is asked for the file too.
         val due = runtime?.due?.takeIf { linkRenewal !== DownloadLinkRenewal.None }
+        if (runtime == null && linkRenewal !== DownloadLinkRenewal.None) {
+            startRestoredRenewalLocked(current)
+            return@withLock
+        }
         if (runtime == null || runtime.parked && due == null) {
             saveAndPublishLocked(
                 current.copy(
@@ -804,6 +812,180 @@ class DownloadQueue(
         }
         val answer = askForFreshLink(request)
         return gate.withLock { applyRenewalLocked(id, ask, answer) }
+    }
+
+    /**
+     * A Retry of a task the app closed: its link and its file are gone, so the app is asked for a
+     * fresh link of the same file and for the task's own file again, reopened where the bytes it
+     * kept are. The lookup runs in the task's own job, as a renewal in a running download does, so
+     * Pause and Cancel stop it and a late answer is dropped.
+     */
+    private suspend fun startRestoredRenewalLocked(current: StoredDownloadTask) {
+        val id = current.id
+        val ask = RenewalAsk(
+            failure = current.failure?.takeIf { it.reason == current.failureReason }
+                ?: DownloadFailure(
+                    reason = current.failureReason ?: DownloadFailureReason.EXPIRED_URL,
+                ),
+            bytesFromThisLink = 0,
+            byUser = true,
+        )
+        saveAndPublishLocked(
+            current.copy(
+                status = DownloadTaskStatus.RENEWING_LINK,
+                requiresLinkRefresh = true,
+                updatedAtEpochMs = clock(),
+            ),
+        )
+        pending.remove(id)
+        val job = scope.launch(start = CoroutineStart.LAZY) { runRestoredRenewal(id, ask) }
+        jobs[id] = job
+        job.start()
+    }
+
+    private suspend fun runRestoredRenewal(id: String, ask: RenewalAsk) {
+        val ownJob = kotlin.coroutines.coroutineContext[Job]
+        try {
+            val request = gate.withLock {
+                val current = taskLocked(id)
+                    ?.takeIf { it.status == DownloadTaskStatus.RENEWING_LINK }
+                    ?: return
+                LinkRenewalRequest(
+                    taskId = id,
+                    planType = current.planType,
+                    reason = ask.failure.reason,
+                    httpStatusCode = ask.failure.httpStatusCode,
+                    stage = ask.failure.stage,
+                    bytesKept = current.checkpoint.downloadedBytes,
+                    bytesFromThisLink = 0,
+                    byUser = ask.byUser,
+                    automaticRenewals = 0,
+                    reopenDestination = true,
+                )
+            }
+            val answer = askForFreshLink(request)
+            gate.withLock { applyRestoredRenewalLocked(id, ask, answer) }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (error: Exception) {
+            gate.withLock {
+                val current = taskLocked(id)
+                    ?.takeIf { it.status == DownloadTaskStatus.RENEWING_LINK }
+                    ?: return@withLock
+                stopRestoredLocked(current, ask, DownloadFailureDetails.of(error))
+            }
+        } finally {
+            withContext(NonCancellable) {
+                gate.withLock {
+                    if (jobs[id] === ownJob) jobs.remove(id)
+                    drainLocked()
+                }
+            }
+        }
+    }
+
+    /**
+     * The app's answer for a task it closed: the same file's fresh link, the task's file reopened,
+     * and the download goes on from the bytes it kept; or why it cannot, said in the Details.
+     */
+    private suspend fun applyRestoredRenewalLocked(
+        id: String,
+        ask: RenewalAsk,
+        answer: LinkRenewal,
+    ) {
+        val current = taskLocked(id)
+            ?.takeIf { it.status == DownloadTaskStatus.RENEWING_LINK }
+            ?: return
+        when (answer) {
+            is LinkRenewal.Fresh -> {
+                val plan = answer.plan
+                val destination = answer.destination
+                when {
+                    plan.taskId != id || plan.planType != current.planType ->
+                        stopRestoredLocked(current, ask, "another kind of file")
+                    plan is DirectDownloadPlan && answer.metadata == null ->
+                        stopRestoredLocked(current, ask, "the file did not answer")
+                    destination == null ->
+                        stopRestoredLocked(current, ask, "the file could not be reopened")
+                    else -> {
+                        val kept = current.checkpoint.downloadedBytes
+                        val total = (plan as? DirectDownloadPlan)
+                            ?.let { answer.metadata?.totalBytes }
+                            ?.takeIf { it >= kept }
+                            ?: current.totalBytes?.takeIf { it >= kept }
+                        runtimeTasks[id] = RuntimeTask(
+                            plan = plan,
+                            metadata = answer.metadata,
+                            destination = destination,
+                            link = 1,
+                            linkStartBytes = kept,
+                            renewed = true,
+                        )
+                        val queued = current.copy(
+                            status = if (networkAvailable) {
+                                DownloadTaskStatus.QUEUED
+                            } else {
+                                DownloadTaskStatus.WAITING_FOR_NETWORK
+                            },
+                            totalBytes = total,
+                            requiresLinkRefresh = false,
+                            failureReason = null,
+                            failure = null,
+                            updatedAtEpochMs = clock(),
+                        )
+                        saveAndPublishLocked(queued)
+                        if (networkAvailable) {
+                            pending.remove(id)
+                            pending.addLast(id)
+                            drainLocked()
+                        }
+                    }
+                }
+            }
+            is LinkRenewal.Unavailable -> stopRestoredLocked(current, ask, answer.why)
+            // No source for this download: the row says to reopen its page, as before.
+            LinkRenewal.Declined -> saveAndPublishLocked(
+                current.copy(
+                    status = DownloadTaskStatus.NEEDS_REFRESH,
+                    requiresLinkRefresh = true,
+                    updatedAtEpochMs = clock(),
+                ),
+            )
+        }
+    }
+
+    /** No fresh link after the app closed: "Link expired" with the lookup's line, bytes kept. */
+    private suspend fun stopRestoredLocked(
+        current: StoredDownloadTask,
+        ask: RenewalAsk,
+        why: String,
+    ) {
+        val failure = ask.failure.copy(
+            detail = DownloadFailureDetails.sanitize(
+                listOfNotNull("Fresh link: $why", ask.failure.detail).joinToString("; "),
+            ),
+        )
+        saveAndPublishLocked(
+            current.copy(
+                status = DownloadTaskStatus.NEEDS_REFRESH,
+                requiresLinkRefresh = true,
+                failureReason = failure.reason,
+                failure = failure,
+                updatedAtEpochMs = clock(),
+            ),
+        )
+    }
+
+    /**
+     * Where a download came from, as the app wrote it, kept with the task so a Retry after the app
+     * closed can ask for a fresh link of the same file. The queue keeps the text as it is.
+     */
+    suspend fun setRenewalSource(id: String, payload: String?) = gate.withLock {
+        restoreLocked()
+        val current = taskLocked(id) ?: return@withLock
+        val saved = payload?.takeIf(String::isNotBlank)
+        if (current.renewalSource == saved) return@withLock
+        saveAndPublishLocked(current.copy(renewalSource = saved))
     }
 
     private suspend fun askForFreshLink(request: LinkRenewalRequest): LinkRenewal = try {

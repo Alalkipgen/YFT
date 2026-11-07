@@ -67,6 +67,10 @@ Keep these files and headings as the tests expect.
 
 - **Emulator smoke test:** runs every instrumented test. The opt-in tests below skip themselves
   unless their instrumentation argument is set (for example `-e yft.parity 1`).
+- **Android 9 save path:** the same workflow's `android-9-save-path` job runs
+  `AppPrivateSaveInstrumentedTest` on an API 28 emulator through
+  `bash scripts/ci-android9-save-path.sh`: a real download into YFT's own storage, its file and
+  bytes, Android's own reader opening it, and the partial file opened again after the app closed.
 - **Master parity check:** `bash scripts/canary.sh` runs `MasterParityLiveTest` on a connected
   phone or emulator and pulls its report. `ATTENDED=1 PLAY_SEC=60` lets you tap Play on each page;
   `ONLY=<case>,<case>` picks cases; `LOCAL_URLS=<file>` reads links from a local file that is never
@@ -363,6 +367,15 @@ off). If anything fails, open Details → Copy details and send it.
   Retry". A Wi-Fi ↔ mobile switch on a long VK video resumes. In a merge both tracks go on. YouTube
   shows "YouTube refused", then Retry works.
 - **Pause and Resume:** the download goes on from the same %.
+- **A download longer than 6 hours** (Android 15 or newer, census APK): Android pauses the service
+  when its daily `dataSync` time runs out and the notice says so; Resume goes on from the same %.
+  Not tested here: no run of that length has been made.
+- **A download the app closed** (trial preview or census APK): start a long download, wait for it to
+  pass 10% or more, then swipe YFT away from Recents (or force stop it in Settings). Open YFT: the
+  row reads **Link expired** with "Tap Retry to get a fresh link…". Tap Retry: the row reads
+  "Getting a fresh link…", then goes on from the same % and finishes. Details start with
+  "Fresh link (…): resumed at … MB". If the page no longer offers the video, the row says
+  "Fresh link: the video is no longer on the page" and keeps the bytes.
 - **Ended YouTube live:** it saves. Its row reads "Size unknown" (no size is guessed). If it is up
   to 2 minutes short, Details says "Live video saved N s short of …".
 - **VK:** each of the owner's three links opens a sheet with its qualities (one keeps its files on

@@ -15,7 +15,8 @@ What is open now: where things stand, the owner's open decisions, the backlog an
   lists no file now opens the API path (`vk D`); its rules already take
   `vk{N}-{N}.vkuser.net`, where the moved clips' files sit. The API answered for the three links
   the owner sent; the fourth, a clip, is one VK says it does not play.
-- The VK fixes and the size fix are on `work/phase-v102-easy`; both wait on a phone run, so neither
+- The VK fixes, the size fix, the Wikimedia fix, the download that goes on after the app closed,
+  and Android 9's save path in CI are on `work/phase-v102-easy`; they wait on a phone run, so none
   is passed. Next is the phone checklist in [TESTING.md](TESTING.md), then VK's promotion runs.
 
 ## Open owner decisions
@@ -50,14 +51,10 @@ Not planned for the next release. Advice in brackets.
 - YFT's own YouTube page (no).
 - Facebook formats from the browser page (only if needed).
 - TikTok photo posts. TikTok without the watermark.
-- Android 14+ user-initiated data transfer jobs for downloads. Downloads run in a foreground
-  service now (`dataSync`, `mediaProcessing`), which is the supported path; Android 15 caps a
-  `dataSync` service at 6 hours in 24. [Assess on a phone with a long download first.]
-- A download that resumes after Android killed the app. The renewal machinery and the saved
-  checkpoint are there; a renewal after the app's process died is off by decision
-  ([DECISIONS.md](DECISIONS.md)). [A phone run that kills the app mid-download says what is left.]
-- Android 9's save path: the folder, the file in it and its playback. [Needs an Android 9 device or
-  emulator; none is available here.]
+- Android 14+ user-initiated data transfer jobs for downloads. Downloads stay in a foreground
+  service by decision ([DECISIONS.md](DECISIONS.md)); Android 15 caps a `dataSync` service at 6
+  hours in 24, and the service reports that as a notice. [A phone run of a download longer than 6
+  hours says whether the notice is enough.]
 - Fast merge (Matroska stream copy) for 2K and 4K.
 - A rolling piece pool for HLS.
 - Background playback in Library.
@@ -68,11 +65,9 @@ Not planned for the next release. Advice in brackets.
 - Cronet as the HTTP stack (not now).
 - TikTok's app API (don't).
 - The page player's PoToken for YouTube.
-- A test of the Android 9 save path (no scoped storage).
 - X protected posts. Instagram stories.
 - "All items" for one link (carousels, several videos).
 - X's guest-token API.
-- Fresh link renewal after the app's process was killed.
 - A VK recipe that carries the web client's values.
 - A daily VK canary in CI.
 - Instagram's `doc_id`: look again if `VALUE_REJECTED` shows.

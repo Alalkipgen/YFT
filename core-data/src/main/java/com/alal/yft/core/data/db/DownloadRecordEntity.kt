@@ -49,6 +49,13 @@ data class DownloadRecordEntity(
      */
     @ColumnInfo(name = "last_error_detail")
     val lastErrorDetail: String? = null,
+    /**
+     * Where the download came from, as the app wrote it (its page and the facts that name the
+     * same file there), so a download the app closed can get a fresh link. The store keeps the
+     * text as it is; null when the app had nothing to save.
+     */
+    @ColumnInfo(name = "renewal_source_payload")
+    val renewalSourcePayload: String? = null,
 ) {
     init {
         require(id.isNotBlank())
@@ -87,6 +94,8 @@ data class DownloadRecordEntity(
         append(requiresLinkRefresh)
         append(", lastErrorDetailPresent=")
         append(!lastErrorDetail.isNullOrBlank())
+        append(", renewalSourcePresent=")
+        append(!renewalSourcePayload.isNullOrBlank())
         append(')')
     }
 }

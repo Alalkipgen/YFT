@@ -7,6 +7,7 @@ import com.alal.yft.core.model.settings.DownloadLocation
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -47,6 +48,51 @@ class AndroidDownloadDestinationProviderTest {
 
         assertTrue(File(root, "Clip name.mp4").isFile)
         assertFalse(partial.exists())
+    }
+
+    @Test
+    fun `a closed download's partial file is opened again where its bytes are`() {
+        val provider = AndroidDownloadDestinationProvider(context) { "D1" }
+        val prepared = provider.prepare("Closed.mp4", "video/mp4")
+        prepared.destination.prepare(4)
+        prepared.destination.open().use { output ->
+            output.write(0, byteArrayOf(1, 2, 3, 4), 0, 4)
+            output.sync()
+        }
+        val saved = SavedDestination.of(prepared)
+
+        assertEquals("Closed.mp4.d1.part", saved.partialName)
+        assertTrue(saved.reopenable)
+
+        val reopened = requireNotNull(provider.reopen(saved))
+        // The bytes it kept are still there: the fresh link goes on from them.
+        assertEquals(4L, reopened.temporaryLength())
+
+        reopened.commit()
+
+        val root = File(context.noBackupFilesDir, "downloads")
+        assertEquals(4L, File(root, "Closed.mp4").length())
+    }
+
+    @Test
+    fun `a partial file that is gone, or a name that is no name, reopens nothing`() {
+        val provider = AndroidDownloadDestinationProvider(context) { "D2" }
+        val prepared = provider.prepare("Gone.mp4", "video/mp4")
+        val saved = SavedDestination.of(prepared)
+        prepared.destination.discard()
+
+        assertNull(provider.reopen(saved))
+        assertNull(provider.reopen(saved.copy(partialName = "../Gone.mp4.d2.part")))
+        assertNull(provider.reopen(saved.copy(partialName = null)))
+        assertNull(
+            provider.reopen(
+                SavedDestination(
+                    kind = DownloadDestinationKind.SAF_DOCUMENT,
+                    uri = null,
+                    displayName = "Gone.mp4",
+                ),
+            ),
+        )
     }
 
     @Test

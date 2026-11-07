@@ -50,6 +50,11 @@ data class LinkRenewalRequest(
     val byUser: Boolean,
     /** The fresh links this download already got without a tap (at most 3). */
     val automaticRenewals: Int,
+    /**
+     * Whether the answer must bring the task's file again ([LinkRenewal.Fresh.destination]): true
+     * after the app closed, when the queue has no destination to write the bytes into.
+     */
+    val reopenDestination: Boolean = false,
 )
 
 /** The app's answer to a [LinkRenewalRequest]. */
@@ -62,6 +67,11 @@ sealed interface LinkRenewal {
     data class Fresh(
         val plan: DownloadPlan,
         val metadata: RemoteFileMetadata? = null,
+        /**
+         * The task's own file, reopened where the bytes it keeps are, when
+         * [LinkRenewalRequest.reopenDestination] asked for it; null otherwise.
+         */
+        val destination: DownloadDestination? = null,
     ) : LinkRenewal
 
     /**

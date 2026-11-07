@@ -20,7 +20,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun browserHistoryDao(): BrowserHistoryDao
 
     companion object {
-        const val VERSION = 6
+        const val VERSION = 7
         const val NAME = "yft.db"
 
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -138,6 +138,16 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL(
                     "CREATE INDEX IF NOT EXISTS `index_browser_history_last_visited_at` " +
                         "ON `browser_history` (`last_visited_at`)",
+                )
+            }
+        }
+
+        /** Where a download came from, so a fresh link can be got after the app closed. */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE download_records " +
+                        "ADD COLUMN renewal_source_payload TEXT DEFAULT NULL",
                 )
             }
         }
