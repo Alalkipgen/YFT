@@ -503,7 +503,19 @@ class DefaultVariantResolver(
                         candidate = candidate,
                         // A video quality with its sound apart is merged with it.
                         variants = if (kind == MediaKind.HLS) {
-                            HlsAudioPairing.pair(sized)
+                            HlsAudioPairing.pair(sized).map { variant ->
+                                // A master's combined average includes separate sound. When this
+                                // row cannot pair that sound, it describes a different download.
+                                if (variant.id in parsed.statedAverages &&
+                                    variant.audioGroupId != null &&
+                                    variant.trackType == MediaTrackType.VIDEO &&
+                                    variant.audioCompanion == null
+                                ) {
+                                    variant.copy(sizeBytes = null, sizeAccuracy = null)
+                                } else {
+                                    variant
+                                }
+                            }
                         } else {
                             sized
                         },

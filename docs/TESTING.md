@@ -34,7 +34,10 @@ the same host and conditions. Run the HLS unit and instrumented tests separately
 A finished HLS quality with a stated average rate can show an estimate. When its sound is in a
 separate playlist, both playlists must end and their lengths may differ by at most 50 ms and 0.1%
 of the shorter length. A live window, a peak-only rate, an unread playlist or a larger mismatch
-stays unknown. The six-playlist limit may leave later qualities unknown. No media is sampled.
+stays unknown. A row whose separate sound cannot be paired also stays unknown: the master’s
+combined average includes sound the row will not download. The six-playlist limit may leave later
+qualities unknown. A group with multiple sound renditions may state the rate of a larger choice than
+the first one YFT pairs; the estimate is not an exact size. No media is sampled.
 
 On Linux x86-64 with ffmpeg 7.0.2, Apple's public [BipBop master](https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_adv_example_hevc/master.m3u8)
 stated 600.000 s video and 600.043 s AAC for its first 540p AVC/AAC quality, with average rate
@@ -42,6 +45,16 @@ stated 600.000 s video and 600.043 s AAC for its first 540p AVC/AAC quality, wit
 MP4 was 164,190,619 bytes (+0.067%). The input byte ranges, including initialization, totalled
 164,301,196 bytes: input bytes are not an exact final MP4 size. Both tracks decoded at the start,
 300 s and 590 s on the host. This did not use the Android download or muxer.
+
+A second public [Mux Tears of Steel master](https://test-streams.mux.dev/tos_ismc/main.m3u8)
+had ended 734.169 s video and 734.113 s audio playlists, 56 ms apart, with a stated combined
+average of 6,296,707 bit/s. On the same Linux host, ffmpeg stream-copy made a 577,995,046-byte MP4;
+combined-rate arithmetic gives 577,855,885 bytes (-0.0241%). Both tracks decoded at 0, 360 and
+725 s. This is not an app download or a YFT estimate: its master also names a `stpp` subtitle codec
+that the current resolver does not support. Even without that limitation, the 56 ms gap exceeds the
+50 ms limit. One case is not enough to establish a safe wider threshold. In a playlist-only survey
+of the Apple HEVC master, all 54 declared variants were within 50 ms of their selected audio group's
+first rendition. Those were manifest checks, not 54 completed file comparisons.
 
 [JW Tears of Steel](https://content.jwplatform.com/manifests/vM7nH0Kl.m3u8) was a peak-only VOD:
 its current production sizes stay unknown. Five HEAD samples, including the first and last of 184

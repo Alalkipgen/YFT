@@ -23,17 +23,16 @@ Overwrite this file at each checkpoint (40 lines at most). Never append. History
 - Mux public VOD has finished video/audio durations 734.169/734.113 s (56 ms apart). Its master
   also names a subtitle codec that YFT does not support. Host MP4 577,995,046 bytes; combined-rate
   arithmetic 577,855,885 (-0.0241%), not a YFT estimate. Apple HEVC: all 54 variants had <=50 ms.
-  Check the case where separate audio cannot be paired: combined rate may size a silent row.
+  Silent HLS rows no longer show a combined-rate estimate when sound cannot be paired.
 - Earlier owner phone checks covered Wikimedia 1080p from Home and Browser, pause/resume, direct
   MP4/WebM and YouTube size display. They are not current-code tests. The 4K original preview and
   2.8 GB download remain untested. AV1 remains off in release pending the owner's phone test.
 ## Validation and next steps
-- Local `c205527a`: browser 158, media 60, app 1,624 tests (66 opt-in render skips), and
-  assembleDebug passed; scripts 87 passed with separately installed jsonschema. CI validation
-  42410587214, emulator 42410587180, minified 42410587158 and preview 42410587181 passed; API 34
-  ran 90 tests (7 skipped), API 28 ran 2 (0 skipped); neither tests these sites.
+- New code: local media 62, browser 158 and model 155 tests passed; earlier app 1,624 tests
+  (66 opt-in skips) and debug build passed on `c205527a`. Script tests 87 passed. New CI must run.
+  Prior emulator API 34 ran 90 tests (7 skipped), API 28 ran 2; neither tested the adult sites.
 - AV1/AAC tests on `05e5316f` were emulator checks, not phone or full-stream passes.
 - Browser fixture protects two named videos, qualities and unknowns while hiding a known ad.
-  Download-listener ad signs and main-player provenance need more work. A low-memory software
-  emulator boot attempt is running; preserve privacy when testing sites.
+  Download-listener ad signs and main-player provenance need more work. A 1 GiB software emulator
+  stayed offline through 12 minutes with no KVM; real app tests on these sites remain blocked.
 - Do not run VK promotion, merge to `main`, publish, or turn on AV1 release merging.

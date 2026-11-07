@@ -80,6 +80,11 @@ Not planned for the next release. Advice in brackets.
   or merge distinct video items without identity evidence. A download-listener-only candidate
   carries no ad-address sign. Adding one blindly can hide a file the page names as its own after
   observations merge; resolve conflicting provenance before changing this path.
+  The WebView request hook has no reliable initiating frame or element ID. A Referer origin and
+  close request timing are clues, not proof that a candidate is the player or an ad. The ad-break
+  tracker uses these clues and can mark an unrelated CDN file; the normal browser does not call its
+  VAST-answer method. Same-page files of the same rounded duration may group even when distinct.
+  Keep unknowns retrievable and test changes against multiple videos before relying on these clues.
 
 ## Risks
 

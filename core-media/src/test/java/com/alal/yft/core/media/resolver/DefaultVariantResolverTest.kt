@@ -903,6 +903,79 @@ class DefaultVariantResolverTest {
     }
 
     @Test
+    fun `HLS combined average is not added again for separate sound renditions`() = runTest {
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when (request.path) {
+                "/multiple-sound/master.m3u8" -> manifestResponse(
+                    """
+                    #EXTM3U
+                    #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="stereo",NAME="First",URI="first.m3u8"
+                    #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="stereo",NAME="Second",URI="second.m3u8"
+                    #EXT-X-STREAM-INF:BANDWIDTH=1500000,AVERAGE-BANDWIDTH=1000000,RESOLUTION=1280x720,CODECS="avc1.4d401f,mp4a.40.2",AUDIO="stereo"
+                    video.m3u8
+                    """.trimIndent(), "application/vnd.apple.mpegurl",
+                )
+                "/multiple-sound/first.m3u8", "/multiple-sound/video.m3u8" -> manifestResponse(
+                    "#EXTM3U\n#EXTINF:6,\nfragment.ts\n#EXT-X-ENDLIST\n",
+                    "application/vnd.apple.mpegurl",
+                )
+                else -> MockResponse().setResponseCode(404)
+            }
+        }
+        val result = resolver.resolve(
+            candidate(server.url("/multiple-sound/master.m3u8").toString(), MediaKind.HLS),
+        ) as VariantResolutionResult.Success
+        val video = result.asset.variants.single { it.height == 720 }
+        assertEquals(MediaTrackType.AUDIO_VIDEO, video.trackType)
+        assertTrue(requireNotNull(video.audioCompanion).mediaUrl.endsWith("/first.m3u8"))
+        assertEquals(750_000L, video.sizeBytes) // Combined rate, not 750,000 plus sound.
+        assertEquals(MediaSizeAccuracy.ESTIMATED, video.sizeAccuracy)
+        assertEquals(3, server.requestCount) // Master, video and the selected first sound only.
+    }
+
+    @Test
+    fun `HLS combined average cannot size an unpaired silent video`() = runTest {
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when (request.path) {
+                "/unpaired/master.m3u8" -> manifestResponse(
+                    """
+                    #EXTM3U
+                    #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="stereo",NAME="Audio",URI="audio.m3u8"
+                    #EXT-X-STREAM-INF:BANDWIDTH=1500000,AVERAGE-BANDWIDTH=1000000,RESOLUTION=1920x1080,CODECS="avc1.640028,mp4a.40.2",AUDIO="stereo"
+                    avc.m3u8
+                    #EXT-X-STREAM-INF:BANDWIDTH=1500000,AVERAGE-BANDWIDTH=1000000,RESOLUTION=1920x1080,CODECS="vp09.00.40.08,mp4a.40.2",AUDIO="stereo"
+                    vp9.m3u8
+                    #EXT-X-STREAM-INF:BANDWIDTH=1500000,AVERAGE-BANDWIDTH=1000000,RESOLUTION=1280x720,CODECS="hvc1.1.6.L93.B0,mp4a.40.2",AUDIO="stereo"
+                    hevc.m3u8
+                    """.trimIndent(), "application/vnd.apple.mpegurl",
+                )
+                "/unpaired/audio.m3u8", "/unpaired/avc.m3u8",
+                "/unpaired/vp9.m3u8", "/unpaired/hevc.m3u8" -> manifestResponse(
+                    "#EXTM3U\n#EXTINF:6,\nfragment.ts\n#EXT-X-ENDLIST\n",
+                    "application/vnd.apple.mpegurl",
+                )
+                else -> MockResponse().setResponseCode(404)
+            }
+        }
+        val result = resolver.resolve(
+            candidate(server.url("/unpaired/master.m3u8").toString(), MediaKind.HLS),
+        ) as VariantResolutionResult.Success
+        val video = result.asset.variants.filter { it.trackType != MediaTrackType.AUDIO }
+        val avc = video.single { it.playbackUrl.endsWith("/avc.m3u8") }
+        assertEquals(MediaTrackType.AUDIO_VIDEO, avc.trackType)
+        assertTrue(avc.audioCompanion != null)
+        assertEquals(750_000L, avc.sizeBytes)
+        assertEquals(MediaSizeAccuracy.ESTIMATED, avc.sizeAccuracy)
+        for (suffix in listOf("/vp9.m3u8", "/hevc.m3u8")) {
+            val silent = video.single { it.playbackUrl.endsWith(suffix) }
+            assertEquals(MediaTrackType.VIDEO, silent.trackType)
+            assertNull(silent.audioCompanion)
+            assertNull(silent.sizeBytes)
+            assertNull(silent.sizeAccuracy)
+        }
+    }
+
+    @Test
     fun `finished separate HLS tracks can differ by a small frame rounding amount`() = runTest {
         // Apple's public 540p VOD: video 600.000 s, AAC 600.042 s, both ended.
         val videoDuration = AtomicReference("600.000")
@@ -946,6 +1019,11 @@ class DefaultVariantResolverTest {
         assertNull(quality().sizeBytes)
         videoDuration.set("10.000")
         audioDuration.set("10.020") // Small in absolute terms, too large for a short video.
+        assertNull(quality().sizeBytes)
+        // A public Mux VOD has these finished playlist lengths (but a subtitle codec YFT does not
+        // support); even with supported codecs, its 56 ms gap exceeds the present safety limit.
+        videoDuration.set("734.169")
+        audioDuration.set("734.113")
         assertNull(quality().sizeBytes)
     }
 
