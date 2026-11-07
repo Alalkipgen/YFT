@@ -133,6 +133,25 @@ Old records stay in git history. Feature names follow [GLOSSARY.md](GLOSSARY.md)
   address ends in `.webm` is probed first, and when the answer is a page (`NotMedia`) the page is
   read like any other page and its own files are offered, instead of the sheet ending at
   "address not supported". A direct file link still answers media and stays the file. (2026-11-07)
+- **One player's `<source>` children are one video.** A `<source>` child states one of the files
+  its media element picks from, so the page's own player lists them as one video's qualities, never
+  as previews beside the file the page states for that video. The element's own `src` is not one of
+  them — it is what the element plays, and on a page whose player setup names the qualities it can
+  be the ad — so it joins the group only when the element also lists sources. Why: Wikimedia
+  Commons' page names four `<source>` files and states its 4K original in its data; YFT took the
+  stated original for the page's only video, and the owner's sheet showed one row, "Quality
+  unknown · WebM · 2.8 GB", with no quality to pick. (2026-11-07)
+- **A WebM names its own row.** A WebM or Matroska file's picture, frame rate, length and codecs are
+  read from its own header: the EBML `Info` and `Tracks` inside the first 256 KiB, one ranged read,
+  the read an MP4 header already needs. A frame rate is stated only when `DefaultDuration` is a
+  plausible frame duration (1–240 fps): Wikimedia's original states 16666 ns, which would be 60002
+  fps, so its frame rate stays unknown rather than made up. Why: the Browser's items and Home's row
+  for the page's stated original had no picture at all. (2026-11-07)
+- **A preview that cannot play says why.** A quality whose picture the phone's own decoders do not
+  cover says which picture and codec ("This phone has no decoder for this picture: 4000 × 2250
+  (VP8)") and that the file still downloads; a preview that fails never blocks the download. Why:
+  Wikimedia's 4K original is VP8, which many phones do not decode, and "This variant could not be
+  played" read as if the file or the app were broken. (2026-11-07)
 - **An If-Range validator is quoted.** The ETag a file server states is sent as `If-Range` quoted
   (RFC 7233 §3.2 wants a strong entity-tag, which is quoted), an unquoted value from the server is
   quoted here, a weak (`W/…`) or unusable tag falls back to `Last-Modified` when it is an

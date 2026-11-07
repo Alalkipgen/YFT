@@ -43,6 +43,20 @@ one.
   `AVERAGE-BANDWIDTH` still is one. A download whose total is an estimate says so under the bar:
   **205 of ~236 MB (estimated)**.
 
+- **Home**: a page's own player lists one video's qualities. Wikimedia Commons' page names four
+  `<source>` files (240p, 360p, 480p, 1080p) and states its 4K original in the page's data; YFT took
+  the stated original for the page's only video and pushed the player's four files aside as
+  previews, so the sheet showed one row, "Quality unknown · WebM · 2.8 GB", and no quality to pick.
+  The player's files are now that video's qualities and the stated original is a row of its own.
+- **Browser**: the same page's four files are one item with four qualities, named by the picture the
+  page states for each (1080p, 480p, 360p, 240p), instead of four items reading "Quality unknown".
+- **Qualities**: a WebM file the page does not describe names its own row from its header — picture,
+  frame rate, length and codec — so a WebM reads "1080p · 30 fps · VP9" instead of "Quality
+  unknown".
+- **Preview**: a quality the phone's own decoders do not cover says which picture and codec it could
+  not play ("This phone has no decoder for this picture: 4000 × 2250 (VP8)") and that the file still
+  downloads, instead of "This variant could not be played."
+
 ## [1.0.2]
 
 Not dated yet: the date is added when 1.0.2 is published.

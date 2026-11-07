@@ -16,9 +16,11 @@ What is open now: where things stand, the owner's open decisions, the backlog an
   `vk{N}-{N}.vkuser.net`, where the moved clips' files sit. The API answered for the three links
   the owner sent; the fourth, a clip, is one VK says it does not play.
 - The VK fixes, the size fix (the sheet's own bitrate guess and DASH/HLS peak rates no longer stand
-  in for a size), the Wikimedia fix, the download that goes on after the app closed, and Android
-  9's save path in CI are on `work/phase-v102-easy`; they wait on a phone run, so none is passed.
-  Next is the phone checklist in [TESTING.md](TESTING.md), then VK's promotion runs.
+  in for a size), the Wikimedia fixes (the page's own address is no file, the quoted `If-Range`, one
+  player's sources as one video's qualities, a WebM's own header naming its row, and the preview
+  message for a picture the phone cannot decode), the download that goes on after the app closed,
+  and Android 9's save path in CI are on `work/phase-v102-easy`; they wait on a phone run, so none
+  is passed. Next is the phone checklist in [TESTING.md](TESTING.md), then VK's promotion runs.
 
 ## Open owner decisions
 

@@ -360,13 +360,17 @@ off). If anything fails, open Details → Copy details and send it.
 - **HTML5 page:** the w3schools `html5_video` page. The sheet ends on the MP4 row
   "144p · 320 × 176 · 25 fps · MP4". At large text the address pill shows once.
 - **Wikimedia Commons:** in the browser, opening
-  `https://commons.wikimedia.org/wiki/File:Big_Buck_Bunny_4K.webm` offers only its
-  `upload.wikimedia.org` files, never the page's own address; the top row downloads and plays.
-  Pasting the same address on Home reads the page and offers its 480p, 1080p and 240p files
-  instead of failing as an invalid address. Its 287 MB 1080p download never goes back to a lower
-  %: the partial file is kept and the range requests are answered 206 (the fix for the unquoted
-  `If-Range`). Break the network for a few seconds mid-download: the row goes on from the same %,
-  and the finished file plays.
+  `https://commons.wikimedia.org/wiki/File:Big_Buck_Bunny_4K.webm` offers its `upload.wikimedia.org`
+  files as one item with four qualities — 1080p, 480p, 360p and 240p, the pictures the page states
+  for them — never the page's own address; the 1080p row downloads, pauses, resumes and plays with
+  sound. On Home, pasting the same address opens a sheet with the player's four qualities and, apart
+  from them, the 4K original the page states ("4K · WebM · 2.8 GB"); that original's preview says
+  "This phone has no decoder for this picture: 4000 × 2250 (VP8). Another quality plays here; this
+  file still downloads." It is VP8, which many phones do not decode, and the 2.8 GB file is not
+  downloaded for this check. Its 287 MB 1080p download never goes back to a lower %: the partial
+  file is kept and the range requests are answered 206 (the fix for the unquoted `If-Range`). Break
+  the network for a few seconds mid-download: the row goes on from the same %, and the finished file
+  plays.
 - **Fresh link renewal** (trial preview or census APK, "Break this download's link"): the download
   shows "Getting a fresh link…" and resumes at the same %. Details: "Fresh link (403 at … MB):
   resumed at … MB". Breaks 2–3 renew too; the 4th shows "Link expired"; Retry gives "Fresh link on
