@@ -105,6 +105,10 @@ Old records stay in git history. Feature names follow [GLOSSARY.md](GLOSSARY.md)
 
 ## Downloads
 
+- **All items is video only.** Offer the video items a public post exposes, including videos in
+  a post that also has photos. Do not add photo or TikTok slideshow downloads. (2026-11-07)
+- **Download performance.** Measure HLS and MP3 conversion before changing them; make an
+  optimization only when evidence supports it and the download's integrity is kept. (2026-11-07)
 - **Fresh link renewal.** A 401, 403, 410 or expired link starts one fresh lookup (VK's 400 only
   after bytes); at most 3 per download; never another quality. Why: long downloads outlive links.
   (2026-10-27)

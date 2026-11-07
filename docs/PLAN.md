@@ -35,7 +35,6 @@ What is open now: where things stand, the owner's open decisions, the backlog an
 - **AV1 merges in the release:** turn on only after the owner's phone run of the AV1 test box.
 - **DASH with an `http` BaseURL:** Android's cleartext rule refuses the preview, but the download
   works. Allow it for the preview, or leave it.
-- **MP3 conversion speed:** decoding is the slow part. Choose the next step, or none.
 - **Merge fallback:** Android's MediaMuxer path with an AAC track that has an edit list is not yet
   tested on a phone.
 - **VK fresh link:** a 400 on the first request shows "Failed · Unexpected HTTP status". Fix it, or

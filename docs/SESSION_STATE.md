@@ -28,7 +28,8 @@ Overwrite this file at each checkpoint (40 lines at most). Never append. History
   This is not the end-to-end Android path or a phone benchmark; no optimization was made.
 - A separate host FFmpeg comparison was slower for Matroska than MP4 on these tiny fixtures;
   Matroska timing differed and Android/player compatibility was not established. No format changed.
-- All items needs the owner's choice of public photo sites and example posts. Next: finish the AV1
-  and AAC phone checks and 2K/4K measurement, then all items for the chosen sites. Validate each
-  change and run final CI before one phone checklist.
+- The owner chose video only for All items, including video in mixed posts; no photo or TikTok
+  slideshow download. Next: implement and test video selection and queueing, and measure HLS and
+  MP3 conversion before changing them. Find public examples; report access blocks honestly.
+- AV1, AAC and 2K/4K still need the device checks above. Run final CI before one phone checklist.
 - Do not run VK promotion, merge to `main`, publish, or turn on AV1 release merging.
