@@ -145,6 +145,9 @@ class HtmlMediaScanner(
                     confidence = CandidateConfidence.HIGH,
                     requireMediaSignal = false,
                     role = role,
+                    // A page that states a quality's picture (`data-height="1080"`, as Wikimedia
+                    // Commons' player does) names the row by it: "1080p", "480p", "240p".
+                    height = sourceAttributes["data-height"]?.toIntOrNull()?.takeIf { it > 0 },
                 )
             }
         }

@@ -48,6 +48,28 @@ class HtmlMediaScannerTest {
     }
 
     @Test
+    fun aQualitysOwnPictureNamesItAsWikimediaCommonsStatesIt() {
+        // The owner's Commons page: the player's <source> children state each transcode's picture
+        // in data-width/data-height, so the sheet names the rows 1080p, 480p and 240p instead of
+        // three unnamed files.
+        val html = """
+            <html><body><video id="mwe_player_0" width="800" height="450" controls>
+              <source src="https://upload.wikimedia.org/transcoded/clip.480p.vp9.webm"
+                type="video/webm; codecs=&quot;vp9, opus&quot;" data-width="854" data-height="480">
+              <source src="https://upload.wikimedia.org/transcoded/clip.1080p.vp9.webm"
+                type="video/webm; codecs=&quot;vp9, opus&quot;" data-width="1920" data-height="1080">
+            </video></body></html>
+        """.trimIndent()
+
+        val result = scanner.scan(html, "https://commons.wikimedia.org/wiki/File:Clip.webm", 7)
+
+        assertEquals(
+            listOf(480, 1080),
+            result.candidates.map { it.height },
+        )
+    }
+
+    @Test
     fun openGraphStreamsCountButHtmlPlayerPagesDoNot() {
         val html = """
             <meta property="og:title" content="Launch replay">
