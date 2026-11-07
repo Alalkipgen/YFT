@@ -353,7 +353,7 @@ class DefaultVariantResolverTest {
     }
 
     @Test
-    fun `DASH resolves separate tracks and marks bitrate sizes estimated`() = runTest {
+    fun `DASH resolves separate tracks and states no size from a peak bandwidth`() = runTest {
         server.enqueue(
             manifestResponse(
                 """
@@ -379,11 +379,14 @@ class DefaultVariantResolverTest {
 
         assertEquals(10_000L, result.asset.durationMillis)
         val video = result.asset.variants.single { it.trackType == MediaTrackType.VIDEO }
-        assertEquals(1_000_000L, video.sizeBytes)
-        assertEquals(MediaSizeAccuracy.ESTIMATED, video.sizeAccuracy)
+        // @bandwidth is the peak of a channel the representation can be delivered on, not the
+        // file's average: 800 kbit/s over 10 s is not the file's size, so the row states none.
+        assertNull(video.sizeBytes)
+        assertNull(video.sizeAccuracy)
+        assertEquals(800_000L, video.bitrateBitsPerSecond)
         assertEquals(29.970, video.framesPerSecond!!, 0.001)
         val audio = result.asset.variants.single { it.trackType == MediaTrackType.AUDIO }
-        assertEquals(160_000L, audio.sizeBytes)
+        assertNull(audio.sizeBytes)
         assertEquals("en", audio.language)
     }
 
@@ -691,9 +694,11 @@ class DefaultVariantResolverTest {
         assertEquals(754_500L, result.asset.durationMillis)
         val hd = result.asset.variants.single { it.height == 720 }
         assertEquals(754_500L, hd.durationMillis)
-        // 2.5 Mbit/s for 754.5 s: an estimate the sheet shows with "~".
-        assertEquals(235_781_250L, hd.sizeBytes)
-        assertEquals(MediaSizeAccuracy.ESTIMATED, hd.sizeAccuracy)
+        // BANDWIDTH is the stream's peak rate, so 2.5 Mbit/s over 754.5 s is larger than the file:
+        // the row states no size rather than a number the file does not have.
+        assertNull(hd.sizeBytes)
+        assertNull(hd.sizeAccuracy)
+        assertEquals(2_500_000L, hd.bitrateBitsPerSecond)
         assertEquals("https://page.example.test", hd.requestContext.observedHeaders["Origin"])
         val master = server.takeRequest()
         assertEquals("https://page.example.test/watch", master.getHeader("Referer"))
@@ -703,6 +708,45 @@ class DefaultVariantResolverTest {
         assertEquals("https://page.example.test", quality.getHeader("Origin"))
         assertEquals(2, server.requestCount)
     }
+
+    @Test
+    fun `an HLS master that states the average rate is sized from it and a peak alone is not`() =
+        runTest {
+            // AVERAGE-BANDWIDTH is the stream's average rate (RFC 8216), so average times length is
+            // the file's size, shown with "~". The 1080 quality states a peak only: no size.
+            server.dispatcher = object : Dispatcher() {
+                override fun dispatch(request: RecordedRequest): MockResponse = when {
+                    request.path == "/v/master.m3u8" -> manifestResponse(
+                        """
+                        #EXTM3U
+                        #EXT-X-STREAM-INF:BANDWIDTH=2500000,AVERAGE-BANDWIDTH=1000000,RESOLUTION=1280x720,CODECS="$AVC_720"
+                        720.m3u8
+                        #EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080,CODECS="$AVC_1080"
+                        1080.m3u8
+                        """.trimIndent(),
+                        "application/vnd.apple.mpegurl",
+                    )
+                    else -> MockResponse().setResponseCode(404)
+                }
+            }
+
+            val result = resolver.resolve(
+                candidate(
+                    url = server.url("/v/master.m3u8").toString(),
+                    kind = MediaKind.HLS,
+                ).copy(durationMillis = 754_500),
+            ) as VariantResolutionResult.Success
+
+            val hd = result.asset.variants.single { it.height == 720 }
+            // 1 Mbit/s for 754.5 s, the master's stated average.
+            assertEquals(94_312_500L, hd.sizeBytes)
+            assertEquals(MediaSizeAccuracy.ESTIMATED, hd.sizeAccuracy)
+            assertEquals(754_500L, hd.durationMillis)
+            val full = result.asset.variants.single { it.height == 1080 }
+            assertNull(full.sizeBytes)
+            assertNull(full.sizeAccuracy)
+            assertEquals(5_000_000L, full.bitrateBitsPerSecond)
+        }
 
     @Test
     fun `a failure names the step and the host it stopped at`() = runTest {

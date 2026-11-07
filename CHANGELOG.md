@@ -25,8 +25,12 @@ one.
   file opened or pasted directly is still read as the file.
 - **Sizes**: a row shows a size only when the source states one, with `~` when the source marks it
   an estimate; a size YFT would have to guess is not shown, and the row reads **Size unknown**. The
-  ended YouTube live that read ~515 MB for a 371 MB file is one of them. A download whose total is
-  an estimate says so under the bar: **205 of ~236 MB (estimated)**.
+  ended YouTube live that read ~515 MB for a 371 MB file is one of them, and so is a replay that
+  read ~689 MB in the sheet while its download said ~390 MB. The sheet no longer multiplies a
+  bitrate by a length to fill a row, and a DASH `@bandwidth` or an HLS `BANDWIDTH` — both the peak
+  of a channel, not the file's average — no longer stands in for a size; an HLS master's
+  `AVERAGE-BANDWIDTH` still is one. A download whose total is an estimate says so under the bar:
+  **205 of ~236 MB (estimated)**.
 
 ## [1.0.2]
 

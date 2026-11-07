@@ -143,6 +143,15 @@ Old records stay in git history. Feature names follow [GLOSSARY.md](GLOSSARY.md)
   `~` when the source marks it an estimate; otherwise it reads "Size unknown". A progress total
   that is an estimate says "(estimated)". Why: YFT's own bitrate × length guess read as the file's
   size (the ended live showed ~515 MB for a 371 MB file). (2026-11-07)
+- **A peak rate is not a size; a stated average is.** A bitrate times a length is a size only when
+  the bitrate is the stream's average: an HLS master's `AVERAGE-BANDWIDTH` (RFC 8216) is, so those
+  rows keep "~". A DASH `@bandwidth` (the peak of a channel the representation can be delivered
+  on), an HLS `BANDWIDTH` (the peak segment rate) and YouTube's rate for a live format are peaks,
+  so their rows read "Size unknown". The sheet's own provisional row is filled from the size the
+  source states and from nothing else: the guess read ~689 MB beside a download of ~390 MB, and
+  ~1.7 times the file on both replays the owner tested. What is measured is still shown: the
+  progress total is the bytes of the pieces done times the pieces, under the bar, "(estimated)".
+  (2026-11-07)
 
 ## Signed recipe config
 

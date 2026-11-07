@@ -430,14 +430,40 @@ class QuickDownloadChoicesTest {
     }
 
     @Test
-    fun statedSizesAreEstimatedFromTheBitrateAndLengthAndCannotOverflow() {
+    fun aBitrateAndALengthAreNotASize() {
+        // 1 Mbit/s over 8 s is 1 MB, but the file may not weigh it: YouTube states a live format's
+        // encoder rate, not what the replay weighs, and a row the source states no size for reads
+        // "Size unknown" until its file states one.
         val candidate = video(720).copy(bitrateBitsPerSecond = 1_000_000, durationMillis = 8_000)
         val source = SheetSource(candidate, null, resolved = false)
         val choices = QuickDownloadChoices.of(group(listOf(candidate)), listOf(source))!!
-        assertEquals("~${YftFormat.bytes(1_000_000)}", choices.video.single().size)
-        val huge = candidate.copy(bitrateBitsPerSecond = Long.MAX_VALUE,
-            durationMillis = Long.MAX_VALUE)
-        assertNull(QuickDownloadMetadata.asset(huge)!!.variants.single().sizeBytes)
+        assertNull(choices.video.single().size)
+        assertNull(QuickDownloadMetadata.asset(candidate)!!.variants.single().sizeBytes)
+
+        // The owner's two replays on the phone: 240p with sound, the sheet read ~251 MB and
+        // ~689 MB from the stated rates while the first file weighed 145 MB. Both now read none.
+        val sound = QuickDownloadFixtures.companion()
+            .copy(contentLengthBytes = null, bitrateBitsPerSecond = 144_000)
+        listOf(3_505_000L to 251, 10_266_000L to 689).forEach { (length, sheet) ->
+            val replay = video(240, merged = true).copy(
+                audioCompanion = sound,
+                bitrateBitsPerSecond = 419_000,
+                durationMillis = length,
+            )
+            val replayChoices = QuickDownloadChoices.of(
+                group(listOf(replay)),
+                listOf(SheetSource(replay, QuickDownloadMetadata.asset(replay), false)),
+            )!!
+            assertNull("a $sheet MB guess is not a size", replayChoices.video.single().size)
+        }
+
+        // A size the source states is still the row's size.
+        val stated = candidate.copy(contentLengthBytes = 8 * MIB)
+        val statedChoices = QuickDownloadChoices.of(
+            group(listOf(stated)),
+            listOf(SheetSource(stated, QuickDownloadMetadata.asset(stated), false)),
+        )!!
+        assertEquals("8 MB", statedChoices.video.single().size)
     }
 
     @Test

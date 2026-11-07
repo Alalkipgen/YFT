@@ -349,10 +349,12 @@ off). If anything fails, open Details → Copy details and send it.
 - **AV1 test box** (census APK, Android 14 or newer): tick "AV1 merges (test, Android 14 or
   newer)" and open
   `https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel-av1.ism/.mpd`.
-  Rows read "… · AV1" (about 267, 81 and 29 MB). The merged MP4 has sound and runs 12:14. Details
-  ends with "AV1 decoder: …". Untick it: the AV1 rows read "No sound".
+  Rows read "… · AV1"; the manifest states a peak rate, not a size, so each row reads
+  "Size unknown". The merged MP4 has sound and runs 12:14. Details ends with "AV1 decoder: …".
+  Untick it: the AV1 rows read "No sound".
 - **DASH test streams:** `https://dash.akamaized.net/dash264/TestCases/1a/netflix/exMPD_BIP_TC1.mpd`
-  gives a 360p MP4 with sound (about 44 MB) and an M4A (about 5.1 MB).
+  gives a 360p MP4 with sound and an M4A; a DASH manifest states `@bandwidth`, a peak, so the rows
+  read "Size unknown" and the download's own total is the first number.
   `https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd` gives an M4A "67 kbps" and seven rows
   from 2160p to 144p, none "No sound".
 - **HTML5 page:** the w3schools `html5_video` page. The sheet ends on the MP4 row
@@ -376,8 +378,13 @@ off). If anything fails, open Details → Copy details and send it.
   "Getting a fresh link…", then goes on from the same % and finishes. Details start with
   "Fresh link (…): resumed at … MB". If the page no longer offers the video, the row says
   "Fresh link: the video is no longer on the page" and keeps the bytes.
-- **Ended YouTube live:** it saves. Its row reads "Size unknown" (no size is guessed). If it is up
-  to 2 minutes short, Details says "Live video saved N s short of …".
+- **Ended YouTube live:** it saves. Its row reads "Size unknown" before and after the file is read:
+  the sheet used to multiply YouTube's rate for the live format by the replay's length, ~1.7 times
+  the file. The owner's replays: `https://www.youtube.com/live/vTaR-KqKUAM` (58:25, 240p: file
+  145 MB, sheet read ~251 MB) and `https://www.youtube.com/live/ulRE89KaH5M` (2:51:06, 240p: sheet
+  read ~689 MB beside a progress total of ~390 MB). Both rows now read "Size unknown"; the bar
+  under the download is the measured total, "(estimated)". If it is up to 2 minutes short, Details
+  says "Live video saved N s short of …".
 - **VK:** each of the owner's three links opens a sheet with its qualities (one keeps its files on
   `vk6-13.vkuser.net`); the 720p row downloads merged with sound and plays; the clip link says VK
   does not play it. VK stays unpassed until its three promotion runs pass.

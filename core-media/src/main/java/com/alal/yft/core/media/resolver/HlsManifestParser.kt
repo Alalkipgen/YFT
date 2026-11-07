@@ -88,14 +88,17 @@ internal object HlsManifestParser {
             )
         }
 
+        // The qualities a master states an average rate for: only those may be sized from it.
+        val averages = mutableSetOf<String>()
         val variants = buildList {
             streams.forEachIndexed { index, stream ->
                 val codecs = stream.attributes["CODECS"].toCodecs()
                 val resolution = stream.attributes["RESOLUTION"].toResolution()
-                val bitrate = (
-                    stream.attributes["AVERAGE-BANDWIDTH"]
-                        ?: stream.attributes["BANDWIDTH"]
-                    )?.toLongOrNull()?.takeIf { it > 0 }
+                val average = stream.attributes["AVERAGE-BANDWIDTH"]
+                    ?.toLongOrNull()?.takeIf { it > 0 }
+                val bitrate = average
+                    ?: stream.attributes["BANDWIDTH"]?.toLongOrNull()?.takeIf { it > 0 }
+                if (average != null) averages += "hls-stream-$index"
                 val audioGroupId = stream.attributes["AUDIO"]
                 val trackType = when {
                     audioGroupId != null && CodecSupport.hasVideo(codecs) ->
@@ -107,7 +110,10 @@ internal object HlsManifestParser {
                     audioGroupId != null -> MediaTrackType.VIDEO
                     else -> MediaTrackType.AUDIO_VIDEO
                 }
-                val estimate = estimateSize(bitrate, durationMillis)
+                // AVERAGE-BANDWIDTH is the stream's average rate (RFC 8216), so it times the
+                // length is a size the sheet may show with "~". BANDWIDTH alone is its peak: a
+                // size from it is larger than the file, so such a row says "Size unknown".
+                val estimate = estimateSize(average, durationMillis)
                 add(
                     MediaVariant(
                         id = "hls-stream-$index",
@@ -174,7 +180,7 @@ internal object HlsManifestParser {
         }
 
         if (variants.isEmpty()) return ManifestParseResult.Malformed
-        return ManifestParseResult.Parsed(variants, durationMillis)
+        return ManifestParseResult.Parsed(variants, durationMillis, averages)
     }
 
     private fun isProtectedKey(line: String): Boolean {

@@ -59,8 +59,10 @@ internal object DashManifestParser {
                 ) ?: return@forEach
                 val codecs = representation.attribute("codecs").toCodecs()
                     .ifEmpty { adaptationCodecs }
+                // A representation's @bandwidth is the peak of a channel it can be delivered on
+                // (ISO/IEC 23009-1), so a size from it is larger than the file. Only a size the
+                // source states is a size: a row without one says "Size unknown".
                 val bitrate = representation.positiveLong("bandwidth")
-                val estimate = estimateSize(bitrate, durationMillis)
                 val representationId = representation.attribute("id")
                 variants += MediaVariant(
                     id = "dash-${trackType.name.lowercase(Locale.US)}-$representationIndex",
@@ -85,8 +87,8 @@ internal object DashManifestParser {
                         ).toFrameRate(),
                     bitrateBitsPerSecond = bitrate,
                     durationMillis = durationMillis,
-                    sizeBytes = estimate.bytes,
-                    sizeAccuracy = estimate.accuracy,
+                    sizeBytes = null,
+                    sizeAccuracy = null,
                     language = representation.attribute("lang") ?: adaptationLanguage,
                     support = if (CodecSupport.isSupported(codecs)) {
                         VariantSupport.SUPPORTED

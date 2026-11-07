@@ -7,6 +7,12 @@ internal data class EstimatedSize(
     val accuracy: MediaSizeAccuracy?,
 )
 
+/**
+ * A size from a bitrate the source states as the stream's average and the length it states, marked
+ * [MediaSizeAccuracy.ESTIMATED]. Only for an average rate (an HLS master's `AVERAGE-BANDWIDTH`): a
+ * peak or nominal rate (DASH `@bandwidth`, HLS `BANDWIDTH`, YouTube's live format rate) times the
+ * length is larger than the file, so it is never a size.
+ */
 internal fun estimateSize(
     bitrateBitsPerSecond: Long?,
     durationMillis: Long?,

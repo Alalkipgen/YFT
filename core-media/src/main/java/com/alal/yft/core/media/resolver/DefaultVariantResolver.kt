@@ -456,7 +456,14 @@ class DefaultVariantResolver(
                             null
                         }
                     trace.step = ResolutionStep.PREPARE
-                    val sized = variants.map { it.withLength(length) }
+                    val sized = variants.map { variant ->
+                        val timed = variant.withLength(length)
+                        if (variant.id in parsed.statedAverages) {
+                            timed.withAverageSize(length)
+                        } else {
+                            timed
+                        }
+                    }
                     success(
                         candidate = candidate,
                         // A video quality with its sound apart is merged with it.
@@ -533,15 +540,25 @@ class DefaultVariantResolver(
         return parsed.durationMillis?.takeIf { it > 0 }
     }
 
-    /** A quality of a video of [length] states it, and its size from its bitrate. */
+    /**
+     * A quality of a video of [length] takes that length when it states none. Its size stays the
+     * size its manifest states: a bitrate times a length is not a size, and a row the source states
+     * no size for says "Size unknown" rather than a number the file may not have.
+     */
     private fun MediaVariant.withLength(length: Long?): MediaVariant {
         if (length == null || length <= 0) return this
-        val estimate = if (sizeBytes == null) estimateSize(bitrateBitsPerSecond, length) else null
-        return copy(
-            durationMillis = durationMillis ?: length,
-            sizeBytes = sizeBytes ?: estimate?.bytes,
-            sizeAccuracy = sizeAccuracy ?: estimate?.accuracy,
-        )
+        return copy(durationMillis = durationMillis ?: length)
+    }
+
+    /**
+     * The size of a quality whose manifest states the stream's average rate
+     * ([ManifestParseResult.Parsed.statedAverages]) and a length: average times length, shown with
+     * "~". A quality whose rate is a peak keeps no size.
+     */
+    private fun MediaVariant.withAverageSize(length: Long?): MediaVariant {
+        if (sizeBytes != null) return this
+        val estimate = estimateSize(bitrateBitsPerSecond, length ?: durationMillis)
+        return copy(sizeBytes = estimate.bytes, sizeAccuracy = estimate.accuracy)
     }
 
     /**
