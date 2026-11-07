@@ -83,8 +83,14 @@ Not planned for the next release. Advice in brackets.
   The WebView request hook has no reliable initiating frame or element ID. A Referer origin and
   close request timing are clues, not proof that a candidate is the player or an ad. The ad-break
   tracker uses these clues and can mark an unrelated CDN file; the normal browser does not call its
-  VAST-answer method. Same-page files of the same rounded duration may group even when distinct.
-  Keep unknowns retrievable and test changes against multiple videos before relying on these clues.
+  VAST-answer method. Equal duration alone no longer groups files. Without a shared video identity,
+  separate qualities of one video can therefore appear as separate items. Fresh-link retry still
+  falls back to a similar duration when its address no longer matches; that can select a different
+  video and needs identity evidence and regression tests. Keep unknowns retrievable and test changes
+  against multiple videos before relying on these clues.
+- The owner reports slower downloads in Preview than in v1.0.2 Release. Separate sheet lookup,
+  transfer and finalization before attributing a cause. Host checks in TESTING show an added HLS
+  average-rate lookup delay in a controlled fixture, not the cause of the phone observation.
 
 ## Risks
 

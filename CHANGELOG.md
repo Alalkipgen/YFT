@@ -22,6 +22,8 @@ one.
 
 ### Fixed
 
+- **Page video finder**: files are no longer grouped as one video solely because their durations
+  match. The page or adapter must identify alternatives as belonging to the same video.
 - **HLS download**: a silent row no longer shows the master’s combined video-and-sound
   average-rate estimate when its separate sound cannot be paired.
 - **HLS download**: an ended quality with separate sound can show its source's average-rate size

@@ -1,39 +1,40 @@
 # Session state
 Overwrite this file at each checkpoint (40 lines at most). Never append. History is in git.
 ## Now
-- Branch `work/phase-v102-easy`; Phase 0 feasibility cleanup complete.
-- All items queues selected post videos at one default quality each; no photos or playlists. X's
-  public four-video post yielded four videos and nine quality rows; one file per item was fetched
-  and its first five seconds decoded on the host. This was not an app or phone download. A public
-  mixed Instagram example returned login required without a session. Fixture tests cover mixed posts.
-- HLS uses a bounded piece pool and playlist-order assembly. Its 387 host tests passed. A live HLS
-  window is not a complete size: average-rate estimates now require each quality's finished playlist
-  and a finished sound playlist with at most 50 ms and 0.1% duration difference. The resolver reads
-  up to six playlist lookups under a five-second coroutine timeout; blocking reads may outlast it.
-  Normal reads cap at 256 KiB plus one byte; redirects/browser retries add traffic; no media sampled.
-- Apple BipBop 540p separate AVC/AAC: 600.000/600.043 s, average estimate 164,300,475 bytes,
-  host ffmpeg MP4 164,190,619 (+0.067%); not an app/device test. JW 286p/142p five-HEAD samples
-  erred -22.54%/-19.44%, alternate positions +11.99%/+11.69% versus completed TS. Sampling is
-  not in production; see TESTING. More cases do not establish a general accuracy or range.
-- Five unsigned YouTube replay pages (including HKlRo-QdaRY and cy1BQSHYtZg) returned
-  login required; no current estimate/completed comparison. Do not bypass restrictions. The old
-  240p guess was ~251 MB for a 145 MB file; another ~390 MB was progress, not a completed file.
-- Adult host browser: Javtiful Close redirected away; Play was covered. Jav.guru and Roshy had
-  single-rendition live HLS near previews, not verified main ladders. No YFT count or playback verified.
-- Mux public VOD has finished video/audio durations 734.169/734.113 s (56 ms apart). Its master
-  also names a subtitle codec that YFT does not support. Host MP4 577,995,046 bytes; combined-rate
-  arithmetic 577,855,885 (-0.0241%), not a YFT estimate. Apple HEVC: all 54 variants had <=50 ms.
-  Silent HLS rows no longer show a combined-rate estimate when sound cannot be paired.
-- Earlier owner phone checks covered Wikimedia 1080p from Home and Browser, pause/resume, direct
-  MP4/WebM and YouTube size display. They are not current-code tests. The 4K original preview and
-  2.8 GB download remain untested. AV1 remains off in release pending the owner's phone test.
+- Branch `work/phase-v102-easy`; remote HEAD `c733fd5a`. The equal-duration grouping draft is
+  local only, unfinished and not pushed. GitHub CLI sign-in is needed for `scripts/checkpoint.sh`.
+- Files without a shared video ID or page-player key now stay separate even at equal duration.
+  This avoids combining distinct videos, but unlinked qualities can appear as separate items.
+  Fresh-link retry still has a duration-only fallback and can choose a different video; investigate.
+- Owner phone observations on a Preview: Roshy showed matching 1080p/720p/480p rows, sizes unknown;
+  Jav.guru showed one 480p row and a player had three options, but server correspondence is unknown.
+  Found counts 12/29 may accumulate across servers. Candidate identities and ads are unproven.
+  Javtiful found 5/10 s ad candidates and later a 30:53, 720p item; main identity is unproven.
+  YouTube replay HKlRo-QdaRY opened with five size-unknown rows; no completed download. The installed
+  APK identity is not independently confirmed. The last APK supplied was Preview 207 from `3cea4b9b`.
+- Owner reports Preview downloads slower than v1.0.2 Release (`5fda5c59`). Source and quality are
+  not yet known. On a Linux host the public JW 142p HLS (38,312,896 bytes) produced identical hashes
+  in four runs per build, no remux. After one warm-up, release total times were 1127/822/754 ms;
+  current times were 1164/716/581 ms. Network/cache can differ; this is not phone throughput.
+- A local synthetic five-quality average-rate HLS master, 150 ms per response, took 305–310 ms and
+  two requests on Release versus 1067–1070 ms and seven on current code. Peak-only took 305–308 ms
+  and two requests on both. This is sheet metadata latency, not proven phone transfer slowdown.
+- HLS uses a three-slot piece pool, bounded playlist-order assembly and existing retry rules. Recent
+  HLS estimates require ended video/audio playlists, close durations and source average bitrate;
+  no segment sampling. Five-HEAD experiments are not in production. Unsigned YouTube replay host
+  checks returned login required; no current estimate-versus-completed measurement.
+- Phase 0 cleanup is complete. All items handles video only. Do not add photo/slideshow or VK census.
+  AV1 release merge remains off pending phone evidence. Wikimedia 4K original preview and 2.8 GB
+  download remain untested. Earlier Wikimedia/direct/YouTube phone passes were on earlier builds.
 ## Validation and next steps
-- On `3cea4b9b`: local media 62, browser 158, model 155, app 1,624 tests (66 opt-in skips)
-  and debug build passed; script tests 87 passed. CI validation 42415423330, emulator 42415423334,
-  minified 42415423320 and preview 42415423432 passed. API 34 ran 90 tests (7 skipped); API 28
-  ran 2. The real YFT browser found public Wikimedia media in smoke; the adult sites were not tested.
-- AV1/AAC tests on `05e5316f` were emulator checks, not phone or full-stream passes.
-- Browser fixture protects two named videos, qualities and unknowns while hiding a known ad.
-  Download-listener ad signs and main-player provenance need more work. A 1 GiB software emulator
-  stayed offline through 12 minutes with no KVM; real app tests on these sites need phone evidence.
-- Do not run VK promotion, merge to `main`, publish, or turn on AV1 release merging.
+- Local grouping draft: model 158 (including two external cases), browser 158, media 62 and focused
+  app grouping passed; full app test failed 3 of 1,624 with 66 skips. The failures include a master
+  and its quality playlist and MP4/OGG alternatives. Do not ship this draft; preserve proven
+  relationships without grouping unrelated videos. Full baseline hit the 4 GiB memory limit; split
+  core tests and 87 script tests passed.
+- Baseline app had 1,624 tests, 66 opt-in skips, and debug build passed. Last code CI on `3cea4b9b`:
+  validation 42415423330, emulator 42415423334, minified 42415423320, preview 42415423432 passed.
+- Continue review of retry identity, app regressions, generic player provenance, ads and reliable
+  size estimates. Do not infer main/ad status from count, origin or timing. No site-specific lists.
+- Check remote HEAD and sign in to GitHub CLI, run checkpoint validation and push; then run CI and
+  produce one final Preview/checklist only after all safe work. Never merge or publish without approval.

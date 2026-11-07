@@ -48,9 +48,8 @@ data class PageVideoList(
  * Candidates are one video when a site adapter named the same video ([MediaCandidate.videoId]),
  * when the page itself names them as one video's files ([MediaCandidate.pageVideoKey]: its player
  * setup's qualities, a media element's `<source>` alternatives, or the whole file it states for
- * that video), or when they come from the same page and state the same length. Anything else
- * stays on its own: two files of unknown length on one page may well be two videos. Order follows
- * the first candidate of each video.
+ * that video). Otherwise files stay on their own: equal duration does not prove that two files
+ * are the same video. Order follows the first candidate of each video.
  */
 object MediaGroups {
     fun of(candidates: List<MediaCandidate>): List<MediaGroup> {
@@ -411,12 +410,8 @@ object MediaGroups {
         candidate.pageVideoKey?.trim()?.takeIf(String::isNotEmpty)?.let {
             return "setup:${candidate.pageUrl}#$it"
         }
-        // Two previews of one length are two clips, not two qualities of one video.
-        if (candidate.pageRole == PageMediaRole.PREVIEW) {
-            return "item:$index:${candidate.mediaUrl.hashCode()}"
-        }
-        val seconds = candidate.durationMillis?.takeIf { it > 0 }?.let { it / MILLIS_PER_SECOND }
-        if (seconds != null) return "page:${candidate.pageUrl}#$seconds"
+        // Without a shared identity, equal lengths do not show whether these are qualities
+        // of one video or separate videos.
         return "item:$index:${candidate.mediaUrl.hashCode()}"
     }
 
@@ -436,7 +431,6 @@ object MediaGroups {
     }
 
     private const val LABEL_SEPARATOR = " — "
-    private const val MILLIS_PER_SECOND = 1_000L
 
     /** A video of a minute or more is long; a clip under it next to one is a preview. */
     private const val LONG_VIDEO_MILLIS = 60_000L

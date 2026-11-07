@@ -93,12 +93,12 @@ class DetectedMediaScreenTest {
 
     @Test
     fun theQualitiesOfOneVideoAreOneRowWhosePreviewOpensThemAll() {
-        // Same page and length: one video in two qualities and its audio.
+        // The page names these files as alternatives for the same player.
         val qualities = listOf(
             candidate(0, "Fixture clip — 720p"),
             candidate(1, "Fixture clip — 480p"),
             candidate(2, "Fixture clip — Audio").copy(mimeType = "audio/mp4"),
-        ).map { it.copy(durationMillis = 61_000) }
+        ).map { it.copy(durationMillis = 61_000, pageVideoKey = "player-1") }
         var previewed: MediaGroup? = null
         composeRule.setContent {
             YftTheme(themeMode = ThemeMode.LIGHT) {

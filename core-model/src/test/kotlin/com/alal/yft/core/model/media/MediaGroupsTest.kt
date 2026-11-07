@@ -46,18 +46,34 @@ class MediaGroupsTest {
     }
 
     @Test
-    fun filesOfOnePageWithTheSameLengthAreOneVideo() {
+    fun equalLengthAloneDoesNotCombineVideos() {
         val groups = MediaGroups.of(
             listOf(
-                candidate("https://cdn.test/a.mp4", "Clip — 720p", durationMillis = 61_200),
-                candidate("https://cdn.test/b.mp4", "Clip — 480p", durationMillis = 61_900),
+                candidate("https://cdn.test/a.mp4", "First", durationMillis = 61_200),
+                candidate("https://cdn.test/b.mp4", "Second", durationMillis = 61_900),
                 candidate("https://cdn.test/c.mp4", "Other", durationMillis = 30_000),
             ),
         )
 
+        assertEquals(listOf(1, 1, 1), groups.map { it.candidates.size })
+        assertEquals(listOf("First", "Second", "Other"), groups.map(MediaGroup::title))
+        assertEquals(61_200L, groups.first().durationMillis)
+    }
+
+    @Test
+    fun aPageNamedPlayerStillGroupsItsQualityAlternatives() {
+        val qualities = listOf(
+            candidate("https://cdn.test/a.mp4", "Clip — 720p", durationMillis = 61_200),
+            candidate("https://cdn.test/b.mp4", "Clip — 480p", durationMillis = 61_900),
+        ).map { it.copy(pageVideoKey = "player-1") }
+        val other = candidate("https://cdn.test/c.mp4", "Other", durationMillis = 61_200)
+            .copy(pageVideoKey = "player-2")
+
+        val groups = MediaGroups.of(qualities + other)
+
         assertEquals(listOf(2, 1), groups.map { it.candidates.size })
         assertEquals(listOf("Clip", "Other"), groups.map(MediaGroup::title))
-        assertEquals(61_200L, groups.first().durationMillis)
+        assertEquals(qualities, groups.first().candidates)
     }
 
     @Test
