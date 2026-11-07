@@ -177,9 +177,11 @@ as estimates. A video-only stream with a separate sound track plays as a merged 
 player is created lazily and released with its screen.
 
 An HLS average-rate estimate needs that quality's finished playlist and duration. Separate sound
-also needs a finished playlist of the same duration. The resolver reads at most six such playlists,
-at most 256 KiB each, within one five-second deadline; unknown or unfinished cases stay unknown.
-It does not sample or download media pieces just to estimate a size.
+also needs a finished playlist of the same duration. The resolver attempts at most six playlist
+lookups under a shared five-second coroutine timeout, reading up to 256 KiB plus one byte from each
+response. Blocking response-body reads can outlast that timeout; redirects and browser retries may
+add requests, and a browser retry uses the general manifest limit. Unknown or unfinished cases stay
+unknown. It does not sample or download media pieces just to estimate a size.
 
 ## Downloads
 
