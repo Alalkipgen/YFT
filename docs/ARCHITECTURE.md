@@ -184,6 +184,8 @@ player is created lazily and released with its screen.
 - Direct files download in resumable ranges. DASH and HLS download the chosen tracks' pieces. A
   video-only file with a sound file is planned as a merge of two tracks, each cut into resumable
   chunks of at most 10 MiB.
+- HLS keeps a bounded pool of piece downloads. Each finished piece is synced and checkpointed;
+  the pieces are assembled in playlist order, not in the order they finish.
 - Requests to `googlevideo.com` are kept small, because larger single requests slow down.
 - Merge uses Android's media APIs; long videos use fast merge (stream copy, no re-encode). There is
   no FFmpeg.

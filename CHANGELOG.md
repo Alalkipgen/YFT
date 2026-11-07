@@ -15,6 +15,11 @@ one.
 - **All items**: select the available videos of one post and queue them at the default quality.
   Each video is a separate download; photos are not downloaded.
 
+### Changed
+
+- **HLS download**: the next piece can start when a download slot is free, without waiting for
+  every piece in the preceding group.
+
 ### Fixed
 
 - **Downloads**: a download keeps the bytes it has when the file server states its `ETag` without

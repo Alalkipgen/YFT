@@ -58,7 +58,6 @@ Not planned for the next release. Advice in brackets.
   hours in 24, and the service reports that as a notice. [A phone run of a download longer than 6
   hours says whether the notice is enough.]
 - Fast merge (Matroska stream copy) for 2K and 4K.
-- A rolling piece pool for HLS.
 - Background playback in Library.
 - A shared ad host list.
 - A private tab, and allowing pop-ups.

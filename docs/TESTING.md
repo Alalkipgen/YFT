@@ -20,6 +20,15 @@ You need JDK 17 and the Android SDK (`sdk.dir` in `local.properties`, or `ANDROI
 
 The checkpoint check runs the first three rows and the last row.
 
+## HLS download benchmark
+
+Run `./gradlew -I scripts/benchmarks/hls.gradle :core-download:testDebugUnitTest --tests
+'*HlsDownloadBenchmark'`. The opt-in host test uses the production transfer engine and a local
+HTTP server: 12 pieces of 256 KiB, three download slots, one warm-up and four measured runs.
+It checks the joined bytes and reports uniform and mixed response-delay cases. The bytes are not
+media; this does not test playback, remux, device speed, memory or disk I/O. Compare revisions on
+the same host and conditions. Run the HLS unit and instrumented tests separately for correctness.
+
 ## CI workflows
 
 | Workflow (name in Actions) | Starts on | What it runs | Artifacts |

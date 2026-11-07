@@ -24,6 +24,7 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -169,25 +170,26 @@ class HlsTransferEngine internal constructor(
             tracker = activeTracker
             activeTracker.emit()
 
-            parsed.chunks
-                .filterNot { initial.chunks[it.index].completed }
-                .chunked(policy.maxConcurrentChunks)
-                .forEach { batch ->
-                    coroutineScope {
-                        batch.map { chunk ->
-                            async {
-                                val bytes = downloadChunkWithRetry(
-                                    plan = plan,
-                                    credentialOrigin = credentialOrigin,
-                                    workspace = workspace,
-                                    chunk = chunk,
-                                )
-                                activeTracker.markCompleted(chunk.index, bytes)
-                            }
+            val remaining = parsed.chunks.filterNot { initial.chunks[it.index].completed }
+            val next = AtomicInteger()
+            coroutineScope {
+                List(minOf(policy.maxConcurrentChunks, remaining.size)) {
+                    async {
+                        while (true) {
+                            currentCoroutineContext().ensureActive()
+                            val index = next.getAndIncrement()
+                            val chunk = remaining.getOrNull(index) ?: break
+                            val bytes = downloadChunkWithRetry(
+                                plan = plan,
+                                credentialOrigin = credentialOrigin,
+                                workspace = workspace,
+                                chunk = chunk,
+                            )
+                            activeTracker.markCompleted(chunk.index, bytes)
                         }
-                            .awaitAll()
                     }
-                }
+                }.awaitAll()
+            }
 
             val completedCheckpoint = activeTracker.snapshot()
             if (completedCheckpoint.completedChunkCount != parsed.chunks.size) {
