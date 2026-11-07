@@ -1,43 +1,19 @@
 # Plan
 
-What is open now: the steps to 1.0.2, the owner's open decisions, known issues, the backlog and the
+What is open now: where things stand, the owner's open decisions, known issues, the backlog and the
 risks. Decisions already made are in [DECISIONS.md](DECISIONS.md). Tests and runbooks are in
-[TESTING.md](TESTING.md).
+[TESTING.md](TESTING.md). The steps for a release are in [RELEASE.md](RELEASE.md).
 
 ## Where things stand
 
-- 1.0.1 is released (2026-10-29).
-- 1.0.2 is built on `work/phase-v102-easy`. Its changes are in [CHANGELOG.md](../CHANGELOG.md)
-  under `## [1.0.2]`.
-- Main's readers and the Backup finder are in the release. Weak-answer fill and Instagram's
-  best-first order are enabled in release and previews by the owner. The changed release behavior
-  needs final-code proof before release; VK has not passed promotion.
-
-## Steps to release 1.0.2
-
-1. Confirm CI is green on the last code commit. Commits marked `[skip ci]` start no workflow, so run
-   "Work-branch checkpoint validation" by hand on `work/phase-v102-easy` (Actions → Run workflow).
-2. Get the owner's answers to the open decisions below.
-3. Build a census APK from the final head ([TESTING.md](TESTING.md), "Build the census APK").
-   The earlier census APK predates the release flag change; do not assume it proves the final build.
-4. Check promotion for the final configuration, including weak-answer fill. Facebook, Instagram
-   and X passed on the earlier census build. VK has not passed; its blank embed and moved clip host
-   need fixes and fresh promotion runs before VK's fill is released. Follow
-   [TESTING.md](TESTING.md), "Promotion runs"; do not count an old build as final-code proof.
-5. The phone checklist on the two preview APKs ([TESTING.md](TESTING.md)).
-6. The release commit: `yft.versionName=1.0.2` and `yft.versionCode=1000200` in
-   `gradle.properties`; `docs/release/1.0.2.md` (like `1.0.1.md`, with a "From 1.0.1" part); and
-   `## [1.0.2] - <date>` in `CHANGELOG.md`.
-7. CI green. Run the Preview APK workflow and install both previews on the phone.
-8. Open a pull request from `work/phase-v102-easy` to `main` and merge it with a merge commit.
-9. Make the draft: push the tag `v1.0.2`, or Run workflow "Release draft" on `main` with publish
-   unticked.
-10. `bash scripts/device-smoke-test.sh --upgrade-from <1.0.1 APK> <1.0.2 APK>`, then the manual
-    checklist in [RELEASE.md](RELEASE.md).
-11. Publish: set `ALLOW_RELEASE` to `true`, Run workflow "Release draft" with publish ticked, then
-    set it back.
-12. Check that a phone with 1.0.1 offers 1.0.2 in Settings → About → Updates.
-13. Start the next `CHANGELOG.md` section.
+- 1.0.1 is released (2026-10-29) and 1.0.2 is released (2026-11-03).
+- `main` holds 1.0.2 and the README screenshots change. Work continues on `work/phase-v102-easy`,
+  and no pull request is open.
+- Weak-answer fill and Instagram's best-first order are enabled in release and previews by the
+  owner. Facebook, Instagram and X passed promotion on the census build.
+- VK has not passed promotion: its blank embed and moved clip host need fixes and fresh promotion
+  runs before VK's fill is released.
+- The fixes open now are VK's two, then the ended-live size estimate under known issues.
 
 ## Open owner decisions
 
@@ -67,11 +43,12 @@ risks. Decisions already made are in [DECISIONS.md](DECISIONS.md). Tests and run
 
 - **Size estimate for an ended YouTube live is too high.** The Download sheet showed about 511 MB
   for 240p; the file was 371 MB. A normal 1080p video is right (about 346 MB shown, 346 MB saved).
-  Fix after 1.0.2.
+  The sheet showed an estimate (`~`), so the file's own length was not known, and the
+  estimate is bitrate × length.
 
 ## Backlog
 
-Not planned for 1.0.2. Advice in brackets.
+Not planned for the next release. Advice in brackets.
 
 - Investigate why the public Wikimedia Commons Big Buck Bunny page returned an invalid address
   during the README screenshots run.
