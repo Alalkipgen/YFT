@@ -73,7 +73,8 @@ Not planned for the next release. Advice in brackets.
 - Instagram's `doc_id`: look again if `VALUE_REJECTED` shows.
 - Size estimates for ended YouTube live and peak-only HLS: investigate bounded samples, their
   error, data cost and latency before using them. YouTube's unsigned replay check was blocked;
-  two public HLS samples are not enough to establish a general accuracy or a reliable range.
+  public HLS samples show positional bias and are not enough to establish a general accuracy or a
+  reliable range. Byte-range sums describe input bytes, not the exact remuxed file.
 - Investigate reported single quality and high Found counts using generic player/manifest evidence.
   Observed thumbnail players are not confirmed main ladders; do not infer every extra item is an ad
   or merge distinct video items without identity evidence.

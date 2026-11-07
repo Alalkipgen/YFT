@@ -555,7 +555,13 @@ class DefaultVariantResolver(
                 if (audioGroup != null) {
                     val audio = audioByGroup[audioGroup] ?: continue
                     val audioLength = finite(audio) ?: continue
-                    if (audioLength != length) continue
+                    // A completed AAC track can end a few milliseconds after its picture due
+                    // to frame boundaries. Keep the tolerance both absolutely and relatively
+                    // small; a meaningfully different or incomplete recording stays unknown.
+                    val difference = maxOf(audioLength, length) - minOf(audioLength, length)
+                    if (difference > MAX_PAIRED_LENGTH_DIFFERENCE_MS ||
+                        difference > minOf(audioLength, length) / PAIRED_LENGTH_RATIO
+                    ) continue
                 }
                 lengths[variant.id] = length
             }
@@ -1011,6 +1017,8 @@ class DefaultVariantResolver(
         const val REFERER = "Referer"
         const val HTTPS_PORT = 443
         const val PLAYLIST_TIMEOUT_MS = 5_000L
+        const val MAX_PAIRED_LENGTH_DIFFERENCE_MS = 50L
+        const val PAIRED_LENGTH_RATIO = 1_000L
         const val MAX_AVERAGE_PLAYLISTS = 6
         const val MAX_AVERAGE_PLAYLIST_BYTES = 256 * 1_024
         const val HTTP_OK = 200

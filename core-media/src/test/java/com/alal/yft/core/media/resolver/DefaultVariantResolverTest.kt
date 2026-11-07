@@ -11,6 +11,7 @@ import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaSizeAccuracy
 import com.alal.yft.core.model.media.MediaTrackType
+import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.ResolutionStep
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
@@ -733,8 +734,7 @@ class DefaultVariantResolverTest {
         assertEquals(754_500L, result.asset.durationMillis)
         val hd = result.asset.variants.single { it.height == 720 }
         assertEquals(754_500L, hd.durationMillis)
-        // BANDWIDTH is the stream's peak rate, so 2.5 Mbit/s over 754.5 s is larger than the file:
-        // the row states no size rather than a number the file does not have.
+        // BANDWIDTH is the stream's peak rate, not a reliable file size: the row states no size.
         assertNull(hd.sizeBytes)
         assertNull(hd.sizeAccuracy)
         assertEquals(2_500_000L, hd.bitrateBitsPerSecond)
@@ -900,6 +900,53 @@ class DefaultVariantResolverTest {
         assertNull(size())
         audio.set("#EXTM3U\n#EXTINF:5,\na.aac\n#EXT-X-ENDLIST\n")
         assertNull(size())
+    }
+
+    @Test
+    fun `finished separate HLS tracks can differ by a small frame rounding amount`() = runTest {
+        // Apple's public 540p VOD: video 600.000 s, AAC 600.042 s, both ended.
+        val videoDuration = AtomicReference("600.000")
+        val audioDuration = AtomicReference("600.042")
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when (request.path) {
+                "/rounding/master.m3u8" -> manifestResponse(
+                    """
+                    #EXTM3U
+                    #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="stereo",NAME="Audio",URI="audio.m3u8"
+                    #EXT-X-STREAM-INF:BANDWIDTH=2523597,AVERAGE-BANDWIDTH=2190673,RESOLUTION=960x540,CODECS="avc1.4d401f,mp4a.40.2",AUDIO="stereo"
+                    video.m3u8
+                    """.trimIndent(), "application/vnd.apple.mpegurl",
+                )
+                "/rounding/video.m3u8" -> manifestResponse(
+                    "#EXTM3U\n#EXTINF:${videoDuration.get()},\nv.ts\n#EXT-X-ENDLIST\n",
+                    "application/vnd.apple.mpegurl",
+                )
+                "/rounding/audio.m3u8" -> manifestResponse(
+                    "#EXTM3U\n#EXTINF:${audioDuration.get()},\na.aac\n#EXT-X-ENDLIST\n",
+                    "application/vnd.apple.mpegurl",
+                )
+                else -> MockResponse().setResponseCode(404)
+            }
+        }
+        suspend fun quality(): MediaVariant {
+            val result = resolver.resolve(
+                candidate(server.url("/rounding/master.m3u8").toString(), MediaKind.HLS),
+            ) as VariantResolutionResult.Success
+            return result.asset.variants.single { it.height == 540 }
+        }
+        val estimated = quality()
+        assertEquals(164_300_475L, estimated.sizeBytes)
+        assertEquals(MediaSizeAccuracy.ESTIMATED, estimated.sizeAccuracy)
+        assertTrue(estimated.audioCompanion != null)
+        audioDuration.set("599.958")
+        assertEquals(164_300_475L, quality().sizeBytes)
+        audioDuration.set("600.050")
+        assertEquals(164_300_475L, quality().sizeBytes)
+        audioDuration.set("600.051")
+        assertNull(quality().sizeBytes)
+        videoDuration.set("10.000")
+        audioDuration.set("10.020") // Small in absolute terms, too large for a short video.
+        assertNull(quality().sizeBytes)
     }
 
     @Test

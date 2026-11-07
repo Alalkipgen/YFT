@@ -60,8 +60,8 @@ internal object DashManifestParser {
                 val codecs = representation.attribute("codecs").toCodecs()
                     .ifEmpty { adaptationCodecs }
                 // A representation's @bandwidth is the peak of a channel it can be delivered on
-                // (ISO/IEC 23009-1), so a size from it is larger than the file. Only a size the
-                // source states is a size: a row without one says "Size unknown".
+                // (ISO/IEC 23009-1), so it is not a reliable file size. Only a size the source
+                // states is a size: a row without one says "Size unknown".
                 val bitrate = representation.positiveLong("bandwidth")
                 val representationId = representation.attribute("id")
                 variants += MediaVariant(

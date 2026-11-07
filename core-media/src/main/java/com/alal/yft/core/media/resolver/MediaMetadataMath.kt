@@ -11,7 +11,7 @@ internal data class EstimatedSize(
  * A size from a bitrate the source states as the stream's average and the length it states, marked
  * [MediaSizeAccuracy.ESTIMATED]. Only for an average rate (an HLS master's `AVERAGE-BANDWIDTH`): a
  * peak or nominal rate (DASH `@bandwidth`, HLS `BANDWIDTH`, YouTube's live format rate) times the
- * length is larger than the file, so it is never a size.
+ * length is not a reliable file size, so it is never shown as one.
  */
 internal fun estimateSize(
     bitrateBitsPerSecond: Long?,

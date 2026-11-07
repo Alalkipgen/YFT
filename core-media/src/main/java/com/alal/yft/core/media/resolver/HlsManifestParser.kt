@@ -111,8 +111,8 @@ internal object HlsManifestParser {
                     else -> MediaTrackType.AUDIO_VIDEO
                 }
                 // AVERAGE-BANDWIDTH is the stream's average rate (RFC 8216), so it times the
-                // length is a size the sheet may show with "~". BANDWIDTH alone is its peak: a
-                // size from it is larger than the file, so such a row says "Size unknown".
+                // length is an estimate the sheet may show with "~". BANDWIDTH alone is its
+                // peak, not a reliable file size, so such a row says "Size unknown".
                 val estimate = estimateSize(average, durationMillis)
                 add(
                     MediaVariant(

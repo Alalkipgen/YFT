@@ -29,6 +29,20 @@ It checks the joined bytes and reports uniform and mixed response-delay cases. T
 media; this does not test playback, remux, device speed, memory or disk I/O. Compare revisions on
 the same host and conditions. Run the HLS unit and instrumented tests separately for correctness.
 
+## HLS size checks
+
+A finished HLS quality with a stated average rate can show an estimate. When its sound is in a
+separate playlist, both playlists must end and their lengths may differ by at most 50 ms and 0.1%
+of the shorter length. A live window, a peak-only rate, an unread playlist or a larger mismatch
+stays unknown. The six-playlist limit may leave later qualities unknown. No media is sampled.
+
+On a host, Apple's public BipBop 540p AVC/AAC separate playlists stated 600.000 s and 600.043 s.
+The average-rate estimate was 164,300,475 bytes; the completed ffmpeg stream-copy MP4 was
+164,190,619 bytes (+0.067%). The input byte ranges totalled 164,301,196 bytes: input bytes are not
+an exact final MP4 size. Five-HEAD samples of JW Tears of Steel gave -22.54% and -19.44% against
+completed TS bytes for 286p and 142p; changing the five positions gave +11.99% and +11.69%.
+These are host tests, not Android downloads or a general accuracy guarantee.
+
 ## CI workflows
 
 | Workflow (name in Actions) | Starts on | What it runs | Artifacts |

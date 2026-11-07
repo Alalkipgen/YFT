@@ -22,6 +22,8 @@ one.
 
 ### Fixed
 
+- **HLS download**: an ended quality with separate sound can show its source's average-rate size
+  estimate when their playlist lengths differ only slightly. The value is still marked with `~`.
 - **HLS download**: a live playlist window is no longer treated as the length of a completed
   recording when estimating its size. A quality with separate sound needs both playlists to end.
 - **Downloads**: a download keeps the bytes it has when the file server states its `ETag` without
