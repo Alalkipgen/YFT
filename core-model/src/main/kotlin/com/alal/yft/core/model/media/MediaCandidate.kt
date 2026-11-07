@@ -82,9 +82,11 @@ data class MediaCandidate(
     /** The page's own word on this file ([PageMediaRole]); null when it says nothing. */
     val pageRole: PageMediaRole? = null,
     /**
-     * The page's own name for the video [mediaUrl] belongs to when the page's player setup
-     * lists it as one of its qualities (`720p`, `480p`), without a site adapter. Candidates with
-     * the same value on one page share one download sheet, like [videoId].
+     * The page's own name for the video [mediaUrl] belongs to, without a site adapter: one of the
+     * qualities its player setup lists (`720p`, `480p`), one of the alternatives a media element's
+     * `<source>` children give for the file it plays, or that video's whole file as the page
+     * states it (JSON-LD `contentUrl`, Open Graph's stream). Candidates with the same value on one
+     * page share one download sheet, like [videoId].
      */
     val pageVideoKey: String? = null,
     /**

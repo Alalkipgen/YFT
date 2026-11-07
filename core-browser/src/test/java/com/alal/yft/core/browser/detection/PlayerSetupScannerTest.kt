@@ -147,6 +147,7 @@ class PlayerSetupScannerTest {
         val result = HtmlMediaScanner().scan(html, page, observedAtEpochMs = 0)
 
         assertEquals(listOf(null), result.candidates.map { it.pageRole })
+        // The element's own file is its own: only a `<source>` child states an alternative.
         assertEquals(listOf(null), result.candidates.map { it.pageVideoKey })
     }
 }

@@ -30,6 +30,12 @@ import java.net.URI
  * Video.js, KVS `flashvars`, quality lists) are its video too, as qualities of one video with
  * the height their labels name; and [Result.facts] holds what the page states about its video
  * ([PageFactsReader]): its length, title and picture.
+ *
+ * A media element's `<source>` children are that element's alternatives — one video in different
+ * files, not several videos — so they share one player key, and the file the page states as its
+ * video (JSON-LD `contentUrl`, Open Graph's stream) is that same video's whole file when the page
+ * has one media element. Wikimedia Commons' `File:….webm` page is the case: four transcodes the
+ * player lists and the original file its JSON-LD names are one video, five files.
  */
 class HtmlMediaScanner(
     private val maxCandidates: Int = 50,
@@ -52,6 +58,9 @@ class HtmlMediaScanner(
             ?: return Result(title = null, candidates = emptyList())
         val found = LinkedHashMap<String, MediaCandidate>()
         val meta = metaTags(html)
+        // The page's own address is the page, never a file it lists (a wiki's File:….webm page
+        // names itself, also as its embed address).
+        val pagePath = pageUrl.substringBefore('?').substringBefore('#')
 
         fun offer(
             rawUrl: String?,
@@ -61,10 +70,12 @@ class HtmlMediaScanner(
             requireMediaSignal: Boolean,
             role: PageMediaRole? = null,
             durationMillis: Long? = null,
+            width: Int? = null,
             height: Int? = null,
             pageVideoKey: String? = null,
-        ) {
-            val url = resolve(base, rawUrl) ?: return
+        ): Boolean {
+            val url = resolve(base, rawUrl) ?: return false
+            if (url.substringBefore('?').substringBefore('#') == pagePath) return false
             found[url]?.let { known ->
                 // The page's word on a file it lists twice: its video stays its video.
                 val upgraded = when {
@@ -74,15 +85,18 @@ class HtmlMediaScanner(
                 found[url] = known.copy(
                     pageRole = upgraded,
                     durationMillis = known.durationMillis ?: durationMillis,
+                    width = known.width ?: width,
                     height = known.height ?: height,
                     pageVideoKey = known.pageVideoKey ?: pageVideoKey,
                 )
-                return
+                return true
             }
-            if (found.size >= maxCandidates * COLLECT_FACTOR && role != PageMediaRole.MAIN) return
+            if (found.size >= maxCandidates * COLLECT_FACTOR && role != PageMediaRole.MAIN) {
+                return false
+            }
             val type = mimeType?.trim()?.lowercase()?.takeIf(String::isNotEmpty)
-            if (type != null && !type.isMediaType()) return
-            if (requireMediaSignal && MediaUrlClassifier.classify(url, type) == null) return
+            if (type != null && !type.isMediaType()) return false
+            if (requireMediaSignal && MediaUrlClassifier.classify(url, type) == null) return false
             val candidate = BrowserObservationMapper.fromDom(
                 DomMediaObservation(
                     pageUrl = pageUrl,
@@ -94,12 +108,14 @@ class HtmlMediaScanner(
                     observedAtEpochMs = observedAtEpochMs,
                     pageRole = role,
                 ),
-            ) ?: return
+            ) ?: return false
             found[url] = candidate.copy(
                 confidence = confidence,
+                width = width,
                 height = height,
                 pageVideoKey = pageVideoKey,
             )
+            return true
         }
 
         // The files of the page's own player setup, as qualities of one video each.
@@ -122,12 +138,19 @@ class HtmlMediaScanner(
             }
         }
 
-        // 1. Media elements: the strongest signal, even without a recognisable extension.
+        // 1. Media elements: the strongest signal, even without a recognisable extension. A
+        // `<source>` child states one of the files the element picks from, so one element's
+        // sources are one video's qualities. The element's own `src` is not one of them (it is
+        // what the element plays, and on a page whose player setup lists the qualities it can be
+        // the ad), so it joins the group only when the element also lists sources.
+        var elements = 0
         MEDIA_ELEMENT.findAll(html).forEach { element ->
             val raw = element.groupValues[2]
             val attributes = attributes(raw)
             val poster = attributes["poster"]
             val role = previewElementRole(raw, attributes)
+            val key = "element-${elements++}"
+            val sources = SOURCE_TAG.findAll(element.groupValues[3]).toList()
             offer(
                 rawUrl = attributes.source(),
                 mimeType = attributes["type"],
@@ -135,8 +158,9 @@ class HtmlMediaScanner(
                 confidence = CandidateConfidence.HIGH,
                 requireMediaSignal = false,
                 role = role,
+                pageVideoKey = key.takeIf { sources.isNotEmpty() },
             )
-            SOURCE_TAG.findAll(element.groupValues[3]).forEach { source ->
+            sources.forEach { source ->
                 val sourceAttributes = attributes(source.groupValues[1])
                 offer(
                     rawUrl = sourceAttributes.source(),
@@ -145,9 +169,12 @@ class HtmlMediaScanner(
                     confidence = CandidateConfidence.HIGH,
                     requireMediaSignal = false,
                     role = role,
+                    // The picture the page states for this file, never the player box's size.
+                    width = sourceAttributes["data-width"]?.toIntOrNull()?.takeIf { it > 0 },
                     // A page that states a quality's picture (`data-height="1080"`, as Wikimedia
                     // Commons' player does) names the row by it: "1080p", "480p", "240p".
                     height = sourceAttributes["data-height"]?.toIntOrNull()?.takeIf { it > 0 },
+                    pageVideoKey = key,
                 )
             }
         }
@@ -264,7 +291,9 @@ class HtmlMediaScanner(
         val unescaped = unescapeJson(html)
         LINK_TOKEN.findAll(unescaped).take(maxLinkTokens).forEach { token ->
             offer(
-                rawUrl = token.value.trimEnd('.', ',', ';', ':', '!', '?'),
+                // A link the page wrote with HTML entities (`&amp;` in a query) is the same file
+                // as the one its JSON-LD states, not a second one.
+                rawUrl = decodeEntities(token.value).trimEnd('.', ',', ';', ':', '!', '?'),
                 mimeType = null,
                 poster = null,
                 confidence = CandidateConfidence.MEDIUM,

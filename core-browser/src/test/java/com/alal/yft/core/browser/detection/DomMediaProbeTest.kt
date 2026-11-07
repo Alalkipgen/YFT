@@ -1,5 +1,6 @@
 package com.alal.yft.core.browser.detection
 
+import com.alal.yft.core.model.media.MediaGroups
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.PageMediaRole
 import org.json.JSONArray
@@ -81,6 +82,59 @@ class DomMediaProbeTest {
         listOf("muted", "loop", "thumbnail").forEach { flag ->
             assertTrue(DomMediaProbe.script.contains(flag))
         }
+    }
+
+    @Test
+    fun parserGroupsOnePlayersFilesAndReadsThePictureThePageStates() {
+        // The owner's Commons page as the probe reports it: one element's three <source>
+        // children, each with the picture the page states for it.
+        fun source(url: String, width: Int, height: Int) = JSONObject()
+            .put("url", url)
+            .put("type", "video/webm; codecs=\"vp9, opus\"")
+            .put("element", "source")
+            .put("group", "element-0")
+            .put("width", width)
+            .put("height", height)
+        val fixture = JSONArray()
+            .put(source("https://cdn.test/clip.480p.webm", 854, 480))
+            .put(source("https://cdn.test/clip.1080p.webm", 1920, 1080))
+            .put(source("https://cdn.test/clip.240p.webm", 426, 240))
+
+        val candidates = DomProbeResultParser().parse(
+            pageUrl = "https://example.test/File:Clip.webm",
+            javascriptResult = fixture.toString(),
+            observedAtEpochMs = 1,
+        )
+
+        assertEquals(listOf(480, 1080, 240), candidates.map { it.height })
+        assertEquals(listOf(854, 1920, 426), candidates.map { it.width })
+        // One video: the sheet lists them as its qualities, not as three videos.
+        assertEquals(setOf("element-0"), candidates.mapNotNull { it.pageVideoKey }.toSet())
+        assertEquals(1, MediaGroups.of(candidates).size)
+        assertTrue(DomMediaProbe.script.contains("data-height"))
+        // An element with no <source> children groups nothing: its own file is its own (on a
+        // page whose player setup names the qualities, that file can be the ad).
+        assertTrue(DomMediaProbe.script.contains("querySelector('source')"))
+    }
+
+    @Test
+    fun parserKeepsTwoPlayersFilesApart() {
+        fun entry(url: String, group: String) = JSONObject()
+            .put("url", url)
+            .put("type", "video/mp4")
+            .put("group", group)
+        val fixture = JSONArray()
+            .put(entry("https://cdn.test/a.mp4", "element-0"))
+            .put(entry("https://cdn.test/b.mp4", "element-1"))
+
+        val candidates = DomProbeResultParser().parse(
+            pageUrl = "https://example.test/watch",
+            javascriptResult = fixture.toString(),
+            observedAtEpochMs = 1,
+        )
+
+        assertEquals(listOf("element-0", "element-1"), candidates.map { it.pageVideoKey })
+        assertEquals(2, MediaGroups.of(candidates).size)
     }
 
     @Test

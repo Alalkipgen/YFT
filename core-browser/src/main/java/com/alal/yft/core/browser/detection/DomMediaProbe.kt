@@ -7,6 +7,11 @@ package com.alal.yft.core.browser.detection
  * meta tags [PageFactsReader] reads, up to five JSON-LD blocks and the page title — and the text
  * of the scripts that set up its player (at most 200 KB in all), read by
  * [DomProbeResultParser]. Nothing on the page is run or changed.
+ *
+ * An entry of one of a media element's `<source>` children carries that element's `group`, so the
+ * parser knows the files are one video's alternatives; so does the element's own file when it lists
+ * sources. An entry carries the picture the page states for a file in `data-width`/`data-height`
+ * (Wikimedia Commons names its transcodes so).
  */
 object DomMediaProbe {
     val script: String = """
@@ -36,7 +41,17 @@ object DomMediaProbe {
             autoplay: !!media.autoplay,
             thumbnail: inThumbnail(media)
           } : {};
-          const add = (url, element, type, poster, duration, flags) => {
+          // The picture a page states for one file, never the player box's own size.
+          const pictureOf = node => {
+            const picture = {};
+            if (!node) return picture;
+            const width = parseInt(node.getAttribute('data-width'), 10);
+            const height = parseInt(node.getAttribute('data-height'), 10);
+            if (Number.isFinite(width) && width > 0) picture.width = width;
+            if (Number.isFinite(height) && height > 0) picture.height = height;
+            return picture;
+          };
+          const add = (url, element, type, poster, duration, flags, extra) => {
             const absoluteUrl = absolute(url);
             if (!absoluteUrl) return;
             found.push(Object.assign({
@@ -46,19 +61,31 @@ object DomMediaProbe {
               title: pageTitle,
               poster: absolute(poster),
               duration: Number.isFinite(duration) && duration > 0 ? duration : null
-            }, flags || {}));
+            }, flags || {}, extra || {}));
           };
-          document.querySelectorAll('video, audio').forEach(media => {
-            const flags = flagsOf(media);
-            const element = media.tagName.toLowerCase();
-            add(media.currentSrc, element, media.currentType, media.poster, media.duration, flags);
-            const declared = media.getAttribute('type');
-            add(media.src, element, declared, media.poster, media.duration, flags);
+          const media = Array.from(document.querySelectorAll('video, audio'));
+          media.forEach((elementNode, index) => {
+            const flags = flagsOf(elementNode);
+            const element = elementNode.tagName.toLowerCase();
+            // The element's own file joins its <source> children only when it lists some: on a
+            // page whose player setup names the qualities, the element's own file is what it
+            // plays first (often the ad before the video).
+            const extra = Object.assign(
+              elementNode.querySelector('source') ? { group: 'element-' + index } : {},
+              pictureOf(elementNode));
+            add(elementNode.currentSrc, element, elementNode.currentType,
+              elementNode.poster, elementNode.duration, flags, extra);
+            const declared = elementNode.getAttribute('type');
+            add(elementNode.src, element, declared, elementNode.poster,
+              elementNode.duration, flags, extra);
           });
           document.querySelectorAll('video source, audio source').forEach(source => {
             const parent = source.parentElement;
             const flags = flagsOf(parent);
-            add(source.src, 'source', source.type, parent?.poster, parent?.duration, flags);
+            const extra = pictureOf(source);
+            // One element's <source> children are its alternatives: one video, not several.
+            if (parent) extra.group = 'element-' + media.indexOf(parent);
+            add(source.src, 'source', source.type, parent?.poster, parent?.duration, flags, extra);
           });
           document.querySelectorAll('meta[property="og:video"], meta[property="og:video:url"], meta[name="twitter:player:stream"]').forEach(meta => {
             add(meta.content, 'meta', meta.getAttribute('type'), null, null);

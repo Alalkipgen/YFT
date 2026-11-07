@@ -46,11 +46,11 @@ data class PageVideoList(
  * Groups a page's candidates by video. Pure, so the rules are unit-tested.
  *
  * Candidates are one video when a site adapter named the same video ([MediaCandidate.videoId]),
- * when the page's player setup lists them as qualities of one video
- * ([MediaCandidate.pageVideoKey]), or when they come from the same page and state the same
- * length. Anything else stays on its
- * own: two files of unknown length on one page may well be two videos. Order follows the first
- * candidate of each video.
+ * when the page itself names them as one video's files ([MediaCandidate.pageVideoKey]: its player
+ * setup's qualities, a media element's `<source>` alternatives, or the whole file it states for
+ * that video), or when they come from the same page and state the same length. Anything else
+ * stays on its own: two files of unknown length on one page may well be two videos. Order follows
+ * the first candidate of each video.
  */
 object MediaGroups {
     fun of(candidates: List<MediaCandidate>): List<MediaGroup> {
@@ -200,7 +200,9 @@ object MediaGroups {
      * ad's file), their addresses say so (`preview`, `thumb`, `teaser`, `sprite`), or it is not
      * known to be a minute or more long while the page names another video as its own
      * ([PageMediaRole.MAIN]) or, being shorter, has a video of a minute or more. A video a site
-     * adapter named, or one the page names as its own, never is. With the page's [facts], a
+     * adapter named, or one the page names as its own, never is — and neither is a video the page
+     * itself names as one video's files ([MediaCandidate.pageVideoKey]: a media element's
+     * `<source>` alternatives, which state no length of their own). With the page's [facts], a
      * video of the stated length never is, and one under half of it is.
      */
     fun looksLikePreview(
@@ -217,6 +219,9 @@ object MediaGroups {
         if (files.all { isPreviewAddress(it.mediaUrl) }) return true
         // Far shorter than the length the page states: the ad before its video.
         if (facts?.isFarShorter(length) == true) return true
+        // The page's own player lists these files as one video's qualities, and none of them is
+        // proven a preview or an ad: that is its video, not what plays around it.
+        if (files.any { it.pageVideoKey != null }) return false
         if (length != null && length >= LONG_VIDEO_MILLIS) return false
         return page.any { other ->
             other !== video && (
@@ -401,7 +406,8 @@ object MediaGroups {
 
     private fun keyOf(candidate: MediaCandidate, index: Int): String {
         candidate.videoId?.trim()?.takeIf(String::isNotEmpty)?.let { return "id:$it" }
-        // The qualities a page's player setup lists are one video.
+        // The files a page names as one video are one video: its player setup's qualities, a
+        // media element's <source> alternatives, or the whole file it states for that video.
         candidate.pageVideoKey?.trim()?.takeIf(String::isNotEmpty)?.let {
             return "setup:${candidate.pageUrl}#$it"
         }
