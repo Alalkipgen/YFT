@@ -36,12 +36,19 @@ separate playlist, both playlists must end and their lengths may differ by at mo
 of the shorter length. A live window, a peak-only rate, an unread playlist or a larger mismatch
 stays unknown. The six-playlist limit may leave later qualities unknown. No media is sampled.
 
-On a host, Apple's public BipBop 540p AVC/AAC separate playlists stated 600.000 s and 600.043 s.
-The average-rate estimate was 164,300,475 bytes; the completed ffmpeg stream-copy MP4 was
-164,190,619 bytes (+0.067%). The input byte ranges totalled 164,301,196 bytes: input bytes are not
-an exact final MP4 size. Five-HEAD samples of JW Tears of Steel gave -22.54% and -19.44% against
-completed TS bytes for 286p and 142p; changing the five positions gave +11.99% and +11.69%.
-These are host tests, not Android downloads or a general accuracy guarantee.
+On Linux x86-64 with ffmpeg 7.0.2, Apple's public [BipBop master](https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_adv_example_hevc/master.m3u8)
+stated 600.000 s video and 600.043 s AAC for its first 540p AVC/AAC quality, with average rate
+2,190,673 bit/s. The proposed estimate was 164,300,475 bytes; the completed host ffmpeg stream-copy
+MP4 was 164,190,619 bytes (+0.067%). The input byte ranges, including initialization, totalled
+164,301,196 bytes: input bytes are not an exact final MP4 size. Both tracks decoded at the start,
+300 s and 590 s on the host. This did not use the Android download or muxer.
+
+[JW Tears of Steel](https://content.jwplatform.com/manifests/vM7nH0Kl.m3u8) was a peak-only VOD:
+its current production sizes stay unknown. Five HEAD samples, including the first and last of 184
+segments, gave -22.54% and -19.44% against completed joined TS for 286p and 142p. Five midpoint
+samples instead gave +11.99% and +11.69%. HEAD lengths matched the corresponding fetched bytes;
+the first five seconds decoded on the host. These tests do not establish a general accuracy or
+range, and sampling is not in the app.
 
 ## CI workflows
 
