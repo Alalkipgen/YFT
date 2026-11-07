@@ -268,11 +268,11 @@ class DefaultVariantResolver(
             companion != null -> MediaSizeAccuracy.ESTIMATED
             else -> MediaSizeAccuracy.EXACT
         }
-        // A video file that does not state its picture is read from its MP4 header.
+        // A video file that does not state its picture is read from its own header.
         val header = if (companion == null && candidate.height == null &&
             mimeType in PROBED_VIDEO_MIME_TYPES
         ) {
-            probeMp4Header(candidate, initialUrl, finalUrl, serverBytes)
+            probeFileHeader(candidate, initialUrl, finalUrl, serverBytes)
         } else {
             null
         }
@@ -316,16 +316,17 @@ class DefaultVariantResolver(
     }
 
     /**
-     * Reads the start of an MP4 file in a few small ranged requests and returns what its boxes
-     * state, or null when the server does not answer ranges or the file is not MP4. Sent with
-     * the same headers and redirect checks as the size lookup.
+     * Reads the start of a file in a few small ranged requests and returns what its own header
+     * states: an MP4's boxes or a WebM's EBML elements, told apart by the first bytes. Null when
+     * the server does not answer ranges or the file states nothing. Sent with the same headers
+     * and redirect checks as the size lookup.
      */
-    private suspend fun probeMp4Header(
+    private suspend fun probeFileHeader(
         candidate: MediaCandidate,
         credentialOrigin: HttpUrl,
         fileUrl: HttpUrl,
         totalBytes: Long?,
-    ): Mp4Header? {
+    ): FileHeader? {
         val reader = RangeReader { offset, length ->
             val last = offset + length - 1
             val execution = execute(
@@ -344,9 +345,23 @@ class DefaultVariantResolver(
             }
         }
         return try {
+            // The file's first bytes say which container it is: a WebM states all of its tracks
+            // within them, and an MP4 reads its boxes from them without asking again. A small file
+            // is asked for once, whole.
+            val wanted = totalBytes
+                ?.let { minOf(WebmHeaderParser.FIRST_READ_BYTES.toLong(), it).toInt() }
+                ?.takeIf { it > 0 }
+                ?: WebmHeaderParser.FIRST_READ_BYTES
+            val first = reader.read(0, wanted) ?: return null
             // Real time, not the caller's clock: the reads are network calls.
             withContext(Dispatchers.IO) {
-                withTimeoutOrNull(PROBE_TIMEOUT_MS) { Mp4HeaderParser.parse(reader, totalBytes) }
+                withTimeoutOrNull(PROBE_TIMEOUT_MS) {
+                    if (WebmHeaderParser.isWebm(first)) {
+                        WebmHeaderParser.parse(first)
+                    } else {
+                        Mp4HeaderParser.parse(FirstRead(first, reader), totalBytes)
+                    }
+                }
             }
         } catch (cancellation: CancellationException) {
             throw cancellation
@@ -920,7 +935,24 @@ class DefaultVariantResolver(
         const val HTTP_OK = 200
         const val HTTP_PARTIAL_CONTENT = 206
         const val PROBE_TIMEOUT_MS = 8_000L
-        val PROBED_VIDEO_MIME_TYPES = setOf("video/mp4", "video/quicktime", "video/x-m4v")
+        val PROBED_VIDEO_MIME_TYPES = setOf(
+            "video/mp4",
+            "video/quicktime",
+            "video/x-m4v",
+            "video/webm",
+            "video/x-matroska",
+        )
+
+        /** The reads a header probe makes, with the start of the file already in hand. */
+        private class FirstRead(
+            private val first: ByteArray,
+            private val reader: RangeReader,
+        ) : RangeReader {
+            override suspend fun read(offset: Long, length: Int): ByteArray? = when {
+                offset == 0L && length <= first.size -> first.copyOf(length)
+                else -> reader.read(offset, length)
+            }
+        }
         const val AUDIO_PREFIX = "audio/"
         const val VIDEO_PREFIX = "video/"
         const val BUFFER_SIZE = 8_192

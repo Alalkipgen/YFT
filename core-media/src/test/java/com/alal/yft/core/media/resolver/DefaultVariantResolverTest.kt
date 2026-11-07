@@ -126,6 +126,45 @@ class DefaultVariantResolverTest {
     }
 
     @Test
+    fun `a WebM that does not state its picture is read from its own header`() = runTest {
+        // Wikimedia Commons' transcodes are WebM: before, their rows read "Quality unknown"
+        // because only MP4 headers were read.
+        val file = WebmFixtures.file(width = 1920, height = 1080, framesPerSecond = 30)
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "video/webm")
+                .setHeader("Content-Length", file.size.toString()),
+        )
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(206)
+                .setHeader("Content-Type", "video/webm")
+                .setHeader("Content-Range", "bytes 0-${file.size - 1}/${file.size}")
+                .setBody(okio.Buffer().write(file)),
+        )
+
+        val result = resolver.resolve(
+            candidate(server.url("/clip.webm").toString()).copy(mimeType = "video/webm"),
+        ) as VariantResolutionResult.Success
+
+        val variant = result.asset.variants.single()
+        assertEquals(1080, variant.height)
+        assertEquals(1920, variant.width)
+        assertEquals(30.0, variant.framesPerSecond!!, 0.0)
+        assertEquals(MediaTrackType.AUDIO_VIDEO, variant.trackType)
+        assertEquals(listOf("vp9", "opus"), variant.codecs)
+        assertEquals(61_000L, variant.durationMillis)
+        assertEquals("WebM", variant.container)
+        // One ranged read of the file's start: the WebM states all of its tracks in it.
+        assertEquals("HEAD", server.takeRequest().method)
+        val range = server.takeRequest()
+        assertEquals("GET", range.method)
+        assertEquals("bytes=0-${file.size - 1}", range.getHeader("Range"))
+        assertEquals(2, server.requestCount)
+    }
+
+    @Test
     fun `a silent MP4 is a video without sound and a failed probe changes nothing`() = runTest {
         val silent = Mp4Fixtures.file(audio = false)
         server.enqueue(
