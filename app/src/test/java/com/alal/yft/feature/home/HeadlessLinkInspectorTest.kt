@@ -136,6 +136,57 @@ class HeadlessLinkInspectorTest {
     }
 
     @Test
+    fun aPageWhoseAddressEndsInAWebmExtensionIsReadAsAPage() = runTest {
+        // The owner's phone: Commons' File:Big_Buck_Bunny_4K.webm is a page, and its address ends
+        // in .webm, so Home took it for the file and the sheet ended as "address not supported"
+        // (file check, range GET, commons.wikimedia.org). The page's own player names its files.
+        probe = {
+            MediaMetadataProbe.Result.NotMedia(MediaMetadataProbe.NotMediaReason.CLEARLY_NON_MEDIA)
+        }
+        page = { url -> HeadlessPageFetcher.Result.Page(url, COMMONS_PAGE) }
+
+        val found = inspector()
+            .inspect("https://commons.wikimedia.org/wiki/File:Big_Buck_Bunny_4K.webm")
+            as LinkInspection.Found
+
+        assertEquals(
+            listOf("https://commons.wikimedia.org/wiki/File:Big_Buck_Bunny_4K.webm"),
+            fetched,
+        )
+        assertEquals(
+            listOf(
+                "$COMMONS_FILE.480p.vp9.webm",
+                "$COMMONS_FILE.1080p.vp9.webm",
+                "$COMMONS_FILE.240p.vp9.webm",
+            ).sorted(),
+            found.candidates.map { it.mediaUrl }.sorted(),
+        )
+        assertTrue(found.candidates.all { it.kind == MediaKind.DIRECT })
+        assertTrue(found.candidates.all { it.mimeType?.startsWith("video/webm") == true })
+    }
+
+    @Test
+    fun aDirectMp4AndADirectWebmLinkStayFilesWithoutReadingAPage() = runTest {
+        // The owner's phone downloads both: a file link is a file, whatever else a page may say.
+        probe = { candidate ->
+            MediaMetadataProbe.Result.Detected(
+                candidate.copy(
+                    mimeType = if (candidate.mediaUrl.endsWith(".webm")) "video/webm" else "video/mp4",
+                    contentLengthBytes = 1_024,
+                ),
+            )
+        }
+
+        listOf("https://cdn.a.test/clip.mp4", "https://cdn.a.test/clip.webm").forEach { link ->
+            val candidate = (inspector().inspect(link) as LinkInspection.Found).candidates.single()
+            assertEquals(link, candidate.mediaUrl)
+            assertEquals(MediaKind.DIRECT, candidate.kind)
+            assertEquals(1_024L, candidate.contentLengthBytes)
+        }
+        assertTrue(fetched.isEmpty())
+    }
+
+    @Test
     fun aSiteAdapterAnswersForPagesItSupports() = runTest {
         val result = inspector(FixtureExtractor()).inspect("https://fixture.test/video/42")
 
@@ -474,5 +525,22 @@ class HeadlessLinkInspectorTest {
 
     private companion object {
         const val NOW = 1_700_000_000_000L
+
+        /** Wikimedia Commons' transcode of the owner's file, as the page's player names it. */
+        const val COMMONS_FILE = "https://upload.wikimedia.org/wikipedia/commons/transcoded/" +
+            "c/c0/Big_Buck_Bunny_4K.webm/Big_Buck_Bunny_4K.webm"
+
+        /** The page's own player (as commons.wikimedia.org served it on 2026-11-07), trimmed. */
+        val COMMONS_PAGE = """
+            <html><head><title>File:Big Buck Bunny 4K.webm - Wikimedia Commons</title></head>
+            <body><div class="fullImageLink" id="file"><span><video id="mwe_player_0"
+            poster="https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c0/Big_Buck_Bunny_4K.webm/960px--Big_Buck_Bunny_4K.webm.jpg"
+            controls="" preload="none" width="800" height="450" data-durationhint="635"
+            data-mwtitle="Big_Buck_Bunny_4K.webm" data-mwprovider="local">
+            <source src="$COMMONS_FILE.480p.vp9.webm" type="video/webm; codecs=&quot;vp9, opus&quot;" data-width="854" data-height="480">
+            <source src="$COMMONS_FILE.1080p.vp9.webm" type="video/webm; codecs=&quot;vp9, opus&quot;" data-width="1920" data-height="1080">
+            <source src="$COMMONS_FILE.240p.vp9.webm" type="video/webm; codecs=&quot;vp9, opus&quot;" data-width="426" data-height="240">
+            </video></span></div></body></html>
+        """.trimIndent()
     }
 }
