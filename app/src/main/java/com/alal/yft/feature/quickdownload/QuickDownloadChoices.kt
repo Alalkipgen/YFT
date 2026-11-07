@@ -9,13 +9,11 @@ import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.Mp3Variants
-import com.alal.yft.core.model.media.PlausibleSize
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.detection.VideoPlaybackSupport
 import com.alal.yft.feature.preview.sizeText
-import com.alal.yft.ui.format.YftFormat
 import com.alal.yft.ui.format.YftQualityNames
 import java.net.URI
 import java.util.Locale
@@ -304,24 +302,14 @@ object QuickDownloadChoices {
     }
 
     /**
-     * The stated size, else an estimate from the bitrate and the length ("~54 MB", a merge's sound
-     * included), else null for "Size unknown"; a row never disappears for it. A stated size too
-     * small for the length counts as not stated ([PlausibleSize]).
+     * The size the source states, else null for "Size unknown"; a row never disappears for it.
+     * A guess from the bitrate and the length is not shown here: a number the file may not have
+     * would read as its size. A stated size too small for the length counts as not stated
+     * ([MediaVariant.sizeText]).
      */
     private fun sizeOf(variant: MediaVariant, length: Long?): String? {
         val duration = variant.durationMillis?.takeIf { it > 0 } ?: length
-        variant.sizeText(duration)?.let { return it }
-        val picture = YftQualityNames.estimatedBytes(variant.bitrateBitsPerSecond, duration)
-            ?: return null
-        val companion = variant.audioCompanion
-        val sound = when {
-            companion == null -> 0L
-            else -> PlausibleSize.of(companion.contentLengthBytes, duration)
-                ?: YftQualityNames.estimatedBytes(companion.bitrateBitsPerSecond, duration)
-                ?: return null
-        }
-        if (picture > Long.MAX_VALUE - sound) return null
-        return "~${YftFormat.bytes(picture + sound)}"
+        return variant.sizeText(duration)
     }
 
     private fun withSound(options: List<SheetOption>): SheetOption =

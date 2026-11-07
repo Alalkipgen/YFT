@@ -75,15 +75,6 @@ object YftQualityNames {
 
     fun mp3Name(kbps: Int): String = "MP3 · $kbps kbps"
 
-    /** Bytes for [bitrateBitsPerSecond] over [durationMillis], or null when either is unknown. */
-    fun estimatedBytes(bitrateBitsPerSecond: Long?, durationMillis: Long?): Long? {
-        if (bitrateBitsPerSecond == null || bitrateBitsPerSecond <= 0) return null
-        if (durationMillis == null || durationMillis <= 0) return null
-        val bytes = bitrateBitsPerSecond.toDouble() * (durationMillis / BIT_MILLIS_PER_BYTE)
-        return bytes.takeIf { it.isFinite() && it >= 1 && it < Long.MAX_VALUE.toDouble() }
-            ?.toLong()
-    }
-
     private fun resolutionName(height: Int): String? = when {
         height >= 4_320 -> "8K"
         height >= 2_160 -> "4K"
@@ -95,5 +86,4 @@ object YftQualityNames {
 
     private const val HIGH_FRAME_RATE = 31.0
     private const val AV1_CODEC_PREFIX = "av01"
-    private const val BIT_MILLIS_PER_BYTE = 8_000.0
 }

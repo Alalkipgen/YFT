@@ -19,12 +19,12 @@ class YftFoundMediaTest {
         )
         // A merge is its two files, as the sheet adds them up.
         assertEquals(
-            listOf("MP4", "1080p · Full HD", "Video + audio", "~84 MB", "0:25"),
+            listOf("MP4", "1080p · Full HD", "Video + audio", "84 MB", "0:25"),
             file(height = 1_080, bytes = 80 * MIB, sound = 4 * MIB).factLabels(),
         )
-        // The owner's 848 × 478 reel is "480p"; 60 s at 2 Mbit/s is about 15 MB.
+        // The owner's 848 × 478 reel is "480p"; its size is not stated, so the row shows none.
         assertEquals(
-            listOf("MP4", "480p", "~${YftFormat.bytes(15_000_000)}", "1:00"),
+            listOf("MP4", "480p", "1:00"),
             file(height = 478, width = 848, bitrate = 2_000_000, length = 60_000).factLabels(),
         )
         assertEquals(listOf("MP4", "0:25"), file(height = null).factLabels())

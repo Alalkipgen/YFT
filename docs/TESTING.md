@@ -359,8 +359,11 @@ off). If anything fails, open Details → Copy details and send it.
   Retry". A Wi-Fi ↔ mobile switch on a long VK video resumes. In a merge both tracks go on. YouTube
   shows "YouTube refused", then Retry works.
 - **Pause and Resume:** the download goes on from the same %.
-- **Ended YouTube live:** it saves. If it is up to 2 minutes short, Details says "Live video saved N
-  s short of …".
+- **Ended YouTube live:** it saves. Its row reads "Size unknown" (no size is guessed). If it is up
+  to 2 minutes short, Details says "Live video saved N s short of …".
+- **VK:** each of the owner's three links opens a sheet with its qualities (one keeps its files on
+  `vk6-13.vkuser.net`); the 720p row downloads merged with sound and plays; the clip link says VK
+  does not play it. VK stays unpassed until its three promotion runs pass.
 - **Weak-answer fill** (census APK or previews with Show details on): lines
   `master: facebook B+ (main's rows: no HD): Master added N: 720p` or `… added none (…)`. VK rows
   without a height get no such line. Strong answers stay unchanged. The best-first order shows
@@ -371,7 +374,9 @@ off). If anything fails, open Details → Copy details and send it.
 - **Quality names:** TikTok 720 × 1280 shows "720p"; Instagram 640 × 640 stays "720p · HD".
 - **Titles and folders:** a Zawgyi title gives a Unicode file name. Settings' folder line reads
   "Saving to <folder>. Tap to change.". The Downloads chip reads "Download/YFT · N GB free".
-- **Sizes:** no size is too small; unknown sizes show "~" or "Size unknown".
+- **Sizes:** a row shows a size only when the source states one, an estimate with "~"; a row the
+  source states no size for reads "Size unknown" (the ended live below is one). Under the bar of a
+  download whose total is an estimate: "205 of ~236 MB (estimated)".
 - **MP3:** a 3:18 song at 128 kbps converts in about 8 s. Details: "MP3: … of sound, decode … s,
   encode … s".
 - Then the manual device checklist in [RELEASE.md](RELEASE.md).

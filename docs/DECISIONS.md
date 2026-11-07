@@ -119,6 +119,10 @@ Old records stay in git history. Feature names follow [GLOSSARY.md](GLOSSARY.md)
   phone. (2026-10-31)
 - **Quality names.** The nearest standard height names a row, so 640 × 640 stays "720p · HD". Why:
   one rule for every site. (2026-10-31)
+- **Sizes are the source's, never YFT's.** A row shows a size only when the source states one, with
+  `~` when the source marks it an estimate; otherwise it reads "Size unknown". A progress total
+  that is an estimate says "(estimated)". Why: YFT's own bitrate × length guess read as the file's
+  size (the ended live showed ~515 MB for a 371 MB file). (2026-11-07)
 
 ## Signed recipe config
 

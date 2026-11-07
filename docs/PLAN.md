@@ -1,7 +1,6 @@
 # Plan
 
-What is open now: where things stand, the owner's open decisions, known issues, the backlog and the
-risks. Decisions already made are in [DECISIONS.md](DECISIONS.md). Tests and runbooks are in
+What is open now: where things stand, the owner's open decisions, the backlog and the risks. Decisions already made are in [DECISIONS.md](DECISIONS.md). Tests and runbooks are in
 [TESTING.md](TESTING.md). The steps for a release are in [RELEASE.md](RELEASE.md).
 
 ## Where things stand
@@ -16,7 +15,8 @@ risks. Decisions already made are in [DECISIONS.md](DECISIONS.md). Tests and run
   lists no file now opens the API path (`vk D`); its rules already take
   `vk{N}-{N}.vkuser.net`, where the moved clips' files sit. The API answered for the three links
   the owner sent; the fourth, a clip, is one VK says it does not play.
-- The fixes open now are VK's two, then the ended-live size estimate under known issues.
+- The VK fixes and the size fix are on `work/phase-v102-easy`; both wait on a phone run, so neither
+  is passed. Next is the phone checklist in [TESTING.md](TESTING.md), then VK's promotion runs.
 
 ## Open owner decisions
 
@@ -42,24 +42,26 @@ risks. Decisions already made are in [DECISIONS.md](DECISIONS.md). Tests and run
 - **VK value heal:** six qualities came through the heal in one run. Keep watching it.
 - **Address pill at large text:** it overlapped once. Send a screenshot if it shows again.
 
-## Known issues
-
-- **Size estimate for an ended YouTube live is too high.** The Download sheet showed about 511 MB
-  for 240p; the file was 371 MB. A normal 1080p video is right (about 346 MB shown, 346 MB saved).
-  The sheet showed an estimate (`~`), so the file's own length was not known, and the
-  estimate is bitrate × length.
-
 ## Backlog
 
 Not planned for the next release. Advice in brackets.
 
-- Investigate why the public Wikimedia Commons Big Buck Bunny page returned an invalid address
-  during the README screenshots run.
+- Why the public Wikimedia Commons Big Buck Bunny page returned an invalid address during the
+  README screenshots run. The page offers its `upload.wikimedia.org` files, and its own address
+  ends in `.webm`, so the page itself can be read as a file. [The run's Details line names the
+  address it picked; nothing is patched until then.]
 - A Download button inside YouTube's page (not now).
 - YFT's own YouTube page (no).
 - Facebook formats from the browser page (only if needed).
 - TikTok photo posts. TikTok without the watermark.
-- Android 14+ user-initiated data transfer jobs for downloads.
+- Android 14+ user-initiated data transfer jobs for downloads. Downloads run in a foreground
+  service now (`dataSync`, `mediaProcessing`), which is the supported path; Android 15 caps a
+  `dataSync` service at 6 hours in 24. [Assess on a phone with a long download first.]
+- A download that resumes after Android killed the app. The renewal machinery and the saved
+  checkpoint are there; a renewal after the app's process died is off by decision
+  ([DECISIONS.md](DECISIONS.md)). [A phone run that kills the app mid-download says what is left.]
+- Android 9's save path: the folder, the file in it and its playback. [Needs an Android 9 device or
+  emulator; none is available here.]
 - Fast merge (Matroska stream copy) for 2K and 4K.
 - A rolling piece pool for HLS.
 - Background playback in Library.

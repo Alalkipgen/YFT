@@ -15,6 +15,10 @@ one.
 - **VK**: a link whose embed page is VK's own app (a page that lists no file) now gets its
   qualities from VK's API instead of ending as an unsupported page. Files on the `vkuser.net`
   servers VK moved them to are read as before, and a video VK does not play says so.
+- **Sizes**: a row shows a size only when the source states one, with `~` when the source marks it
+  an estimate; a size YFT would have to guess is not shown, and the row reads **Size unknown**. The
+  ended YouTube live that read ~515 MB for a 371 MB file is one of them. A download whose total is
+  an estimate says so under the bar: **205 of ~236 MB (estimated)**.
 
 ## [1.0.2]
 

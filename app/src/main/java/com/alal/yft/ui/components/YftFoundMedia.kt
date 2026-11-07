@@ -257,24 +257,15 @@ private fun MediaCandidate.qualityName(): String? {
 }
 
 /**
- * The size the Download sheet shows: a lone file's stated size; a merge's two files, or a file's
- * bitrate × length, as an estimate ("~54 MB"); nothing when it is not known.
+ * The size the Download sheet shows: a lone file's stated size, or a merge's two stated sizes
+ * added; nothing when it is not known, so a row never shows a number the file may not have.
  */
 private fun MediaCandidate.sizeName(): String? {
-    val known = contentLengthBytes?.takeIf { it > 0 }
-    val companion = audioCompanion
-    if (known != null && companion == null) return YftFormat.bytes(known)
-    if (kind != MediaKind.DIRECT && kind != MediaKind.UNKNOWN) return null
-    val picture = known ?: YftQualityNames.estimatedBytes(bitrateBitsPerSecond, durationMillis)
-        ?: return null
-    val sound = when {
-        companion == null -> 0L
-        else -> companion.contentLengthBytes
-            ?: YftQualityNames.estimatedBytes(companion.bitrateBitsPerSecond, durationMillis)
-            ?: if (known != null) 0L else return null
-    }
-    if (picture > Long.MAX_VALUE - sound) return null
-    return "~${YftFormat.bytes(picture + sound)}"
+    val known = contentLengthBytes?.takeIf { it > 0 } ?: return null
+    val companion = audioCompanion ?: return YftFormat.bytes(known)
+    val sound = companion.contentLengthBytes?.takeIf { it > 0 } ?: return null
+    if (known > Long.MAX_VALUE - sound) return null
+    return YftFormat.bytes(known + sound)
 }
 
 /**
