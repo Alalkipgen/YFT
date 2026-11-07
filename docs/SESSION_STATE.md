@@ -20,6 +20,10 @@ Overwrite this file at each checkpoint (40 lines at most). Never append. History
   240p guess was ~251 MB for a 145 MB file; another ~390 MB was progress, not a completed file.
 - Adult host browser: Javtiful Close redirected away; Play was covered. Jav.guru and Roshy had
   single-rendition live HLS near previews, not verified main ladders. No YFT count or playback verified.
+- Mux public VOD has finished video/audio durations 734.169/734.113 s (56 ms apart). Its master
+  also names a subtitle codec that YFT does not support. Host MP4 577,995,046 bytes; combined-rate
+  arithmetic 577,855,885 (-0.0241%), not a YFT estimate. Apple HEVC: all 54 variants had <=50 ms.
+  Check the case where separate audio cannot be paired: combined rate may size a silent row.
 - Earlier owner phone checks covered Wikimedia 1080p from Home and Browser, pause/resume, direct
   MP4/WebM and YouTube size display. They are not current-code tests. The 4K original preview and
   2.8 GB download remain untested. AV1 remains off in release pending the owner's phone test.
@@ -28,13 +32,8 @@ Overwrite this file at each checkpoint (40 lines at most). Never append. History
   assembleDebug passed; scripts 87 passed with separately installed jsonschema. CI validation
   42410587214, emulator 42410587180, minified 42410587158 and preview 42410587181 passed; API 34
   ran 90 tests (7 skipped), API 28 ran 2 (0 skipped); neither tests these sites.
-- HLS host synthetic mixed-delay runs: 2029/2024/2025/2070 ms before and 1081/1080/1081/1123 ms
-  after. Uniform runs: 287/334/324/318 and 270/309/314/312 ms. Not media or a device benchmark.
-- Emulator on `05e5316f` passed AV1 stream-copy and forced AAC edit-list seek/audio checks; neither
-  is a phone or full-stream pass. Host six-second H.264/AAC MP4 stream-copy: 1440p 66.6/14.7/9.7 ms,
-  2160p 32.5/25.1/26.2 ms; Android readback was stubbed. No format or merge path changed.
-- MP3 API 34 emulator: 4 min AAC to MP3, 6.3 s; 60 min, 126.1 s. Timers do not isolate CPU or
-  I/O; no optimization. A local software emulator did not boot without KVM.
+- AV1/AAC tests on `05e5316f` were emulator checks, not phone or full-stream passes.
 - Browser fixture protects two named videos, qualities and unknowns while hiding a known ad.
-  Download-listener ad signs and main-player provenance need more work; no APK.
+  Download-listener ad signs and main-player provenance need more work. A low-memory software
+  emulator boot attempt is running; preserve privacy when testing sites.
 - Do not run VK promotion, merge to `main`, publish, or turn on AV1 release merging.
