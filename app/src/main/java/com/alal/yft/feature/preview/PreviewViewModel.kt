@@ -22,6 +22,7 @@ import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.core.model.settings.pick
 import com.alal.yft.detection.DashSoundPairing
+import com.alal.yft.detection.VideoPlaybackSupport
 import com.alal.yft.download.DownloadOrigin
 import com.alal.yft.download.EnqueueResult
 import com.alal.yft.download.PreviewDownloadStarter
@@ -30,6 +31,7 @@ import com.alal.yft.download.policy.DownloadNetworkPolicy
 import com.alal.yft.download.policy.NetworkStatusSource
 import com.alal.yft.download.policy.TransferNetworkState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -58,6 +60,8 @@ class PreviewViewModel @Inject constructor(
     private val network: NetworkStatusSource,
     /** Save folder: whether the chosen folder can still be used. */
     private val saveFolders: SaveFolders = SaveFolders.None,
+    /** The phone's own decoders: whether a picture can play here, which the preview says. */
+    private val playback: VideoPlaybackSupport = VideoPlaybackSupport.ANY,
 ) : ViewModel() {
     private val mutableUiState = MutableStateFlow<PreviewUiState>(PreviewUiState.Empty)
     private var quality = QualityPreference.HIGHEST
@@ -150,10 +154,24 @@ class PreviewViewModel @Inject constructor(
         mutableUiState.update { current ->
             val ready = current as? PreviewUiState.Ready ?: return@update current
             if (ready.selectedVariantId != variantId) return@update current
-            ready.copy(
-                playbackError = "This variant could not be played. Try another variant.",
-            )
+            ready.copy(playbackError = playbackMessage(ready.selectedVariant))
         }
+    }
+
+    /**
+     * Why the preview could not play this variant here. A picture the phone's own decoders do not
+     * cover says so, with the size and codec the file states: the file is fine, and downloading it
+     * is not affected (preview and download are different things).
+     */
+    private fun playbackMessage(variant: MediaVariant): String {
+        val height = variant.height?.takeIf { it > 0 }
+        if (height == null || playback.canPlay(variant)) {
+            return "This variant could not be played. Try another variant."
+        }
+        val picture = variant.width?.takeIf { it > 0 }?.let { "$it × $height" } ?: "${height}p"
+        val codec = variant.codecs.firstOrNull()?.uppercase(Locale.US)?.let { " ($it)" }.orEmpty()
+        return "This phone has no decoder for this picture: $picture$codec. " +
+            "Another quality plays here; this file still downloads."
     }
 
     /**

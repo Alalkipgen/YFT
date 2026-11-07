@@ -22,8 +22,8 @@ class VideoPlaybackSupportTest {
         assertEquals(AV1, type("av01.0.12M.08"))
         assertEquals("video/avc", type("avc1.640028", "mp4a.40.2"))
         assertEquals("video/hevc", type("hvc1.1.6.L150.90"))
+        assertEquals(VP8, type("vp8"))
         assertNull(type("mp4a.40.2"))
-        assertNull(type("vp8"))
         assertNull(type("vp99"))
     }
 
@@ -62,6 +62,15 @@ class VideoPlaybackSupportTest {
         assertTrue(VideoPlaybackSupport.ANY.canPlay(variant("vp9", 7_680, 4_320)))
     }
 
+    @Test
+    fun aPictureThePhonesDecodersDoNotCoverIsNotPlayed() {
+        // Wikimedia Commons' original: 4000 × 2250 VP8, a codec most phones do not decode.
+        val vp9Only = DeviceVideoPlaybackSupport { listOf(decoder(VP9, 3_840, 2_160)) }
+
+        assertFalse(vp9Only.canPlay(variant("vp8", 4_000, 2_250)))
+        assertTrue(vp9Only.canPlay(variant("vp9", 1_920, 1_080)))
+    }
+
     private fun decoder(mimeType: String, maxLong: Int, maxShort: Int) = VideoDecoder(
         mimeType = mimeType,
         playsSize = { width, height -> width <= maxLong && height <= maxShort },
@@ -81,6 +90,7 @@ class VideoPlaybackSupportTest {
     )
 
     private companion object {
+        const val VP8 = "video/x-vnd.on2.vp8"
         const val VP9 = "video/x-vnd.on2.vp9"
         const val AV1 = "video/av01"
     }
