@@ -765,6 +765,10 @@ class DefaultVariantResolverTest {
                         """.trimIndent(),
                         "application/vnd.apple.mpegurl",
                     )
+                    request.path == "/v/720.m3u8" -> manifestResponse(
+                        "#EXTM3U\n#EXT-X-TARGETDURATION:755\n#EXTINF:754.5,\npart.ts\n#EXT-X-ENDLIST\n",
+                        "application/vnd.apple.mpegurl",
+                    )
                     else -> MockResponse().setResponseCode(404)
                 }
             }
@@ -786,6 +790,173 @@ class DefaultVariantResolverTest {
             assertNull(full.sizeAccuracy)
             assertEquals(5_000_000L, full.bitrateBitsPerSecond)
         }
+
+    @Test
+    fun `a live HLS window is not an estimate of the whole recording`() = runTest {
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when (request.path) {
+                "/live/master.m3u8" -> manifestResponse(
+                    """
+                    #EXTM3U
+                    #EXT-X-STREAM-INF:BANDWIDTH=2500000,AVERAGE-BANDWIDTH=1000000,RESOLUTION=1280x720,CODECS="$AVC_720"
+                    720.m3u8
+                    """.trimIndent(),
+                    "application/vnd.apple.mpegurl",
+                )
+                "/live/720.m3u8" -> manifestResponse(
+                    """
+                    #EXTM3U
+                    #EXT-X-TARGETDURATION:6
+                    #EXTINF:6,
+                    segment.ts
+                    """.trimIndent(),
+                    "application/vnd.apple.mpegurl",
+                )
+                else -> MockResponse().setResponseCode(404)
+            }
+        }
+
+        for (duration in listOf(null, 600_000L)) {
+            val result = resolver.resolve(
+                candidate(server.url("/live/master.m3u8").toString(), MediaKind.HLS)
+                    .copy(durationMillis = duration),
+            ) as VariantResolutionResult.Success
+            val video = result.asset.variants.single()
+            assertNull("a live window is not a finite recording size", video.sizeBytes)
+            assertNull(video.sizeAccuracy)
+        }
+    }
+
+    @Test
+    fun `HLS average sizes require a finished playlist for each quality`() = runTest {
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when (request.path) {
+                "/mixed/master.m3u8" -> manifestResponse(
+                    """
+                    #EXTM3U
+                    #EXT-X-STREAM-INF:BANDWIDTH=2500000,AVERAGE-BANDWIDTH=1000000,RESOLUTION=1280x720,CODECS="$AVC_720"
+                    720.m3u8
+                    #EXT-X-STREAM-INF:BANDWIDTH=5000000,AVERAGE-BANDWIDTH=2000000,RESOLUTION=1920x1080,CODECS="$AVC_1080"
+                    1080.m3u8
+                    """.trimIndent(),
+                    "application/vnd.apple.mpegurl",
+                )
+                "/mixed/720.m3u8" -> manifestResponse(
+                    "#EXTM3U\n#EXT-X-TARGETDURATION:6\n#EXTINF:6,\na.ts\n#EXT-X-ENDLIST\n",
+                    "application/vnd.apple.mpegurl",
+                )
+                "/mixed/1080.m3u8" -> manifestResponse(
+                    "#EXTM3U\n#EXT-X-TARGETDURATION:6\n#EXTINF:6,\na.ts\n",
+                    "application/vnd.apple.mpegurl",
+                )
+                else -> MockResponse().setResponseCode(404)
+            }
+        }
+        val result = resolver.resolve(
+            candidate(server.url("/mixed/master.m3u8").toString(), MediaKind.HLS)
+                .copy(durationMillis = 600_000),
+        ) as VariantResolutionResult.Success
+        val finite = result.asset.variants.single { it.height == 720 }
+        val live = result.asset.variants.single { it.height == 1080 }
+        assertEquals(750_000L, finite.sizeBytes)
+        assertEquals(MediaSizeAccuracy.ESTIMATED, finite.sizeAccuracy)
+        assertNull(live.sizeBytes)
+        assertNull(live.sizeAccuracy)
+    }
+
+    @Test
+    fun `HLS average size includes separate audio only when both playlists are complete`() = runTest {
+        val audio = AtomicReference("#EXTM3U\n#EXTINF:6,\na.aac\n#EXT-X-ENDLIST\n")
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when (request.path) {
+                "/sound/master.m3u8" -> manifestResponse(
+                    """
+                    #EXTM3U
+                    #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="stereo",NAME="Audio",URI="audio.m3u8"
+                    #EXT-X-STREAM-INF:BANDWIDTH=2500000,AVERAGE-BANDWIDTH=1000000,RESOLUTION=1280x720,CODECS="avc1.4d401f,mp4a.40.2",AUDIO="stereo"
+                    video.m3u8
+                    """.trimIndent(),
+                    "application/vnd.apple.mpegurl",
+                )
+                "/sound/video.m3u8" -> manifestResponse(
+                    "#EXTM3U\n#EXTINF:6,\nv.ts\n#EXT-X-ENDLIST\n",
+                    "application/vnd.apple.mpegurl",
+                )
+                "/sound/audio.m3u8" -> manifestResponse(audio.get(), "application/vnd.apple.mpegurl")
+                else -> MockResponse().setResponseCode(404)
+            }
+        }
+        suspend fun size(): Long? {
+            val result = resolver.resolve(
+                candidate(server.url("/sound/master.m3u8").toString(), MediaKind.HLS),
+            ) as VariantResolutionResult.Success
+            val video = result.asset.variants.single { it.height == 720 }
+            assertTrue(video.audioCompanion != null)
+            return video.sizeBytes
+        }
+        // The master average describes the combined rendition; do not add the sound twice.
+        assertEquals(750_000L, size())
+        audio.set("#EXTM3U\n#EXTINF:6,\na.aac\n")
+        assertNull(size())
+        audio.set("#EXTM3U\n#EXTINF:5,\na.aac\n#EXT-X-ENDLIST\n")
+        assertNull(size())
+    }
+
+    @Test
+    fun `HLS average size reads at most six quality playlists`() = runTest {
+        val master = buildString {
+            appendLine("#EXTM3U")
+            repeat(7) { index ->
+                appendLine(
+                    "#EXT-X-STREAM-INF:BANDWIDTH=2500000,AVERAGE-BANDWIDTH=1000000," +
+                        "RESOLUTION=1280x720,CODECS=\"$AVC_720\"",
+                )
+                appendLine("$index.m3u8")
+            }
+        }
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse =
+                if (request.path == "/many/master.m3u8") {
+                    manifestResponse(master, "application/vnd.apple.mpegurl")
+                } else {
+                    manifestResponse(
+                        "#EXTM3U\n#EXT-X-TARGETDURATION:6\n#EXTINF:6,\na.ts\n#EXT-X-ENDLIST\n",
+                        "application/vnd.apple.mpegurl",
+                    )
+                }
+        }
+        val result = resolver.resolve(
+            candidate(server.url("/many/master.m3u8").toString(), MediaKind.HLS),
+        ) as VariantResolutionResult.Success
+        assertEquals(6, result.asset.variants.count { it.sizeAccuracy == MediaSizeAccuracy.ESTIMATED })
+        assertNull(result.asset.variants.last().sizeBytes)
+        assertEquals(7, server.requestCount)
+    }
+
+    @Test
+    fun `an oversized HLS quality playlist does not become an estimate`() = runTest {
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse =
+                if (request.path == "/large/master.m3u8") {
+                    manifestResponse(
+                        "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=2500000," +
+                            "AVERAGE-BANDWIDTH=1000000,RESOLUTION=1280x720,CODECS=\"$AVC_720\"\n" +
+                            "720.m3u8\n",
+                        "application/vnd.apple.mpegurl",
+                    )
+                } else {
+                    manifestResponse(
+                        "#EXTM3U\n#${"x".repeat(256 * 1_024)}\n" +
+                            "#EXTINF:6,\na.ts\n#EXT-X-ENDLIST\n",
+                        "application/vnd.apple.mpegurl",
+                    )
+                }
+        }
+        val result = resolver.resolve(
+            candidate(server.url("/large/master.m3u8").toString(), MediaKind.HLS),
+        ) as VariantResolutionResult.Success
+        assertNull(result.asset.variants.single().sizeBytes)
+    }
 
     @Test
     fun `a failure names the step and the host it stopped at`() = runTest {

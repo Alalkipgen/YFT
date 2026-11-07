@@ -174,19 +174,16 @@ Old records stay in git history. Feature names follow [GLOSSARY.md](GLOSSARY.md)
   phone. (2026-10-31)
 - **Quality names.** The nearest standard height names a row, so 640 × 640 stays "720p · HD". Why:
   one rule for every site. (2026-10-31)
-- **Sizes are the source's, never YFT's.** A row shows a size only when the source states one, with
-  `~` when the source marks it an estimate; otherwise it reads "Size unknown". A progress total
-  that is an estimate says "(estimated)". Why: YFT's own bitrate × length guess read as the file's
-  size (the ended live showed ~515 MB for a 371 MB file). (2026-11-07)
-- **A peak rate is not a size; a stated average is.** A bitrate times a length is a size only when
-  the bitrate is the stream's average: an HLS master's `AVERAGE-BANDWIDTH` (RFC 8216) is, so those
-  rows keep "~". A DASH `@bandwidth` (the peak of a channel the representation can be delivered
-  on), an HLS `BANDWIDTH` (the peak segment rate) and YouTube's rate for a live format are peaks,
-  so their rows read "Size unknown". The sheet's own provisional row is filled from the size the
-  source states and from nothing else: the guess read ~689 MB beside a download of ~390 MB, and
-  ~1.7 times the file on both replays the owner tested. What is measured is still shown: the
-  progress total is the bytes of the pieces done times the pieces, under the bar, "(estimated)".
+- **Size estimates need evidence and a clear label.** The owner wants exact sizes where available,
+  and estimates or rough ranges only when their basis is known. Do not present an estimate as
+  exact or invent a number. Investigate a bounded sample before adding it. A progress total that
+  is an estimate says "(estimated)". The old replay guess read ~251 MB for a 145 MB file.
   (2026-11-07)
+- **A peak rate is not an average.** DASH `@bandwidth`, HLS `BANDWIDTH` and YouTube live format
+  rates are not used as average rates. HLS `AVERAGE-BANDWIDTH` and a finished playlist's duration
+  can give a size marked `~`; a live window is not a finished recording. When sound is separate,
+  both playlists must finish and state the same duration before the combined average is used.
+  Unavailable or insufficient evidence stays "Size unknown". (2026-11-07)
 
 ## Signed recipe config
 

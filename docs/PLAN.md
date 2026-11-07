@@ -71,6 +71,11 @@ Not planned for the next release. Advice in brackets.
 - A VK recipe that carries the web client's values.
 - A daily VK canary in CI.
 - Instagram's `doc_id`: look again if `VALUE_REJECTED` shows.
+- Size estimates for ended YouTube live and peak-only HLS: investigate bounded samples, their
+  error, data cost and latency before using them. YouTube's unsigned replay check was blocked;
+  two public HLS samples are not enough to establish a general accuracy or a reliable range.
+- Investigate a reported adult-site page's single quality and high Found count when it can be
+  reproduced. Do not infer that every extra item is an ad or change detection without evidence.
 
 ## Risks
 

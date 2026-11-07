@@ -463,10 +463,24 @@ class DefaultVariantResolver(
                         VariantResolutionFailure.UNSUPPORTED_CODEC,
                     )
                 } else {
+                    // An average rate only gives a recording size when that quality's playlist
+                    // is complete. A live window is not the length of the finished recording.
+                    val finiteLengths = if (kind == MediaKind.HLS &&
+                        parsed.statedAverages.isNotEmpty()
+                    ) {
+                        finiteAverageLengths(candidate, initialUrl, variants, parsed.statedAverages, trace)
+                    } else {
+                        emptyMap()
+                    }
                     // An HLS master states no length; its first quality's playlist does.
                     val length = parsed.durationMillis ?: candidate.durationMillis
+                        ?: finiteLengths.values.firstOrNull()
                         ?: if (kind == MediaKind.HLS) {
-                            playlistLength(candidate, initialUrl, variants, trace)
+                            if (parsed.statedAverages.isEmpty()) {
+                                playlistLength(candidate, initialUrl, variants, trace)
+                            } else {
+                                null
+                            }
                         } else {
                             null
                         }
@@ -474,7 +488,13 @@ class DefaultVariantResolver(
                     val sized = variants.map { variant ->
                         val timed = variant.withLength(length)
                         if (variant.id in parsed.statedAverages) {
-                            timed.withAverageSize(length)
+                            val finiteLength = finiteLengths[variant.id]
+                            if (finiteLength != null) {
+                                timed.copy(sizeBytes = null, sizeAccuracy = null)
+                                    .withAverageSize(finiteLength)
+                            } else {
+                                timed.copy(sizeBytes = null, sizeAccuracy = null)
+                            }
                         } else {
                             timed
                         }
@@ -492,6 +512,55 @@ class DefaultVariantResolver(
                 }
             }
         }
+    }
+
+    /**
+     * Read at most a few quality playlists within one shared deadline. A failed, unfinished,
+     * unexamined or durationless playlist gets no estimate. Requests use the usual origin rules.
+     */
+    private suspend fun finiteAverageLengths(
+        candidate: MediaCandidate,
+        masterUrl: HttpUrl,
+        variants: List<MediaVariant>,
+        averages: Set<String>,
+        trace: Trace,
+    ): Map<String, Long> = withContext(Dispatchers.IO) {
+        val lengths = mutableMapOf<String, Long>()
+        val seen = mutableMapOf<String, Long?>()
+        val audioByGroup = variants.filter {
+            it.trackType == MediaTrackType.AUDIO && it.audioGroupId != null
+        }.groupBy { it.audioGroupId }.mapValues { it.value.first() }
+        var requests = 0
+        withTimeoutOrNull(PLAYLIST_TIMEOUT_MS) {
+            suspend fun finite(variant: MediaVariant): Long? {
+                if (seen.containsKey(variant.id)) return seen[variant.id]
+                if (requests >= MAX_AVERAGE_PLAYLISTS) return null
+                val url = variant.playbackUrl.toSafeHttpUrl() ?: return null
+                requests += 1
+                val length = try {
+                    readPlaylistLength(candidate, masterUrl, url, trace, requireFinished = true)
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (_: IOException) {
+                    null
+                } catch (_: IllegalArgumentException) {
+                    null
+                }
+                seen[variant.id] = length
+                return length
+            }
+            for (variant in variants.filter { it.id in averages && it.isPreviewable }) {
+                val length = finite(variant) ?: continue
+                val audioGroup = variant.audioGroupId
+                if (audioGroup != null) {
+                    val audio = audioByGroup[audioGroup] ?: continue
+                    val audioLength = finite(audio) ?: continue
+                    if (audioLength != length) continue
+                }
+                lengths[variant.id] = length
+            }
+        }
+        lengths
     }
 
     /**
@@ -529,6 +598,7 @@ class DefaultVariantResolver(
         masterUrl: HttpUrl,
         playlistUrl: HttpUrl,
         trace: Trace,
+        requireFinished: Boolean = false,
     ): Long? {
         val execution = execute(
             candidate = candidate,
@@ -541,11 +611,20 @@ class DefaultVariantResolver(
         ) as? HttpExecution.Completed ?: return null
         val text = execution.response.use { response ->
             if (response.code !in SUCCESS_CODES) return null
-            val bytes = response.body?.byteStream()?.readAtMost(policy.maxManifestBytes + 1)
+            val limit = if (requireFinished) {
+                minOf(policy.maxManifestBytes, MAX_AVERAGE_PLAYLIST_BYTES)
+            } else {
+                policy.maxManifestBytes
+            }
+            val bytes = response.body?.byteStream()?.readAtMost(limit + 1)
                 ?: return null
-            if (bytes.size > policy.maxManifestBytes) return null
+            if (bytes.size > limit) return null
             bytes.toString(Charsets.UTF_8)
         }
+        if (requireFinished && text.lineSequence().none {
+                it.trim().equals("#EXT-X-ENDLIST", ignoreCase = true)
+            }
+        ) return null
         val parsed = HlsManifestParser.parse(
             manifest = text,
             manifestUrl = execution.finalUrl.toString(),
@@ -932,6 +1011,8 @@ class DefaultVariantResolver(
         const val REFERER = "Referer"
         const val HTTPS_PORT = 443
         const val PLAYLIST_TIMEOUT_MS = 5_000L
+        const val MAX_AVERAGE_PLAYLISTS = 6
+        const val MAX_AVERAGE_PLAYLIST_BYTES = 256 * 1_024
         const val HTTP_OK = 200
         const val HTTP_PARTIAL_CONTENT = 206
         const val PROBE_TIMEOUT_MS = 8_000L

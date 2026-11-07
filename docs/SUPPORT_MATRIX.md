@@ -42,7 +42,7 @@ an inaccessible or missing item is not inferred. This does not add playlist or p
 | Direct MP4, WebM and audio files | Supported | Byte-range pieces of one file count as that one file. Three or more numbered `.ts` or `.aac` pieces count as one stream. |
 | HTML5 `video`, `audio` and `source` tags | Supported | A read-only page script lists them. |
 | Browser downloads | Supported | The WebView's download events give the type, file name, size and request. |
-| HLS (`.m3u8`) | Supported | Preview and HLS download, without DRM. A separate audio playlist is downloaded too and merged into one MP4 (AVC with AAC; VP9 with AAC only at heights with no AVC sound, from Android 10). |
+| HLS (`.m3u8`) | Supported | Preview and HLS download, without DRM. A separate audio playlist is downloaded too and merged into one MP4 (AVC with AAC; VP9 with AAC only at heights with no AVC sound, from Android 10). A size from a stated average rate requires completed playlists; peak-only or unreadable rows remain unknown. |
 | DASH (`.mpd`) | Supported | Preview and DASH download, without DRM. |
 | Separate video and sound tracks | Supported | Merge joins AVC and AAC into MP4. VP9 with Opus or Vorbis becomes WebM from Android 10. A track that is one whole file (as on YouTube) downloads in resumable pieces of at most 10 MiB. Other codecs are refused before the download starts. |
 | MP3 conversion | Supported | MP3 320, 192 and 128 kbps from an AAC track, with LAME 3.100. Works on arm64-v8a, armeabi-v7a and x86_64; 32-bit x86 fails with a clear message. Opus, WebM, HLS and DASH sound is not converted. The LGPL notice is in About → Licenses. |

@@ -176,6 +176,11 @@ tracks, resolution, frame rate, codec and bitrate; sizes it cannot know stay unk
 as estimates. A video-only stream with a separate sound track plays as a merged pair. The preview
 player is created lazily and released with its screen.
 
+An HLS average-rate estimate needs that quality's finished playlist and duration. Separate sound
+also needs a finished playlist of the same duration. The resolver reads at most six such playlists,
+at most 256 KiB each, within one five-second deadline; unknown or unfinished cases stay unknown.
+It does not sample or download media pieces just to estimate a size.
+
 ## Downloads
 
 - The download queue runs transfers in a foreground service with a notification. Room keeps task

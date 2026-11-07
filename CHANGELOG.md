@@ -22,6 +22,8 @@ one.
 
 ### Fixed
 
+- **HLS download**: a live playlist window is no longer treated as the length of a completed
+  recording when estimating its size. A quality with separate sound needs both playlists to end.
 - **Downloads**: a download keeps the bytes it has when the file server states its `ETag` without
   quotes. Wikimedia Commons' upload hosts do, and YFT sent that value as `If-Range` unchanged: the
   server cannot read an unquoted value as an entity-tag, so it answered the whole file (200) to
