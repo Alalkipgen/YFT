@@ -46,10 +46,6 @@ What is open now: where things stand, the owner's open decisions, the backlog an
 
 Not planned for the next release. Advice in brackets.
 
-- Why the public Wikimedia Commons Big Buck Bunny page returned an invalid address during the
-  README screenshots run. The page offers its `upload.wikimedia.org` files, and its own address
-  ends in `.webm`, so the page itself can be read as a file. [The run's Details line names the
-  address it picked; nothing is patched until then.]
 - A Download button inside YouTube's page (not now).
 - YFT's own YouTube page (no).
 - Facebook formats from the browser page (only if needed).

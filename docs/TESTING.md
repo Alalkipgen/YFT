@@ -353,6 +353,10 @@ off). If anything fails, open Details → Copy details and send it.
   from 2160p to 144p, none "No sound".
 - **HTML5 page:** the w3schools `html5_video` page. The sheet ends on the MP4 row
   "144p · 320 × 176 · 25 fps · MP4". At large text the address pill shows once.
+- **Wikimedia Commons:** in the browser, opening
+  `https://commons.wikimedia.org/wiki/File:Big_Buck_Bunny_4K.webm` offers only its
+  `upload.wikimedia.org` files, never the page's own address; the top row downloads and plays.
+  Pasting the same address on Home reads the page instead of failing as an invalid address.
 - **Fresh link renewal** (trial preview or census APK, "Break this download's link"): the download
   shows "Getting a fresh link…" and resumes at the same %. Details: "Fresh link (403 at … MB):
   resumed at … MB". Breaks 2–3 renew too; the 4th shows "Link expired"; Retry gives "Fresh link on

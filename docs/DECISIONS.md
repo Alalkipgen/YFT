@@ -110,6 +110,11 @@ Old records stay in git history. Feature names follow [GLOSSARY.md](GLOSSARY.md)
   (2026-10-27)
 - **Renewal limits.** Not after the app's process died. Why: that needs saved page addresses.
   (2026-10-27)
+- **A page's own address is no file.** The request that made the page is never a media candidate,
+  also when its address ends in a media extension; only the answer's content type can tell, so it
+  goes to the probe. A file opened or pasted directly is the page, so it is probed and kept when the
+  answer is media. Why: Wikimedia Commons' `File:Big_Buck_Bunny_4K.webm` page was offered as the
+  video and the download failed as an invalid address. (2026-11-07)
 - **YouTube fast start.** A 1 MiB first piece, 4 pieces at once per track. Why: progress from the
   first seconds. (2026-10-09)
 - **Delete file** asks first. Why: a deleted file cannot come back. (2026-10-09)

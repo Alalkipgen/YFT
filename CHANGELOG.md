@@ -15,6 +15,10 @@ one.
 - **VK**: a link whose embed page is VK's own app (a page that lists no file) now gets its
   qualities from VK's API instead of ending as an unsupported page. Files on the `vkuser.net`
   servers VK moved them to are read as before, and a video VK does not play says so.
+- **Browser**: a page whose own address ends in a media extension is no longer read as the file.
+  Wikimedia Commons' `File:Big_Buck_Bunny_4K.webm` page is HTML, and its address was offered as the
+  video, so the download failed as an invalid address; now only the page's own files are offered. A
+  file opened or pasted directly is still read as the file.
 - **Sizes**: a row shows a size only when the source states one, with `~` when the source marks it
   an estimate; a size YFT would have to guess is not shown, and the row reads **Size unknown**. The
   ended YouTube live that read ~515 MB for a 371 MB file is one of them. A download whose total is

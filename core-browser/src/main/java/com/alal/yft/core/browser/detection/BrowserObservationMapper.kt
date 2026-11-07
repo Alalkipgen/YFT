@@ -17,8 +17,17 @@ import java.net.URI
  * and its size is probed for the whole file.
  */
 object BrowserObservationMapper {
+    /**
+     * Whether [requestUrl] is the page's own address, the load that made the page. That load is
+     * never a file, also when the address ends in a media extension: a wiki's `File:….webm` page is
+     * HTML. Only the answer's content type can tell ([forMetadataProbe]).
+     */
+    fun isPageItself(pageUrl: String, requestUrl: String): Boolean =
+        pageUrl.substringBefore('#') == requestUrl.substringBefore('#')
+
     fun fromRequest(observation: RequestObservation): MediaCandidate? {
         if (!observation.method.equals("GET", ignoreCase = true)) return null
+        if (isPageItself(observation.pageUrl, observation.requestUrl)) return null
         val kind = MediaUrlClassifier.classify(observation.requestUrl) ?: return null
         return MediaCandidate(
             pageUrl = observation.pageUrl,
@@ -84,13 +93,22 @@ object BrowserObservationMapper {
         if (uri.scheme?.lowercase() !in setOf("http", "https") || uri.userInfo != null) return null
         val kind = MediaUrlClassifier.classify(observation.requestUrl)
         if (kind == null && !observation.hasStrongMediaHint(uri)) return null
-        return fromRequest(observation) ?: MediaCandidate(
+        // The page's own address is asked too: a file opened directly is the page, and only the
+        // answer says whether it is the file or a page about one.
+        return MediaCandidate(
             pageUrl = observation.pageUrl,
             mediaUrl = MediaFileUrls.wholeFile(observation.requestUrl),
-            sources = setOf(CandidateSource.REQUEST),
-            kind = MediaKind.UNKNOWN,
+            sources = buildSet {
+                add(CandidateSource.REQUEST)
+                if (kind == MediaKind.HLS || kind == MediaKind.DASH) add(CandidateSource.MANIFEST)
+            },
+            kind = kind ?: MediaKind.UNKNOWN,
             requestContext = observation.requestContext(),
-            confidence = CandidateConfidence.LOW,
+            confidence = when (kind) {
+                null -> CandidateConfidence.LOW
+                MediaKind.HLS, MediaKind.DASH -> CandidateConfidence.HIGH
+                else -> CandidateConfidence.MEDIUM
+            },
             observedAtEpochMs = observation.observedAtEpochMs,
             // A file an ad network serves is an ad, also when only its probe tells it.
             pageRole = adRole(observation.requestUrl, observation.referer()),
