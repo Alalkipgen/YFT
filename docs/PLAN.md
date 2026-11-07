@@ -12,7 +12,9 @@ risks. Decisions already made are in [DECISIONS.md](DECISIONS.md). Tests and run
 - Weak-answer fill and Instagram's best-first order are enabled in release and previews by the
   owner. Facebook, Instagram and X passed promotion on the census build.
 - VK has not passed promotion: its blank embed and moved clip host need fixes and fresh promotion
-  runs before VK's fill is released.
+  runs before VK's fill is released. The embed page now loads a JavaScript app and carries no media
+  addresses, so the embed read finds nothing on any link. The API path still answers, and its rules
+  already take `vk{N}-{N}.vkuser.net`, where the moved clips' files sit.
 - The fixes open now are VK's two, then the ended-live size estimate under known issues.
 
 ## Open owner decisions

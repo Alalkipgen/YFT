@@ -16,3 +16,7 @@ Overwrite this file at each checkpoint (40 lines at most). Never append. History
 - Local script tests: 87 run, 4 skipped, 0 failures.
 - Next: VK's blank embed and moved clip host, then fresh promotion runs before VK's weak-answer fill
   is released. After that, the ended-live size estimate in `docs/PLAN.md`.
+- VK's embed page now loads a JavaScript app with no media addresses, so the embed read is blank on
+  every link. The API path answered for the owner's three links; one of them keeps all its files on
+  `vk6-13.vkuser.net`. YouTube refuses this machine's lookups with a bot check, so the ended-live
+  numbers still have to come from the phone.
