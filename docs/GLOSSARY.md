@@ -19,6 +19,7 @@ download sheet's list of lines from the lookup that found the rows; "—" means 
 | Page video finder | Finds the page's own video files on other sites (tags, scripts, manifests, the playing video) | `GenericExtractorBoundary`, `HtmlMediaScanner`, `FocusedVideoProbe` | — | — |
 | Ad filter | Keeps the page's own video and drops ads (prerolls, VAST, ad hosts) | `PageVideoProof`, `VastAdTracker`, `AdHosts` | — | — |
 | Download sheet | One sheet per video with its qualities, Download, Try again and Lookup details | `QuickDownloadScreen`, `QuickDownloadViewModel` | — | (shows the lines) |
+| All items | Select and queue available video items of one post, one default-quality video per item | `QuickDownloadScreen`, `QuickDownloadViewModel`, `PostVideoItem` | — | — |
 | Lookup reuse | Reuses a recent lookup's rows for the same video instead of asking again | `SiteLookupCache` | — | — |
 | YouTube session reset | Settings action that forgets YouTube's remembered session and lookups | `YouTubeSessionReset` | — | — |
 | YouTube ejs solver | Main's n/sig solver: runs yt-dlp's ejs scripts on the player script in a WebView | `YouTubePlayerScriptRunner`, `WebViewSolverEngine` | — | — |

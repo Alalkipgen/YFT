@@ -26,8 +26,11 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -86,6 +89,12 @@ fun QuickDownloadRoute(
         state = state,
         onSelect = viewModel::select,
         onSelectPostItem = viewModel::selectPostItem,
+        onTogglePostSelection = viewModel::togglePostSelection,
+        onToggleAllPostSelection = viewModel::toggleAllPostSelection,
+        onQueuePostSelection = {
+            requestNotificationPermission()
+            viewModel.queuePostSelection()
+        },
         onToggleOriginalTitle = viewModel::toggleOriginalTitle,
         onPickEarly = viewModel::pickEarly,
         onDownload = {
@@ -134,10 +143,22 @@ fun QuickDownloadScreen(
     onShowCheck: () -> Unit = {},
     onSelectPostItem: (String) -> Unit = {},
     onToggleOriginalTitle: () -> Unit = {},
+    onTogglePostSelection: (String) -> Unit = {},
+    onToggleAllPostSelection: () -> Unit = {},
+    onQueuePostSelection: () -> Unit = {},
 ) {
     val quiet = LocalQuietRelease.current
+    var choosingVideos by rememberSaveable { mutableStateOf(false) }
     if (state.downloadStatus == PreviewDownloadStatus.ConfirmMetered) {
         MeteredDownloadDialog(onConfirm = onConfirmMetered, onDismiss = onDismissMetered)
+    } else if (choosingVideos) {
+        PostSelectionDialog(
+            state = state,
+            onToggle = onTogglePostSelection,
+            onToggleAll = onToggleAllPostSelection,
+            onQueue = onQueuePostSelection,
+            onClose = { choosingVideos = false },
+        )
     }
     var expanded by rememberSaveable(state.header?.title, state.header?.source) {
         mutableStateOf(false)
@@ -205,6 +226,11 @@ fun QuickDownloadScreen(
                 items = state.postItems,
                 selected = state.postItemKey,
                 onSelect = onSelectPostItem,
+            )
+            YftTextButton(
+                text = "Select videos to download",
+                onClick = { choosingVideos = true },
+                modifier = Modifier.testTag("quick-select-videos"),
             )
         }
         if (state.maybeAd) {
@@ -318,6 +344,76 @@ fun QuickDownloadScreen(
             )
         }
     }
+}
+
+@Composable
+private fun PostSelectionDialog(
+    state: QuickDownloadUiState,
+    onToggle: (String) -> Unit,
+    onToggleAll: () -> Unit,
+    onQueue: () -> Unit,
+    onClose: () -> Unit,
+) {
+    val busy = state.postQueueing || state.downloadStatus == PreviewDownloadStatus.Enqueuing
+    val available = state.postItems.filter {
+        state.postResults[it.key] !is PostQueueResult.Queued &&
+            state.postResults[it.key] !is PostQueueResult.Unknown
+    }
+    val allSelected = available.isNotEmpty() &&
+        available.all { it.key in state.postSelection }
+    AlertDialog(
+        onDismissRequest = { if (!busy) onClose() },
+        title = { Text("Select videos") },
+        text = {
+            Column {
+                Text(
+                    "Each video uses your default quality. Sizes may be unknown; " +
+                        "downloads use data and storage. Keep this sheet open while queueing.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                TextButton(onClick = onToggleAll, enabled = !busy && available.isNotEmpty()) {
+                    Text(if (allSelected) "Deselect all" else "Select all")
+                }
+                Column(
+                    modifier = Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState()),
+                ) {
+                    state.postItems.sortedBy { it.number }.forEach { item ->
+                        val result = state.postResults[item.key]
+                        val enabled = !busy && result !is PostQueueResult.Queued &&
+                            result !is PostQueueResult.Unknown
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(
+                                checked = item.key in state.postSelection,
+                                onCheckedChange = { onToggle(item.key) },
+                                enabled = enabled,
+                                modifier = Modifier.testTag("quick-batch-item-${item.number}"),
+                            )
+                            Column {
+                                Text(item.label)
+                                when (result) {
+                                    PostQueueResult.Queued -> Text("Queued")
+                                    is PostQueueResult.Rejected -> Text(result.message)
+                                    PostQueueResult.Unknown ->
+                                        Text("Check Downloads before trying again.")
+                                    null -> Unit
+                                }
+                            }
+                        }
+                    }
+                }
+                if (state.postQueueing) Text("Queueing videos…")
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onQueue, enabled = !busy && state.postSelection.isNotEmpty()) {
+                val count = state.postSelection.size
+                Text("Queue $count ${if (count == 1) "video" else "videos"}")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onClose, enabled = !busy) { Text("Close") }
+        },
+    )
 }
 
 /**

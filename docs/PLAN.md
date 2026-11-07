@@ -68,7 +68,6 @@ Not planned for the next release. Advice in brackets.
 - TikTok's app API (don't).
 - The page player's PoToken for YouTube.
 - X protected posts. Instagram stories.
-- "All items" for one link (carousels, several videos).
 - X's guest-token API.
 - A VK recipe that carries the web client's values.
 - A daily VK canary in CI.

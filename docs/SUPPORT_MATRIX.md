@@ -33,6 +33,10 @@ YFT never signs in to a site. The user's own browser session is sent only to tha
 
 ## Media and downloads
 
+All items offers only post video items the site's answer identifies and supplies with usable rows.
+The Instagram and X adapters carry these items when their answers include them. Photos are skipped;
+an inaccessible or missing item is not inferred. This does not add playlist or photo downloads.
+
 | Feature | Status | Notes |
 | --- | --- | --- |
 | Direct MP4, WebM and audio files | Supported | Byte-range pieces of one file count as that one file. Three or more numbered `.ts` or `.aac` pieces count as one stream. |
@@ -49,7 +53,8 @@ YFT never signs in to a site. The user's own browser session is sent only to tha
 | `blob:` addresses | Not a file | The real HTTP(S) file or manifest behind it is found instead. |
 | DRM (Widevine) | Not supported | Detected and refused. |
 | Recording a live stream | Not supported | |
-| Playlists and batch downloads | Not supported | |
+| All items | Supported | Select available video items in one post and queue one default-quality download per item. No photos or playlists. |
+| Playlists | Not supported | |
 
 ## App, browser and backup
 

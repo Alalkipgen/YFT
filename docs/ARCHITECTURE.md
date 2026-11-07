@@ -81,6 +81,9 @@ checked by the toolkit drift check.
 3. **Master may answer** if main fails or fill a weak answer (see "Main and Master").
 4. **The Download sheet** shows the qualities. The row check tests a row's first bytes before it is
    shown. The user picks a row; Lookup details shows how the rows were found.
+   When a site's answer identifies several post video items, All items lets the user select and
+   queue them in post order at the default quality. Each becomes its own download; photos are not
+   downloaded. Items without a usable video row are not offered.
 5. **The download queue** plans and runs the download in the foreground service: direct, DASH, HLS
    or live. Separate video and sound tracks are merged (fast merge for long videos). Sound can be
    turned into MP3. An expired link gets a fresh link and resumes.

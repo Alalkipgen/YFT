@@ -128,6 +128,10 @@ audio plays, the mini player sits above the bar on every tab. Tabs have no back 
 
 ## Download sheet rules
 
+- When a post identifies several videos, **Select videos to download** opens a selection dialog.
+  Select all and Deselect all affect the available items. Queueing takes the default quality for
+  each, says that sizes may be unknown and data and storage are used, and reports each queueing
+  result. An uncertain result asks the user to check Downloads before trying again.
 - It opens at once and fills in. While it waits it shows what is known (page title or the link
   without its scheme, the site, YouTube's picture), "Getting qualities…", two Audio and two
   Video placeholder rows, and Download waits for a row.
