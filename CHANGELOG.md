@@ -12,6 +12,17 @@ one.
 
 ### Fixed
 
+- **Downloads**: a download keeps the bytes it has when the file server states its `ETag` without
+  quotes. Wikimedia Commons' upload hosts do, and YFT sent that value as `If-Range` unchanged: the
+  server cannot read an unquoted value as an entity-tag, so it answered the whole file (200) to
+  every ranged request, and the download started again from 0% (the owner's 287 MB WEBM went back
+  to the start twice). The tag is now sent quoted, a weak tag falls back to `Last-Modified`, and a
+  server that still ignores the range is asked once more without `If-Range` before YFT gives ranges
+  up, so the bytes already written are not thrown away.
+- **Home**: a page whose address ends in a media extension is read as a page, not as a file.
+  Wikimedia Commons' `File:Big_Buck_Bunny_4K.webm` ended as "This video's address can't be
+  downloaded" (file check, range GET, address not supported); its own files are now offered. A
+  direct `.mp4` or `.webm` link is still read as the file it is.
 - **VK**: a link whose embed page is VK's own app (a page that lists no file) now gets its
   qualities from VK's API instead of ending as an unsupported page. Files on the `vkuser.net`
   servers VK moved them to are read as before, and a video VK does not play says so.

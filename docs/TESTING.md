@@ -362,7 +362,11 @@ off). If anything fails, open Details → Copy details and send it.
 - **Wikimedia Commons:** in the browser, opening
   `https://commons.wikimedia.org/wiki/File:Big_Buck_Bunny_4K.webm` offers only its
   `upload.wikimedia.org` files, never the page's own address; the top row downloads and plays.
-  Pasting the same address on Home reads the page instead of failing as an invalid address.
+  Pasting the same address on Home reads the page and offers its 480p, 1080p and 240p files
+  instead of failing as an invalid address. Its 287 MB 1080p download never goes back to a lower
+  %: the partial file is kept and the range requests are answered 206 (the fix for the unquoted
+  `If-Range`). Break the network for a few seconds mid-download: the row goes on from the same %,
+  and the finished file plays.
 - **Fresh link renewal** (trial preview or census APK, "Break this download's link"): the download
   shows "Getting a fresh link…" and resumes at the same %. Details: "Fresh link (403 at … MB):
   resumed at … MB". Breaks 2–3 renew too; the 4th shows "Link expired"; Retry gives "Fresh link on

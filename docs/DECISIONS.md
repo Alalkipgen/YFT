@@ -129,7 +129,19 @@ Old records stay in git history. Feature names follow [GLOSSARY.md](GLOSSARY.md)
   also when its address ends in a media extension; only the answer's content type can tell, so it
   goes to the probe. A file opened or pasted directly is the page, so it is probed and kept when the
   answer is media. Why: Wikimedia Commons' `File:Big_Buck_Bunny_4K.webm` page was offered as the
-  video and the download failed as an invalid address. (2026-11-07)
+  video and the download failed as an invalid address. The same holds on Home: a pasted link whose
+  address ends in `.webm` is probed first, and when the answer is a page (`NotMedia`) the page is
+  read like any other page and its own files are offered, instead of the sheet ending at
+  "address not supported". A direct file link still answers media and stays the file. (2026-11-07)
+- **An If-Range validator is quoted.** The ETag a file server states is sent as `If-Range` quoted
+  (RFC 7233 §3.2 wants a strong entity-tag, which is quoted), an unquoted value from the server is
+  quoted here, a weak (`W/…`) or unusable tag falls back to `Last-Modified` when it is an
+  HTTP-date, and otherwise no `If-Range` is sent. A ranged request the server still answers with
+  200 is asked once more without `If-Range` before ranges are given up, and the bytes already
+  written stay. Why: Wikimedia's upload hosts state the ETag unquoted, so every ranged request of
+  the owner's 287 MB WEBM was answered with the whole file (200), YFT treated that as "the server
+  ignores ranges", truncated the file and started again from 0% twice. Measured 2026-11-07: the
+  same request is 200 unquoted and 206 quoted. (2026-11-07)
 - **YouTube fast start.** A 1 MiB first piece, 4 pieces at once per track. Why: progress from the
   first seconds. (2026-10-09)
 - **Delete file** asks first. Why: a deleted file cannot come back. (2026-10-09)
