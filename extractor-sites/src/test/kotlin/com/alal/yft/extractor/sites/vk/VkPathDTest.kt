@@ -136,11 +136,11 @@ class VkPathDTest {
 
     @Test
     fun `every other embed answer stays v1's and never asks path d`() = runTest {
-        // No api script: a request to login.vk.ru or api.vkvideo.ru would fail the test.
+        // No api script: a request to login.vk.ru or api.vkvideo.ru would fail the test. VK's shell
+        // is the exception ([vk's shell on every embed opens path d]).
         listOf(
             mapOf(COM to listOf(page(VkFixtures.video()))),
             mapOf(COM to listOf(page(VkFixtures.notFound())), RU to listOf(page(VkFixtures.notFound()))),
-            mapOf(COM to listOf(page(VkFixtures.shell())), RU to listOf(page(VkFixtures.shell()))),
             mapOf(COM to listOf(status(429)), RU to listOf(status(404))),
         ).forEach { embeds ->
             val http = ScriptedVkHttp(embeds = embeds)
