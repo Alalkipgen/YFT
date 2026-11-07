@@ -68,9 +68,14 @@ class VkLabelsTest {
             notFound.pages.pages().map { URI(it.url).host },
         )
 
-        // VK's shell: B, B again on the same host, then B2.
+        // VK's shell: B, B again on the same host, then B2, and path D answers after them.
         val shell = main(vk(embed = { page(vkPack("embed_shell.html"), it) }))
-        assertEquals(List(3) { VkLabels.EMBED to NO_DATA }, shell.labels())
+        assertTrue(shell.result.toString(), shell.result is SiteExtractionResult.Success)
+        assertEquals(
+            List(3) { VkLabels.EMBED to NO_DATA } +
+                listOf(VkLabels.TOKEN to DATA, VkLabels.VIDEO_GET to DATA),
+            shell.labels(),
+        )
 
         val shapes = listOf(files, notFound, shell).map { it.record.asks().first().shape }
         assertEquals(shapes.toString(), 3, shapes.toSet().size)
