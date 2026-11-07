@@ -100,7 +100,6 @@ download sheet's list of lines from the lookup that found the rows; "—" means 
 | Emulator smoke test | Runs the app and its device tests on a CI emulator | `emulator-smoke.yml`, `scripts/ci-emulator-smoke.sh`, `scripts/ci-smoke-diagnostics.py` | — | — |
 | README screenshots | Takes the README's app pictures on an emulator and commits them | `readme-screenshots.yml`, `scripts/readme-screenshots.sh`, `ReadmeScreenshotsTest` | — | — |
 | Checkpoint check | The main CI check: build, tests, lint | `checkpoint-validation.yml`, `scripts/checkpoint.sh` | — | — |
-| Spike validation | CI check for pushes to main of the early spike paths | `phase0-validation.yml` | — | — |
 | CI Gradle memory | Sets the runner's Gradle memory in one place | `scripts/ci-gradle-memory.sh` | — | — |
 | Live site check | Checks live sites from a computer | `scripts/live-check.py`, `scripts/live-check.sh` | — | — |
 | Device smoke test | Installs and smoke-tests the app on a connected phone | `scripts/device-smoke-test.sh` | — | — |

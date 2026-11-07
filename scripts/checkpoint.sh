@@ -75,8 +75,6 @@ elif [[ -n "${CHECKPOINT_TEST_COMMAND:-}" ]]; then
   bash -lc "$CHECKPOINT_TEST_COMMAND"
 elif [[ -x ./gradlew ]]; then
   ./gradlew --no-daemon testDebugUnitTest
-elif command -v gradle >/dev/null 2>&1 && [[ -f spikes/phase0-media/settings.gradle.kts ]]; then
-  gradle -p spikes/phase0-media --no-daemon testDebugUnitTest
 else
   echo "WARNING: no automatic quick-test runner found; record manual validation in SESSION_STATE.md." >&2
 fi

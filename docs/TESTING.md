@@ -32,7 +32,6 @@ The checkpoint check runs the first three rows and the last row.
 | Owner test APKs (`master-optin-debug-apk.yml`, "Master opt-in debug APK (spike)") | Push to `spike/master-extractor-backup`; Run workflow; label `build-optin-apk` on a pull request | Toolkit drift check, the capture script and own-solver tests, a debug APK with the chosen switches | `yft-master-optin-debug-apk` |
 | Recipe publish workflow (`master-recipes-publish.yml`, "Master recipes publish (spike)") | Run workflow (input `config`, default `defaults`); label `recipes:<name>` on a pull request | Signs `extractor-master/recipes/configs/<name>.json` with the secret `YFT_RECIPE_KEY` and writes `master-recipes.json` (schema 1) and `master-recipes-2.json` (schema 2) to the `recipes` branch | — |
 | Own-solver canary (`own-solver-canary.yml`, "Own solver canary (spike)") | Push to `spike/master-extractor-backup` that changes solver files; Mondays 03:17 UTC; Run workflow; label `run-canary` | `node scripts/own-solver-canary.mjs`, `verify-own-solver.mjs` (both strategies), `verify-own-solver-mutations.mjs --quick`, a summary | — |
-| Spike validation (`phase0-validation.yml`) | Push to `main` or a pull request that changes `spikes/phase0-media/**`; Run workflow | Builds and tests the spike project | — |
 | Release draft (`release-draft.yml`, "Release draft") | Tag `v*`; Run workflow (input `publish`) | Builds the signed release and makes a draft release ([RELEASE.md](RELEASE.md)) | — |
 
 - A push that changes only `docs/**` or `*.md` files starts no build workflow.
