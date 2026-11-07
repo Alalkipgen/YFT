@@ -8,6 +8,14 @@ release's tag: a stable X.Y.Z is X·1000000 + Y·10000 + Z·100 (1.0.0 = 1000000
 a prerelease just below its version's (1.0.0-rc.1 = 999901). Android refuses to install a lower
 one.
 
+## [Unreleased]
+
+### Fixed
+
+- **VK**: a link whose embed page is VK's own app (a page that lists no file) now gets its
+  qualities from VK's API instead of ending as an unsupported page. Files on the `vkuser.net`
+  servers VK moved them to are read as before, and a video VK does not play says so.
+
 ## [1.0.2]
 
 Not dated yet: the date is added when 1.0.2 is published.

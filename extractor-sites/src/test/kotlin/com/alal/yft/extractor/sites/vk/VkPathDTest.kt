@@ -24,7 +24,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Path D: only after the embed's adult answer; v1's message when it fails. */
+/** Path D: after the embed's adult answer or VK's shell; v1's message when it fails. */
 class VkPathDTest {
     @Test
     fun `the embed's adult answer opens path d, which gives every rendition`() = runTest {
@@ -383,6 +383,92 @@ class VkPathDTest {
                 ).forEach { forbidden -> assertFalse(line, forbidden in line) }
             }
         }
+    }
+
+    @Test
+    fun `vk's shell on every embed opens path d, whose files are the answer`() = runTest {
+        val http = ScriptedVkHttp(
+            embeds = mapOf(
+                COM to listOf(page(VkFixtures.shell())),
+                RU to listOf(page(VkFixtures.shell())),
+            ),
+            api = working(),
+        )
+
+        val result = extractor(http).extract(request(ADULT_LINK)) as SiteExtractionResult.Success
+
+        assertEquals(listOf(COM, COM, RU, TOKEN_HOST, API_HOST), http.requests.map { it.host })
+        assertEquals(
+            listOf(
+                "vk: B vk.com · 200 · 0 ms · shell",
+                "vk: B again vk.com · 200 · 0 ms · shell",
+                "vk: B2 vk.ru · 200 · 0 ms · shell",
+                "vk: D token login.vk.ru · 200 · 0 ms · new token",
+                "vk: D video.get api.vkvideo.ru · 200 · 0 ms · " +
+                    "video: 6 mp4 up to 1080p, 2 hls, 1 dash (table)",
+            ),
+            result.details,
+        )
+        assertEquals(9, result.candidates.size)
+        // The files sit on the host VK moved them to, and they are the link's own video.
+        assertTrue(result.candidates.all { it.mediaUrl.startsWith("https://vk6-4.vkuser.net/") })
+        assertEquals(ADULT_CANONICAL, result.candidates.first().pageUrl)
+    }
+
+    @Test
+    fun `a refused path d after the shell still lets the generic detector look`() = runTest {
+        val http = ScriptedVkHttp(
+            embeds = mapOf(
+                COM to listOf(page(VkFixtures.shell())),
+                RU to listOf(page(VkFixtures.shell())),
+            ),
+            api = mapOf(
+                TOKEN_HOST to listOf(json(VkApiPages.token())),
+                API_HOST to listOf(json(VkFixtures.apiAuthError())),
+            ),
+        )
+
+        val result = extractor(http).extract(request(ADULT_LINK)) as SiteExtractionResult.Failure
+
+        assertEquals(SiteExtractionFailure.RESPONSE_CHANGED, result.reason)
+        assertTrue(result.allowsGenericFallback)
+        assertNull(result.message)
+        assertEquals(listOf(COM, COM, RU, TOKEN_HOST, API_HOST), http.requests.map { it.host })
+    }
+
+    @Test
+    fun `a restricted clip is no media, never a not-found message`() = runTest {
+        // VK's answer for the clip the census found: an item it does not play, with no files.
+        val owner = 30014565L
+        val id = 456240946L
+        val http = ScriptedVkHttp(
+            embeds = mapOf(
+                COM to listOf(page(VkFixtures.shell())),
+                RU to listOf(page(VkFixtures.shell())),
+            ),
+            api = mapOf(
+                TOKEN_HOST to listOf(json(VkApiPages.token())),
+                API_HOST to listOf(
+                    json(
+                        VkApiPages.videoGet(
+                            VkPages.item(
+                                files = null,
+                                ownerId = owner,
+                                id = id,
+                                more = ",\"restriction\":{\"can_play\":0}",
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val result = extractor(http).extract(request(CLIP_LINK)) as SiteExtractionResult.Failure
+
+        // VK says it does not play this one, so the lookup claims neither not-found nor private.
+        assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, result.reason)
+        assertNull(result.message)
+        assertTrue(result.details.last(), "· restricted" in result.details.last())
     }
 
     private fun TestScope.extractor(http: ScriptedVkHttp) =
