@@ -346,6 +346,11 @@ class DirectTransferEngine(
         // Failed requests are retried. A request that completes resets the count, so a segment
         // fetched in many bounded requests is not limited to that many failures overall.
         var failures = 0
+        // A server that answers a ranged request with the whole file (200) has ignored the range.
+        // The range is asked once more without If-Range before ranges are given up, so what the
+        // segment already wrote is kept: Wikimedia Commons' upload hosts state their ETag unquoted,
+        // and answered every If-Range request with the whole 300 MB file.
+        var sendIfRange = true
         while (true) {
             currentCoroutineContext().ensureActive()
             if (initialSegment.lengthBytes == downloaded) return
@@ -367,6 +372,7 @@ class DirectTransferEngine(
                     alreadyDownloaded = downloaded,
                     endByte = requestEnd,
                     ranged = ranged,
+                    sendIfRange = sendIfRange,
                 )
                 if (requestEnd == initialSegment.endByteInclusive) return
                 downloaded = tracker.downloadedFor(initialSegment.index)
@@ -374,6 +380,10 @@ class DirectTransferEngine(
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (rangeIgnored: RangeIgnoredException) {
+                if (ranged && sendIfRange) {
+                    sendIfRange = false
+                    continue
+                }
                 throw rangeIgnored
             } catch (failure: RetryableTransferException) {
                 downloaded = tracker.downloadedFor(initialSegment.index)
@@ -530,6 +540,7 @@ class DirectTransferEngine(
         alreadyDownloaded: Long,
         endByte: Long?,
         ranged: Boolean,
+        sendIfRange: Boolean = true,
     ) {
         val startByte = segment.startByte + alreadyDownloaded
         val execution = try {
@@ -541,8 +552,10 @@ class DirectTransferEngine(
                 get()
                 if (ranged) {
                     header("Range", "bytes=$startByte-$endByte")
-                    (metadata.entityTag ?: metadata.lastModified)
-                        ?.let { header("If-Range", it) }
+                    if (sendIfRange) {
+                        ifRangeValidator(metadata.entityTag, metadata.lastModified)
+                            ?.let { header("If-Range", it) }
+                    }
                 }
             }
         } catch (error: IOException) {
@@ -918,3 +931,34 @@ class DirectTransferEngine(
         val CONTENT_RANGE = Regex("""(?i)^bytes\s+(\d+)-(\d+)/(\d+)$""")
     }
 }
+
+/**
+ * The validator an If-Range carries: a strong entity-tag, quoted as RFC 7233 §3.2 requires, else
+ * the file's Last-Modified when it is an HTTP-date. A weak (`W/…`) or unusable tag is skipped,
+ * because only a strong validator may guard a range.
+ *
+ * The quote matters in practice: Wikimedia Commons' upload hosts state their ETag unquoted
+ * (`54c147500b0dfbab8baa25ff5f52dca4`), and a server that cannot read the value as an entity-tag
+ * treats the condition as false, answering the whole file with 200. Sent unquoted, every ranged
+ * request of a 300 MB Commons file came back as the whole file, and the download started again
+ * from byte 0; sent quoted, the same request is answered 206 (measured 2026-11-07).
+ */
+internal fun ifRangeValidator(entityTag: String?, lastModified: String?): String? {
+    val tag = entityTag?.trim()?.takeIf(String::isNotEmpty)
+    if (tag != null && !tag.startsWith("W/", ignoreCase = true)) {
+        val quoted = when {
+            tag.length >= 2 && tag.startsWith('"') && tag.endsWith('"') -> tag
+            // An entity-tag may hold no quote and no control character; anything else cannot be
+            // one, so the date is the only validator left.
+            tag.none { it == '"' || it.code < 0x21 || it.code == 0x7f } -> "\"$tag\""
+            else -> null
+        }
+        if (quoted != null) return quoted
+    }
+    return lastModified?.trim()?.takeIf(HTTP_DATE::matches)
+}
+
+/** An HTTP-date (RFC 9110 §5.6.7), as a file server states it in Last-Modified. */
+private val HTTP_DATE = Regex(
+    """^[A-Za-z]{3}, \d{2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2} GMT$""",
+)
