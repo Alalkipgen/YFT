@@ -98,6 +98,9 @@ class EditListedSoundMergeInstrumentedTest {
         assertEquals(listOf(AVC, AAC), mimeTypes(output))
         val sound = assertSound(audio, output, "avc")
         assertEquals(15L to sound.toLong(), details.videoSamples to details.audioSamples)
+        val played = playSound(output)
+        assertTrue("sound ${played.durationMs} ms", abs(played.durationMs - 1_000) <= 250)
+        assertTrue("no sound track selected after seek", played.soundSelected)
     }
 
     private fun completed(attempt: MuxAttempt, output: File): MuxDetails {
@@ -249,7 +252,7 @@ class EditListedSoundMergeInstrumentedTest {
     private fun typeAt(bytes: ByteArray, at: Int): String =
         String(bytes, at + 4, 4, Charsets.ISO_8859_1)
 
-    /** Prepares [file]'s sound alone in ExoPlayer: its duration and whether a sound is chosen. */
+    /** Plays [file]'s sound alone in ExoPlayer, seeks and waits for playback to advance. */
     private fun playSound(file: File): Played {
         val player = onMain {
             ExoPlayer.Builder(context).build().apply {
@@ -272,8 +275,25 @@ class EditListedSoundMergeInstrumentedTest {
                 )
                 SystemClock.sleep(POLL_MS)
             }
+            val duration = onMain { player.duration }
+            assertTrue("unknown duration $duration", duration > 0)
+            val middle = duration / 2
+            onMain {
+                player.seekTo(middle)
+                player.play()
+            }
+            val seekDeadline = SystemClock.elapsedRealtime() + PLAYER_TIMEOUT_MS
+            while (true) {
+                val (position, state, error) = onMain {
+                    Triple(player.currentPosition, player.playbackState, player.playerError)
+                }
+                if (error != null) throw AssertionError("ExoPlayer after seek: ${error.errorCodeName}", error)
+                if (position >= middle + 100 && state != Player.STATE_BUFFERING) break
+                assertTrue("ExoPlayer did not advance after seek: $position ms", SystemClock.elapsedRealtime() < seekDeadline)
+                SystemClock.sleep(POLL_MS)
+            }
             return onMain {
-                Played(player.duration, player.currentTracks.isTypeSelected(C.TRACK_TYPE_AUDIO))
+                Played(duration, player.currentTracks.isTypeSelected(C.TRACK_TYPE_AUDIO))
             }
         } finally {
             onMain { player.release() }

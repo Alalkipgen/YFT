@@ -351,6 +351,12 @@ off). If anything fails, open Details → Copy details and send it.
   Rows read "… · AV1"; the manifest states a peak rate, not a size, so each row reads
   "Size unknown". The merged MP4 has sound and runs 12:14. Details ends with "AV1 decoder: …".
   Untick it: the AV1 rows read "No sound".
+- **AAC edit-list fallback** (debug test APK on the phone, not the preview): run
+  `adb shell am instrument -w -e class 'com.alal.yft.download.EditListedSoundMergeInstrumentedTest#todaysWayKeepsEverySampleOfASoundThatStartsBefore0' com.alal.yft.debug.test/androidx.test.runner.AndroidJUnitRunner`.
+  Install the debug app and its instrumented test APK first. The test forces MediaMuxer, compares
+  all AAC sample bytes and times, and checks that the sound track plays and advances after a seek.
+  This is a one-second fixture, not a listening or full-length audio/video sync check. A public
+  stream that forces the fallback and can be listened to and sought on the phone is still needed.
 - **DASH test streams:** `https://dash.akamaized.net/dash264/TestCases/1a/netflix/exMPD_BIP_TC1.mpd`
   gives a 360p MP4 with sound and an M4A; a DASH manifest states `@bandwidth`, a peak, so the rows
   read "Size unknown" and the download's own total is the first number.
