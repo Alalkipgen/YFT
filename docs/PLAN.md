@@ -74,8 +74,9 @@ Not planned for the next release. Advice in brackets.
 - Size estimates for ended YouTube live and peak-only HLS: investigate bounded samples, their
   error, data cost and latency before using them. YouTube's unsigned replay check was blocked;
   two public HLS samples are not enough to establish a general accuracy or a reliable range.
-- Investigate a reported adult-site page's single quality and high Found count when it can be
-  reproduced. Do not infer that every extra item is an ad or change detection without evidence.
+- Investigate reported single quality and high Found counts using generic player/manifest evidence.
+  Observed thumbnail players are not confirmed main ladders; do not infer every extra item is an ad
+  or merge distinct video items without identity evidence.
 
 ## Risks
 

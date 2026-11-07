@@ -18,9 +18,9 @@ Overwrite this file at each checkpoint (40 lines at most). Never append. History
 - Five unsigned YouTube replay pages (including HKlRo-QdaRY and cy1BQSHYtZg) returned
   login required; no current estimate/completed comparison. Do not bypass restrictions. The old
   240p guess was ~251 MB for a 145 MB file; another ~390 MB was progress, not a completed file.
-- The owner provided three adult-page URLs: browser page loads returned 200, but no HLS manifest was
-  observed on load. Javtiful Play was covered and not actionable in the browser test; no media
-  size or app Found count was established. Do not change quality detection or ad filtering here.
+- Adult pages loaded in the host browser. Javtiful's Close redirected away; Play was covered.
+  Jav.guru and Roshy interactions produced single-rendition HLS near preview players, not verified
+  main ladders. Observed playlists were live windows. No YFT Found count or playback was verified.
 - Earlier owner phone checks covered Wikimedia 1080p from Home and Browser, pause/resume, direct
   MP4/WebM and YouTube size display. They are not current-code tests. The 4K original preview and
   2.8 GB download remain untested. AV1 remains off in release pending the owner's phone test.
@@ -36,5 +36,5 @@ Overwrite this file at each checkpoint (40 lines at most). Never append. History
 - MP3 API 34 emulator baseline: 4 min AAC to 128 kbps MP3, 6.3 s wall; 60 min, 126.1 s. The
   displayed decode time includes waiting and encode includes writes, so they do not isolate CPU or
   I/O. No MP3 optimization was made. A local software emulator did not boot without KVM.
-- Report evidence first; the owner will request one final APK later. No APK or checklist yet.
+- Investigate ad provenance and bounded HLS estimates. No APK or checklist until requested.
 - Do not run VK promotion, merge to `main`, publish, or turn on AV1 release merging.
