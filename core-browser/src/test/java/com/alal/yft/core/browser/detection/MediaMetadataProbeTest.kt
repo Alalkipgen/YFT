@@ -5,6 +5,7 @@ import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.MediaGroups
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
@@ -226,6 +227,15 @@ class MediaMetadataProbeTest {
         assertEquals(754_500L, read.durationMillis)
         assertEquals(1080, read.height)
         assertEquals(1920, read.width)
+        assertEquals(
+            listOf(server.url("/v42/720p/index.m3u8").toString(), server.url("/v42/1080p/index.m3u8").toString()),
+            read.hlsVariantPlaylists,
+        )
+        val variant = candidate(server.url("/v42/720p/index.m3u8").toString(), requestContext())
+            .copy(kind = MediaKind.HLS)
+        val other = candidate(server.url("/v42/other.m3u8").toString(), requestContext())
+            .copy(kind = MediaKind.HLS, durationMillis = read.durationMillis)
+        assertEquals(listOf(2, 1), MediaGroups.of(listOf(read, variant, other)).map { it.candidates.size })
         val first = server.takeRequest()
         assertEquals("GET", first.method)
         assertEquals("https://page.test/watch", first.getHeader("Referer"))

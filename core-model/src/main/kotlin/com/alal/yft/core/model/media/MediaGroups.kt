@@ -49,17 +49,53 @@ data class PageVideoList(
  * when the page itself names them as one video's files ([MediaCandidate.pageVideoKey]: its player
  * setup's qualities, a media element's `<source>` alternatives, or the whole file it states for
  * that video). Otherwise files stay on their own: equal duration does not prove that two files
- * are the same video. Order follows the first candidate of each video.
+ * are the same video. An HLS master and the exact variant playlists it names may also group,
+ * unless their stated identities or ad/preview signs conflict. Order follows the first candidate.
  */
 object MediaGroups {
     fun of(candidates: List<MediaCandidate>): List<MediaGroup> {
-        val groups = LinkedHashMap<String, MutableList<MediaCandidate>>()
+        val keyed = LinkedHashMap<String, MutableList<Int>>()
         candidates.forEachIndexed { index, candidate ->
-            groups.getOrPut(keyOf(candidate, index)) { mutableListOf() }.add(candidate)
+            keyed.getOrPut(keyOf(candidate, index)) { mutableListOf() }.add(index)
         }
-        return groups.map { (key, members) ->
-            MediaGroup(key = key, title = titleOf(members), candidates = members)
+        val groups = keyed.values.toMutableList()
+        // A master explicitly names its variant playlists. An exact address match on the same
+        // page is evidence; equal duration, host, path without query, or request timing is not.
+        candidates.forEachIndexed { masterIndex, master ->
+            if (master.kind != MediaKind.HLS || master.hlsVariantPlaylists.isEmpty()) return@forEachIndexed
+            val named = master.hlsVariantPlaylists.toSet()
+            candidates.forEachIndexed child@{ childIndex, child ->
+                if (childIndex == masterIndex || child.kind != MediaKind.HLS ||
+                    child.pageUrl != master.pageUrl || child.mediaUrl !in named
+                ) return@child
+                val left = groups.indexOfFirst { masterIndex in it }
+                val right = groups.indexOfFirst { childIndex in it }
+                if (left == right || left < 0 || right < 0) return@child
+                val a = groups[left].map(candidates::get)
+                val b = groups[right].map(candidates::get)
+                if (!canJoinManifestGroups(a, b)) return@child
+                val first = minOf(left, right)
+                val last = maxOf(left, right)
+                groups[first].addAll(groups[last])
+                groups[first].sort()
+                groups.removeAt(last)
+            }
         }
+        return groups.map { indices ->
+            val members = indices.map(candidates::get)
+            MediaGroup(key = keyOf(members.first(), indices.first()), title = titleOf(members), candidates = members)
+        }
+    }
+
+    private fun canJoinManifestGroups(a: List<MediaCandidate>, b: List<MediaCandidate>): Boolean {
+        // An ad or preview marker must not cause a main video to disappear with it.
+        if ((a + b).any { it.adSign != null || it.pageRole == PageMediaRole.PREVIEW }) return false
+        val idsA = a.mapNotNull { it.videoId?.trim()?.takeIf(String::isNotEmpty) }.toSet()
+        val idsB = b.mapNotNull { it.videoId?.trim()?.takeIf(String::isNotEmpty) }.toSet()
+        if (idsA.isNotEmpty() && idsB.isNotEmpty() && idsA != idsB) return false
+        val keysA = a.mapNotNull { it.pageVideoKey?.trim()?.takeIf(String::isNotEmpty)?.let { key -> it.pageUrl to key } }.toSet()
+        val keysB = b.mapNotNull { it.pageVideoKey?.trim()?.takeIf(String::isNotEmpty)?.let { key -> it.pageUrl to key } }.toSet()
+        return keysA.isEmpty() || keysB.isEmpty() || keysA == keysB
     }
 
     /**

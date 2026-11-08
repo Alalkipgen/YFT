@@ -17,6 +17,8 @@ data class ManifestFacts(
     val master: Boolean = false,
     /** An HLS master's first video playlist, as an absolute address; null otherwise. */
     val firstPlaylistUrl: String? = null,
+    /** A master's explicitly named variant playlists, bounded and in manifest order. */
+    val variantPlaylistUrls: List<String> = emptyList(),
 )
 
 /** Pure readers of [ManifestFacts]; unit-tested on fixture manifests. */
@@ -61,6 +63,11 @@ object ManifestReader {
                 height = tallest?.second,
                 master = true,
                 firstPlaylistUrl = resolve(manifestUrl, first.second),
+                variantPlaylistUrls = streams.asSequence()
+                    .mapNotNull { (_, uri) -> resolve(manifestUrl, uri) }
+                    .distinct()
+                    .take(MAX_VARIANT_PLAYLISTS)
+                    .toList(),
             )
         }
         val duration = (seconds * MILLIS_PER_SECOND).toLong()
@@ -128,6 +135,7 @@ object ManifestReader {
         runCatching { URI(base).resolve(reference.trim()).toString() }.getOrNull()
             ?.takeIf { it.startsWith("https://", true) || it.startsWith("http://", true) }
 
+    private const val MAX_VARIANT_PLAYLISTS = 50
     private const val BYTE_ORDER_MARK = "\uFEFF"
     private const val STREAM_INF = "#EXT-X-STREAM-INF:"
     private const val EXTINF = "#EXTINF:"

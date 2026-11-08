@@ -89,6 +89,8 @@ data class MediaCandidate(
      * page share one download sheet, like [videoId].
      */
     val pageVideoKey: String? = null,
+    /** HLS variant playlists explicitly named by this master, if its manifest was read. */
+    val hlsVariantPlaylists: List<String> = emptyList(),
     /**
      * What showed where it was found that [mediaUrl] is an ad ([AdSign]); null when
      * nothing did. Set with [PageMediaRole.PREVIEW].

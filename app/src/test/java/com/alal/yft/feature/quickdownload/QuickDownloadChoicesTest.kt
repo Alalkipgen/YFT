@@ -371,8 +371,10 @@ class QuickDownloadChoicesTest {
         // Page video finder: the page's player fetched its HLS master and the 720p playlist the
         // master names; both are one video, and the playlist is the master's 720p row, not a third
         // row.
-        val master = video(null, kind = MediaKind.HLS, videoId = null, label = null, index = 1)
         val playlist = video(null, kind = MediaKind.HLS, videoId = null, label = null, index = 2)
+        // The master explicitly names this playlist; duration alone does not establish identity.
+        val master = video(null, kind = MediaKind.HLS, videoId = null, label = null, index = 1)
+            .copy(hlsVariantPlaylists = listOf(playlist.mediaUrl))
         val stated = resolvedAsset(master).variants.single()
         val masterAsset = resolvedAsset(master).copy(
             variants = listOf(

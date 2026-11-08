@@ -1,11 +1,11 @@
 # Session state
 Overwrite this file at each checkpoint (40 lines at most). Never append. History is in git.
 ## Now
-- Branch `work/phase-v102-easy`; remote HEAD `c733fd5a`. The equal-duration grouping draft is
-  local only, unfinished and not pushed. GitHub CLI sign-in is needed for `scripts/checkpoint.sh`.
-- Files without a shared video ID or page-player key now stay separate even at equal duration.
-  This avoids combining distinct videos, but unlinked qualities can appear as separate items.
-  Fresh-link retry still has a duration-only fallback and can choose a different video; investigate.
+- Branch `work/phase-v102-easy`; exact recovered WIP `19b15874` was pushed after GitHub CLI sign-in.
+  CI validation 42451656634 reproduced its 3 app failures; that Preview is not release-ready.
+  This checkpoint adds explicit HLS master-to-variant grouping; full validation is still pending.
+- Equal duration alone no longer groups files; unlinked qualities can appear as separate items.
+  Fresh-link retry can choose a different video via duration-only or query-stripped matching; investigate.
 - Owner phone observations on a Preview: Roshy showed matching 1080p/720p/480p rows, sizes unknown;
   Jav.guru showed one 480p row and a player had three options, but server correspondence is unknown.
   Found counts 12/29 may accumulate across servers. Candidate identities and ads are unproven.
@@ -28,7 +28,7 @@ Overwrite this file at each checkpoint (40 lines at most). Never append. History
   download remain untested. Earlier Wikimedia/direct/YouTube phone passes were on earlier builds.
 ## Validation and next steps
 - Local grouping draft: model 158 (including two external cases), browser 158, media 62 and focused
-  app grouping passed; full app test failed 3 of 1,624 with 66 skips. The failures include a master
+  app grouping passed; full app test failed 3 of 1,624 with 66 skips, including a master
   and its quality playlist and MP4/OGG alternatives. Do not ship this draft; preserve proven
   relationships without grouping unrelated videos. Full baseline hit the 4 GiB memory limit; split
   core tests and 87 script tests passed.
@@ -36,5 +36,5 @@ Overwrite this file at each checkpoint (40 lines at most). Never append. History
   validation 42415423330, emulator 42415423334, minified 42415423320, preview 42415423432 passed.
 - Continue review of retry identity, app regressions, generic player provenance, ads and reliable
   size estimates. Do not infer main/ad status from count, origin or timing. No site-specific lists.
-- Check remote HEAD and sign in to GitHub CLI, run checkpoint validation and push; then run CI and
-  produce one final Preview/checklist only after all safe work. Never merge or publish without approval.
+- Recheck remote HEAD and worktree, validate and checkpoint via script, then run CI and produce one
+  final Preview/checklist only after all safe work. Never merge or publish without approval.

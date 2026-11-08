@@ -48,6 +48,22 @@ class HtmlMediaScannerTest {
     }
 
     @Test
+    fun twoElementsKeepTheirOwnFormatAlternativesEvenAtEqualDuration() {
+        val html = """
+            <video><source src="https://cdn.example.com/a.mp4" type="video/mp4">
+              <source src="https://cdn.example.com/a.ogg" type="video/ogg"></video>
+            <video><source src="https://cdn.example.com/b.mp4" type="video/mp4">
+              <source src="https://cdn.example.com/b.ogg" type="video/ogg"></video>
+        """.trimIndent()
+        val found = scanner.scan(html, page, observedAtEpochMs = 0).candidates
+            .map { it.copy(durationMillis = 61_000) }
+        val groups = MediaGroups.of(found)
+        assertEquals(listOf(2, 2), groups.map { it.candidates.size })
+        assertEquals(listOf("video/mp4", "video/ogg"), groups[0].candidates.map { it.mimeType })
+        assertEquals(listOf("video/mp4", "video/ogg"), groups[1].candidates.map { it.mimeType })
+    }
+
+    @Test
     fun aQualitysOwnPictureNamesItAsWikimediaCommonsStatesIt() {
         // The owner's Commons page: the player's <source> children state each transcode's picture
         // in data-width/data-height, so the sheet names the rows 1080p, 480p and 240p instead of

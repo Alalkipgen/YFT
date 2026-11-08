@@ -110,8 +110,9 @@ class MediaMetadataProbe(
                 ?.let { (url, body) -> ManifestReader.hls(body, url.toString()) }
                 ?.durationMillis
         }
-        if (duration == null && facts.height == null) return null
+        if (duration == null && facts.height == null && facts.variantPlaylistUrls.isEmpty()) return null
         return candidate.copy(
+            hlsVariantPlaylists = facts.variantPlaylistUrls,
             durationMillis = candidate.durationMillis ?: duration,
             width = candidate.width ?: facts.width.takeIf { candidate.height == null },
             height = candidate.height ?: facts.height,

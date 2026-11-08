@@ -709,8 +709,10 @@ class QuickDownloadViewModelTest {
             mediaUrl = "https://media.example.test/mov_bbb.ogg",
             mimeType = "video/ogg",
             codecs = emptyList(),
+            pageVideoKey = "element-0",
         )
-        val mp4 = video(null, label = null, videoId = null, index = 2).copy(codecs = emptyList())
+        val mp4 = video(null, label = null, videoId = null, index = 2)
+            .copy(codecs = emptyList(), pageVideoKey = "element-0")
         resolver.heights[mp4.mediaUrl] = 176
         fun picked(byUser: Boolean): String? {
             val gate = CompletableDeferred<Unit>()
