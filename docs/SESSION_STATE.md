@@ -19,12 +19,14 @@ Overwrite this file at each checkpoint (40 lines at most). Never append. History
 - Owner phone observations on a Preview: Roshy showed matching 1080p/720p/480p rows, sizes unknown;
   Jav.guru showed one 480p row; Found counts may accumulate across servers. Candidate identities and
   ads are unproven. YouTube replay HKlRo-QdaRY opened with five size-unknown rows; no download.
-  The installed APK identity is not confirmed; the last APK supplied was Preview 207 (`3cea4b9b`).
+  Those were on earlier Previews (last confirmed supply: Preview 207, `3cea4b9b`).
 - Phase 0 cleanup is complete. All items handles video only. No photo/slideshow or VK census.
   AV1 release merge stays off. Wikimedia 4K preview and 2.8 GB download remain untested.
 ## Validation and next steps
 - Read-ahead, local split run: model 170, api 36, generic 24, browser 159, media 72, download 386,
   data 38, sites 375, master 1,134 (2 skipped), master-android 85, app 1,631 (66 skipped) passed,
-  0 failed; lint and debug build passed. CI on the read-ahead commit is next.
+  0 failed; lint and debug build passed. CI on `b9b3bcf2`: validation 42462455890, emulator
+  42462455847, minified 42462455854, preview 42462455864 passed. Preview 212 APK (`b9b3bcf2`,
+  sha256 8af5292f…859d29) is the one supplied for phone checks.
 - Then the Preview APK from that CI run and one phone checklist; ask before data-heavy phone tests.
   No merge or release; quality rows, ads and size estimates stay unverified until seen on a phone.
