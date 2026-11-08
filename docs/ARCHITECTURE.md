@@ -77,7 +77,10 @@ checked by the toolkit drift check.
    - Any other page: the page video finder reads the page's own video (tags, scripts, manifests,
      the playing video) and the ad filter drops ads.
    - In the browser, `core-browser` watches the page and keeps candidates per page (at most 200 raw
-     observations; metadata probes for at most 20 different addresses per page).
+     observations; metadata probes for at most 20 different addresses per page). The Stream piece
+     filter (`StreamPieces`, `PageCandidateStore`) keeps the pieces a read HLS playlist names out
+     of that list and out of the probes; when the list is full, pieces go first. A playlist with
+     no end moves under "Other videos on this page" while the page has another video.
 3. **Master may answer** if main fails or fill a weak answer (see "Main and Master").
 4. **The Download sheet** shows the qualities. The row check tests a row's first bytes before it is
    shown. The user picks a row; Lookup details shows how the rows were found.
@@ -183,11 +186,20 @@ the combined-rate estimate is not shown on the silent row. The resolver attempts
 lookups under a shared five-second coroutine timeout, reading up to 256 KiB plus one byte from each
 response. Blocking response-body reads can outlast that timeout; redirects and browser retries may
 add requests, and a browser retry uses the general manifest limit. Unknown or unfinished cases stay
-unknown. It does not sample or download media pieces just to estimate a size. Playlist read-ahead
+unknown. It does not sample or download HLS media pieces to estimate a size. Playlist read-ahead
 (`PlaylistReadAhead`) reads up to three of those playlists at once. It starts a read early only when
 the one-at-a-time loop is sure to make it whatever the open reads answer, so the playlists read and
 the estimates match reading in order. Browser retries can then arrive together; the WebView reader
 takes them one at a time.
+
+A recently ended YouTube live states no sizes. The Ended live size sample (`EndedLiveSampler` in
+core-download, run by the sheet's view model) reads the first 8 KB of a spread sample of each
+MP4 quality's pieces: piece 0 names the newest piece, 64 pieces size the lightest video, 24 of
+the same pieces size each other video against it and 4 size each sound. A piece counts only when
+its boxes (one `moof` whose samples fill its `mdat`) and its `Content-Range` agree on its length.
+It reads 6 at a time with the row's request context, stops at 400 asks, 5 MB, a 403 or 429, or a
+server that ignores the range, and logs one line without addresses. Rows show "~X MB" with
+"Rough estimate"; the download's variant and space check are not changed.
 
 ## Downloads
 

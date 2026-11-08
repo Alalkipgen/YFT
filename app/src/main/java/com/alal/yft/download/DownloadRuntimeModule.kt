@@ -21,12 +21,14 @@ import com.alal.yft.core.download.DownloadQueue
 import com.alal.yft.core.download.DownloadTaskStore
 import com.alal.yft.core.download.DownloadTransferDispatcher
 import com.alal.yft.core.download.DownloadWorkspaces
+import com.alal.yft.core.download.EndedLiveSampler
+import com.alal.yft.core.download.EndedLiveSizes
 import com.alal.yft.core.download.HlsTransferEngine
 import com.alal.yft.core.download.HlsTransferRunner
 import com.alal.yft.core.download.LocalAudioVideoMuxer
-import com.alal.yft.core.download.PlaylistTrackTransferRunner
 import com.alal.yft.core.download.LocalMp3Transcoder
 import com.alal.yft.core.download.Mp3ConvertingTransferDispatcher
+import com.alal.yft.core.download.PlaylistTrackTransferRunner
 import com.alal.yft.core.download.RoomDownloadTaskStore
 import com.alal.yft.core.media.resolver.VariantResolver
 import com.alal.yft.core.model.download.DownloadTaskStatus
@@ -120,6 +122,11 @@ object DownloadRuntimeModule {
         client = trial.around(client),
         workspaceRoot = File(context.noBackupFilesDir, DASH_WORKSPACE_DIRECTORY),
     )
+
+    /** Ended live size sample: the sheet's sizes for a recently ended live's rows. */
+    @Provides
+    @Singleton
+    fun provideEndedLiveSizes(client: OkHttpClient): EndedLiveSizes = EndedLiveSampler(client)
 
     @Provides
     @Singleton

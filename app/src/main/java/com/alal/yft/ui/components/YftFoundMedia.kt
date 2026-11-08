@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaGroup
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.StreamPieces
 import com.alal.yft.thumbnail.ThumbnailUrls
 import com.alal.yft.thumbnail.rememberRemoteThumbnail
 import com.alal.yft.ui.format.YftFormat
@@ -232,7 +233,10 @@ fun MediaCandidate.isAudio(): Boolean {
  */
 fun MediaCandidate.factLabels(): List<String> = buildList {
     formatLabel()?.let(::add)
-    if (kind == MediaKind.HLS || kind == MediaKind.DASH) {
+    if (streamPieces?.live == true && durationMillis == null) {
+        // Live stream set aside: it has no end, so it has no size or length.
+        add(LIVE)
+    } else if (kind == MediaKind.HLS || kind == MediaKind.DASH) {
         add("Auto quality")
     } else {
         qualityName()?.let(::add)
@@ -277,10 +281,17 @@ fun MediaGroup.factLabels(): List<String> {
     return buildList {
         candidates.mapNotNull { it.formatLabel() }.distinct().take(MAX_GROUP_FORMATS)
             .forEach(::add)
-        add(SEVERAL_QUALITIES)
-        durationMillis?.let { add(YftFormat.duration(it)) }
+        if (StreamPieces.isLive(this@factLabels)) {
+            add(LIVE)
+        } else {
+            add(SEVERAL_QUALITIES)
+            durationMillis?.let { add(YftFormat.duration(it)) }
+        }
     }
 }
+
+/** Live stream set aside: a found row's word for a live stream. */
+const val LIVE = "Live"
 
 fun MediaCandidate.formatLabel(): String? = when (kind) {
     MediaKind.HLS -> "HLS"

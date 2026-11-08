@@ -1406,6 +1406,8 @@ class BrowserViewModel(
                 }
             val probeCandidate = BrowserObservationMapper.forMetadataProbe(observation)
                 ?: return@launch
+            // Stream piece filter: a stream's piece is that stream; it spends no probe.
+            if (candidateStore.isStreamPiece(probeCandidate)) return@launch
             scheduleProbe(probeCandidate)
         }
     }
@@ -1511,15 +1513,21 @@ class BrowserViewModel(
      * Page video finder: a stream often states its length only in its manifest, so each HLS or DASH
      * address of the page without a length is read once, at most [MAX_MANIFEST_READS] a page. The
      * length tells the main video from the short previews and ads around it and fills the sheet's
-     * sizes.
+     * sizes. A quality playlist that a live master already read names is not read: it is live too,
+     * and a cam banner's playlists would spend the reads the page's video needs.
      */
     private fun readManifestLengths(candidates: List<MediaCandidate>) {
         val pageUrl = activePageUrl ?: return
         val sitePage = siteAdapters.handles(pageUrl)
         val lookupDone = pageLookupDone
+        val liveQualities = candidates
+            .filter { it.streamPieces?.live == true }
+            .flatMapTo(mutableSetOf()) { it.hlsVariantPlaylists }
         for (candidate in candidates) {
             if (manifestReads.size >= MAX_MANIFEST_READS) return
-            if (!candidate.needsManifestRead(pageUrl) || !manifestReads.add(candidate.mediaUrl)) {
+            if (!candidate.needsManifestRead(pageUrl) || candidate.mediaUrl in liveQualities ||
+                !manifestReads.add(candidate.mediaUrl)
+            ) {
                 continue
             }
             viewModelScope.launch(pageProbeJob) {

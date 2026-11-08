@@ -227,7 +227,8 @@ object MediaGroups {
      * adapter named, or one the page names as its own, never is — and neither is a video the page
      * itself names as one video's files ([MediaCandidate.pageVideoKey]: a media element's
      * `<source>` alternatives, which state no length of their own). With the page's [facts], a
-     * video of the stated length never is, and one under half of it is.
+     * video of the stated length never is, and one under half of it is. A live stream
+     * ([StreamPieces.isLive]: YFT can't save it) is, while the page has another video.
      */
     fun looksLikePreview(
         video: MediaGroup,
@@ -236,6 +237,11 @@ object MediaGroups {
     ): Boolean {
         val files = video.candidates
         if (files.any { it.videoId != null || it.pageRole == PageMediaRole.MAIN }) return false
+        // Live stream set aside: a live stream YFT can't save is not the page's video while the
+        // page has another one.
+        if (StreamPieces.isLive(video)) {
+            return page.any { other -> other !== video && !StreamPieces.isLive(other) }
+        }
         val length = video.durationMillis
         // The length the page states is its video's, whatever an ad list says.
         if (facts?.matchesLength(length) == true) return false

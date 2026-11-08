@@ -14,6 +14,12 @@ one.
 
 - **All items**: select the available videos of one post and queue them at the default quality.
   Each video is a separate download; photos are not downloaded.
+- **Ended live size sample**: a recently ended YouTube live's rows, which state no size, now show
+  "Estimating size…" and then "~63 MB" with "Rough estimate". The sheet reads only the start of a
+  spread sample of the replay's pieces (on the owner's replay: 189 small asks, 1.5 MB, 144p
+  within 0.2% of its joined pieces). It stops at 400 asks or 5 MB, on a refusal, or when a
+  server ignores the range. The estimate is never used as the download's size; WebM rows, and
+  rows whose pieces vary too much, stay "Size unknown".
 
 ### Changed
 
@@ -25,6 +31,19 @@ one.
 
 ### Fixed
 
+- **Found list (Stream piece filter)**: the pieces an HLS playlist names are no longer listed as
+  videos of their own and no longer spend size checks. A live camera's pieces kept adding to the
+  count on a page with a camera strip (91 to 268 media requests a minute on one page). A
+  playlist asked again with low-latency delivery settings (`_HLS_msn`, `_HLS_part`) is one
+  playlist: 61 addresses in 77 seconds were 7 playlists.
+- **Found list (Live stream set aside)**: a playlist with no end (a live stream YFT can't save)
+  moves under "Other videos on this page" while the page has another video, so the page's own
+  video stays first.
+  Main videos, a page's quality files and several real videos are never set aside for this.
+  Its row carries a "Live" chip. After an ad, the sheet no longer takes a live camera's playlist,
+  asked for again every few seconds, as the video the page's player asked for.
+- **Ad filter**: the Found list and the Found button now use the length the page states, so a
+  video an ad list matches is still listed when its length is the page's video's.
 - **Fresh link renewal**: a fresh link must now be proven to be the same file (Same-file check).
   Only a link's signature, expiry or cache values may change; a query value that names the content
   (`id`, `video`, `file`, `quality`, …) must stay the same. A similar length alone, another file

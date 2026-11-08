@@ -71,10 +71,11 @@ Not planned for the next release. Advice in brackets.
 - A VK recipe that carries the web client's values.
 - A daily VK canary in CI.
 - Instagram's `doc_id`: look again if `VALUE_REJECTED` shows.
-- Size estimates for ended YouTube live and peak-only HLS: investigate bounded samples, their
-  error, data cost and latency before using them. YouTube's unsigned replay check was blocked;
-  public HLS samples show positional bias and are not enough to establish a general accuracy or a
-  reliable range. Byte-range sums describe input bytes, not the exact remuxed file.
+- Size estimates for peak-only HLS: investigate bounded samples, their error, data cost and
+  latency before using them. Public HLS samples show positional bias and are not enough to
+  establish a general accuracy or a reliable range. Byte-range sums describe input bytes, not the
+  exact remuxed file. Ended YouTube lives now have the Ended live size sample (owner's choice,
+  2026-11-08); its time and data on a phone, and other replays, are not measured yet.
 - Investigate reported single quality and high Found counts using generic player/manifest evidence.
   Observed thumbnail players are not confirmed main ladders; do not infer every extra item is an ad
   or merge distinct video items without identity evidence. A download-listener-only candidate
@@ -91,6 +92,10 @@ Not planned for the next release. Advice in brackets.
   moves to another path, or a path shared by several page files, now stops with retry guidance
   instead of renewing. Unknown query names count only as a path match. After an ad, the page's
   player video is still chosen by the page-stated length; that path is unproven on real sites.
+  The Stream piece filter keeps the pieces a read playlist names out of the Found list, and a
+  playlist with no end moves under "Other videos on this page" and is never the player's video
+  after an ad. A master whose read was refused (403) still cannot group its qualities, and the
+  Found count on a phone is not checked yet.
 - The owner reports slower downloads in Preview than in v1.0.2 Release. Host checks in TESTING
   time sheet lookup, transfer and finalization apart. Average-rate HLS sheets made five more
   playlist reads; Playlist read-ahead cut that fixture from about 1,060 to 460 ms (Release: 306 ms

@@ -242,11 +242,17 @@ class MediaMetadataProbeTest {
         assertEquals("https://page.test", first.getHeader("Origin"))
         assertEquals("/v42/720p/index.m3u8", server.takeRequest().path)
 
-        // A live stream has no length to read, and a file is not read at all.
+        // A live stream has no length to read, only its pieces (Stream piece filter); a file is
+        // not read at all.
         server.enqueue(MockResponse().setBody("#EXTM3U\n#EXTINF:6,\na.ts"))
-        assertNull(probe.readManifest(master.copy(mediaUrl = server.url("/live.m3u8").toString())))
+        val live = probe.readManifest(master.copy(mediaUrl = server.url("/live/p.m3u8").toString()))!!
+        assertNull(live.durationMillis)
+        assertTrue(live.streamPieces!!.live)
+        assertTrue(live.streamPieces!!.names(server.url("/live/b.ts").toString()))
         assertNull(probe.readManifest(master.copy(kind = MediaKind.DIRECT)))
         assertEquals(3, server.requestCount)
+        // A master's pieces are its first quality's: finished here.
+        assertEquals(false, read.streamPieces?.live)
     }
 
     private fun candidate(

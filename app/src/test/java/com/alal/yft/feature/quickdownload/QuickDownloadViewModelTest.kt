@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
+import com.alal.yft.core.download.EndedLiveSizes
 import com.alal.yft.core.media.resolver.VariantResolver
 import com.alal.yft.core.media.session.PreviewSelectionStore
 import com.alal.yft.core.model.download.DownloadFailureReason
@@ -1614,6 +1615,74 @@ class QuickDownloadViewModelTest {
         assertTrue(reader.asked.isEmpty())
     }
 
+    @Test
+    fun anEndedLiveSheetShowsItsSampledSizesWithoutTouchingTheDownload() = runTest {
+        val sound = "https://rr1.media.test/videoplayback?itag=140&source=yt_live_broadcast"
+        fun live(height: Int) = video(height, merged = true).let {
+            it.copy(
+                mediaUrl = "https://rr1.media.test/videoplayback?itag=$height" +
+                    "&source=yt_live_broadcast",
+                audioCompanion = it.audioCompanion!!.copy(
+                    mediaUrl = sound,
+                    contentLengthBytes = null,
+                ),
+            )
+        }
+        select(listOf(live(720), live(144)))
+        val gate = CompletableDeferred<Unit>()
+        val sampler = GatedSizes(gate, mapOf(sound to 42, live(720).mediaUrl to 346))
+
+        val viewModel = viewModel(endedLiveSizes = sampler)
+        advanceUntilIdle()
+
+        val reading = viewModel.uiState.value.choices!!.video
+        assertTrue(reading.all { it.size == null && it.sizePending })
+        // The sound both videos share is one file: three files, asked once.
+        assertEquals(listOf(3), sampler.asked.map { it.size })
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        val rows = viewModel.uiState.value.choices!!.video
+        val row720 = rows.first { it.rankHeight == 720 }
+        assertEquals("~388 MB", row720.size)
+        assertTrue(QuickDownloadChoices.ROUGH_ESTIMATE in row720.chips)
+        // 144p's video got no size: it stays "Size unknown", no longer pending.
+        val row144 = rows.first { it.rankHeight == 144 }
+        assertNull(row144.size)
+        assertFalse(rows.any { it.sizePending })
+        // The background size checks came back too, and nothing was sampled again.
+        assertEquals(1, sampler.asked.size)
+
+        viewModel.download()
+        advanceUntilIdle()
+        // The download gets the row's own variant: the estimate is never its size.
+        assertNull(starter.variants.single().sizeBytes)
+    }
+
+    /** Ended live size sample: sizes ([mib] by file) given once [gate] opens. */
+    private class GatedSizes(
+        private val gate: CompletableDeferred<Unit>,
+        private val mib: Map<String, Long>,
+    ) : EndedLiveSizes {
+        val asked = mutableListOf<List<EndedLiveSizes.Track>>()
+
+        override suspend fun estimate(
+            tracks: List<EndedLiveSizes.Track>,
+            onSize: (String, EndedLiveSizes.Size) -> Unit,
+        ): EndedLiveSizes.Outcome {
+            asked += tracks
+            gate.await()
+            val sizes = tracks.mapNotNull { track ->
+                mib[track.url]?.let {
+                    track.url to EndedLiveSizes.Size(it * MIB, it * MIB, it * MIB, 4, 545)
+                }
+            }.toMap()
+            sizes.forEach { (url, size) -> onSize(url, size) }
+            return EndedLiveSizes.Outcome(sizes)
+        }
+    }
+
     /** A sheet opened on Home's lookup of a link, before the video came. */
     private fun waitingSheet(
         preferences: DownloadPreferences = DownloadPreferences(confirmOnMeteredNetwork = false),
@@ -1659,6 +1728,7 @@ class QuickDownloadViewModelTest {
         playback: VideoPlaybackSupport = VideoPlaybackSupport.ANY,
         snapshot: StateFlow<NetworkSnapshot> = MutableStateFlow(network),
         pageReader: BrowserPageReader = BrowserPageReader.None,
+        endedLiveSizes: EndedLiveSizes = EndedLiveSizes.None,
     ) = QuickDownloadViewModel(
         store = store,
         selectionStore = selection,
@@ -1677,6 +1747,7 @@ class QuickDownloadViewModelTest {
         downloadThumbnails = thumbnails,
         lookups = lookups,
         pageReader = pageReader,
+        endedLiveSizes = endedLiveSizes,
     )
 
     /** A sheet whose [ViewModelStore] the test clears, as closing the sheet does. */

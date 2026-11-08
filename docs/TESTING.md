@@ -37,7 +37,7 @@ of the shorter length. A live window, a peak-only rate, an unread playlist or a 
 stays unknown. A row whose separate sound cannot be paired also stays unknown: the master’s
 combined average includes sound the row will not download. The six-playlist limit may leave later
 qualities unknown. A group with multiple sound renditions may state the rate of a larger choice than
-the first one YFT pairs; the estimate is not an exact size. No media is sampled.
+the first one YFT pairs; the estimate is not an exact size. No HLS media is sampled.
 
 On Linux x86-64 with ffmpeg 7.0.2, Apple's public [BipBop master](https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_adv_example_hevc/master.m3u8)
 stated 600.000 s video and 600.043 s AAC for its first 540p AVC/AAC quality, with average rate
@@ -62,6 +62,29 @@ segments, gave -22.54% and -19.44% against completed joined TS for 286p and 142p
 samples instead gave +11.99% and +11.69%. HEAD lengths matched the corresponding fetched bytes;
 the first five seconds decoded on the host. These tests do not establish a general accuracy or
 range, and sampling is not in the app.
+
+## Ended live size sample
+
+On the owner's replay (545 pieces of 5 s; MP4 qualities 1080p to 144p and two sounds), every
+piece was `ftyp`, `moov`, `emsg`, `moof`, `mdat`, one fragment, with sample sizes equal to the
+`mdat` payload; an 8 KB range was honored and the boxes gave the exact length of four whole
+pieces fetched in full. A script with the app's plan, run in the host's browser (not the phone):
+189 asks plus 49 redirects, 1.55 MB read, 32.8 s at 4 at a time. 144p's pieces came to 22,899,265
+bytes against 22,847,458 summed from every piece (+0.2%); sound 44,625,554 against 44,614,184
+(+0.03%); 144p with sound 63.4 MiB, as the owner's completed download (63 MB). In a simulation
+over all of 144p's piece sizes, 64 pieces gave 90 in 100 runs within -4.9% to +3.8%. The stated
+format rates had given +217% for 144p. Host tests: `EndedLiveSamplerTest` (layout, limits, refusal,
+ignored range, WebM, redaction), `EndedLiveSheetSizesTest` and the sheet's view-model test.
+Timing on a phone and on other replays is not measured.
+
+## Stream piece filter
+
+On a host browser, a page with a live camera strip made 91 to 268 media requests a minute; its
+playlists named 48 to 145 pieces each, which were listed and probed as videos of their own. A
+low-latency playlist asked with `_HLS_msn`/`_HLS_part` gave 61 addresses in 77 s, 7 without
+them. Host tests: `StreamPiecesTest`, `MediaGroupsStreamPiecesTest`, `PageCandidateStoreTest`,
+`CandidateNormalizerTest`, `ManifestReaderTest`, `MediaFileUrlsTest` and
+`BrowserObservationMapperTest`. The Found count on a phone is not checked yet.
 
 ## HLS sheet lookup timing
 

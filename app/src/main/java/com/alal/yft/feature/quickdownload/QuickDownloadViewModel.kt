@@ -3,6 +3,7 @@ package com.alal.yft.feature.quickdownload
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
+import com.alal.yft.core.download.EndedLiveSizes
 import com.alal.yft.core.media.resolver.VariantResolver
 import com.alal.yft.core.media.session.PreviewSelectionStore
 import com.alal.yft.core.model.media.AdRule
@@ -245,6 +246,8 @@ class QuickDownloadViewModel @Inject constructor(
     private val pageReader: BrowserPageReader = BrowserPageReader.None,
     /** The merges this phone makes, for the rows of a post's other items. */
     private val merges: MergeSupport = MergeSupport { true },
+    /** Ended live size sample: sizes for the rows of a recently ended live. */
+    private val endedLiveSizes: EndedLiveSizes = EndedLiveSizes.None,
 ) : ViewModel() {
     /**
      * A sheet opened for a lookup (Home's link, a feed's video on screen) waits on it even when the
@@ -285,6 +288,14 @@ class QuickDownloadViewModel @Inject constructor(
     val uiState: StateFlow<QuickDownloadUiState> = mutableUiState.asStateFlow()
     private var loading: Job? = null
     private val sizeProbes = Semaphore(2)
+
+    /**
+     * Ended live size sample: the sizes read for this sheet's files, by address; the files being
+     * read; and every file asked once, so a file is sampled once a sheet.
+     */
+    private val sampledSizes = mutableMapOf<String, EndedLiveSizes.Size>()
+    private val sampling = mutableSetOf<String>()
+    private val sampledFiles = mutableSetOf<String>()
     private var pendingPostQueue = false
 
     /** The user said yes to mobile data when tapping Download before the qualities came. */
@@ -1387,7 +1398,11 @@ class QuickDownloadViewModel @Inject constructor(
             source.candidate.videoId?.startsWith("facebook:") == true &&
             source.candidate.bitrateBitsPerSecond != null
 
-    private fun showChoices(choices: QuickChoices?, sources: List<SheetSource>, waiting: Boolean) {
+    private fun showChoices(rows: QuickChoices?, sources: List<SheetSource>, waiting: Boolean) {
+        // Ended live size sample: a row keeps the size its pieces gave while its file states none.
+        val choices = rows?.let {
+            QuickDownloadChoices.withSampledSizes(it, sampledSizes, sampling)
+        }
         mutableUiState.update { state ->
             val picture = state.header?.thumbnailUrl
                 ?: sources.firstNotNullOfOrNull { ThumbnailUrls.https(it.asset?.thumbnailUrl) }
@@ -1427,7 +1442,46 @@ class QuickDownloadViewModel @Inject constructor(
                 },
             )
         }
+        choices?.let(::sampleEndedLive)
         startWhenReady()
+    }
+
+    /**
+     * Ended live size sample: the rows of a recently ended live state no size, so a sample of
+     * their files' pieces is read once, by itself, and each row shows its size as it comes.
+     */
+    private fun sampleEndedLive(choices: QuickChoices) {
+        val tracks = QuickDownloadChoices.endedLiveTracks(choices)
+            .filter { sampledFiles.add(it.url) }
+        if (tracks.isEmpty()) return
+        val files = tracks.map { it.url }.toSet()
+        sampling += files
+        viewModelScope.launch {
+            try {
+                endedLiveSizes.estimate(tracks) { url, size ->
+                    sampledSizes[url] = size
+                    refreshSampledSizes()
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                // A sample that breaks leaves its rows "Size unknown"; the download is not touched.
+            } finally {
+                sampling -= files
+                refreshSampledSizes()
+            }
+        }
+        refreshSampledSizes()
+    }
+
+    private fun refreshSampledSizes() {
+        mutableUiState.update { state ->
+            state.copy(
+                choices = state.choices?.let {
+                    QuickDownloadChoices.withSampledSizes(it, sampledSizes, sampling)
+                },
+            )
+        }
     }
 
     /** A failed background size check keeps the stated row, including its honest estimate. */

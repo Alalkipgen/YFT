@@ -6,12 +6,13 @@ import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.PageMediaRole
+import com.alal.yft.core.model.media.StreamPieces
 import com.alal.yft.extractor.generic.classifier.MediaFileUrls
 import com.alal.yft.extractor.generic.classifier.MediaUrlClassifier
 import java.net.URI
 
 class CandidateNormalizer(
-    private val policy: Policy = Policy(),
+    val policy: Policy = Policy(),
 ) {
     data class Policy(
         val maxCandidates: Int = 50,
@@ -37,12 +38,22 @@ class CandidateNormalizer(
             merged[key] = merged[key]?.let { existing -> merge(existing, candidate) } ?: candidate
         }
 
-        return withoutStreamPieces(merged.values.toList())
+        return withoutStreamPieces(withoutListedPieces(merged.values.toList()))
             .sortedWith(
                 compareByDescending<MediaCandidate> { it.confidence.ordinal }
                     .thenByDescending { it.observedAtEpochMs },
             )
             .take(policy.maxCandidates)
+    }
+
+    /**
+     * Stream piece filter: the files the page's player fetched as pieces of a stream whose
+     * playlist was read ([StreamPieces.isPiece]) are that stream, not more videos.
+     */
+    private fun withoutListedPieces(candidates: List<MediaCandidate>): List<MediaCandidate> {
+        val streams = StreamPieces.streamsOf(candidates)
+        if (streams.isEmpty()) return candidates
+        return candidates.filterNot { StreamPieces.isPiece(it, streams) }
     }
 
     /**
@@ -147,6 +158,7 @@ class CandidateNormalizer(
             pageRole = mergedRole(first.pageRole, second.pageRole),
             pageVideoKey = newest.pageVideoKey ?: oldest.pageVideoKey,
             hlsVariantPlaylists = newest.hlsVariantPlaylists.ifEmpty { oldest.hlsVariantPlaylists },
+            streamPieces = newest.streamPieces ?: oldest.streamPieces,
             // A file that showed it is an ad anywhere stays one; the proof weighs it.
             adSign = newest.adSign ?: oldest.adSign,
         )

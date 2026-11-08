@@ -1,32 +1,26 @@
 # Session state
 Overwrite this file at each checkpoint (40 lines at most). Never append. History is in git.
 ## Now
-- Branch `work/phase-v102-easy`. Equal duration alone no longer groups files; HLS masters group with
-  the variant addresses they name.
-- Fresh-link retry uses the Same-file check (`SameFile`, `adb0d170`): same host and path; known
-  signing and expiry values are ignored, changed content values (id, v, quality, itag…) mean another
-  file. Length alone never picks a file. Unconfirmed matches stop with "open the page and download
-  it again". After an ad, `playerVideoAfterAd` still picks by page-stated length (unproven).
-  CI on `adb0d170`: validation 42459862573, emulator 42459862603, minified 42459862543 and
-  preview 42459862571 passed.
-- Playlist read-ahead (`PlaylistReadAhead`) reads up to three HLS size playlists at once, starting
-  only reads the one-at-a-time loop is sure to make. Host fixture, 150 ms per response: Release
-  306–309 ms (2 requests, no estimates), sequential 1,060–1,067 ms, read-ahead 460–615 ms (7 each,
-  same estimates). `HlsSizeReadsTest` fails on the earlier prototype (3 of 4 estimates).
-- Host download phases (local JW 142p copy, 2 MB/s per response, medians): HLS transfer 4,940 ms
-  on Release vs 3,562 ms current; finalization 36/42 ms (.ts) and 77/83 ms (remux); direct
-  4,716/4,718 ms. Hashes matched. The phone slowdown cause is still unknown.
-- Owner phone observations on a Preview: Roshy showed matching 1080p/720p/480p rows, sizes unknown;
-  Jav.guru showed one 480p row; Found counts may accumulate across servers. Candidate identities and
-  ads are unproven. YouTube replay HKlRo-QdaRY opened with five size-unknown rows; no download.
-  Those were on earlier Previews (last confirmed supply: Preview 207, `3cea4b9b`).
-- Phase 0 cleanup is complete. All items handles video only. No photo/slideshow or VK census.
-  AV1 release merge stays off. Wikimedia 4K preview and 2.8 GB download remain untested.
+- Branch `work/phase-v102-easy`. Owner tested Preview 212 (`b9b3bcf2`) and set three tasks: Found
+  list ads, ended-live sizes, HLS capture and quality rows. This checkpoint does all three on host.
+- Stream piece filter (`StreamPieces`, `PageCandidateStore`): pieces a read HLS playlist names are
+  not listed or probed; full lists drop pieces first; `_HLS_msn`/`_HLS_part` asks of one playlist
+  are one playlist (`MediaFileUrls.wholeFile`). A live master's named qualities spend no reads.
+- Live stream set aside: a playlist with no end moves under "Other videos on this page" while the
+  page has another video ("Live" chip) and is never `playerVideoAfterAd`'s pick. The Found list
+  now passes the page's facts, so a page-length video an ad list matches stays listed.
+- Ended live size sample (owner's choice B, by itself, 2026-11-08): `EndedLiveSampler` reads 8 KB
+  of a spread sample of the replay's pieces (piece boxes give exact lengths) and the sheet shows
+  "Estimating size…" then "~X MB · Rough estimate". The variant's size is never changed. Limits:
+  400 asks, 5 MB, 6 at a time; WebM and too-varied files stay unknown.
+- Host evidence (not phone): owner's replay, 189 asks, 1.55 MB, 32.8 s; 144p +0.2%, sound
+  +0.03%, 144p with sound 63.4 MiB as the owner's 63 MB download. Camera strip: 91–268 media
+  requests a minute; low-latency playlist 61 addresses in 77 s, 7 without directives.
+- Unproven: phone Found counts, a 403 master's grouping (still separate), the sample's time and
+  data on a phone, other replays.
 ## Validation and next steps
-- Read-ahead, local split run: model 170, api 36, generic 24, browser 159, media 72, download 386,
-  data 38, sites 375, master 1,134 (2 skipped), master-android 85, app 1,631 (66 skipped) passed,
-  0 failed; lint and debug build passed. CI on `b9b3bcf2`: validation 42462455890, emulator
-  42462455847, minified 42462455854, preview 42462455864 passed. Preview 212 APK (`b9b3bcf2`,
-  sha256 8af5292f…859d29) is the one supplied for phone checks.
-- Then the Preview APK from that CI run and one phone checklist; ask before data-heavy phone tests.
+- Targeted host tests passed: core-download `EndedLiveSamplerTest` 10/0; core-model, browser and
+  generic suites passed before this checkpoint's last edits. Full split run, lint, debug build
+  and CI follow this checkpoint.
+- Then the Preview APK from CI and one phone checklist; ask before data-heavy phone tests.
   No merge or release; quality rows, ads and size estimates stay unverified until seen on a phone.

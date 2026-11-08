@@ -54,6 +54,30 @@ class BrowserObservationMapperTest {
         assertEquals(whole, BrowserObservationMapper.forMetadataProbe(piece)?.mediaUrl)
     }
 
+    /**
+     * A jav.guru capture (2026-11-08): a cam's low-latency playlist was asked for 232 times in
+     * 77 seconds under 61 addresses that differ only by `_HLS_msn` and `_HLS_part`; without
+     * them 7 addresses were left. One playlist is one candidate and one probe.
+     */
+    @Test
+    fun aLowLatencyPlaylistAskedForAgainIsOnePlaylist() {
+        val playlist = "https://edge.cam.test/live/abc/chunklist.m3u8?session=s1&token=t"
+        val asks = listOf(
+            "https://edge.cam.test/live/abc/chunklist.m3u8?session=s1&_HLS_msn=41&token=t",
+            "https://edge.cam.test/live/abc/chunklist.m3u8?session=s1&_HLS_msn=41&_HLS_part=2&token=t",
+            "https://edge.cam.test/live/abc/chunklist.m3u8?_HLS_msn=42&_HLS_part=0&session=s1&token=t",
+        ).map { request(it, method = "GET") }
+
+        assertEquals(
+            setOf(playlist),
+            asks.mapNotNull { BrowserObservationMapper.fromRequest(it)?.mediaUrl }.toSet(),
+        )
+        assertEquals(
+            setOf(playlist),
+            asks.mapNotNull { BrowserObservationMapper.forMetadataProbe(it)?.mediaUrl }.toSet(),
+        )
+    }
+
     @Test
     fun metadataProbeMappingAllowsStrongOpaqueHintsButRejectsOrdinaryAssets() {
         val opaqueStream = request("https://cdn.test/api/video/stream?id=7", method = "GET")

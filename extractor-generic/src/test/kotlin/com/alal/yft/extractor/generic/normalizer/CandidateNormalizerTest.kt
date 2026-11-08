@@ -8,6 +8,7 @@ import com.alal.yft.core.model.media.CompanionAudio
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.PageMediaRole
+import com.alal.yft.core.model.media.StreamPieces
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -284,6 +285,35 @@ class CandidateNormalizerTest {
             ),
             result.associate { it.mediaUrl to it.adSign },
         )
+    }
+
+    @Test
+    fun aReadStreamsPiecesDropOutAndTheFilesNextToThemStay() {
+        // Two live widgets fetch opaque fMP4 pieces; each was one more "video" in the list.
+        val live = StreamPieces.of(true, listOf("https://cam.test/b-hls-03/41/x1.mp4"))
+        val playlist = candidate(
+            "https://cam.test/b-hls-03/41/41_240p.m3u8",
+            kind = MediaKind.HLS,
+            sources = setOf(CandidateSource.REQUEST, CandidateSource.MANIFEST),
+            confidence = CandidateConfidence.HIGH,
+        )
+        val pieces = (1..6).map { candidate("https://cam.test/b-hls-03/41/p$it-q${it * 7}.mp4?n=$it", observedAt = it.toLong()) }
+        val elsewhere = candidate("https://files.test/v/5/720p.mp4")
+        val named = candidate("https://cam.test/b-hls-03/41/clip.mp4", sources = setOf(CandidateSource.DOM))
+
+        val before = CandidateNormalizer().normalize(pageUrl, listOf(playlist) + pieces + elsewhere + named)
+        assertEquals(9, before.size)
+
+        val read = playlist.copy(streamPieces = live, observedAtEpochMs = 9)
+        val after = CandidateNormalizer().normalize(pageUrl, listOf(playlist) + pieces + elsewhere + named + read)
+
+        assertEquals(
+            setOf(playlist.mediaUrl, elsewhere.mediaUrl, named.mediaUrl),
+            after.map { it.mediaUrl }.toSet(),
+        )
+        // The read stays with the stream when it is asked again later.
+        val again = CandidateNormalizer().normalize(pageUrl, listOf(read, playlist.copy(observedAtEpochMs = 20)))
+        assertEquals(live, again.single().streamPieces)
     }
 
     private fun candidate(

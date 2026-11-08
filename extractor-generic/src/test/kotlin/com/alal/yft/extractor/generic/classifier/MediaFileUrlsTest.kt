@@ -26,6 +26,26 @@ class MediaFileUrlsTest {
         assertFalse(MediaFileUrls.hasByteRange("https://cdn.test/v.mp4?start=5"))
     }
 
+    /** HLS delivery directives (`_HLS_` names) are dropped; look-alike names stay. */
+    @Test
+    fun deliveryDirectivesAreDroppedAndLookAlikesStay() {
+        assertEquals(
+            "https://cdn.test/live/a.m3u8?session=1",
+            MediaFileUrls.wholeFile(
+                "https://cdn.test/live/a.m3u8?_HLS_msn=7&session=1&_HLS_part=2&_HLS_skip=YES",
+            ),
+        )
+        assertEquals(
+            "https://cdn.test/live/a.m3u8",
+            MediaFileUrls.wholeFile("https://cdn.test/live/a.m3u8?_HLS_msn=7"),
+        )
+        val lookAlike = "https://cdn.test/live/a.m3u8?hls_msn=7&x_HLS_part=2&_hls_push=1"
+        assertEquals(lookAlike, MediaFileUrls.wholeFile(lookAlike))
+        // A directive is no byte range.
+        assertFalse(MediaFileUrls.hasByteRange("https://cdn.test/live/a.m3u8?_HLS_msn=7"))
+        assertTrue(MediaFileUrls.hasByteRange("https://cdn.test/v.mp4?_HLS_msn=7&range=0-9"))
+    }
+
     /** VK's pack proof: a closed `bytes=A-B` query value names a piece; nothing else does. */
     @Test
     fun aClosedBytesRangeInTheQueryNamesAPiece() {

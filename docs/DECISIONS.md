@@ -196,6 +196,20 @@ Old records stay in git history. Feature names follow [GLOSSARY.md](GLOSSARY.md)
   can give a size marked `~`; a live window is not a finished recording. When sound is separate,
   both playlists must finish and state the same duration before the combined average is used.
   Unavailable or insufficient evidence stays "Size unknown". (2026-11-07)
+- **Ended live size sample, by itself.** The owner chose (2026-11-08) sizes for a recently ended
+  live's rows without a button: the sheet reads the start (8 KB) of a spread sample of the
+  replay's own pieces and shows "~X MB" with "Rough estimate". A piece's boxes give its exact
+  length, so the sample measures, it does not guess from a rate. On the owner's replay (545
+  pieces): 189 asks, 1.5 MB, about 33 s on the host's browser; 144p 22.90 MB against 22.85 MB
+  measured, sound within 0.03%; 144p with sound came to 63.4 MiB, as its download (63 MB). It
+  stops at 400 asks or 5 MB; a file unlikely within 25% (90 in 100) gets no size. The estimate
+  is shown only: the download's size, space check and progress are not changed by it. This
+  amends "Size estimates need evidence" with the bounded sample it asked for. (2026-11-08)
+- **Stream pieces are not videos.** The pieces an HLS playlist names are part of that stream:
+  they are not listed and spend no size check. A playlist with no end moves under "Other videos
+  on this page" while the page has another video; nothing is hidden for a short length, an
+  outside host or the Found count alone. Why: a camera strip filled the list with pieces; the page's video must stay
+  first. (2026-11-08)
 
 ## Signed recipe config
 

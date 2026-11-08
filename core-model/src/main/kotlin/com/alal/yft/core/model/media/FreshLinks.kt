@@ -119,7 +119,9 @@ object FreshLinks {
      * is not marked or shaped like an ad or a preview, and has the length the page states
      * ([facts]) when both are known; the matching length first, then the newest request. Null when
      * the player asked for none. Never used after a video whose link failed: a fresh link of that
-     * video must be the same file ([SameFile]), and a similar length is no proof of that.
+     * video must be the same file ([SameFile]), and a similar length is no proof of that. A live
+     * stream ([StreamPieces.isLive]) is never it: its playlist is asked for again and again, so it
+     * is always the newest request, and YFT can't save it (Live stream set aside).
      */
     fun playerVideoAfterAd(
         ad: MediaGroup,
@@ -133,6 +135,7 @@ object FreshLinks {
             video.candidates.none { it.videoId != null || it.mediaUrl in tried } &&
                 video.candidates.any { isPlayerRequest(it) && it.isPlayable() } &&
                 !video.looksLikeAd(facts) &&
+                !StreamPieces.isLive(video) &&
                 (length == null || video.durationMillis == null ||
                     abs(video.durationMillis!! - length) <= LENGTH_MATCH_MILLIS)
         }

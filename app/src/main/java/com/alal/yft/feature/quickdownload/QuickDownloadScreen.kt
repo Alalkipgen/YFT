@@ -603,7 +603,7 @@ private fun Sections(
                     description = option.description,
                     detail = option.detail,
                     chips = option.chips,
-                    size = option.size ?: SIZE_UNKNOWN,
+                    size = option.size ?: if (option.sizePending) SIZE_ESTIMATING else SIZE_UNKNOWN,
                     selected = option.id == selected,
                     enabled = state.canChooseRow,
                     onClick = { onSelect(option.id) },
@@ -1129,6 +1129,9 @@ internal const val POST_ITEM_TAG = "quick-post-item-"
 
 private const val PLACEHOLDER_ROWS = 2
 private const val SIZE_UNKNOWN = "Size unknown"
+
+/** Ended live size sample: while a row's pieces are read for its size. */
+private const val SIZE_ESTIMATING = "Estimating size…"
 private val SHEET_TOP_GAP = 48.dp
 private val THUMBNAIL_WIDTH = 112.dp
 private const val THUMBNAIL_RATIO = 16f / 9f

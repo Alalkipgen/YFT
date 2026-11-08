@@ -164,10 +164,12 @@ private fun DetectedList(
     val colors = YftTheme.colors
     val savable = remember(page.candidates) { page.candidates.filter { it.isSavable } }
     // Page video finder: the count counts the page's videos; previews follow them under
-    // "Other videos on this page". A video proven an ad is not listed at all.
-    val list = remember(savable, page.adapterSite) {
+    // "Other videos on this page". A video proven an ad is not listed at all, unless its length
+    // is the one the page states.
+    val list = remember(savable, page.adapterSite, page.facts) {
         MediaGroups.ofPage(
             MediaGroups.pageVideos(savable, adapterSite = page.adapterSite),
+            page.facts,
             hideAds = true,
         )
     }

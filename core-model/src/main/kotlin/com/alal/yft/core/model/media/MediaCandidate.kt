@@ -109,6 +109,11 @@ data class MediaCandidate(
      * the post's other video items' rows.
      */
     val postItem: PostVideoItem? = null,
+    /**
+     * Stream piece filter: the pieces this HLS stream's media playlist names, and whether it is
+     * live ([StreamPieces]), once its manifest was read; null otherwise.
+     */
+    val streamPieces: StreamPieces? = null,
 ) {
     override fun toString(): String = buildString {
         append("MediaCandidate(pageUrl=")
@@ -133,6 +138,7 @@ data class MediaCandidate(
         append(pageRole)
         append(", adSign=")
         append(adSign)
+        streamPieces?.let { append(", streamPieces=").append(it) }
         append(')')
     }
 }

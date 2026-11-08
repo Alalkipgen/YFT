@@ -18,6 +18,8 @@ download sheet's list of lines from the lookup that found the rows; "—" means 
 | VK adapter | Main's VK reader: the embed answer, the API token path and the web client for 18+ public videos | `VkExtractor`, `VkWebClientProfile` | — | — |
 | Page video finder | Finds the page's own video files on other sites (tags, scripts, manifests, the playing video) | `GenericExtractorBoundary`, `HtmlMediaScanner`, `FocusedVideoProbe` | — | — |
 | Ad filter | Keeps the page's own video and drops ads (prerolls, VAST, ad hosts) | `PageVideoProof`, `VastAdTracker`, `AdHosts` | — | — |
+| Stream piece filter | Keeps the pieces a read HLS playlist names out of the Found list and out of the size checks; a playlist asked again with live delivery settings (`_HLS_msn`) is one playlist | `StreamPieces`, `PageCandidateStore`, `MediaFileUrls.wholeFile` | — | — |
+| Live stream set aside | A playlist with no end (a live camera YFT can't save) moves under "Other videos on this page" while the page has another video, and is never the player's video after an ad | `MediaGroups.looksLikePreview`, `FreshLinks.playerVideoAfterAd`, `StreamPieces.isLive` | — | — |
 | Download sheet | One sheet per video with its qualities, Download, Try again and Lookup details | `QuickDownloadScreen`, `QuickDownloadViewModel` | — | (shows the lines) |
 | All items | Select and queue available video items of one post, one default-quality video per item | `QuickDownloadScreen`, `QuickDownloadViewModel`, `PostVideoItem` | — | — |
 | Lookup reuse | Reuses a recent lookup's rows for the same video instead of asking again | `SiteLookupCache` | — | — |
@@ -78,6 +80,7 @@ download sheet's list of lines from the lookup that found the rows; "—" means 
 | DASH download | Downloads a DASH quality's pieces and joins them | `DashTransferEngine`, `DashPieceIndex` | — | — |
 | HLS download | Downloads an HLS playlist and turns it into MP4 | `HlsTransferEngine`, `HlsRemux`, `TsMp4Remuxer` | — | — |
 | Live download | Saves an ended YouTube live from its pieces, with an estimated size | `LivePieces`, `LiveOriginFile`, `DashCheckpointTracker` | — | — |
+| Ended live size sample | Reads the start of a spread sample of an ended YouTube live's pieces (about 200 small asks, under 2 MB on the owner's replay) and shows each row "~63 MB" with "Rough estimate"; the download's own size is not changed | `EndedLiveSampler`, `EndedLiveSizes`, `QuickDownloadChoices.withSampledSizes` | — | — |
 | Fresh link renewal | Gets a fresh link for a download whose link expired, then resumes | `SiteLinkRenewal`, `DownloadLinkRenewal`, `FreshLinks` | — | — |
 | Same-file check | Decides from addresses alone whether a fresh link is the file whose link failed; a similar length never proves it | `SameFile`, `FileKey`, `SameVideo` | — | `Status: same video not confirmed` |
 | Playlist read-ahead | Reads up to three HLS quality playlists at once for `~` size estimates; a read starts early only when the one-at-a-time order is sure to make it | `PlaylistReadAhead` (core-media) | — | — |
