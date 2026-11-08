@@ -19,8 +19,10 @@ Overwrite this file at each checkpoint (40 lines at most). Never append. History
 - Unproven: phone Found counts, a 403 master's grouping (still separate), the sample's time and
   data on a phone, other replays.
 ## Validation and next steps
-- Targeted host tests passed: core-download `EndedLiveSamplerTest` 10/0; core-model, browser and
-  generic suites passed before this checkpoint's last edits. Full split run, lint, debug build
-  and CI follow this checkpoint.
-- Then the Preview APK from CI and one phone checklist; ask before data-heavy phone tests.
+- `a89a472b`, local split run: model 179, api 36, generic 28, browser 161, media 72, download 396,
+  data 38, sites 375, master 1,134 (2 skipped), master-android 85, app 1,634 (66 skipped) passed,
+  0 failed; lint and debug build passed. CI on `a89a472b`: validation 42484817047, emulator
+  42484816979, minified 42484817054, preview 42484816985 passed. Preview 213 APK (`a89a472b`,
+  sha256 0d54b365…6dffbb3) is the one supplied for phone checks.
+- Next: the owner's phone checklist for Preview 213; ask before data-heavy phone tests.
   No merge or release; quality rows, ads and size estimates stay unverified until seen on a phone.
