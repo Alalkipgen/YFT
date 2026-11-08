@@ -20,6 +20,13 @@ one.
   within 0.2% of its joined pieces). It stops at 400 asks or 5 MB, on a refusal, or when a
   server ignores the range. The estimate is never used as the download's size; WebM rows, and
   rows whose pieces vary too much, stay "Size unknown".
+- **Finished stream size sample**: an HLS quality whose master states only a peak rate
+  (`BANDWIDTH`) and whose playlist is finished now shows "Estimating size…" and then "~X MB" with
+  "Rough estimate" instead of "Size unknown" (Pornhub, Roshy and jav.guru Stream VO on the owner's
+  phone). The sheet asks 48 of each playlist's pieces for one byte and reads their lengths; on the
+  host's measured playlists the estimate stayed within 4.9% of all pieces. A live playlist, a
+  locked one, a refusal or a server that ignores the range keeps "Size unknown"; the estimate is
+  never used as the download's size.
 
 ### Changed
 
@@ -31,6 +38,8 @@ one.
 
 ### Fixed
 
+- **Sizes**: a size that rounds to 1024 of a unit shows as the next unit: "~1 GB", not "~1024 MB"
+  (jav.guru's 720p row on the owner's phone).
 - **Found list (Stream piece filter)**: the pieces an HLS playlist names are no longer listed as
   videos of their own and no longer spend size checks. A live camera's pieces kept adding to the
   count on a page with a camera strip (91 to 268 media requests a minute on one page). A

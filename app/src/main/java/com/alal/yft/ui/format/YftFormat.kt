@@ -13,7 +13,8 @@ object YftFormat {
         if (bytes < UNIT) return "$bytes B"
         var value = bytes / UNIT
         var index = 0
-        while (value >= UNIT && index < SIZE_UNITS.lastIndex) {
+        // A value that rounds to 1024 is the next unit: "1 GB", never "1024 MB".
+        while (value >= UNIT - 0.5 && index < SIZE_UNITS.lastIndex) {
             value /= UNIT
             index++
         }

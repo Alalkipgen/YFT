@@ -43,6 +43,11 @@ What is open now: where things stand, the owner's open decisions, the backlog an
   limit, or change it.
 - **Lookup details wording:** the line `master: <site> ladder after NO_MEDIA_FOUND` (cosmetic).
 - **VK value heal:** six qualities came through the heal in one run. Keep watching it.
+- **Two servers of one video:** jav.guru's Stream VI and Stream VO are separate videos to YFT
+  because equal length alone no longer groups files, so VO's sheet shows VO's own 480p only.
+  1.0.2 showed VI's 1080p and 720p beside it. Group two finished playlists of one page whose
+  lengths agree, or keep them apart (the rule that keeps an ad of the same length out)?
+- **Javtiful:** the page's video is found only after its ad is skipped. Accept, or look further.
 - **Address pill at large text:** it overlapped once. Send a screenshot if it shows again.
 
 ## Backlog
@@ -71,11 +76,15 @@ Not planned for the next release. Advice in brackets.
 - A VK recipe that carries the web client's values.
 - A daily VK canary in CI.
 - Instagram's `doc_id`: look again if `VALUE_REJECTED` shows.
-- Size estimates for peak-only HLS: investigate bounded samples, their error, data cost and
-  latency before using them. Public HLS samples show positional bias and are not enough to
-  establish a general accuracy or a reliable range. Byte-range sums describe input bytes, not the
-  exact remuxed file. Ended YouTube lives now have the Ended live size sample (owner's choice,
-  2026-11-08); its time and data on a phone, and other replays, are not measured yet.
+- Size estimates for peak-only HLS: finished playlists now have the Finished stream size sample
+  (48 pieces, host-measured within 4.9% of every piece on Roshy, jav.guru VO and JW Tears of
+  Steel). Pornhub answers the host with an age check, so whether its servers honour the one-byte
+  range is seen only on the phone. A server that ignores the range keeps "Size unknown". Ended
+  YouTube lives have the Ended live size sample (owner's choice, 2026-11-08). Time and data of
+  both samples on a phone are not measured.
+- During a download whose total is "(estimated)", the progress total read ~74 MB and ~142 MB for
+  files of 98 and 172 MB (Preview 213, ended YouTube lives). It is measured from the pieces done;
+  the sheet's sample was closer. Not changed yet.
 - Investigate reported single quality and high Found counts using generic player/manifest evidence.
   Observed thumbnail players are not confirmed main ladders; do not infer every extra item is an ad
   or merge distinct video items without identity evidence. A download-listener-only candidate

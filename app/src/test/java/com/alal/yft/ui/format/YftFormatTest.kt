@@ -16,6 +16,15 @@ class YftFormatTest {
     }
 
     @Test
+    fun aSizeThatRoundsTo1024IsTheNextUnit() {
+        // The owner's jav.guru 720p row read "~1024 MB" (2026-11-08).
+        assertEquals("1 GB", YftFormat.bytes(1_073_217_536))
+        assertEquals("1023 MB", YftFormat.bytes(1_072_693_248))
+        assertEquals("1 MB", YftFormat.bytes(1_048_200))
+        assertEquals("1023 KB", YftFormat.bytes(1_047_552))
+    }
+
+    @Test
     fun durationsSwitchToHoursOnlyWhenNeeded() {
         assertEquals("0:00", YftFormat.duration(-5))
         assertEquals("0:07", YftFormat.duration(6_600))

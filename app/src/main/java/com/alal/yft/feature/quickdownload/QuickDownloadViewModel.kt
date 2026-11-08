@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
 import com.alal.yft.core.download.EndedLiveSizes
+import com.alal.yft.core.download.FinishedStreamSizes
 import com.alal.yft.core.media.resolver.VariantResolver
 import com.alal.yft.core.media.session.PreviewSelectionStore
 import com.alal.yft.core.model.media.AdRule
@@ -248,6 +249,8 @@ class QuickDownloadViewModel @Inject constructor(
     private val merges: MergeSupport = MergeSupport { true },
     /** Ended live size sample: sizes for the rows of a recently ended live. */
     private val endedLiveSizes: EndedLiveSizes = EndedLiveSizes.None,
+    /** Finished stream size sample: sizes for HLS rows whose master states no average rate. */
+    private val finishedStreamSizes: FinishedStreamSizes = FinishedStreamSizes.None,
 ) : ViewModel() {
     /**
      * A sheet opened for a lookup (Home's link, a feed's video on screen) waits on it even when the
@@ -1442,23 +1445,34 @@ class QuickDownloadViewModel @Inject constructor(
                 },
             )
         }
-        choices?.let(::sampleEndedLive)
+        choices?.let(::sampleSizes)
         startWhenReady()
     }
 
     /**
-     * Ended live size sample: the rows of a recently ended live state no size, so a sample of
-     * their files' pieces is read once, by itself, and each row shows its size as it comes.
+     * Ended live size sample and Finished stream size sample: the rows of a recently ended live,
+     * and HLS rows whose master states no average rate, state no size, so a sample of their files'
+     * pieces is read once, by itself, and each row shows its size as it comes.
      */
-    private fun sampleEndedLive(choices: QuickChoices) {
-        val tracks = QuickDownloadChoices.endedLiveTracks(choices)
-            .filter { sampledFiles.add(it.url) }
+    private fun sampleSizes(choices: QuickChoices) {
+        sample(QuickDownloadChoices.endedLiveTracks(choices), endedLiveSizes::estimate)
+        sample(QuickDownloadChoices.finishedStreamTracks(choices), finishedStreamSizes::estimate)
+    }
+
+    private fun sample(
+        found: List<EndedLiveSizes.Track>,
+        estimate: suspend (
+            List<EndedLiveSizes.Track>,
+            (String, EndedLiveSizes.Size) -> Unit,
+        ) -> EndedLiveSizes.Outcome,
+    ) {
+        val tracks = found.filter { sampledFiles.add(it.url) }
         if (tracks.isEmpty()) return
         val files = tracks.map { it.url }.toSet()
         sampling += files
         viewModelScope.launch {
             try {
-                endedLiveSizes.estimate(tracks) { url, size ->
+                estimate(tracks) { url, size ->
                     sampledSizes[url] = size
                     refreshSampledSizes()
                 }

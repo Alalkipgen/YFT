@@ -205,6 +205,19 @@ Old records stay in git history. Feature names follow [GLOSSARY.md](GLOSSARY.md)
   stops at 400 asks or 5 MB; a file unlikely within 25% (90 in 100) gets no size. The estimate
   is shown only: the download's size, space check and progress are not changed by it. This
   amends "Size estimates need evidence" with the bounded sample it asked for. (2026-11-08)
+- **Finished stream size sample, by itself.** On the owner's phone (Preview 213, 2026-11-08)
+  Pornhub, Roshy and jav.guru's Stream VO rows read "Size unknown" where 1.0.2 showed a size:
+  their masters state `BANDWIDTH` only. A quality whose playlist is finished (it ends, no key) and
+  states no average rate now gets a size from its own pieces: the sheet asks 48 pieces, spread over
+  the playlist, for one byte each, takes each length from `Content-Range`, and shows "~X MB" with
+  "Rough estimate". On the host (not the phone) every piece of Roshy's three qualities (885 each),
+  jav.guru VO (597) and JW Tears of Steel's five (184) was measured: over 200 placements of 48
+  pieces each estimate stayed within 4.9% of the pieces' total, 90 in 100 within 3.4%. `BANDWIDTH`
+  times the length, as 1.0.2 showed, was 2.4% to 9% under those totals and 1.7 times over on the
+  owner's YouTube replays, so it stays unused. The estimate counts the pieces as fetched; an MP4
+  made from Roshy's TS pieces was about 2% smaller. It stops at 400 asks, 8 MB, a refusal or a
+  server that ignores the range, and it is shown only. This amends "A peak rate is not an average"
+  for finished playlists. (2026-11-08)
 - **Stream pieces are not videos.** The pieces an HLS playlist names are part of that stream:
   they are not listed and spend no size check. A playlist with no end moves under "Other videos
   on this page" while the page has another video; nothing is hidden for a short length, an

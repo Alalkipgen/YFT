@@ -37,7 +37,8 @@ of the shorter length. A live window, a peak-only rate, an unread playlist or a 
 stays unknown. A row whose separate sound cannot be paired also stays unknown: the master’s
 combined average includes sound the row will not download. The six-playlist limit may leave later
 qualities unknown. A group with multiple sound renditions may state the rate of a larger choice than
-the first one YFT pairs; the estimate is not an exact size. No HLS media is sampled.
+the first one YFT pairs; the estimate is not an exact size. A finished peak-only quality is sized
+by the Finished stream size sample below.
 
 On Linux x86-64 with ffmpeg 7.0.2, Apple's public [BipBop master](https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_adv_example_hevc/master.m3u8)
 stated 600.000 s video and 600.043 s AAC for its first 540p AVC/AAC quality, with average rate
@@ -60,8 +61,8 @@ first rendition. Those were manifest checks, not 54 completed file comparisons.
 its current production sizes stay unknown. Five HEAD samples, including the first and last of 184
 segments, gave -22.54% and -19.44% against completed joined TS for 286p and 142p. Five midpoint
 samples instead gave +11.99% and +11.69%. HEAD lengths matched the corresponding fetched bytes;
-the first five seconds decoded on the host. These tests do not establish a general accuracy or
-range, and sampling is not in the app.
+the first five seconds decoded on the host. Five pieces were too few; the 48-piece sample below
+was measured on this stream again.
 
 ## Ended live size sample
 
@@ -76,6 +77,53 @@ over all of 144p's piece sizes, 64 pieces gave 90 in 100 runs within -4.9% to +3
 format rates had given +217% for 144p. Host tests: `EndedLiveSamplerTest` (layout, limits, refusal,
 ignored range, WebM, redaction), `EndedLiveSheetSizesTest` and the sheet's view-model test.
 Timing on a phone and on other replays is not measured.
+
+## Finished stream size sample
+
+Host evidence (2026-11-08, not the phone). Every piece's length was read with `Range: bytes=0-0`
+(206 and a `Content-Range` total on all of them): Roshy's master (`BANDWIDTH` only, three
+finished qualities of 885 ten-second TS pieces each, inside the page's player frame after its
+ad), jav.guru Stream VO (one 852 × 480 quality, 597 pieces) and JW Tears of Steel (five
+qualities, 184 pieces). Totals of all pieces: Roshy 480p 922.35 MB, 720p 1,945.38 MB, 1080p
+3,534.86 MB; VO 894.64 MB. `BANDWIDTH` × length gave -5.7%, -4.9%, -2.4% and -3.3% (JW -2.8%
+to -9.0%). The app's 48 midpoint pieces gave -1.3%, -1.3%, -0.1% and +1.3%; over 200 placements
+of 48 pieces on 8 qualities the worst was 4.9%, 90 in 100 within 3.4%. Twelve pieces gave -11.1%
+on VO. 1080p was nearly constant (piece variation 0.06) while 480p varied (0.19), and a 1080p
+piece weighed 1.7 to 7.8 480p pieces, so each quality is sampled on its own, not by ratio.
+ffmpeg stream copy of 12 Roshy TS pieces made MP4s 2.2% smaller than the pieces (a stand-in for
+the app's remux). Cost on the host browser: 39 asks in about 8 s at 6 at a time. The app's
+`FinishedStreamSampler` itself, run once from a host JVM test (not committed) on JW's public
+master: 5 of 5 files sized in 245 asks, 0.09 MB, 0.8 s; 320 × 142 -0.8%, 640 × 286 -1.7%,
+1280 × 572 -2.1%, 1920 × 858 -2.6% against all pieces, each inside its stated range. Host tests:
+`FinishedStreamSamplerTest` (spread, live, ignored range, refusal, few reads, byte ranges, start
+piece, master and key, limit, short playlist), `FinishedStreamSheetSizesTest` and the sheet's
+view-model test. Pornhub's pages answer the host with an age check, so Pornhub is measured only on
+the phone. Time and data on a phone are not measured.
+
+## Phone results: Preview 213
+
+The owner's phone, 2026-11-08, Preview 213 (`a89a472b`). Only what was tested is recorded.
+
+- **jav.guru:** Stream VI showed 1080p ~1.7 GB, 720p ~1024 MB, 480p ~597 MB (854 × 480, HLS).
+  Stream VO showed 480p (852 × 480, HLS) "Size unknown"; Found 2 (the 1:59:18 video and a
+  318 KB MP4), with two live HLS items under "Other videos on this page (2)". Whether the Found
+  count stays at 2, and what each item is, is not confirmed. 1.0.2 showed the VO sheet with VI's
+  1080p and 720p beside VO's 480p (~825 MB): it grouped the two servers by equal length, which
+  YFT no longer does.
+- **Javtiful:** before the ad was skipped, Found showed two MP4s (301 KB and 306 KB; whether both
+  are ads is not confirmed from one screenshot). After the skip the sheet said "That was an ad —
+  showing the page's video": 720p 372 MB, M4A ~28 MB, MP3 ~42 MB, as in 1.0.2. The page's video is
+  found only after the ad.
+- **Roshy:** 1080p, 720p and 480p (1920 × 1080, 1280 × 720, 852 × 480, HLS), all "Size unknown",
+  Found 1, title "Video", 2:27:21. 1.0.2 showed ~3.2 GB, ~1.7 GB, ~829 MB (`BANDWIDTH` × length).
+- **Pornhub (two links):** four HLS qualities, 1080p to 240p, all "Size unknown"; 1.0.2 showed
+  ~792, ~385, ~199 and ~68 MB for the 13:01 video.
+- **YouTube ended lives:** DOTA 2 replay 240p sheet ~97 MB, completed 98 MB, plays; Grand Final
+  (1:31:53) 144p sheet ~166 MB, completed 172 MB (other rows 480p ~670, 360p ~470, 240p ~261
+  MB). The sizes came after about 10–15 s (the owner's impression, not timed). The progress
+  totals marked "(estimated)" read ~74 MB and ~142 MB during the downloads, below the final
+  files: that is the in-download estimate, not the sheet's.
+- **Wikimedia 4K:** not tested, by the owner's choice; do not ask for the 2.8 GB download again.
 
 ## Stream piece filter
 

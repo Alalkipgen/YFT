@@ -6,6 +6,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
 import com.alal.yft.core.download.EndedLiveSizes
+import com.alal.yft.core.download.FinishedStreamSizes
 import com.alal.yft.core.media.resolver.VariantResolver
 import com.alal.yft.core.media.session.PreviewSelectionStore
 import com.alal.yft.core.model.download.DownloadFailureReason
@@ -1660,6 +1661,83 @@ class QuickDownloadViewModelTest {
         assertNull(starter.variants.single().sizeBytes)
     }
 
+    @Test
+    fun aPeakRateMasterShowsItsSampledSizesWithoutTouchingTheDownload() = runTest {
+        // Finished stream size sample: Roshy's master (2026-11-08) states BANDWIDTH only.
+        val master = video(null, kind = MediaKind.HLS, videoId = null, label = null, index = 1)
+        select(listOf(master))
+        val playlist = { height: Int -> "https://cdn.example.test/hls/index-$height.m3u8" }
+        resolver.answer = { candidate ->
+            val ladder = listOf(1080 to 3_122_112L, 720 to 1_674_457L, 480 to 786_895L)
+            VariantResolutionResult.Success(
+                MediaAsset(
+                    sourcePageUrl = candidate.pageUrl,
+                    title = "Video",
+                    thumbnailUrl = null,
+                    durationMillis = 8_840_700,
+                    variants = ladder.map { (height, bandwidth) ->
+                        MediaVariant(
+                            id = "hls-stream-$height",
+                            playbackUrl = playlist(height),
+                            kind = MediaKind.HLS,
+                            trackType = MediaTrackType.AUDIO_VIDEO,
+                            requestContext = BrowserRequestContext(candidate.pageUrl, null, null),
+                            mimeType = "application/x-mpegURL",
+                            container = "HLS",
+                            codecs = listOf("avc1.64001f", "mp4a.40.2"),
+                            width = height * 16 / 9,
+                            height = height,
+                            bitrateBitsPerSecond = bandwidth,
+                            durationMillis = 8_840_700,
+                        )
+                    },
+                    resolvedAtEpochMs = 0,
+                ),
+            )
+        }
+        val gate = CompletableDeferred<Unit>()
+        val sampler = GatedStreamSizes(gate, mapOf(playlist(720) to 1_855L))
+
+        val viewModel = viewModel(finishedStreamSizes = sampler)
+        advanceUntilIdle()
+
+        val reading = viewModel.uiState.value.choices!!.video
+        assertEquals(3, reading.size)
+        assertTrue(reading.all { it.size == null && it.sizePending })
+        assertEquals(listOf(3), sampler.asked.map { it.size })
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        val rows = viewModel.uiState.value.choices!!.video
+        val row720 = rows.first { it.rankHeight == 720 }
+        assertEquals("~1.8 GB", row720.size)
+        assertTrue(QuickDownloadChoices.ROUGH_ESTIMATE in row720.chips)
+        // The other playlists gave no size: "Size unknown", no longer pending, asked once.
+        assertNull(rows.first { it.rankHeight == 1080 }.size)
+        assertFalse(rows.any { it.sizePending })
+        assertEquals(1, sampler.asked.size)
+
+        viewModel.download()
+        advanceUntilIdle()
+        // The download gets the row's own variant: the estimate is never its size.
+        assertNull(starter.variants.single().sizeBytes)
+    }
+
+    /** Finished stream size sample: sizes ([mib] by playlist) given once [gate] opens. */
+    private class GatedStreamSizes(
+        gate: CompletableDeferred<Unit>,
+        mib: Map<String, Long>,
+    ) : FinishedStreamSizes {
+        private val sizes = GatedSizes(gate, mib)
+        val asked get() = sizes.asked
+
+        override suspend fun estimate(
+            tracks: List<EndedLiveSizes.Track>,
+            onSize: (String, EndedLiveSizes.Size) -> Unit,
+        ): EndedLiveSizes.Outcome = sizes.estimate(tracks, onSize)
+    }
+
     /** Ended live size sample: sizes ([mib] by file) given once [gate] opens. */
     private class GatedSizes(
         private val gate: CompletableDeferred<Unit>,
@@ -1729,6 +1807,7 @@ class QuickDownloadViewModelTest {
         snapshot: StateFlow<NetworkSnapshot> = MutableStateFlow(network),
         pageReader: BrowserPageReader = BrowserPageReader.None,
         endedLiveSizes: EndedLiveSizes = EndedLiveSizes.None,
+        finishedStreamSizes: FinishedStreamSizes = FinishedStreamSizes.None,
     ) = QuickDownloadViewModel(
         store = store,
         selectionStore = selection,
@@ -1748,6 +1827,7 @@ class QuickDownloadViewModelTest {
         lookups = lookups,
         pageReader = pageReader,
         endedLiveSizes = endedLiveSizes,
+        finishedStreamSizes = finishedStreamSizes,
     )
 
     /** A sheet whose [ViewModelStore] the test clears, as closing the sheet does. */

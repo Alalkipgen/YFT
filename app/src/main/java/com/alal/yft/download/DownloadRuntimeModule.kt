@@ -23,6 +23,8 @@ import com.alal.yft.core.download.DownloadTransferDispatcher
 import com.alal.yft.core.download.DownloadWorkspaces
 import com.alal.yft.core.download.EndedLiveSampler
 import com.alal.yft.core.download.EndedLiveSizes
+import com.alal.yft.core.download.FinishedStreamSampler
+import com.alal.yft.core.download.FinishedStreamSizes
 import com.alal.yft.core.download.HlsTransferEngine
 import com.alal.yft.core.download.HlsTransferRunner
 import com.alal.yft.core.download.LocalAudioVideoMuxer
@@ -127,6 +129,12 @@ object DownloadRuntimeModule {
     @Provides
     @Singleton
     fun provideEndedLiveSizes(client: OkHttpClient): EndedLiveSizes = EndedLiveSampler(client)
+
+    /** Finished stream size sample: the sheet's sizes for HLS rows stating no average rate. */
+    @Provides
+    @Singleton
+    fun provideFinishedStreamSizes(client: OkHttpClient): FinishedStreamSizes =
+        FinishedStreamSampler(client)
 
     @Provides
     @Singleton

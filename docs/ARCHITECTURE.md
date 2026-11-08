@@ -201,6 +201,16 @@ It reads 6 at a time with the row's request context, stops at 400 asks, 5 MB, a 
 server that ignores the range, and logs one line without addresses. Rows show "~X MB" with
 "Rough estimate"; the download's variant and space check are not changed.
 
+An HLS master that states only `BANDWIDTH` (a peak) gives its qualities no size. The Finished
+stream size sample (`FinishedStreamSampler` in core-download, run by the same view model for the
+HLS rows `QuickDownloadChoices.finishedStreamTracks` names) reads each quality's playlist with
+the download's own parser (`HlsDownloadManifestParser`: finished, no key), then asks 48 pieces,
+the middle one of each equal stretch, for one byte and takes their lengths from `Content-Range`.
+A playlist whose pieces all state byte ranges is added up without asks. A file's size is its
+start pieces plus the mean piece times the piece count. It shares the 6-at-a-time gate across
+files, stops at 400 asks, 8 MB, a 403 or 429, or a server that ignores the range, and gives no
+size when under half of the asks were read or the spread is too wide.
+
 ## Downloads
 
 - The download queue runs transfers in a foreground service with a notification. Room keeps task
