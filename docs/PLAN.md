@@ -91,9 +91,11 @@ Not planned for the next release. Advice in brackets.
   moves to another path, or a path shared by several page files, now stops with retry guidance
   instead of renewing. Unknown query names count only as a path match. After an ad, the page's
   player video is still chosen by the page-stated length; that path is unproven on real sites.
-- The owner reports slower downloads in Preview than in v1.0.2 Release. Separate sheet lookup,
-  transfer and finalization before attributing a cause. Host checks in TESTING show an added HLS
-  average-rate lookup delay in a controlled fixture, not the cause of the phone observation.
+- The owner reports slower downloads in Preview than in v1.0.2 Release. Host checks in TESTING
+  time sheet lookup, transfer and finalization apart. Average-rate HLS sheets made five more
+  playlist reads; Playlist read-ahead cut that fixture from about 1,060 to 460 ms (Release: 306 ms
+  without estimates). Host transfer and finalization were not slower. The phone cause is unknown:
+  the source, quality and phone timings are needed.
 
 ## Risks
 

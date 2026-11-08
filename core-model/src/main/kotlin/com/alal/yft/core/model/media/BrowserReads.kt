@@ -10,6 +10,9 @@ package com.alal.yft.core.model.media
  * site answered 410 and 474 to fresh links the page's player played, and public reports
  * (yt-dlp #16729, #17642, 2026) show that site refusing requests that are not a browser's.
  * Nothing here taps, solves or skips anything; it asks what the page's player asks.
+ *
+ * Several lookups may ask at once (Playlist read-ahead reads up to three playlists at a time). An
+ * engine that can ask only one at a time queues the others; the WebView reader holds a lock.
  */
 fun interface BrowserReads {
     /** The browser's answer to [request]; null when no browser engine could ask at all. */

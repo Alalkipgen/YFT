@@ -80,6 +80,7 @@ download sheet's list of lines from the lookup that found the rows; "—" means 
 | Live download | Saves an ended YouTube live from its pieces, with an estimated size | `LivePieces`, `LiveOriginFile`, `DashCheckpointTracker` | — | — |
 | Fresh link renewal | Gets a fresh link for a download whose link expired, then resumes | `SiteLinkRenewal`, `DownloadLinkRenewal`, `FreshLinks` | — | — |
 | Same-file check | Decides from addresses alone whether a fresh link is the file whose link failed; a similar length never proves it | `SameFile`, `FileKey`, `SameVideo` | — | `Status: same video not confirmed` |
+| Playlist read-ahead | Reads up to three HLS quality playlists at once for `~` size estimates; a read starts early only when the one-at-a-time order is sure to make it | `PlaylistReadAhead` (core-media) | — | — |
 | MP3 conversion | Turns a sound track into MP3 | `Mp3Transcoder`, `LameMp3Encoder` | — | — |
 | Delete file | Deletes saved files from Downloads and Library | `DownloadedFileDeleter` | — | — |
 | Save folder | The folder downloads are saved to, chosen by the user | `SaveFolders`, `PublicDownloadDestination` | — | — |

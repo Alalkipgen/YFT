@@ -21,14 +21,21 @@ import java.text.ParsePosition
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.Call
@@ -529,6 +536,10 @@ class DefaultVariantResolver(
     /**
      * Read at most a few quality playlists within one shared deadline. A failed, unfinished,
      * unexamined or durationless playlist gets no estimate. Requests use the usual origin rules.
+     *
+     * The loop decides as if it read one playlist at a time, in order. [PlaylistReadAhead] starts
+     * the reads the loop is sure to make, up to [PLAYLIST_READS_AT_ONCE] at once, so the same
+     * requests give the same estimates sooner. [trace] ends as the loop's last read left it.
      */
     private suspend fun finiteAverageLengths(
         candidate: MediaCandidate,
@@ -542,41 +553,89 @@ class DefaultVariantResolver(
         val audioByGroup = variants.filter {
             it.trackType == MediaTrackType.AUDIO && it.audioGroupId != null
         }.groupBy { it.audioGroupId }.mapValues { it.value.first() }
+        val qualities = variants.filter { it.id in averages && it.isPreviewable }
+        val addresses = (qualities + audioByGroup.values).mapNotNull { variant ->
+            variant.playbackUrl.toSafeHttpUrl()?.let { variant.id to it }
+        }.toMap()
+        val plan = PlaylistReadAhead(
+            qualities = qualities.filter { it.id in addresses }.map { quality ->
+                val sound = quality.audioGroupId?.let { audioByGroup[it] }
+                PlaylistReadAhead.Quality(quality.id, sound?.id?.takeIf { it in addresses })
+            },
+            budget = MAX_AVERAGE_PLAYLISTS,
+        )
+        // Only this coroutine changes these; a read only writes its own trace and answer.
+        val reads = mutableMapOf<String, Deferred<Long?>>()
+        val traces = mutableMapOf<String, Trace>()
+        val answered = ConcurrentHashMap<String, Boolean>()
+        val permits = Semaphore(PLAYLIST_READS_AT_ONCE)
         var requests = 0
+        var last: String? = null
         withTimeoutOrNull(PLAYLIST_TIMEOUT_MS) {
-            suspend fun finite(variant: MediaVariant): Long? {
-                if (seen.containsKey(variant.id)) return seen[variant.id]
-                if (requests >= MAX_AVERAGE_PLAYLISTS) return null
-                val url = variant.playbackUrl.toSafeHttpUrl() ?: return null
-                requests += 1
-                val length = try {
-                    readPlaylistLength(candidate, masterUrl, url, trace, requireFinished = true)
-                } catch (cancellation: CancellationException) {
-                    throw cancellation
-                } catch (_: IOException) {
-                    null
-                } catch (_: IllegalArgumentException) {
-                    null
+            coroutineScope {
+                fun read(id: String): Deferred<Long?> = reads.getOrPut(id) {
+                    val own = Trace(masterUrl.host).also { traces[id] = it }
+                    // Undispatched: reads queue for a slot in the loop's order.
+                    async(start = CoroutineStart.UNDISPATCHED) {
+                        permits.withPermit {
+                            try {
+                                readPlaylistLength(
+                                    candidate,
+                                    masterUrl,
+                                    addresses.getValue(id),
+                                    own,
+                                    requireFinished = true,
+                                )
+                            } catch (cancellation: CancellationException) {
+                                throw cancellation
+                            } catch (_: IOException) {
+                                null
+                            } catch (_: IllegalArgumentException) {
+                                null
+                            }
+                        }.also { answered[id] = it != null }
+                    }
                 }
-                seen[variant.id] = length
-                return length
-            }
-            for (variant in variants.filter { it.id in averages && it.isPreviewable }) {
-                val length = finite(variant) ?: continue
-                val audioGroup = variant.audioGroupId
-                if (audioGroup != null) {
-                    val audio = audioByGroup[audioGroup] ?: continue
-                    val audioLength = finite(audio) ?: continue
-                    // A completed AAC track can end a few milliseconds after its picture due
-                    // to frame boundaries. Keep the tolerance both absolutely and relatively
-                    // small; a meaningfully different or incomplete recording stays unknown.
-                    val difference = maxOf(audioLength, length) - minOf(audioLength, length)
-                    if (difference > MAX_PAIRED_LENGTH_DIFFERENCE_MS ||
-                        difference > minOf(audioLength, length) / PAIRED_LENGTH_RATIO
-                    ) continue
+
+                suspend fun finite(variant: MediaVariant): Long? {
+                    if (seen.containsKey(variant.id)) return seen[variant.id]
+                    if (requests >= MAX_AVERAGE_PLAYLISTS) return null
+                    if (variant.id !in addresses) return null
+                    requests += 1
+                    last = variant.id
+                    plan.sure(answered).forEach { id ->
+                        if (id !in reads && reads.size < MAX_AVERAGE_PLAYLISTS) read(id)
+                    }
+                    val length = read(variant.id).await()
+                    seen[variant.id] = length
+                    return length
                 }
-                lengths[variant.id] = length
+
+                for (variant in qualities) {
+                    val length = finite(variant) ?: continue
+                    val audioGroup = variant.audioGroupId
+                    if (audioGroup != null) {
+                        val audio = audioByGroup[audioGroup] ?: continue
+                        val audioLength = finite(audio) ?: continue
+                        // A completed AAC track can end a few milliseconds after its picture due
+                        // to frame boundaries. Keep the tolerance both absolutely and relatively
+                        // small; a meaningfully different or incomplete recording stays unknown.
+                        val difference = maxOf(audioLength, length) - minOf(audioLength, length)
+                        if (difference > MAX_PAIRED_LENGTH_DIFFERENCE_MS ||
+                            difference > minOf(audioLength, length) / PAIRED_LENGTH_RATIO
+                        ) continue
+                    }
+                    lengths[variant.id] = length
+                }
+                // A read the loop did not make is not waited for (none is expected).
+                reads.filterKeys { it !in seen }.values.forEach { it.cancel() }
             }
+        }
+        last?.let(traces::get)?.takeIf { it.request != null }?.let { read ->
+            trace.host = read.host
+            trace.step = read.step
+            trace.request = read.request
+            trace.browserStatus = read.browserStatus
         }
         lengths
     }
@@ -1032,6 +1091,7 @@ class DefaultVariantResolver(
         const val MAX_PAIRED_LENGTH_DIFFERENCE_MS = 50L
         const val PAIRED_LENGTH_RATIO = 1_000L
         const val MAX_AVERAGE_PLAYLISTS = 6
+        const val PLAYLIST_READS_AT_ONCE = 3
         const val MAX_AVERAGE_PLAYLIST_BYTES = 256 * 1_024
         const val HTTP_OK = 200
         const val HTTP_PARTIAL_CONTENT = 206

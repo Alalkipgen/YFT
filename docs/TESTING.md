@@ -65,17 +65,38 @@ range, and sampling is not in the app.
 
 ## HLS sheet lookup timing
 
-On a Linux host with a local server delaying each response by 150 ms, one warm-up and four
-measurements of the same five-quality master with one shared audio playlist took 1,068 / 1,065 /
-1,064 / 1,064 ms on the sequential resolver and 461 / 459 / 458 / 458 ms on an isolated prototype
-with three concurrent reads. Both made seven requests and returned the same estimates, durations and
-audio pairings. The peak-only case took 306–309 ms versus 304–306 ms with two requests. These are
-sheet metadata timings, not media transfer, finalization or phone timings.
+On a Linux host with a local server delaying each response by 150 ms, a five-quality master with
+average rates and one shared audio playlist took (one warm-up, then four runs):
 
-The prototype is not in the app: in a separate seven-quality fixture where the first quality fails
-and it has a different audio group, its preallocated six-read budget estimated three later qualities
-instead of four on the sequential resolver. Cancellation, slow bodies and serialized WebView fallback
-also need testing before a concurrent implementation can be considered safe.
+| Build | Requests | Times (ms) |
+|---|---|---|
+| v1.0.2 Release `5fda5c59` | 2 | 309 / 306 / 306 / 306 |
+| Sequential estimates `adb0d170` | 7 | 1,067 / 1,060 / 1,061 / 1,062 |
+| Playlist read-ahead | 7 | 462 / 460 / 464 / 615 |
+
+Release makes no average-rate estimates for this master. Both later builds return the same
+estimates. A peak-only master took 304–312 ms with two requests on each build. In a seven-quality
+fixture where the first quality fails and uses another audio group, the sequential resolver and
+read-ahead each estimate four qualities; an earlier prototype that reserved its reads in advance
+estimated three. `HlsSizeReadsTest` fails on that prototype (coverage), and its three-at-once and
+cancellation checks fail on the sequential code. These are metadata timings, not phone timings.
+
+## Host download phases
+
+A local copy of the public JW Tears of Steel 142p HLS (184 TS pieces, 38,312,896 bytes) was served
+by a local server, and engines were timed with OkHttp events. Times are medians of four runs after
+a warm-up. With each response limited to 2 MB/s:
+
+| Mode | Transfer, v1.0.2 / current | Finalization, v1.0.2 / current |
+|---|---|---|
+| HLS to `.ts` | 4,940 / 3,562 ms | 36 / 42 ms |
+| HLS to `.mp4` (remux) | 4,929 / 3,529 ms | 77 / 83 ms |
+| Direct file, 4 ranges | 4,716 / 4,718 ms | 32 / 28 ms |
+
+Unlimited loopback runs varied more (HLS 410–709 ms vs 277–388 ms); the outputs matched by hash.
+The current HLS engine starts each piece when a slot is free instead of waiting for a group. These
+measurements do not show slower transfer or finalization on the host; they do not establish the
+phone cause. Start delay before the sheet and download screens is not covered here.
 
 ## CI workflows
 

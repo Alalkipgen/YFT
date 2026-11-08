@@ -119,6 +119,11 @@ Old records stay in git history. Feature names follow [GLOSSARY.md](GLOSSARY.md)
   the user is told to reload the page or open it again. Why: the owner asked that retry never pick
   a different video, even if that means a refresh that used to work by length now fails.
   (2026-11-08)
+- **Parallel size lookups.** The sheet may read an HLS master's quality playlists at the same time
+  only when it reads the playlists the one-at-a-time loop reads, inside the same six-read limit
+  (Playlist read-ahead), so no row loses its estimate. Why: an earlier draft that reserved its reads
+  in advance gave three estimates where reading in order gave four, and the owner asked that
+  speed never cost estimate coverage. (2026-11-08)
 - **Renewal after the app closed.** A download keeps the app's text about where it came from (its
   page and the facts that name the same file there, and where its bytes are) in its record, and a
   Retry after a restart asks for a fresh link of the same file and reopens the file it was writing,

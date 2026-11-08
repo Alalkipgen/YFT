@@ -19,6 +19,9 @@ one.
 
 - **HLS download**: the next piece can start when a download slot is free, without waiting for
   every piece in the preceding group.
+- **Download sheet**: an HLS master's quality playlists for `~` size estimates are read up to three
+  at a time (Playlist read-ahead). A read starts early only when the one-at-a-time order is sure
+  to make it, so the same playlists, the six-read limit and the estimates stay the same.
 
 ### Fixed
 

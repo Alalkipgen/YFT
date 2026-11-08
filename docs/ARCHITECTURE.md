@@ -183,7 +183,11 @@ the combined-rate estimate is not shown on the silent row. The resolver attempts
 lookups under a shared five-second coroutine timeout, reading up to 256 KiB plus one byte from each
 response. Blocking response-body reads can outlast that timeout; redirects and browser retries may
 add requests, and a browser retry uses the general manifest limit. Unknown or unfinished cases stay
-unknown. It does not sample or download media pieces just to estimate a size.
+unknown. It does not sample or download media pieces just to estimate a size. Playlist read-ahead
+(`PlaylistReadAhead`) reads up to three of those playlists at once. It starts a read early only when
+the one-at-a-time loop is sure to make it whatever the open reads answer, so the playlists read and
+the estimates match reading in order. Browser retries can then arrive together; the WebView reader
+takes them one at a time.
 
 ## Downloads
 
