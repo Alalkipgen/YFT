@@ -54,6 +54,7 @@ class MediaAssetTest {
             requestContext = requestContext,
             codecs = listOf("avc1.64001F"),
             audioCompanion = companion,
+            hlsVariantPlaylists = listOf("https://playlist.example.test/index.m3u8?sig=secret"),
         )
 
         listOf(companion.toString(), variant.toString(), candidate.toString()).forEach {

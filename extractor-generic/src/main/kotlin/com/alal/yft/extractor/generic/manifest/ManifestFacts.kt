@@ -19,7 +19,13 @@ data class ManifestFacts(
     val firstPlaylistUrl: String? = null,
     /** A master's explicitly named variant playlists, bounded and in manifest order. */
     val variantPlaylistUrls: List<String> = emptyList(),
-)
+) {
+    // Playlist addresses may contain signed queries; never put them in diagnostics.
+    override fun toString(): String =
+        "ManifestFacts(durationMillis=$durationMillis, width=$width, height=$height, " +
+            "master=$master, hasFirstPlaylist=${firstPlaylistUrl != null}, " +
+            "variantPlaylistCount=${variantPlaylistUrls.size})"
+}
 
 /** Pure readers of [ManifestFacts]; unit-tested on fixture manifests. */
 object ManifestReader {

@@ -1,6 +1,7 @@
 package com.alal.yft.extractor.generic.manifest
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -8,6 +9,17 @@ import org.junit.Test
 /** Lengths and pictures read from a manifest's text, so a page's video can be ranked. */
 class ManifestReaderTest {
     private val masterUrl = "https://stream.example.test/v42/master.m3u8?token=fixture"
+
+    @Test
+    fun manifestFactsDoNotPrintPlaylistAddresses() {
+        val facts = ManifestFacts(
+            firstPlaylistUrl = "https://private.example.test/path/index.m3u8?token=fixture",
+            variantPlaylistUrls = listOf("https://private.example.test/other.m3u8?sig=fixture"),
+        )
+        val text = facts.toString()
+        assertFalse(text.contains("private.example.test"))
+        assertFalse(text.contains("fixture"))
+    }
 
     @Test
     fun anHlsMasterNamesItsTallestPictureAndTheFirstVideoPlaylist() {

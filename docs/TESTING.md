@@ -63,6 +63,20 @@ samples instead gave +11.99% and +11.69%. HEAD lengths matched the corresponding
 the first five seconds decoded on the host. These tests do not establish a general accuracy or
 range, and sampling is not in the app.
 
+## HLS sheet lookup timing
+
+On a Linux host with a local server delaying each response by 150 ms, one warm-up and four
+measurements of the same five-quality master with one shared audio playlist took 1,068 / 1,065 /
+1,064 / 1,064 ms on the sequential resolver and 461 / 459 / 458 / 458 ms on an isolated prototype
+with three concurrent reads. Both made seven requests and returned the same estimates, durations and
+audio pairings. The peak-only case took 306–309 ms versus 304–306 ms with two requests. These are
+sheet metadata timings, not media transfer, finalization or phone timings.
+
+The prototype is not in the app: in a separate seven-quality fixture where the first quality fails
+and it has a different audio group, its preallocated six-read budget estimated three later qualities
+instead of four on the sequential resolver. Cancellation, slow bodies and serialized WebView fallback
+also need testing before a concurrent implementation can be considered safe.
+
 ## CI workflows
 
 | Workflow (name in Actions) | Starts on | What it runs | Artifacts |
