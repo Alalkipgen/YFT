@@ -24,6 +24,9 @@ Overwrite this file at each checkpoint (40 lines at most). Never append. History
 - Local split run on this checkpoint: model 179, api 36, generic 28, browser 161, media 72,
   download 406, data 38, sites 375, master 1,134 (2 skipped), master-android 85, app 1,640
   (66 skipped) passed, 0 failed; lint and debug build passed. The real sampler on JW's public
-  master from a host JVM: 5 files, 245 asks, 0.09 MB, 0.8 s, -0.8% to -2.6%. CI: see the run.
+  master from a host JVM: 5 files, 245 asks, 0.09 MB, 0.8 s, -0.8% to -2.6%. CI on `734b3639`:
+  validation 42498215302, emulator 42498215444, minified 42498215214, preview 42498215280
+  passed. Preview 214 is the APK for the phone checks (artifact `yft-preview-apk`; the gh sign-in
+  on this host had expired, so its sha256 was not read here).
 - Next: short phone checklist for the new Preview APK (sheets only, no large downloads).
   No merge or release; sizes stay unverified until seen on a phone.
