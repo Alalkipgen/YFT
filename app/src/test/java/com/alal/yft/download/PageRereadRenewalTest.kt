@@ -43,9 +43,11 @@ import org.junit.Test
 /**
  * Fresh link renewal: a dead link of a page no adapter reads is renewed by reading the page again
  * once, quietly, as its owner read it (the browser's reader with the tab's agent, Home's
- * with Home's agent and no cookie), and taking the same file from it: its address under a fresh
- * signature, else the video of its length (within 2 s). A pasted file link, a page that is the
- * file itself and a file an adapter's page did not name are not renewed; nor is a 400 off VK.
+ * with Home's agent and no cookie), and taking the same file from it as the Same-file check proves
+ * it: its address under a fresh signature, every value that names the content kept. A similar
+ * length alone never proves it; nothing proven is no fresh link. A pasted file link, a page that
+ * is the file itself and a file an adapter's page did not name are not renewed; nor is a 400 off
+ * VK.
  * The readers, the resolver and the file probe are fakes; the enqueue and the queue are real.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -108,25 +110,88 @@ class PageRereadRenewalTest {
     }
 
     @Test
-    fun `a file that moved is the page's video of its length, the closest within 2 s`() =
+    fun `a file that moved is not taken for the download's by its length`() = runTest {
+        // Same-file check: another host and another file name of nearly the same length are
+        // another video as far as the addresses tell: the bytes kept are never continued with it.
+        val harness = EnqueueHarness(this, sources, probe)
+        val id = download(harness, pageFiles(0).single { it.height == 720 }).taskId
+        browser.answer = { read ->
+            PageReread.Found(
+                listOf(
+                    pageFile(clip("720", read, OTHER_HOST), 720, LENGTH + 30_000),
+                    pageFile(clip("720", read, OTHER_HOST).replace("clip", "copy"), 720,
+                        LENGTH + 1_500),
+                ),
+                facts = null,
+            )
+        }
+
+        assertEquals(GONE, renewal.renew(ask(id)))
+        assertTrue(probe.plans.none { "copy" in it.sourceUrl })
+    }
+
+    @Test
+    fun `a query value that names the content tells the download's file from another`() =
         runTest {
-            val harness = EnqueueHarness(this, sources, probe)
-            val id = download(harness, pageFiles(0).single { it.height == 720 }).taskId
-            browser.answer = { read ->
-                PageReread.Found(
-                    listOf(
-                        pageFile(clip("720", read, OTHER_HOST), 720, LENGTH + 30_000),
-                        pageFile(clip("720", read, OTHER_HOST).replace("clip", "copy"), 720,
-                            LENGTH + 1_500),
-                    ),
-                    facts = null,
-                )
+            val file = { video: String, read: Int ->
+                pageFile("https://cdn.example.test/play?video=$video&token=$read", 720)
             }
+            browser.answer = { read ->
+                PageReread.Found(listOf(file("two", read + 1), file("one", read + 1)), null)
+            }
+            val harness = EnqueueHarness(this, sources, probe)
+            val id = download(harness, file("one", 0)).taskId
+            assertFalse(sources[id]!!.mediaQuery.orEmpty().contains("one"))
 
             val plan = fresh(renewal.renew(ask(id))).plan as DirectDownloadPlan
+            assertEquals("https://cdn.example.test/play?video=one&token=1", plan.sourceUrl)
 
-            assertEquals(clip("720", 0, OTHER_HOST).replace("clip", "copy"), plan.sourceUrl)
+            browser.answer = { read -> PageReread.Found(listOf(file("two", read + 1)), null) }
+            assertEquals(GONE, renewal.renew(ask(id)))
         }
+
+    @Test
+    fun `a file that only shares the path is the download's when it is the only one`() =
+        runTest {
+            val file = { x: Int -> pageFile("https://cdn.example.test/v/720.mp4?x=$x", 720) }
+            val harness = EnqueueHarness(this, sources, probe)
+            val id = download(harness, file(1)).taskId
+
+            browser.answer = { PageReread.Found(listOf(file(2), file(3)), facts = null) }
+            assertEquals(
+                LinkRenewal.Unavailable(SiteLinkRenewal.VIDEO_UNCONFIRMED),
+                renewal.renew(ask(id)),
+            )
+            browser.answer = { PageReread.Found(listOf(file(2)), facts = null) }
+            val plan = fresh(renewal.renew(ask(id))).plan as DirectDownloadPlan
+            assertEquals("https://cdn.example.test/v/720.mp4?x=2", plan.sourceUrl)
+            val why = SiteLinkRenewal.VIDEO_UNCONFIRMED
+            assertFalse(why, "http" in why)
+        }
+
+    @Test
+    fun `a record kept before its query was known renews only an unambiguous file`() = runTest {
+        val harness = EnqueueHarness(this, sources, probe)
+        val id = download(harness, pageFiles(0).single { it.height == 720 }).taskId
+        // A card written by an earlier build has the file's path but not its query values.
+        val kept = sources[id]!!
+        val card = RenewalCard.encode(kept).split('\u001F').take(30).joinToString("\u001F")
+        assertEquals(kept.copy(mediaQuery = null), RenewalCard.decode(card)!!.first)
+        sources.forget(id)
+        sources.restored(id, card)
+        assertNull(sources[id]!!.mediaQuery)
+
+        browser.answer = { read -> PageReread.Found(pageFiles(read + 1), facts = null) }
+        val plan = fresh(renewal.renew(ask(id))).plan as DirectDownloadPlan
+        assertEquals(clip("720", 1), plan.sourceUrl)
+
+        val twice = { read: Int -> pageFiles(read + 1) + pageFile(clip("720", 9), 720) }
+        browser.answer = { read -> PageReread.Found(twice(read), facts = null) }
+        assertEquals(
+            LinkRenewal.Unavailable(SiteLinkRenewal.VIDEO_UNCONFIRMED),
+            renewal.renew(ask(id)),
+        )
+    }
 
     @Test
     fun `a page that gives no fresh link says why without an address`() = runTest {
@@ -145,8 +210,9 @@ class PageRereadRenewalTest {
             PageReread.Found(listOf(pageFile(clip("720", read), 720, LENGTH + 5_000)), null)
         }
         assertEquals(GONE, renewal.renew(ask(id)))
+        // The same file, which now states another quality.
         browser.answer = { read ->
-            PageReread.Found(listOf(pageFile(clip("480", read), 480)), facts = null)
+            PageReread.Found(listOf(pageFile(clip("720", read), 480)), facts = null)
         }
         assertEquals(
             LinkRenewal.Unavailable(SiteLinkRenewal.QUALITY_GONE),

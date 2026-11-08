@@ -22,6 +22,8 @@ import com.alal.yft.core.model.media.Mp3Variants
 import com.alal.yft.core.model.media.PageVideoFacts
 import com.alal.yft.core.model.media.PageVideoProof
 import com.alal.yft.core.model.media.ResolutionStep
+import com.alal.yft.core.model.media.SameFile
+import com.alal.yft.core.model.media.SameVideo
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.media.VideoProof
@@ -1067,11 +1069,13 @@ class QuickDownloadViewModel @Inject constructor(
 
     /**
      * Fresh link renewal: what to prepare after [target]'s links were gone, in this order. On the
-     * browser's page: the same video's newest links the page has now (the player's first), the
-     * video the player itself asked for, then the page read again quietly, at most
-     * [BrowserPageReader.rereads] times and one at a time (a page without player data — a notice or
-     * a check — is not used). Never another video of the page: the sheet shows the page's own video
-     * or says why not. Null when nothing is left.
+     * browser's page: the same video's newest links the page has now (the player's first), then
+     * the page read again quietly, at most [BrowserPageReader.rereads] times and one at a time (a
+     * page without player data — a notice or a check — is not used). The same video is the one
+     * the Same-file check ([SameFile]) proves; a similar length never is. Never another video of
+     * the page: the sheet shows the page's own video or says why not, and offers
+     * "Reload page and try again". After an ad, the video the player asked for comes before the
+     * page read again. Null when nothing is left.
      */
     private suspend fun nextAttempt(
         target: MediaGroup,
@@ -1082,12 +1086,17 @@ class QuickDownloadViewModel @Inject constructor(
             val requests = page.candidates.filter { it.isSavable && it.mediaUrl !in deadLinks }
             // Ad filter: an ad's newest link is the same ad.
             if (!firstWasAd) {
-                sameVideo(target, videos)
+                val same = SameFile.videoIn(target, videos)
+                (same as? SameVideo.Found)?.videos.orEmpty()
                     .mapNotNull { FreshLinks.playerFirst(it, requests).untried() }
                     .firstOrNull { offered(it, Attempt.NEWEST, proofOf(page)) }
                     ?.let { return it to Attempt.NEWEST }
+                if (same == SameVideo.Unconfirmed) {
+                    attempts += listOf(Attempt.NEWEST.label, UNCONFIRMED)
+                }
+            } else {
+                playerVideo(target, videos, page)?.let { return it to Attempt.PLAYER }
             }
-            playerVideo(target, videos, page)?.let { return it to Attempt.PLAYER }
             reread(target, page)?.let { return it to Attempt.REREAD }
         }
         return pageVideoAfterAd(target, page)?.let { it to Attempt.PAGE_VIDEO }
@@ -1117,41 +1126,35 @@ class QuickDownloadViewModel @Inject constructor(
     }
 
     /**
-     * Fresh link renewal, Ad filter: the video the page's player asked for
-     * ([FreshLinks.playerVideo]) that passes [PageVideoProof]; at most [MAX_SKIPPED_ADS] ads it
-     * fetched are skipped on the way. After an ad, the ad's length says nothing about the page's
-     * video.
+     * Fresh link renewal, Ad filter: after the video first tapped proved an ad, the video the
+     * page's player asked for ([FreshLinks.playerVideoAfterAd]) that passes [PageVideoProof]; at
+     * most [MAX_SKIPPED_ADS] ads it fetched are skipped on the way. The ad's length says nothing
+     * about the page's video.
      */
     private fun playerVideo(
         target: MediaGroup,
         videos: List<MediaGroup>,
         page: DetectedPage,
     ): MediaGroup? {
-        val failed = if (firstWasAd) target.withoutLengths() else target
         repeat(MAX_SKIPPED_ADS) {
-            val video = FreshLinks.playerVideo(failed, videos, deadLinks + skippedAds, page.facts)
-                ?.untried() ?: return null
+            val video = FreshLinks.playerVideoAfterAd(
+                target,
+                videos,
+                deadLinks + skippedAds,
+                page.facts,
+            )?.untried() ?: return null
             if (offered(video, Attempt.PLAYER, proofOf(page))) return video
         }
         return null
     }
 
-    private fun MediaGroup.withoutLengths(): MediaGroup =
-        copy(candidates = candidates.map { it.copy(durationMillis = null) })
-
     /**
-     * Fresh link renewal: the page's [videos] that are [target] itself: those with one of its
-     * addresses or the same address under another signature (the script's and the player's copies
-     * of one file); else the one [MediaGroups.refreshed] finds by its length.
+     * Fresh link renewal: the page's [videos] that are [target] itself, as the Same-file check
+     * ([SameFile.videoIn]) proves: one of its addresses, or one of its files under a fresh
+     * signature (the script's and the player's copies of one file).
      */
-    private fun sameVideo(target: MediaGroup, videos: List<MediaGroup>): List<MediaGroup> {
-        val urls = target.candidates.map { it.mediaUrl }.toSet()
-        val unsigned = FreshLinks::unsigned
-        val paths = target.candidates.map { unsigned(it.mediaUrl) }.toSet()
-        return videos.filter { video ->
-            video.candidates.any { it.mediaUrl in urls || unsigned(it.mediaUrl) in paths }
-        }.ifEmpty { listOfNotNull(MediaGroups.refreshed(target, videos)) }
-    }
+    private fun sameVideo(target: MediaGroup, videos: List<MediaGroup>): List<MediaGroup> =
+        (SameFile.videoIn(target, videos) as? SameVideo.Found)?.videos.orEmpty()
 
     /**
      * Fresh link renewal: [target] in the page read again, with a link this sheet did not try yet.
@@ -1166,13 +1169,17 @@ class QuickDownloadViewModel @Inject constructor(
                     val facts = read.facts ?: page.facts
                     val videos = MediaGroups.pageVideos(read.candidates.filter { it.isSavable })
                     // Ad filter: after an ad, the page's own video, not the ad again.
+                    val same = if (firstWasAd) null else SameFile.videoIn(target, videos)
                     val again = if (firstWasAd) {
                         pageVideoIn(videos, facts)
                     } else {
-                        MediaGroups.refreshed(target, videos)?.untried()
+                        (same as? SameVideo.Found)?.videos.orEmpty()
+                            .firstNotNullOfOrNull { it.untried() }
                     }
                     if (again == null) {
-                        attempts += listOf(Attempt.REREAD.label, "Status: no new link")
+                        val status = if (same == SameVideo.Unconfirmed) UNCONFIRMED else
+                            "Status: no new link"
+                        attempts += listOf(Attempt.REREAD.label, status)
                     } else {
                         val proof = proofOf(page, page.candidates + read.candidates, facts)
                         if (offered(again, Attempt.REREAD, proof)) {
@@ -1818,6 +1825,12 @@ class QuickDownloadViewModel @Inject constructor(
 
         /** Ad filter: nothing on the page passed as its video; no ad is offered instead. */
         const val ONLY_AD_FOUND = "Only an ad was found, not the page's video."
+
+        /**
+         * Fresh link renewal: a file of the page shares the failed one's path, but nothing
+         * proves it is the same video (Same-file check), so it is not offered.
+         */
+        const val UNCONFIRMED = "Status: same video not confirmed"
 
         /** Ad filter: the ads the sheet skips in one step before it gives up on that step. */
         private const val MAX_SKIPPED_ADS = 4

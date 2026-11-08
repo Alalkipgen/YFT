@@ -79,6 +79,7 @@ download sheet's list of lines from the lookup that found the rows; "—" means 
 | HLS download | Downloads an HLS playlist and turns it into MP4 | `HlsTransferEngine`, `HlsRemux`, `TsMp4Remuxer` | — | — |
 | Live download | Saves an ended YouTube live from its pieces, with an estimated size | `LivePieces`, `LiveOriginFile`, `DashCheckpointTracker` | — | — |
 | Fresh link renewal | Gets a fresh link for a download whose link expired, then resumes | `SiteLinkRenewal`, `DownloadLinkRenewal`, `FreshLinks` | — | — |
+| Same-file check | Decides from addresses alone whether a fresh link is the file whose link failed; a similar length never proves it | `SameFile`, `FileKey`, `SameVideo` | — | `Status: same video not confirmed` |
 | MP3 conversion | Turns a sound track into MP3 | `Mp3Transcoder`, `LameMp3Encoder` | — | — |
 | Delete file | Deletes saved files from Downloads and Library | `DownloadedFileDeleter` | — | — |
 | Save folder | The folder downloads are saved to, chosen by the user | `SaveFolders`, `PublicDownloadDestination` | — | — |

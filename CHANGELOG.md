@@ -22,6 +22,13 @@ one.
 
 ### Fixed
 
+- **Fresh link renewal**: a fresh link must now be proven to be the same file (Same-file check).
+  Only a link's signature, expiry or cache values may change; a query value that names the content
+  (`id`, `video`, `file`, `quality`, …) must stay the same. A similar length alone, another file
+  the page's player asked for, or one of several files that only share the path is never taken.
+  When nothing proves it, the sheet shows its error with "Reload page and try again", and a
+  download keeps its bytes with "Fresh link: the page did not prove it is the same video; open the
+  page and download it again".
 - **Page video finder**: files are no longer grouped as one video solely because their durations
   match. The page or adapter must identify alternatives as belonging to the same video.
 - **HLS download**: a silent row no longer shows the master’s combined video-and-sound

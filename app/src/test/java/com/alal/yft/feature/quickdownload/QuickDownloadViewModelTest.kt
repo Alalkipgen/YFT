@@ -1339,9 +1339,10 @@ class QuickDownloadViewModelTest {
     }
 
     @Test
-    fun aGoneLinkTriesThePlayersOwnVideoBeforeThePagesNextVideo() = runTest {
-        // Fresh link renewal: the script's link is gone; the video the player asked for (same
-        // length) comes before the next video, as the same video from a fresh link.
+    fun aGoneLinkNeverTakesThePlayersOtherFileOfTheSameLength() = runTest {
+        // Fresh link renewal, Same-file check: the script's link is gone and the player asked for
+        // another file of nearly the same length. A similar length is no proof that it is the same
+        // video, so it is not prepared: the error stays and offers "Reload page and try again".
         val page = "https://clips.example.test/watch/5"
         val script = generic(1, 25 * MIB, page, lengthMillis = 600_000)
             .copy(sources = setOf(CandidateSource.DOM))
@@ -1358,30 +1359,89 @@ class QuickDownloadViewModelTest {
         advanceUntilIdle()
 
         val state = sheet.uiState.value
+        assertEquals(REFUSED_410, state.failure)
+        assertTrue(state.canReload)
+        assertFalse(state.freshLink)
+        assertNull(state.choices)
+        assertEquals(listOf(script.mediaUrl), resolver.requested.map { it.mediaUrl })
+    }
+
+    @Test
+    fun aPageReadAgainWithAnotherContentValueIsNotTheSameVideo() = runTest {
+        // Same-file check: the page read again names one path for every video and tells them apart
+        // by `video=`; only the signature may change. A file of another `video=` value of the same
+        // length is never prepared, and the same value under a fresh signature is.
+        val page = "https://clips.example.test/watch/5"
+        val dead = generic(1, 25 * MIB, page, lengthMillis = 600_000).copy(
+            mediaUrl = "https://media.example.test/play?video=one&hash=old",
+            sources = setOf(CandidateSource.DOM),
+        )
+        val other = dead.copy(
+            mediaUrl = "https://media.example.test/play?video=two&hash=new",
+            sources = setOf(CandidateSource.PAGE_REREAD),
+        )
+        val again = dead.copy(
+            mediaUrl = "https://media.example.test/play?hash=new&video=one",
+            sources = setOf(CandidateSource.PAGE_REREAD),
+        )
+        resolver.answer = { candidate -> gone(410).takeIf { candidate.mediaUrl == dead.mediaUrl } }
+        store.publish(page, "Harbour lights", listOf(dead))
+        store.select(MediaGroups.of(listOf(dead)).single())
+
+        val reader = FakePageReader(
+            PageReread.Found(listOf(other), facts = null),
+            PageReread.Found(listOf(other, again), facts = null),
+        )
+        val sheet = viewModel(pageReader = reader)
+        advanceUntilIdle()
+
+        val state = sheet.uiState.value
         assertNull(state.failure)
         assertTrue(state.freshLink)
-        assertEquals(
-            listOf(script.mediaUrl, player.mediaUrl),
-            resolver.requested.map { it.mediaUrl },
+        assertEquals(2, reader.asked.size)
+        assertEquals(listOf(dead.mediaUrl, again.mediaUrl), resolver.requested.map { it.mediaUrl })
+        assertEquals(listOf("Page read again", "Status: no new link"),
+            state.attemptDetails.drop(7).take(2))
+        sheet.download()
+        advanceUntilIdle()
+        assertEquals(listOf(again.mediaUrl), starter.variants.map { it.playbackUrl })
+    }
+
+    @Test
+    fun twoFilesThatOnlyShareThePathAreNotGuessedBetween() = runTest {
+        // Same-file check: a value the check cannot name changed (`x=`). One such file of the same
+        // length is the video; two are not guessed between, and the error says why in Details.
+        val page = "https://clips.example.test/watch/5"
+        val dead = generic(1, 25 * MIB, page, lengthMillis = 600_000).copy(
+            mediaUrl = "https://media.example.test/v5/720.mp4?x=1",
+            sources = setOf(CandidateSource.DOM),
         )
-        assertEquals(
-            listOf(
-                "First video",
-                "Step: file check",
-                "Host: media.example.test",
-                "Status: HTTP 410",
-                "Link from: page script",
-                "Link age: unknown",
-                "Link expiry: none",
-                "Player's link",
-                "Host: media.example.test",
-                "Status: ready",
-                "Link from: player request",
-                "Link age: unknown",
-                "Link expiry: none",
-            ),
-            state.attemptDetails,
+        val first = dead.copy(
+            mediaUrl = "https://media.example.test/v5/720.mp4?x=2",
+            sources = setOf(CandidateSource.PAGE_REREAD),
         )
+        val second = first.copy(mediaUrl = "https://media.example.test/v5/720.mp4?x=3")
+        resolver.answer = { candidate -> gone(410).takeIf { candidate.mediaUrl == dead.mediaUrl } }
+        store.publish(page, "Harbour lights", listOf(dead))
+        store.select(MediaGroups.of(listOf(dead)).single())
+        val both = PageReread.Found(listOf(first, second), facts = null)
+
+        val sheet = viewModel(pageReader = FakePageReader(both, both))
+        advanceUntilIdle()
+
+        val state = sheet.uiState.value
+        assertEquals(REFUSED_410, state.failure)
+        assertTrue(state.canReload)
+        assertEquals(listOf(dead.mediaUrl), resolver.requested.map { it.mediaUrl })
+        assertEquals(
+            listOf("Page read again", QuickDownloadViewModel.UNCONFIRMED),
+            state.failureDetails.takeLast(2),
+        )
+
+        val one = viewModel(pageReader = FakePageReader(PageReread.Found(listOf(first), null)))
+        advanceUntilIdle()
+        assertNull(one.uiState.value.failure)
+        assertEquals(first.mediaUrl, resolver.requested.last().mediaUrl)
     }
 
     @Test

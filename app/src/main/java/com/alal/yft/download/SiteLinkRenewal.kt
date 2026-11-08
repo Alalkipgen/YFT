@@ -19,6 +19,8 @@ import com.alal.yft.core.model.media.MediaGroup
 import com.alal.yft.core.model.media.MediaGroups
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.Mp3Variants
+import com.alal.yft.core.model.media.SameFile
+import com.alal.yft.core.model.media.SameVideo
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.detection.BrowserPageReader
 import com.alal.yft.detection.DashSoundPairing
@@ -97,10 +99,10 @@ class PageReaders(
  * remembered answer and no tab), finds the same video (its name and its length within 2 s) and
  * the same quality ([DownloadQualityKey]), makes the same conversion, and plans it under the same
  * task id and file name; a whole file is probed first. A page no adapter reads is read
- * again once, quietly, as its owner read it ([PageReaders]), for the same file (its address
- * under a fresh signature, else its length within 2 s). It declines what is no link failure for
- * that site: a 400 off VK, and "YouTube refused" without a tap unless the phone's network
- * changed since the link was found.
+ * again once, quietly, as its owner read it ([PageReaders]), for the same file as the Same-file
+ * check proves it (its address under a fresh signature; never only a similar length). It
+ * declines what is no link failure for that site: a 400 off VK, and "YouTube refused" without a
+ * tap unless the phone's network changed since the link was found.
  */
 class SiteLinkRenewal(
     private val sources: DownloadSources,
@@ -232,26 +234,26 @@ class SiteLinkRenewal(
             PageReread.Failed -> return LinkRenewal.Unavailable(NOT_READ)
         }
         val videos = MediaGroups.pageVideos(candidates.filter { it.drmHint != true })
-        val video = sameVideo(source, videos)
-            ?.takeIf { group -> sameLength(source.durationMillis, group.durationMillis) }
-            ?: return LinkRenewal.Unavailable(VIDEO_GONE)
+        val video = when (val same = sameVideo(source, videos)) {
+            is SameVideo.Found -> same.video
+            SameVideo.Unconfirmed -> return LinkRenewal.Unavailable(VIDEO_UNCONFIRMED)
+            SameVideo.Missing -> return LinkRenewal.Unavailable(VIDEO_GONE)
+        }
         return planned(request, source, video.candidates)
     }
 
     /**
-     * The same video on the page read again: the one with the download's file under any signature
-     * (the same address without its query), else the one of its length, the closest within 2 s.
+     * The same video on the page read again, as the Same-file check proves it ([SameFile]): the
+     * one with the download's file under a fresh signature, every query value that names the file
+     * kept; one that only shares its path when it is the page's only such video and has its known
+     * length. A similar length alone never is; a known length that differs by more than 2 s never
+     * is either.
      */
-    private fun sameVideo(source: DownloadSource, videos: List<MediaGroup>): MediaGroup? {
-        val path = source.mediaPath ?: return null
-        videos.firstOrNull { video -> video.candidates.any { it.unsignedPath == path } }
-            ?.let { return it }
-        val length = source.durationMillis ?: return null
-        return videos
-            .mapNotNull { video -> video.durationMillis?.let { video to abs(it - length) } }
-            .filter { (_, gap) -> gap <= SAME_LENGTH_MILLIS }
-            .minByOrNull { (_, gap) -> gap }
-            ?.first
+    private fun sameVideo(source: DownloadSource, videos: List<MediaGroup>): SameVideo {
+        val key = source.fileKey ?: return SameVideo.Missing
+        return SameFile.videoIn(videos, source.durationMillis) { fresh ->
+            SameFile.match(key, fresh)
+        }
     }
 
     /**
@@ -365,6 +367,10 @@ class SiteLinkRenewal(
 
     companion object {
         internal const val VIDEO_GONE = "the video is no longer on the page"
+
+        /** Same-file check: a file shares the download's path; nothing proves it is the same. */
+        internal const val VIDEO_UNCONFIRMED =
+            "the page did not prove it is the same video; open the page and download it again"
         internal const val QUALITY_GONE = "this quality is no longer offered"
         internal const val NO_PLAYER =
             "the page read again has no player data (a notice or a check)"
@@ -380,7 +386,7 @@ class SiteLinkRenewal(
         private const val MAX_RESOLVES = 3
 
         /** Two lengths of one video, as two lookups state them (Page video finder's rule). */
-        private const val SAME_LENGTH_MILLIS = 2_000L
+        private const val SAME_LENGTH_MILLIS = SameFile.LENGTH_SLACK_MILLIS
 
         private fun sameLength(first: Long?, second: Long?): Boolean =
             first == null || second == null || abs(first - second) <= SAME_LENGTH_MILLIS

@@ -86,7 +86,8 @@ checked by the toolkit drift check.
    downloaded. Items without a usable video row are not offered.
 5. **The download queue** plans and runs the download in the foreground service: direct, DASH, HLS
    or live. Separate video and sound tracks are merged (fast merge for long videos). Sound can be
-   turned into MP3. An expired link gets a fresh link and resumes.
+   turned into MP3. An expired link gets a fresh link of the same file and resumes; the Same-file
+   check (`SameFile` in core-model) decides from addresses whether a fresh link is that file.
 6. **The file is saved** to the save folder (MediaStore or a folder the user chose) and shows in
    Downloads and the Library.
 

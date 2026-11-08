@@ -2,10 +2,13 @@ package com.alal.yft.download
 
 import com.alal.yft.core.download.DownloadDestinationKind
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.SameFile
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.feature.detectedmedia.LookupOwner
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -50,6 +53,25 @@ class RenewalCardTest {
     }
 
     @Test
+    fun `a card written before the file's query values were kept still reads`() {
+        // Same-file check: that card ends after the saved file's fields.
+        val older = RenewalCard.encode(source()).split(SEPARATOR).take(30).joinToString(SEPARATOR)
+
+        val (read, saved) = requireNotNull(RenewalCard.decode(older))
+
+        assertEquals(source().copy(mediaQuery = null), read)
+        assertEquals(SAVED, saved)
+    }
+
+    @Test
+    fun `a card keeps the file's query values hashed, never its signature`() {
+        val card = RenewalCard.encode(source())
+
+        assertFalse(card, "SECRET" in card || "token" in card)
+        assertTrue(card, source().mediaQuery!!.isNotEmpty())
+    }
+
+    @Test
     fun `a source with no saved file reads back without one`() {
         val (read, saved) = requireNotNull(
             RenewalCard.decode(RenewalCard.encode(source().copy(saved = null))),
@@ -86,10 +108,12 @@ class RenewalCardTest {
         fileName = "Fixture 720p.mp4",
         networkChanges = 3,
         mediaPath = "https://cdn.example.test/video/1.mp4",
+        mediaQuery = SameFile.key("https://cdn.example.test/video/1.mp4?id=1&token=SECRET").query,
         saved = SAVED,
     )
 
     private companion object {
+        const val SEPARATOR = "\u001F"
         const val PAGE = "https://vk.example.test/video-1_2"
         val SAVED = SavedDestination(
             kind = DownloadDestinationKind.APP_PRIVATE,

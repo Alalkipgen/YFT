@@ -211,23 +211,12 @@ object MediaGroups {
     }
 
     /**
-     * The page's current files of [group], for Try again: the video in [videos] that shares
-     * a file with it, the same address without its signed query, or else its length (within
-     * 2 s). Null when the page no longer has it.
+     * The page's current files of [group], for Try again and a fresh link: the video in [videos]
+     * that the Same-file check ([SameFile.videoIn]) proves holds one of its files. A similar
+     * length alone never does. Null when the page no longer has it or nothing proves which one.
      */
-    fun refreshed(group: MediaGroup, videos: List<MediaGroup>): MediaGroup? {
-        val urls = group.candidates.map { it.mediaUrl }.toSet()
-        videos.firstOrNull { video -> video.candidates.any { it.mediaUrl in urls } }
-            ?.let { return it }
-        val paths = group.candidates.map { unsigned(it.mediaUrl) }.toSet()
-        videos.firstOrNull { video -> video.candidates.any { unsigned(it.mediaUrl) in paths } }
-            ?.let { return it }
-        val length = group.durationMillis ?: return null
-        return videos.filter { it.lengthGap(length) <= LENGTH_MATCH_MILLIS }
-            .minByOrNull { it.lengthGap(length) }
-    }
-
-    private fun unsigned(url: String): String = url.substringBefore('?').substringBefore('#')
+    fun refreshed(group: MediaGroup, videos: List<MediaGroup>): MediaGroup? =
+        (SameFile.videoIn(group, videos) as? SameVideo.Found)?.video
 
     /**
      * Whether [video] looks like a preview or an ad rather than [page]'s own video: the page

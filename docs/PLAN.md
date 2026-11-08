@@ -86,9 +86,11 @@ Not planned for the next release. Advice in brackets.
   VAST-answer method. Equal duration alone no longer groups files. When a browser manifest read
   succeeds, an HLS master can group with exact variant addresses it names. Reads are limited to
   candidates without a duration and a page-wide cap, so other qualities may still appear separately.
-  Fresh-link retry still uses similar duration or a query-stripped address as identity. Either can
-  select a different video, since query parameters can identify content. It needs stronger identity
-  evidence and regression tests. Keep unknowns retrievable and test with multiple videos.
+  Fresh-link retry now uses the Same-file check: the same host and path, with known signing and
+  expiry values ignored and content values compared. Length alone never picks a file. A file that
+  moves to another path, or a path shared by several page files, now stops with retry guidance
+  instead of renewing. Unknown query names count only as a path match. After an ad, the page's
+  player video is still chosen by the page-stated length; that path is unproven on real sites.
 - The owner reports slower downloads in Preview than in v1.0.2 Release. Separate sheet lookup,
   transfer and finalization before attributing a cause. Host checks in TESTING show an added HLS
   average-rate lookup delay in a controlled fixture, not the cause of the phone observation.

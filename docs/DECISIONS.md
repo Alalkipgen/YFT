@@ -112,6 +112,13 @@ Old records stay in git history. Feature names follow [GLOSSARY.md](GLOSSARY.md)
 - **Fresh link renewal.** A 401, 403, 410 or expired link starts one fresh lookup (VK's 400 only
   after bytes); at most 3 per download; never another quality. Why: long downloads outlive links.
   (2026-10-27)
+- **Fresh link identity.** A fresh link is the video whose link failed only when its address
+  proves it (Same-file check): the same address, or the same host and path where only signature,
+  expiry or cache values changed. A similar length never proves it, and a query value that names
+  the content tells two videos apart. When the evidence is not enough, nothing is downloaded and
+  the user is told to reload the page or open it again. Why: the owner asked that retry never pick
+  a different video, even if that means a refresh that used to work by length now fails.
+  (2026-11-08)
 - **Renewal after the app closed.** A download keeps the app's text about where it came from (its
   page and the facts that name the same file there, and where its bytes are) in its record, and a
   Retry after a restart asks for a fresh link of the same file and reopens the file it was writing,

@@ -80,8 +80,8 @@ class FreshLinksTest {
     }
 
     @Test
-    fun thePlayersVideoOfTheSameLengthIsTriedAndAnAdOrATriedLinkNever() {
-        val failed = group(candidate(scriptLink, CandidateSource.DOM, durationMillis = 600_000))
+    fun afterAnAdThePlayersVideoOfThePagesLengthIsTriedAndAnAdOrATriedLinkNever() {
+        val first = group(candidate(scriptLink, CandidateSource.DOM, durationMillis = 15_000))
         val ad = MediaGroup(
             "ad",
             null,
@@ -125,10 +125,11 @@ class FreshLinksTest {
             ),
         )
 
-        val chosen = FreshLinks.playerVideo(
-            failed,
+        val chosen = FreshLinks.playerVideoAfterAd(
+            first,
             listOf(ad, preview, tried, video),
             tried = setOf("https://cdn.example.test/dead.mp4"),
+            facts = PageVideoFacts(600_000, "Harbour"),
         )
 
         assertEquals(
@@ -145,7 +146,7 @@ class FreshLinksTest {
             null,
             listOf(candidate("https://cdn.example.test/o.mp4", CandidateSource.DOM)),
         )
-        assertNull(FreshLinks.playerVideo(failed, listOf(other), emptySet()))
+        assertNull(FreshLinks.playerVideoAfterAd(failed, listOf(other), emptySet()))
     }
 
     @Test

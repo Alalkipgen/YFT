@@ -447,7 +447,13 @@ off). If anything fails, open Details → Copy details and send it.
   row reads **Link expired** with "Tap Retry to get a fresh link…". Tap Retry: the row reads
   "Getting a fresh link…", then goes on from the same % and finishes. Details start with
   "Fresh link (…): resumed at … MB". If the page no longer offers the video, the row says
-  "Fresh link: the video is no longer on the page" and keeps the bytes.
+  "Fresh link: the video is no longer on the page" and keeps the bytes. If a file only shares the
+  download's path and the page does not prove it is the same video (Same-file check), the row
+  says "Fresh link: the page did not prove it is the same video; open the page and download it
+  again" and keeps the bytes. A fresh link is never taken by its length alone; the unit tests
+  `SameFileTest`, `FreshLinkIdentityTest`, `PageRereadRenewalTest` and the sheet's fresh-link
+  tests cover similar lengths, content query values, fresh signatures, qualities and ambiguous
+  files. They are host tests, not a phone run.
 - **Ended YouTube live:** it saves. Its row reads "Size unknown" before and after the file is read:
   the sheet used to multiply YouTube's rate for the live format by the replay's length, ~1.7 times
   the file. The owner's replays: `https://www.youtube.com/live/vTaR-KqKUAM` (58:25, 240p: file

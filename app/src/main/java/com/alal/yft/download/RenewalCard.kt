@@ -54,7 +54,8 @@ data class SavedDestination(
  * data ([DownloadSources.clear]) and with the download's record.
  *
  * The fields are URL-encoded and joined by a unit separator, so no title, address or label can
- * break the line; `~` stands for a field the source does not state. A text of another version is
+ * break the line; `~` stands for a field the source does not state. The file's query values are
+ * kept hashed (Same-file check), so the card holds no signature. A text of another version is
  * no card: the download then needs its page reopened, as before.
  */
 object RenewalCard {
@@ -95,6 +96,8 @@ object RenewalCard {
             source.saved?.uri,
             source.saved?.displayName,
             source.saved?.partialName,
+            // Same-file check: added after the first cards, so an older card ends before it.
+            source.mediaQuery,
         )
         return fields.joinToString(SEPARATOR) { field -> field?.let(::encodeField) ?: NONE }
     }
@@ -104,7 +107,7 @@ object RenewalCard {
         val fields = text.split(SEPARATOR)
         if (fields.size < FIELDS || decodeField(fields[0]) != VERSION) return null
         val values = fields.map(::decodeField)
-        fun at(index: Int): String? = values[index]
+        fun at(index: Int): String? = values.getOrNull(index)
         fun long(index: Int): Long? = at(index)?.toLongOrNull()
         fun int(index: Int): Int? = at(index)?.toIntOrNull()
         fun bool(index: Int): Boolean? = at(index)?.toBooleanStrictOrNull()
@@ -152,6 +155,7 @@ object RenewalCard {
             fileName = at(23)?.takeIf(String::isNotBlank) ?: return null,
             networkChanges = long(24) ?: 0L,
             mediaPath = at(25),
+            mediaQuery = at(25)?.let { at(30) },
             saved = destination,
         )
         return source to destination
@@ -168,6 +172,9 @@ object RenewalCard {
     private fun decodeField(field: String): String? =
         if (field == NONE) null else URLDecoder.decode(field, "UTF-8")
 
-    /** The fields [encode] writes; a shorter text is another version's. */
+    /**
+     * The fields every card of this version has; a shorter text is another version's. A card
+     * written before the file's hashed query values were kept has only these.
+     */
     private val FIELDS = 30
 }

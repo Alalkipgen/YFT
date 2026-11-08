@@ -167,7 +167,9 @@ class QuickDownloadAdRuleTest {
     }
 
     @Test
-    fun lenientStillSkipsAMeasuredShortFileInTheFreshLinkChain() = runTest {
+    fun lenientNeverTriesAnotherFileInTheFreshLinkChain() = runTest {
+        // Same-file check: the fresh-link chain of a video whose link is gone looks only for that
+        // video's file, so even under the lenient rule the page's 0:30 file is never asked for.
         val mp4 = named("https://media.example.test/v43/720.mp4?hash=script")
         val fresh = mp4.copy(mediaUrl = "https://media.example.test/v43/720.mp4?hash=again")
         harness.resolver.answers += mapOf(
@@ -186,6 +188,6 @@ class QuickDownloadAdRuleTest {
         val state = sheet.uiState.value
         assertEquals(listOf(fresh.mediaUrl), state.offered())
         assertTrue(state.freshLink)
-        assertTrue("skipped: 0:30 ad (short)" in state.attemptDetails)
+        assertTrue(harness.resolver.requested.none { it.mediaUrl == ad.mediaUrl })
     }
 }

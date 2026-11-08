@@ -3,6 +3,7 @@ package com.alal.yft.download
 import com.alal.yft.core.download.StoredDownloadTask
 import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.media.CandidateSource
+import com.alal.yft.core.model.media.FileKey
 import com.alal.yft.core.model.media.FreshLinks
 import com.alal.yft.core.model.media.MediaAsset
 import com.alal.yft.core.model.media.MediaCandidate
@@ -10,6 +11,7 @@ import com.alal.yft.core.model.media.MediaGroups
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
+import com.alal.yft.core.model.media.SameFile
 import com.alal.yft.download.policy.NetworkSnapshot
 import com.alal.yft.download.policy.NetworkStatusSource
 import com.alal.yft.feature.detectedmedia.LookupOwner
@@ -190,7 +192,9 @@ data class DownloadQualityKey(
  * label, the title, the name it is saved under). [durationMillis] is the video's stated length;
  * [networkChanges] the phone's network changes when the link was found. [mediaPath]
  * is the file's address without its signature on a page no adapter reads, to find the same file
- * when the page is read again. Its `toString` names no address.
+ * when the page is read again, and [mediaQuery] its query values that name the file, each hashed
+ * (Same-file check, [FileKey]); null in a record written before it was kept. Its `toString`
+ * names no address.
  */
 data class DownloadSource(
     val pageUrl: String,
@@ -207,9 +211,14 @@ data class DownloadSource(
     val fileName: String,
     val networkChanges: Long,
     val mediaPath: String? = null,
+    /** Hashed query values that name the file ([FileKey.query]); null when unknown. */
+    val mediaQuery: String? = null,
     /** Where the download's bytes are, to reopen them after the app closed; null when unknown. */
     val saved: SavedDestination? = null,
 ) {
+    /** The Same-file check's key of the download's file on a page no adapter reads. */
+    val fileKey: FileKey? get() = mediaPath?.let { FileKey(it, mediaQuery) }
+
     /** A page no adapter reads, read again quietly for the same file. */
     val rereadable: Boolean get() = videoId.isNullOrBlank() && !mediaPath.isNullOrBlank()
 
@@ -294,6 +303,7 @@ class DownloadSources(
         val owner = origin.owner ?: LookupOwner.BROWSER
         val pageUrl = candidate.pageUrl
         val videoId = candidate.videoId?.takeIf(String::isNotBlank)
+        val path = if (videoId == null) pagePath(candidate) else null
         val source = DownloadSource(
             pageUrl = pageUrl,
             videoId = videoId,
@@ -313,7 +323,8 @@ class DownloadSources(
                 ?: candidate.durationMillis)?.takeIf { it > 0 },
             fileName = fileName,
             networkChanges = networkChanges(),
-            mediaPath = if (videoId == null) pagePath(candidate) else null,
+            mediaPath = path,
+            mediaQuery = path?.let { SameFile.key(candidate.mediaUrl).query },
             saved = saved?.takeIf(SavedDestination::reopenable),
         )
         synchronized(lock) {

@@ -48,7 +48,7 @@ an inaccessible or missing item is not inferred. This does not add playlist or p
 | MP3 conversion | Supported | MP3 320, 192 and 128 kbps from an AAC track, with LAME 3.100. Works on arm64-v8a, armeabi-v7a and x86_64; 32-bit x86 fails with a clear message. Opus, WebM, HLS and DASH sound is not converted. The LGPL notice is in About → Licenses. |
 | M4A from an MP4 video | Supported | The MP4's own AAC track is copied without re-encoding. |
 | Ended YouTube live (Live download) | Supported | MP4 qualities only: the pieces are joined into one file. WebM qualities say to pick an MP4 quality. Pieces not ready yet: "YouTube still preparing this live video, try later". A file up to 2 minutes short is saved with a note in Details. |
-| Signed or expiring links | Supported | A known expiry fails clearly. Fresh link renewal gets a new link for an expired download and resumes it. |
+| Signed or expiring links | Supported | A known expiry fails clearly. Fresh link renewal gets a new link for an expired download and resumes it when the Same-file check proves it is the same file; otherwise the download keeps its bytes and asks to open the page again. |
 | Cookie- or header-protected media | Supported | Sent again to the same origin only. Cross-origin requests get no credentials. |
 | `blob:` addresses | Not a file | The real HTTP(S) file or manifest behind it is found instead. |
 | DRM (Widevine) | Not supported | Detected and refused. |
