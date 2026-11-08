@@ -6,7 +6,7 @@ Overwrite this file at each checkpoint (40 lines at most). Never append. History
 - Owner's report: Pornhub (two pages), Roshy and jav.guru VO quality rows read "Size unknown"
   in Preview 213; v1.0.2 showed sizes. Cause: `ba1be557` stopped peak-rate (BANDWIDTH) times
   length sizes after a YouTube replay read 1.7 times too high.
-- Fix (this checkpoint): `FinishedStreamSampler` asks one byte (Range 0-0) of 48 spread pieces
+- Fix: `FinishedStreamSampler` asks one byte (Range 0-0) of 48 spread pieces
   of a finished HLS playlist per quality and reads each piece's whole length from the reply;
   BYTERANGE playlists are summed exactly. The sheet shows "Estimating size…" then
   "~X MB · Rough estimate"; the variant's size is never changed. Limits: 400 asks, 8 MB,
@@ -28,5 +28,6 @@ Overwrite this file at each checkpoint (40 lines at most). Never append. History
   validation 42498215302, emulator 42498215444, minified 42498215214, preview 42498215280
   passed. Preview 214 is the APK for the phone checks (artifact `yft-preview-apk`; the gh sign-in
   on this host had expired, so its sha256 was not read here).
-- Next: short phone checklist for the new Preview APK (sheets only, no large downloads).
-  No merge or release; sizes stay unverified until seen on a phone.
+- Owner reports the requested phone tests passed. Review the promotion run records separately;
+  the phone test report alone does not establish the required three promotion runs.
+- No merge or release without the owner's approval.
