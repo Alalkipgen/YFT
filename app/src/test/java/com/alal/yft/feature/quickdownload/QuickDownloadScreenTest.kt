@@ -1072,6 +1072,44 @@ class QuickDownloadScreenTest {
     }
 
     @Test
+    fun videoSelectionOffersSelectAllAndQueuesOnlyTheSelectedVideos() {
+        val first = "id:instagram:fixture:1"
+        val second = "id:instagram:fixture:2"
+        var state by mutableStateOf(
+            SAMPLE_QUICK_DOWNLOAD.copy(
+                postItems = listOf(
+                    PostItemChoice(first, 1, "Video 1 of 2"),
+                    PostItemChoice(second, 2, "Video 2 of 2"),
+                ),
+                postItemKey = first,
+            ),
+        )
+        var queued = emptySet<String>()
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                QuickDownloadScreen(
+                    state = state,
+                    onSelect = {},
+                    onDownload = {},
+                    onTogglePostSelection = { key ->
+                        state = state.copy(postSelection = state.postSelection - key)
+                    },
+                    onToggleAllPostSelection = {
+                        state = state.copy(postSelection = setOf(first, second))
+                    },
+                    onQueuePostSelection = { queued = state.postSelection },
+                )
+            }
+        }
+        composeRule.onNodeWithTag("quick-select-videos").performClick()
+        composeRule.onNodeWithText("Select all").performClick()
+        composeRule.onNodeWithTag("quick-batch-item-1").assertIsOn().performClick()
+        composeRule.onNodeWithTag("quick-batch-item-1").assertIsOff()
+        composeRule.onNodeWithText("Queue 1 video").performClick()
+        composeRule.runOnIdle { assertEquals(setOf(second), queued) }
+    }
+
+    @Test
     fun aTitleConvertedFromZawgyiOffersUseOriginalTitleAndATapSwitchesTheHeader() {
         // Zawgyi titles: the header shows the Unicode title; "Use original title" under it shows
         // (and the next Download takes) the title the video gave, and back again.

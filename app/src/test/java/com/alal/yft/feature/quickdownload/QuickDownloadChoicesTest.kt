@@ -371,8 +371,10 @@ class QuickDownloadChoicesTest {
         // Page video finder: the page's player fetched its HLS master and the 720p playlist the
         // master names; both are one video, and the playlist is the master's 720p row, not a third
         // row.
-        val master = video(null, kind = MediaKind.HLS, videoId = null, label = null, index = 1)
         val playlist = video(null, kind = MediaKind.HLS, videoId = null, label = null, index = 2)
+        // The master explicitly names this playlist; duration alone does not establish identity.
+        val master = video(null, kind = MediaKind.HLS, videoId = null, label = null, index = 1)
+            .copy(hlsVariantPlaylists = listOf(playlist.mediaUrl))
         val stated = resolvedAsset(master).variants.single()
         val masterAsset = resolvedAsset(master).copy(
             variants = listOf(
@@ -411,17 +413,59 @@ class QuickDownloadChoicesTest {
         assertEquals(listOf(1080, 720, 480, 360), choices.video.map { it.rankHeight })
         assertTrue(choices.video.all { it.size == null })
         assertEquals(4, choices.audio.size)
+
+        // The owner's ended live: 419 kbps and 144 kbps over 2:07:50, no file size stated. The
+        // sheet used to guess 515 MB for it; a row without a stated size now shows none.
+        val sound = QuickDownloadFixtures.companion()
+            .copy(contentLengthBytes = null, bitrateBitsPerSecond = 144_000)
+        val live = video(240, merged = true).copy(
+            audioCompanion = sound,
+            bitrateBitsPerSecond = 419_000,
+            durationMillis = 7_670_000,
+        )
+        val liveChoices = QuickDownloadChoices.of(
+            group(listOf(live)),
+            listOf(SheetSource(live, resolvedAsset(live), resolved = true)),
+        )!!
+        assertNull(liveChoices.video.single().size)
+        assertTrue(liveChoices.audio.all { it.size == null })
     }
 
     @Test
-    fun statedSizesAreEstimatedFromTheBitrateAndLengthAndCannotOverflow() {
+    fun aBitrateAndALengthAreNotASize() {
+        // 1 Mbit/s over 8 s is 1 MB, but the file may not weigh it: YouTube states a live format's
+        // encoder rate, not what the replay weighs, and a row the source states no size for reads
+        // "Size unknown" until its file states one.
         val candidate = video(720).copy(bitrateBitsPerSecond = 1_000_000, durationMillis = 8_000)
         val source = SheetSource(candidate, null, resolved = false)
         val choices = QuickDownloadChoices.of(group(listOf(candidate)), listOf(source))!!
-        assertEquals("~${YftFormat.bytes(1_000_000)}", choices.video.single().size)
-        val huge = candidate.copy(bitrateBitsPerSecond = Long.MAX_VALUE,
-            durationMillis = Long.MAX_VALUE)
-        assertNull(QuickDownloadMetadata.asset(huge)!!.variants.single().sizeBytes)
+        assertNull(choices.video.single().size)
+        assertNull(QuickDownloadMetadata.asset(candidate)!!.variants.single().sizeBytes)
+
+        // The owner's two replays on the phone: 240p with sound, the sheet read ~251 MB and
+        // ~689 MB from the stated rates while the first file weighed 145 MB. Both now read none.
+        val sound = QuickDownloadFixtures.companion()
+            .copy(contentLengthBytes = null, bitrateBitsPerSecond = 144_000)
+        listOf(3_505_000L to 251, 10_266_000L to 689).forEach { (length, sheet) ->
+            val replay = video(240, merged = true).copy(
+                audioCompanion = sound,
+                bitrateBitsPerSecond = 419_000,
+                durationMillis = length,
+            )
+            val replayChoices = QuickDownloadChoices.of(
+                group(listOf(replay)),
+                listOf(SheetSource(replay, QuickDownloadMetadata.asset(replay), false)),
+            )!!
+            assertNull("a $sheet MB guess is not a size", replayChoices.video.single().size)
+        }
+
+        // A size the source states is still the row's size.
+        val stated = candidate.copy(contentLengthBytes = 8 * MIB)
+        val statedChoices = QuickDownloadChoices.of(
+            group(listOf(stated)),
+            listOf(SheetSource(stated, QuickDownloadMetadata.asset(stated), false)),
+        )!!
+        assertEquals("8 MB", statedChoices.video.single().size)
     }
 
     @Test
@@ -607,9 +651,9 @@ class QuickDownloadChoicesTest {
     }
 
     @Test
-    fun sizesAreStatedElseEstimatedFromTheBitrateAndLengthElseUnknownAndNoRowIsDropped() {
-        // A looked-up file without a size whose bitrate is known reads "~"; a merge adds its sound;
-        // nothing known keeps the row, which the sheet labels "Size unknown".
+    fun aSizeTheSourceDoesNotStateIsUnknownAndNoRowIsDropped() {
+        // A bitrate is not a size: a row the source states no size for reads "Size unknown", as a
+        // merge whose sound has no size does, and no row is dropped for it.
         val stream = video(720, index = 1).copy(bitrateBitsPerSecond = 2_000_000)
         val merged = video(1080, merged = true, index = 2).copy(bitrateBitsPerSecond = 4_000_000)
         val bare = video(480, index = 3)
@@ -618,18 +662,8 @@ class QuickDownloadChoicesTest {
         val choices = choices(listOf(stream, merged, bare, music))!!
 
         assertEquals(listOf(1080, 720, 480), choices.video.map(SheetOption::rankHeight))
-        assertEquals(
-            listOf(
-                // 252 s at 4 Mbit/s and the merge's 4 MiB sound.
-                "~${YftFormat.bytes(126_000_000 + 4 * MIB)}",
-                // 252 s at 2 Mbit/s.
-                "~${YftFormat.bytes(63_000_000)}",
-                null,
-            ),
-            choices.video.map(SheetOption::size),
-        )
-        // 252 s at 160 kbps.
-        assertEquals("~${YftFormat.bytes(5_040_000)}", choices.audio.first().size)
+        assertEquals(listOf(null, null, null), choices.video.map(SheetOption::size))
+        assertNull(choices.audio.first().size)
     }
 
     @Test

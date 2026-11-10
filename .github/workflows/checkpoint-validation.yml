@@ -125,8 +125,6 @@ jobs:
               :extractor-generic:test \
               :extractor-sites:test \
               :app:assembleDebug
-          elif [[ -f spikes/phase0-media/settings.gradle.kts ]]; then
-            gradle -p spikes/phase0-media --no-daemon lintDebug testDebugUnitTest assembleDebug
           else
             echo "No supported Gradle project was found." >&2
             exit 1

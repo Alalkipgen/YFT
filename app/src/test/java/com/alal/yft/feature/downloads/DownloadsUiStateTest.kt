@@ -414,7 +414,7 @@ class DownloadsUiStateTest {
         assertEquals(86, row.progressPercent)
         assertEquals(205f / 236f, row.progressFraction!!, 0.0001f)
         assertEquals("86%", percentLabel(row))
-        assertEquals("205 of ~236 MB · 2.4 MB/s · 13 s left", progressDetail(row))
+        assertEquals("205 of ~236 MB (estimated) · 2.4 MB/s · 13 s left", progressDetail(row))
         assertEquals("MP4", metaLabel(row))
     }
 
@@ -426,7 +426,7 @@ class DownloadsUiStateTest {
 
         assertEquals(78, grown.progressPercent)
         assertEquals("78%", percentLabel(grown))
-        assertEquals("205 of ~260 MB", progressDetail(grown))
+        assertEquals("205 of ~260 MB (estimated)", progressDetail(grown))
     }
 
     @Test
@@ -437,7 +437,7 @@ class DownloadsUiStateTest {
         assertEquals(99, allIn.progressPercent)
         assertEquals(0.99f, allIn.progressFraction!!, 0.0001f)
         assertEquals("99%", percentLabel(allIn))
-        assertEquals("236 of ~236 MB", progressDetail(allIn))
+        assertEquals("236 of ~236 MB (estimated)", progressDetail(allIn))
 
         // Saved: the real size, as for any finished download, and no estimate.
         val saved = singleRow(

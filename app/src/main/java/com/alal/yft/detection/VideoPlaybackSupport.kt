@@ -60,6 +60,8 @@ class DeviceVideoPlaybackSupport(
             }
 
         private val DECODER_TYPES = linkedMapOf(
+            // Wikimedia Commons' 4K original is VP8, a codec most phones have no decoder for.
+            "vp8" to "video/x-vnd.on2.vp8",
             "vp9" to "video/x-vnd.on2.vp9",
             "vp09" to "video/x-vnd.on2.vp9",
             "av01" to "video/av01",

@@ -20,6 +20,155 @@ You need JDK 17 and the Android SDK (`sdk.dir` in `local.properties`, or `ANDROI
 
 The checkpoint check runs the first three rows and the last row.
 
+## HLS download benchmark
+
+Run `./gradlew -I scripts/benchmarks/hls.gradle :core-download:testDebugUnitTest --tests
+'*HlsDownloadBenchmark'`. The opt-in host test uses the production transfer engine and a local
+HTTP server: 12 pieces of 256 KiB, three download slots, one warm-up and four measured runs.
+It checks the joined bytes and reports uniform and mixed response-delay cases. The bytes are not
+media; this does not test playback, remux, device speed, memory or disk I/O. Compare revisions on
+the same host and conditions. Run the HLS unit and instrumented tests separately for correctness.
+
+## HLS size checks
+
+A finished HLS quality with a stated average rate can show an estimate. When its sound is in a
+separate playlist, both playlists must end and their lengths may differ by at most 50 ms and 0.1%
+of the shorter length. A live window, a peak-only rate, an unread playlist or a larger mismatch
+stays unknown. A row whose separate sound cannot be paired also stays unknown: the master’s
+combined average includes sound the row will not download. The six-playlist limit may leave later
+qualities unknown. A group with multiple sound renditions may state the rate of a larger choice than
+the first one YFT pairs; the estimate is not an exact size. A finished peak-only quality is sized
+by the Finished stream size sample below.
+
+On Linux x86-64 with ffmpeg 7.0.2, Apple's public [BipBop master](https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_adv_example_hevc/master.m3u8)
+stated 600.000 s video and 600.043 s AAC for its first 540p AVC/AAC quality, with average rate
+2,190,673 bit/s. The proposed estimate was 164,300,475 bytes; the completed host ffmpeg stream-copy
+MP4 was 164,190,619 bytes (+0.067%). The input byte ranges, including initialization, totalled
+164,301,196 bytes: input bytes are not an exact final MP4 size. Both tracks decoded at the start,
+300 s and 590 s on the host. This did not use the Android download or muxer.
+
+A second public [Mux Tears of Steel master](https://test-streams.mux.dev/tos_ismc/main.m3u8)
+had ended 734.169 s video and 734.113 s audio playlists, 56 ms apart, with a stated combined
+average of 6,296,707 bit/s. On the same Linux host, ffmpeg stream-copy made a 577,995,046-byte MP4;
+combined-rate arithmetic gives 577,855,885 bytes (-0.0241%). Both tracks decoded at 0, 360 and
+725 s. This is not an app download or a YFT estimate: its master also names a `stpp` subtitle codec
+that the current resolver does not support. Even without that limitation, the 56 ms gap exceeds the
+50 ms limit. One case is not enough to establish a safe wider threshold. In a playlist-only survey
+of the Apple HEVC master, all 54 declared variants were within 50 ms of their selected audio group's
+first rendition. Those were manifest checks, not 54 completed file comparisons.
+
+[JW Tears of Steel](https://content.jwplatform.com/manifests/vM7nH0Kl.m3u8) was a peak-only VOD:
+its current production sizes stay unknown. Five HEAD samples, including the first and last of 184
+segments, gave -22.54% and -19.44% against completed joined TS for 286p and 142p. Five midpoint
+samples instead gave +11.99% and +11.69%. HEAD lengths matched the corresponding fetched bytes;
+the first five seconds decoded on the host. Five pieces were too few; the 48-piece sample below
+was measured on this stream again.
+
+## Ended live size sample
+
+On the owner's replay (545 pieces of 5 s; MP4 qualities 1080p to 144p and two sounds), every
+piece was `ftyp`, `moov`, `emsg`, `moof`, `mdat`, one fragment, with sample sizes equal to the
+`mdat` payload; an 8 KB range was honored and the boxes gave the exact length of four whole
+pieces fetched in full. A script with the app's plan, run in the host's browser (not the phone):
+189 asks plus 49 redirects, 1.55 MB read, 32.8 s at 4 at a time. 144p's pieces came to 22,899,265
+bytes against 22,847,458 summed from every piece (+0.2%); sound 44,625,554 against 44,614,184
+(+0.03%); 144p with sound 63.4 MiB, as the owner's completed download (63 MB). In a simulation
+over all of 144p's piece sizes, 64 pieces gave 90 in 100 runs within -4.9% to +3.8%. The stated
+format rates had given +217% for 144p. Host tests: `EndedLiveSamplerTest` (layout, limits, refusal,
+ignored range, WebM, redaction), `EndedLiveSheetSizesTest` and the sheet's view-model test.
+Timing on a phone and on other replays is not measured.
+
+## Finished stream size sample
+
+Host evidence (2026-11-08, not the phone). Every piece's length was read with `Range: bytes=0-0`
+(206 and a `Content-Range` total on all of them): Roshy's master (`BANDWIDTH` only, three
+finished qualities of 885 ten-second TS pieces each, inside the page's player frame after its
+ad), jav.guru Stream VO (one 852 × 480 quality, 597 pieces) and JW Tears of Steel (five
+qualities, 184 pieces). Totals of all pieces: Roshy 480p 922.35 MB, 720p 1,945.38 MB, 1080p
+3,534.86 MB; VO 894.64 MB. `BANDWIDTH` × length gave -5.7%, -4.9%, -2.4% and -3.3% (JW -2.8%
+to -9.0%). The app's 48 midpoint pieces gave -1.3%, -1.3%, -0.1% and +1.3%; over 200 placements
+of 48 pieces on 8 qualities the worst was 4.9%, 90 in 100 within 3.4%. Twelve pieces gave -11.1%
+on VO. 1080p was nearly constant (piece variation 0.06) while 480p varied (0.19), and a 1080p
+piece weighed 1.7 to 7.8 480p pieces, so each quality is sampled on its own, not by ratio.
+ffmpeg stream copy of 12 Roshy TS pieces made MP4s 2.2% smaller than the pieces (a stand-in for
+the app's remux). Cost on the host browser: 39 asks in about 8 s at 6 at a time. The app's
+`FinishedStreamSampler` itself, run once from a host JVM test (not committed) on JW's public
+master: 5 of 5 files sized in 245 asks, 0.09 MB, 0.8 s; 320 × 142 -0.8%, 640 × 286 -1.7%,
+1280 × 572 -2.1%, 1920 × 858 -2.6% against all pieces, each inside its stated range. Host tests:
+`FinishedStreamSamplerTest` (spread, live, ignored range, refusal, few reads, byte ranges, start
+piece, master and key, limit, short playlist), `FinishedStreamSheetSizesTest` and the sheet's
+view-model test. Pornhub's pages answer the host with an age check, so Pornhub is measured only on
+the phone. Time and data on a phone are not measured.
+
+## Phone results: Preview 213
+
+The owner's phone, 2026-11-08, Preview 213 (`a89a472b`). Only what was tested is recorded.
+
+- **jav.guru:** Stream VI showed 1080p ~1.7 GB, 720p ~1024 MB, 480p ~597 MB (854 × 480, HLS).
+  Stream VO showed 480p (852 × 480, HLS) "Size unknown"; Found 2 (the 1:59:18 video and a
+  318 KB MP4), with two live HLS items under "Other videos on this page (2)". Whether the Found
+  count stays at 2, and what each item is, is not confirmed. 1.0.2 showed the VO sheet with VI's
+  1080p and 720p beside VO's 480p (~825 MB): it grouped the two servers by equal length, which
+  YFT no longer does.
+- **Javtiful:** before the ad was skipped, Found showed two MP4s (301 KB and 306 KB; whether both
+  are ads is not confirmed from one screenshot). After the skip the sheet said "That was an ad —
+  showing the page's video": 720p 372 MB, M4A ~28 MB, MP3 ~42 MB, as in 1.0.2. The page's video is
+  found only after the ad.
+- **Roshy:** 1080p, 720p and 480p (1920 × 1080, 1280 × 720, 852 × 480, HLS), all "Size unknown",
+  Found 1, title "Video", 2:27:21. 1.0.2 showed ~3.2 GB, ~1.7 GB, ~829 MB (`BANDWIDTH` × length).
+- **Pornhub (two links):** four HLS qualities, 1080p to 240p, all "Size unknown"; 1.0.2 showed
+  ~792, ~385, ~199 and ~68 MB for the 13:01 video.
+- **YouTube ended lives:** DOTA 2 replay 240p sheet ~97 MB, completed 98 MB, plays; Grand Final
+  (1:31:53) 144p sheet ~166 MB, completed 172 MB (other rows 480p ~670, 360p ~470, 240p ~261
+  MB). The sizes came after about 10–15 s (the owner's impression, not timed). The progress
+  totals marked "(estimated)" read ~74 MB and ~142 MB during the downloads, below the final
+  files: that is the in-download estimate, not the sheet's.
+- **Wikimedia 4K:** not tested, by the owner's choice; do not ask for the 2.8 GB download again.
+
+## Stream piece filter
+
+On a host browser, a page with a live camera strip made 91 to 268 media requests a minute; its
+playlists named 48 to 145 pieces each, which were listed and probed as videos of their own. A
+low-latency playlist asked with `_HLS_msn`/`_HLS_part` gave 61 addresses in 77 s, 7 without
+them. Host tests: `StreamPiecesTest`, `MediaGroupsStreamPiecesTest`, `PageCandidateStoreTest`,
+`CandidateNormalizerTest`, `ManifestReaderTest`, `MediaFileUrlsTest` and
+`BrowserObservationMapperTest`. The Found count on a phone is not checked yet.
+
+## HLS sheet lookup timing
+
+On a Linux host with a local server delaying each response by 150 ms, a five-quality master with
+average rates and one shared audio playlist took (one warm-up, then four runs):
+
+| Build | Requests | Times (ms) |
+|---|---|---|
+| v1.0.2 Release `5fda5c59` | 2 | 309 / 306 / 306 / 306 |
+| Sequential estimates `adb0d170` | 7 | 1,067 / 1,060 / 1,061 / 1,062 |
+| Playlist read-ahead | 7 | 462 / 460 / 464 / 615 |
+
+Release makes no average-rate estimates for this master. Both later builds return the same
+estimates. A peak-only master took 304–312 ms with two requests on each build. In a seven-quality
+fixture where the first quality fails and uses another audio group, the sequential resolver and
+read-ahead each estimate four qualities; an earlier prototype that reserved its reads in advance
+estimated three. `HlsSizeReadsTest` fails on that prototype (coverage), and its three-at-once and
+cancellation checks fail on the sequential code. These are metadata timings, not phone timings.
+
+## Host download phases
+
+A local copy of the public JW Tears of Steel 142p HLS (184 TS pieces, 38,312,896 bytes) was served
+by a local server, and engines were timed with OkHttp events. Times are medians of four runs after
+a warm-up. With each response limited to 2 MB/s:
+
+| Mode | Transfer, v1.0.2 / current | Finalization, v1.0.2 / current |
+|---|---|---|
+| HLS to `.ts` | 4,940 / 3,562 ms | 36 / 42 ms |
+| HLS to `.mp4` (remux) | 4,929 / 3,529 ms | 77 / 83 ms |
+| Direct file, 4 ranges | 4,716 / 4,718 ms | 32 / 28 ms |
+
+Unlimited loopback runs varied more (HLS 410–709 ms vs 277–388 ms); the outputs matched by hash.
+The current HLS engine starts each piece when a slot is free instead of waiting for a group. These
+measurements do not show slower transfer or finalization on the host; they do not establish the
+phone cause. Start delay before the sheet and download screens is not covered here.
+
 ## CI workflows
 
 | Workflow (name in Actions) | Starts on | What it runs | Artifacts |
@@ -32,7 +181,6 @@ The checkpoint check runs the first three rows and the last row.
 | Owner test APKs (`master-optin-debug-apk.yml`, "Master opt-in debug APK (spike)") | Push to `spike/master-extractor-backup`; Run workflow; label `build-optin-apk` on a pull request | Toolkit drift check, the capture script and own-solver tests, a debug APK with the chosen switches | `yft-master-optin-debug-apk` |
 | Recipe publish workflow (`master-recipes-publish.yml`, "Master recipes publish (spike)") | Run workflow (input `config`, default `defaults`); label `recipes:<name>` on a pull request | Signs `extractor-master/recipes/configs/<name>.json` with the secret `YFT_RECIPE_KEY` and writes `master-recipes.json` (schema 1) and `master-recipes-2.json` (schema 2) to the `recipes` branch | — |
 | Own-solver canary (`own-solver-canary.yml`, "Own solver canary (spike)") | Push to `spike/master-extractor-backup` that changes solver files; Mondays 03:17 UTC; Run workflow; label `run-canary` | `node scripts/own-solver-canary.mjs`, `verify-own-solver.mjs` (both strategies), `verify-own-solver-mutations.mjs --quick`, a summary | — |
-| Spike validation (`phase0-validation.yml`) | Push to `main` or a pull request that changes `spikes/phase0-media/**`; Run workflow | Builds and tests the spike project | — |
 | Release draft (`release-draft.yml`, "Release draft") | Tag `v*`; Run workflow (input `publish`) | Builds the signed release and makes a draft release ([RELEASE.md](RELEASE.md)) | — |
 
 - A push that changes only `docs/**` or `*.md` files starts no build workflow.
@@ -67,6 +215,10 @@ Keep these files and headings as the tests expect.
 
 - **Emulator smoke test:** runs every instrumented test. The opt-in tests below skip themselves
   unless their instrumentation argument is set (for example `-e yft.parity 1`).
+- **Android 9 save path:** the same workflow's `android-9-save-path` job runs
+  `AppPrivateSaveInstrumentedTest` on an API 28 emulator through
+  `bash scripts/ci-android9-save-path.sh`: a real download into YFT's own storage, its file and
+  bytes, Android's own reader opening it, and the partial file opened again after the app closed.
 - **Master parity check:** `bash scripts/canary.sh` runs `MasterParityLiveTest` on a connected
   phone or emulator and pulls its report. `ATTENDED=1 PLAY_SEC=60` lets you tap Play on each page;
   `ONLY=<case>,<case>` picks cases; `LOCAL_URLS=<file>` reads links from a local file that is never
@@ -331,7 +483,8 @@ Before a release counts a site's backup steps, the site needs three passing cens
 - One session may run all sites.
 - Pass: wrong rows 0, and nothing worse than main's baseline census run.
 - TikTok runs through the VPN's New York exit.
-- For 1.0.2: verify the final configuration, including weak-answer fill. VK has not passed.
+- Verify the final configuration, including weak-answer fill. VK passed three owner-reported
+  census runs for slots 1–6; their results and recipe note are in [SESSION_STATE.md](SESSION_STATE.md).
 
 ## Phone checklist for a release
 
@@ -345,22 +498,65 @@ off). If anything fails, open Details → Copy details and send it.
 - **AV1 test box** (census APK, Android 14 or newer): tick "AV1 merges (test, Android 14 or
   newer)" and open
   `https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel-av1.ism/.mpd`.
-  Rows read "… · AV1" (about 267, 81 and 29 MB). The merged MP4 has sound and runs 12:14. Details
-  ends with "AV1 decoder: …". Untick it: the AV1 rows read "No sound".
+  Rows read "… · AV1"; the manifest states a peak rate, not a size, so each row reads
+  "Size unknown". The merged MP4 has sound and runs 12:14. Details ends with "AV1 decoder: …".
+  Untick it: the AV1 rows read "No sound".
+- **AAC edit-list fallback** (debug test APK on the phone, not the preview): run
+  `adb shell am instrument -w -e class 'com.alal.yft.download.EditListedSoundMergeInstrumentedTest#todaysWayKeepsEverySampleOfASoundThatStartsBefore0' com.alal.yft.debug.test/androidx.test.runner.AndroidJUnitRunner`.
+  Install the debug app and its instrumented test APK first. The test forces MediaMuxer, compares
+  all AAC sample bytes and times, and checks that the sound track plays and advances after a seek.
+  This is a one-second fixture, not a listening or full-length audio/video sync check. A public
+  stream that forces the fallback and can be listened to and sought on the phone is still needed.
 - **DASH test streams:** `https://dash.akamaized.net/dash264/TestCases/1a/netflix/exMPD_BIP_TC1.mpd`
-  gives a 360p MP4 with sound (about 44 MB) and an M4A (about 5.1 MB).
+  gives a 360p MP4 with sound and an M4A; a DASH manifest states `@bandwidth`, a peak, so the rows
+  read "Size unknown" and the download's own total is the first number.
   `https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd` gives an M4A "67 kbps" and seven rows
   from 2160p to 144p, none "No sound".
 - **HTML5 page:** the w3schools `html5_video` page. The sheet ends on the MP4 row
   "144p · 320 × 176 · 25 fps · MP4". At large text the address pill shows once.
+- **Wikimedia Commons:** in the browser, opening
+  `https://commons.wikimedia.org/wiki/File:Big_Buck_Bunny_4K.webm` offers its `upload.wikimedia.org`
+  files as one item with four qualities — 1080p, 480p, 360p and 240p, the pictures the page states
+  for them — never the page's own address; the 1080p row downloads, pauses, resumes and plays with
+  sound. On Home, pasting the same address opens a sheet with the player's four qualities and, apart
+  from them, the 4K original the page states ("4K · WebM · 2.8 GB"); that original's preview says
+  "This phone has no decoder for this picture: 4000 × 2250 (VP8). Another quality plays here; this
+  file still downloads." It is VP8, which many phones do not decode, and the 2.8 GB file is not
+  downloaded for this check. Its 287 MB 1080p download never goes back to a lower %: the partial
+  file is kept and the range requests are answered 206 (the fix for the unquoted `If-Range`). Break
+  the network for a few seconds mid-download: the row goes on from the same %, and the finished file
+  plays.
 - **Fresh link renewal** (trial preview or census APK, "Break this download's link"): the download
   shows "Getting a fresh link…" and resumes at the same %. Details: "Fresh link (403 at … MB):
   resumed at … MB". Breaks 2–3 renew too; the 4th shows "Link expired"; Retry gives "Fresh link on
   Retry". A Wi-Fi ↔ mobile switch on a long VK video resumes. In a merge both tracks go on. YouTube
   shows "YouTube refused", then Retry works.
 - **Pause and Resume:** the download goes on from the same %.
-- **Ended YouTube live:** it saves. If it is up to 2 minutes short, Details says "Live video saved N
-  s short of …".
+- **A download longer than 6 hours** (Android 15 or newer, census APK): Android pauses the service
+  when its daily `dataSync` time runs out and the notice says so; Resume goes on from the same %.
+  Not tested here: no run of that length has been made.
+- **A download the app closed** (trial preview or census APK): start a long download, wait for it to
+  pass 10% or more, then swipe YFT away from Recents (or force stop it in Settings). Open YFT: the
+  row reads **Link expired** with "Tap Retry to get a fresh link…". Tap Retry: the row reads
+  "Getting a fresh link…", then goes on from the same % and finishes. Details start with
+  "Fresh link (…): resumed at … MB". If the page no longer offers the video, the row says
+  "Fresh link: the video is no longer on the page" and keeps the bytes. If a file only shares the
+  download's path and the page does not prove it is the same video (Same-file check), the row
+  says "Fresh link: the page did not prove it is the same video; open the page and download it
+  again" and keeps the bytes. A fresh link is never taken by its length alone; the unit tests
+  `SameFileTest`, `FreshLinkIdentityTest`, `PageRereadRenewalTest` and the sheet's fresh-link
+  tests cover similar lengths, content query values, fresh signatures, qualities and ambiguous
+  files. They are host tests, not a phone run.
+- **Ended YouTube live:** it saves. Its row reads "Size unknown" before and after the file is read:
+  the sheet used to multiply YouTube's rate for the live format by the replay's length, ~1.7 times
+  the file. The owner's replays: `https://www.youtube.com/live/vTaR-KqKUAM` (58:25, 240p: file
+  145 MB, sheet read ~251 MB) and `https://www.youtube.com/live/ulRE89KaH5M` (2:51:06, 240p: sheet
+  read ~689 MB beside a progress total of ~390 MB). Both rows now read "Size unknown"; the bar
+  under the download is the measured total, "(estimated)". If it is up to 2 minutes short, Details
+  says "Live video saved N s short of …".
+- **VK:** each of the owner's three links opens a sheet with its qualities (one keeps its files on
+  `vk6-13.vkuser.net`); the 720p row downloads merged with sound and plays; the clip link says VK
+  does not play it. VK promotion results are in [SESSION_STATE.md](SESSION_STATE.md).
 - **Weak-answer fill** (census APK or previews with Show details on): lines
   `master: facebook B+ (main's rows: no HD): Master added N: 720p` or `… added none (…)`. VK rows
   without a height get no such line. Strong answers stay unchanged. The best-first order shows
@@ -371,7 +567,9 @@ off). If anything fails, open Details → Copy details and send it.
 - **Quality names:** TikTok 720 × 1280 shows "720p"; Instagram 640 × 640 stays "720p · HD".
 - **Titles and folders:** a Zawgyi title gives a Unicode file name. Settings' folder line reads
   "Saving to <folder>. Tap to change.". The Downloads chip reads "Download/YFT · N GB free".
-- **Sizes:** no size is too small; unknown sizes show "~" or "Size unknown".
+- **Sizes:** a row shows a size only when the source states one, an estimate with "~"; a row the
+  source states no size for reads "Size unknown" (the ended live below is one). Under the bar of a
+  download whose total is an estimate: "205 of ~236 MB (estimated)".
 - **MP3:** a 3:18 song at 128 kbps converts in about 8 s. Details: "MP3: … of sound, decode … s,
   encode … s".
 - Then the manual device checklist in [RELEASE.md](RELEASE.md).

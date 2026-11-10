@@ -1,0 +1,13 @@
+// Opt-in host benchmark; this is not part of the normal unit-test source set.
+allprojects {
+    afterEvaluate { p ->
+        if (p.path == ':core-download') {
+            p.android.sourceSets.test.java.srcDir("${rootDir}/scripts/benchmarks")
+            p.tasks.withType(Test).configureEach {
+                maxParallelForks = 1
+                maxHeapSize = '512m'
+                testLogging.showStandardStreams = true
+            }
+        }
+    }
+}

@@ -2,6 +2,7 @@ package com.alal.yft.core.download
 
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.HlsDownloadPlan
+import com.alal.yft.core.model.download.HlsTransferCheckpoint
 import com.alal.yft.core.model.download.HlsTransferResult
 import com.alal.yft.core.model.download.PublishedFile
 import com.alal.yft.core.model.media.BrowserReadAnswer
@@ -10,9 +11,17 @@ import com.alal.yft.core.model.media.BrowserReads
 import com.alal.yft.core.model.media.BrowserRequestContext
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
@@ -83,6 +92,88 @@ class HlsTransferEngineTest {
                 .filter { it.path != "/track.m3u8" }
                 .all { it.getHeader("Cookie") == "session=fixture" },
         )
+    }
+
+    @Test
+    fun `a slow chunk does not hold up later chunks and output stays in manifest order`() = runTest {
+        val fourthRequested = CountDownLatch(1)
+        val progressedWhileSlow = AtomicBoolean(false)
+        val pieces = listOf("one", "two", "three", "four").map { it.toByteArray() }
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when (request.path) {
+                "/rolling.m3u8" ->
+                    manifestResponse(vodManifest("one.ts", "two.ts", "three.ts", "four.ts"))
+                "/one.ts" -> {
+                    progressedWhileSlow.set(fourthRequested.await(4, TimeUnit.SECONDS))
+                    bytesResponse(pieces[0])
+                }
+                "/two.ts" -> bytesResponse(pieces[1])
+                "/three.ts" -> bytesResponse(pieces[2])
+                "/four.ts" -> {
+                    fourthRequested.countDown()
+                    bytesResponse(pieces[3])
+                }
+                else -> MockResponse().setResponseCode(404)
+            }
+        }
+        val files = files("rolling.ts")
+        val result = engine(maxConcurrentChunks = 3).transfer(
+            plan = plan(server.url("/rolling.m3u8").toString(), "rolling"),
+            destination = files.destination,
+        )
+        assertTrue(result is HlsTransferResult.Completed)
+        assertTrue("a free slot should fetch the next chunk", progressedWhileSlow.get())
+        assertArrayEquals(pieces.fold(ByteArray(0)) { all, piece -> all + piece }, files.completed.readBytes())
+    }
+
+    @Test
+    fun `cancelled concurrent transfer resumes completed chunks with a new engine`() = runBlocking {
+        val firstRequests = AtomicInteger()
+        val delayed = AtomicBoolean(true)
+        val pieces = listOf("one", "two", "three", "four").map { it.toByteArray() }
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when (request.path) {
+                "/cancel.m3u8" ->
+                    manifestResponse(vodManifest("one.ts", "two.ts", "three.ts", "four.ts"))
+                "/one.ts" -> {
+                    firstRequests.incrementAndGet()
+                    bytesResponse(pieces[0])
+                }
+                "/two.ts" -> bytesResponse(pieces[1])
+                    .setBodyDelay(if (delayed.get()) 2_000 else 0, TimeUnit.MILLISECONDS)
+                "/three.ts" -> bytesResponse(pieces[2])
+                    .setBodyDelay(if (delayed.get()) 2_000 else 0, TimeUnit.MILLISECONDS)
+                "/four.ts" -> bytesResponse(pieces[3])
+                    .setBodyDelay(if (delayed.get()) 2_000 else 0, TimeUnit.MILLISECONDS)
+                else -> MockResponse().setResponseCode(404)
+            }
+        }
+        val files = files("cancel.ts")
+        val plan = plan(server.url("/cancel.m3u8").toString(), "cancel")
+        val checkpoint = AtomicReference<HlsTransferCheckpoint>()
+        val firstSaved = CompletableDeferred<Unit>()
+        val running = async {
+            engine(maxConcurrentChunks = 3).transfer(
+                plan = plan,
+                destination = files.destination,
+                onCheckpoint = {
+                    checkpoint.set(it)
+                    if (it.completedChunkCount > 0) firstSaved.complete(Unit)
+                },
+            )
+        }
+        withTimeout(10_000) { firstSaved.await() }
+        running.cancelAndJoin()
+        assertFalse(files.completed.exists())
+        delayed.set(false)
+        val resumed = engine(maxConcurrentChunks = 3).transfer(
+            plan = plan,
+            destination = files.destination,
+            resumeFrom = checkpoint.get(),
+        )
+        assertTrue(resumed is HlsTransferResult.Completed)
+        assertEquals(1, firstRequests.get())
+        assertArrayEquals(pieces.fold(ByteArray(0)) { all, piece -> all + piece }, files.completed.readBytes())
     }
 
     @Test

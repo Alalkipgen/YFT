@@ -21,14 +21,21 @@ import java.text.ParsePosition
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.Call
@@ -268,11 +275,11 @@ class DefaultVariantResolver(
             companion != null -> MediaSizeAccuracy.ESTIMATED
             else -> MediaSizeAccuracy.EXACT
         }
-        // A video file that does not state its picture is read from its MP4 header.
+        // A video file that does not state its picture is read from its own header.
         val header = if (companion == null && candidate.height == null &&
             mimeType in PROBED_VIDEO_MIME_TYPES
         ) {
-            probeMp4Header(candidate, initialUrl, finalUrl, serverBytes)
+            probeFileHeader(candidate, initialUrl, finalUrl, serverBytes)
         } else {
             null
         }
@@ -316,16 +323,17 @@ class DefaultVariantResolver(
     }
 
     /**
-     * Reads the start of an MP4 file in a few small ranged requests and returns what its boxes
-     * state, or null when the server does not answer ranges or the file is not MP4. Sent with
-     * the same headers and redirect checks as the size lookup.
+     * Reads the start of a file in a few small ranged requests and returns what its own header
+     * states: an MP4's boxes or a WebM's EBML elements, told apart by the first bytes. Null when
+     * the server does not answer ranges or the file states nothing. Sent with the same headers
+     * and redirect checks as the size lookup.
      */
-    private suspend fun probeMp4Header(
+    private suspend fun probeFileHeader(
         candidate: MediaCandidate,
         credentialOrigin: HttpUrl,
         fileUrl: HttpUrl,
         totalBytes: Long?,
-    ): Mp4Header? {
+    ): FileHeader? {
         val reader = RangeReader { offset, length ->
             val last = offset + length - 1
             val execution = execute(
@@ -344,9 +352,23 @@ class DefaultVariantResolver(
             }
         }
         return try {
+            // The file's first bytes say which container it is: a WebM states all of its tracks
+            // within them, and an MP4 reads its boxes from them without asking again. A small file
+            // is asked for once, whole.
+            val wanted = totalBytes
+                ?.let { minOf(WebmHeaderParser.FIRST_READ_BYTES.toLong(), it).toInt() }
+                ?.takeIf { it > 0 }
+                ?: WebmHeaderParser.FIRST_READ_BYTES
+            val first = reader.read(0, wanted) ?: return null
             // Real time, not the caller's clock: the reads are network calls.
             withContext(Dispatchers.IO) {
-                withTimeoutOrNull(PROBE_TIMEOUT_MS) { Mp4HeaderParser.parse(reader, totalBytes) }
+                withTimeoutOrNull(PROBE_TIMEOUT_MS) {
+                    if (WebmHeaderParser.isWebm(first)) {
+                        WebmHeaderParser.parse(first)
+                    } else {
+                        Mp4HeaderParser.parse(FirstRead(first, reader), totalBytes)
+                    }
+                }
             }
         } catch (cancellation: CancellationException) {
             throw cancellation
@@ -448,20 +470,59 @@ class DefaultVariantResolver(
                         VariantResolutionFailure.UNSUPPORTED_CODEC,
                     )
                 } else {
+                    // An average rate only gives a recording size when that quality's playlist
+                    // is complete. A live window is not the length of the finished recording.
+                    val finiteLengths = if (kind == MediaKind.HLS &&
+                        parsed.statedAverages.isNotEmpty()
+                    ) {
+                        finiteAverageLengths(candidate, initialUrl, variants, parsed.statedAverages, trace)
+                    } else {
+                        emptyMap()
+                    }
                     // An HLS master states no length; its first quality's playlist does.
                     val length = parsed.durationMillis ?: candidate.durationMillis
+                        ?: finiteLengths.values.firstOrNull()
                         ?: if (kind == MediaKind.HLS) {
-                            playlistLength(candidate, initialUrl, variants, trace)
+                            if (parsed.statedAverages.isEmpty()) {
+                                playlistLength(candidate, initialUrl, variants, trace)
+                            } else {
+                                null
+                            }
                         } else {
                             null
                         }
                     trace.step = ResolutionStep.PREPARE
-                    val sized = variants.map { it.withLength(length) }
+                    val sized = variants.map { variant ->
+                        val timed = variant.withLength(length)
+                        if (variant.id in parsed.statedAverages) {
+                            val finiteLength = finiteLengths[variant.id]
+                            if (finiteLength != null) {
+                                timed.copy(sizeBytes = null, sizeAccuracy = null)
+                                    .withAverageSize(finiteLength)
+                            } else {
+                                timed.copy(sizeBytes = null, sizeAccuracy = null)
+                            }
+                        } else {
+                            timed
+                        }
+                    }
                     success(
                         candidate = candidate,
                         // A video quality with its sound apart is merged with it.
                         variants = if (kind == MediaKind.HLS) {
-                            HlsAudioPairing.pair(sized)
+                            HlsAudioPairing.pair(sized).map { variant ->
+                                // A master's combined average includes separate sound. When this
+                                // row cannot pair that sound, it describes a different download.
+                                if (variant.id in parsed.statedAverages &&
+                                    variant.audioGroupId != null &&
+                                    variant.trackType == MediaTrackType.VIDEO &&
+                                    variant.audioCompanion == null
+                                ) {
+                                    variant.copy(sizeBytes = null, sizeAccuracy = null)
+                                } else {
+                                    variant
+                                }
+                            }
                         } else {
                             sized
                         },
@@ -470,6 +531,113 @@ class DefaultVariantResolver(
                 }
             }
         }
+    }
+
+    /**
+     * Read at most a few quality playlists within one shared deadline. A failed, unfinished,
+     * unexamined or durationless playlist gets no estimate. Requests use the usual origin rules.
+     *
+     * The loop decides as if it read one playlist at a time, in order. [PlaylistReadAhead] starts
+     * the reads the loop is sure to make, up to [PLAYLIST_READS_AT_ONCE] at once, so the same
+     * requests give the same estimates sooner. [trace] ends as the loop's last read left it.
+     */
+    private suspend fun finiteAverageLengths(
+        candidate: MediaCandidate,
+        masterUrl: HttpUrl,
+        variants: List<MediaVariant>,
+        averages: Set<String>,
+        trace: Trace,
+    ): Map<String, Long> = withContext(Dispatchers.IO) {
+        val lengths = mutableMapOf<String, Long>()
+        val seen = mutableMapOf<String, Long?>()
+        val audioByGroup = variants.filter {
+            it.trackType == MediaTrackType.AUDIO && it.audioGroupId != null
+        }.groupBy { it.audioGroupId }.mapValues { it.value.first() }
+        val qualities = variants.filter { it.id in averages && it.isPreviewable }
+        val addresses = (qualities + audioByGroup.values).mapNotNull { variant ->
+            variant.playbackUrl.toSafeHttpUrl()?.let { variant.id to it }
+        }.toMap()
+        val plan = PlaylistReadAhead(
+            qualities = qualities.filter { it.id in addresses }.map { quality ->
+                val sound = quality.audioGroupId?.let { audioByGroup[it] }
+                PlaylistReadAhead.Quality(quality.id, sound?.id?.takeIf { it in addresses })
+            },
+            budget = MAX_AVERAGE_PLAYLISTS,
+        )
+        // Only this coroutine changes these; a read only writes its own trace and answer.
+        val reads = mutableMapOf<String, Deferred<Long?>>()
+        val traces = mutableMapOf<String, Trace>()
+        val answered = ConcurrentHashMap<String, Boolean>()
+        val permits = Semaphore(PLAYLIST_READS_AT_ONCE)
+        var requests = 0
+        var last: String? = null
+        withTimeoutOrNull(PLAYLIST_TIMEOUT_MS) {
+            coroutineScope {
+                fun read(id: String): Deferred<Long?> = reads.getOrPut(id) {
+                    val own = Trace(masterUrl.host).also { traces[id] = it }
+                    // Undispatched: reads queue for a slot in the loop's order.
+                    async(start = CoroutineStart.UNDISPATCHED) {
+                        permits.withPermit {
+                            try {
+                                readPlaylistLength(
+                                    candidate,
+                                    masterUrl,
+                                    addresses.getValue(id),
+                                    own,
+                                    requireFinished = true,
+                                )
+                            } catch (cancellation: CancellationException) {
+                                throw cancellation
+                            } catch (_: IOException) {
+                                null
+                            } catch (_: IllegalArgumentException) {
+                                null
+                            }
+                        }.also { answered[id] = it != null }
+                    }
+                }
+
+                suspend fun finite(variant: MediaVariant): Long? {
+                    if (seen.containsKey(variant.id)) return seen[variant.id]
+                    if (requests >= MAX_AVERAGE_PLAYLISTS) return null
+                    if (variant.id !in addresses) return null
+                    requests += 1
+                    last = variant.id
+                    plan.sure(answered).forEach { id ->
+                        if (id !in reads && reads.size < MAX_AVERAGE_PLAYLISTS) read(id)
+                    }
+                    val length = read(variant.id).await()
+                    seen[variant.id] = length
+                    return length
+                }
+
+                for (variant in qualities) {
+                    val length = finite(variant) ?: continue
+                    val audioGroup = variant.audioGroupId
+                    if (audioGroup != null) {
+                        val audio = audioByGroup[audioGroup] ?: continue
+                        val audioLength = finite(audio) ?: continue
+                        // A completed AAC track can end a few milliseconds after its picture due
+                        // to frame boundaries. Keep the tolerance both absolutely and relatively
+                        // small; a meaningfully different or incomplete recording stays unknown.
+                        val difference = maxOf(audioLength, length) - minOf(audioLength, length)
+                        if (difference > MAX_PAIRED_LENGTH_DIFFERENCE_MS ||
+                            difference > minOf(audioLength, length) / PAIRED_LENGTH_RATIO
+                        ) continue
+                    }
+                    lengths[variant.id] = length
+                }
+                // A read the loop did not make is not waited for (none is expected).
+                reads.filterKeys { it !in seen }.values.forEach { it.cancel() }
+            }
+        }
+        last?.let(traces::get)?.takeIf { it.request != null }?.let { read ->
+            trace.host = read.host
+            trace.step = read.step
+            trace.request = read.request
+            trace.browserStatus = read.browserStatus
+        }
+        lengths
     }
 
     /**
@@ -507,6 +675,7 @@ class DefaultVariantResolver(
         masterUrl: HttpUrl,
         playlistUrl: HttpUrl,
         trace: Trace,
+        requireFinished: Boolean = false,
     ): Long? {
         val execution = execute(
             candidate = candidate,
@@ -519,11 +688,20 @@ class DefaultVariantResolver(
         ) as? HttpExecution.Completed ?: return null
         val text = execution.response.use { response ->
             if (response.code !in SUCCESS_CODES) return null
-            val bytes = response.body?.byteStream()?.readAtMost(policy.maxManifestBytes + 1)
+            val limit = if (requireFinished) {
+                minOf(policy.maxManifestBytes, MAX_AVERAGE_PLAYLIST_BYTES)
+            } else {
+                policy.maxManifestBytes
+            }
+            val bytes = response.body?.byteStream()?.readAtMost(limit + 1)
                 ?: return null
-            if (bytes.size > policy.maxManifestBytes) return null
+            if (bytes.size > limit) return null
             bytes.toString(Charsets.UTF_8)
         }
+        if (requireFinished && text.lineSequence().none {
+                it.trim().equals("#EXT-X-ENDLIST", ignoreCase = true)
+            }
+        ) return null
         val parsed = HlsManifestParser.parse(
             manifest = text,
             manifestUrl = execution.finalUrl.toString(),
@@ -533,15 +711,25 @@ class DefaultVariantResolver(
         return parsed.durationMillis?.takeIf { it > 0 }
     }
 
-    /** A quality of a video of [length] states it, and its size from its bitrate. */
+    /**
+     * A quality of a video of [length] takes that length when it states none. Its size stays the
+     * size its manifest states: a bitrate times a length is not a size, and a row the source states
+     * no size for says "Size unknown" rather than a number the file may not have.
+     */
     private fun MediaVariant.withLength(length: Long?): MediaVariant {
         if (length == null || length <= 0) return this
-        val estimate = if (sizeBytes == null) estimateSize(bitrateBitsPerSecond, length) else null
-        return copy(
-            durationMillis = durationMillis ?: length,
-            sizeBytes = sizeBytes ?: estimate?.bytes,
-            sizeAccuracy = sizeAccuracy ?: estimate?.accuracy,
-        )
+        return copy(durationMillis = durationMillis ?: length)
+    }
+
+    /**
+     * The size of a quality whose manifest states the stream's average rate
+     * ([ManifestParseResult.Parsed.statedAverages]) and a length: average times length, shown with
+     * "~". A quality whose rate is a peak keeps no size.
+     */
+    private fun MediaVariant.withAverageSize(length: Long?): MediaVariant {
+        if (sizeBytes != null) return this
+        val estimate = estimateSize(bitrateBitsPerSecond, length ?: durationMillis)
+        return copy(sizeBytes = estimate.bytes, sizeAccuracy = estimate.accuracy)
     }
 
     /**
@@ -900,10 +1088,32 @@ class DefaultVariantResolver(
         const val REFERER = "Referer"
         const val HTTPS_PORT = 443
         const val PLAYLIST_TIMEOUT_MS = 5_000L
+        const val MAX_PAIRED_LENGTH_DIFFERENCE_MS = 50L
+        const val PAIRED_LENGTH_RATIO = 1_000L
+        const val MAX_AVERAGE_PLAYLISTS = 6
+        const val PLAYLIST_READS_AT_ONCE = 3
+        const val MAX_AVERAGE_PLAYLIST_BYTES = 256 * 1_024
         const val HTTP_OK = 200
         const val HTTP_PARTIAL_CONTENT = 206
         const val PROBE_TIMEOUT_MS = 8_000L
-        val PROBED_VIDEO_MIME_TYPES = setOf("video/mp4", "video/quicktime", "video/x-m4v")
+        val PROBED_VIDEO_MIME_TYPES = setOf(
+            "video/mp4",
+            "video/quicktime",
+            "video/x-m4v",
+            "video/webm",
+            "video/x-matroska",
+        )
+
+        /** The reads a header probe makes, with the start of the file already in hand. */
+        private class FirstRead(
+            private val first: ByteArray,
+            private val reader: RangeReader,
+        ) : RangeReader {
+            override suspend fun read(offset: Long, length: Int): ByteArray? = when {
+                offset == 0L && length <= first.size -> first.copyOf(length)
+                else -> reader.read(offset, length)
+            }
+        }
         const val AUDIO_PREFIX = "audio/"
         const val VIDEO_PREFIX = "video/"
         const val BUFFER_SIZE = 8_192

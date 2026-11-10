@@ -180,6 +180,31 @@ class VkUrlsTest {
     }
 
     @Test
+    fun `path d's files may sit on vk's api servers too`() {
+        listOf(
+            // The host the census found the clips' files on.
+            "https://vk6-13.vkuser.net/mp4_240/FIXTURE?expires=1",
+            "https://vk6-4.vkuser.net/hls/FIXTURE/index.m3u8",
+            "https://vkvd741.okcdn.ru/mp4_720/FIXTURE",
+        ).forEach {
+            assertTrue(it, VkUrls.isApiMediaFileUrl(it))
+            assertTrue(it, VkUrls.isApiPlayerMediaUrl(it))
+        }
+
+        listOf(
+            "https://vkuser.net/mp4_240/FIXTURE",
+            "https://vk13.vkuser.net/mp4_240/FIXTURE",
+            "https://vk6-13.vkuser.net.example.org/mp4_240/FIXTURE",
+            "http://vk6-13.vkuser.net/mp4_240/FIXTURE",
+            "https://iv.okcdn.ru/FIXTURE?id=1",
+        ).forEach { assertFalse(it.take(120), VkUrls.isApiMediaFileUrl(it)) }
+
+        // The browser's and the embed's own rule never takes the API's host.
+        assertFalse(VkUrls.isPlayerMediaUrl("https://vk6-13.vkuser.net/mp4_240/FIXTURE"))
+        assertFalse(VkUrls.isMediaFileUrl("https://vk6-13.vkuser.net/mp4_240/FIXTURE"))
+    }
+
+    @Test
     fun `the browser's media check knows vk's video servers only`() {
         val extractor = VkExtractor(FakeExtractorHttpClient())
 

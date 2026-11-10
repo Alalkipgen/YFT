@@ -39,6 +39,7 @@ import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -98,6 +99,109 @@ class DirectTransferEngineTest {
             assertNotNull(request.getHeader("Range"))
             assertEquals(ETAG, request.getHeader("If-Range"))
         }
+    }
+
+    @Test
+    fun `an unquoted server entity-tag is sent quoted so its ranges are kept`() = runTest {
+        // Wikimedia Commons' upload hosts state their ETag unquoted, and a server that cannot read
+        // an If-Range value as an entity-tag answers the whole file (200): on the owner's phone a
+        // 300 MB download went back to the start. Quoted, the same request is answered 206.
+        val content = fixtureBytes(257)
+        val unquoted = "54c147500b0dfbab8baa25ff5f52dca4"
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                if (request.getHeader("If-Range") != "\"$unquoted\"") {
+                    return MockResponse()
+                        .setResponseCode(200)
+                        .setHeader("Content-Type", "application/octet-stream")
+                        .setHeader("ETag", unquoted)
+                        .setBody(Buffer().write(content))
+                }
+                val match = RANGE.matchEntire(requireNotNull(request.getHeader("Range")))!!
+                val start = match.groupValues[1].toInt()
+                val end = match.groupValues[2].toInt()
+                return MockResponse()
+                    .setResponseCode(206)
+                    .setHeader("Content-Range", "bytes $start-$end/${content.size}")
+                    .setHeader("Content-Type", "application/octet-stream")
+                    .setHeader("ETag", unquoted)
+                    .setBody(Buffer().write(content.copyOfRange(start, end + 1)))
+            }
+        }
+        val files = files("unquoted.bin")
+        val url = server.url("/unquoted.bin").toString()
+
+        val result = engine.transfer(
+            plan = plan(url, content.size.toLong()),
+            metadata = metadata(url, content.size.toLong(), supportsRanges = true)
+                .copy(entityTag = unquoted),
+            destination = files.destination,
+        ) as DirectTransferResult.Completed
+
+        assertEquals(content.size.toLong(), result.bytesWritten)
+        assertArrayEquals(content, files.completed.readBytes())
+        // Every request kept its range: no byte the segments wrote was thrown away.
+        repeat(server.requestCount) { assertNotNull(server.takeRequest().getHeader("Range")) }
+    }
+
+    @Test
+    fun `a range the server ignored is asked again without If-Range and keeps its bytes`() = runTest {
+        val content = fixtureBytes(257)
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                if (request.getHeader("If-Range") != null) {
+                    return MockResponse()
+                        .setResponseCode(200)
+                        .setHeader("Content-Type", "application/octet-stream")
+                        .setHeader("ETag", ETAG)
+                        .setBody(Buffer().write(content))
+                }
+                val match = RANGE.matchEntire(requireNotNull(request.getHeader("Range")))!!
+                val start = match.groupValues[1].toInt()
+                val end = match.groupValues[2].toInt()
+                return MockResponse()
+                    .setResponseCode(206)
+                    .setHeader("Content-Range", "bytes $start-$end/${content.size}")
+                    .setHeader("Content-Type", "application/octet-stream")
+                    .setHeader("ETag", ETAG)
+                    .setBody(Buffer().write(content.copyOfRange(start, end + 1)))
+            }
+        }
+        val files = files("ifrange-ignored.bin")
+
+        val result = engine.transfer(
+            plan = plan(server.url("/ifrange-ignored.bin").toString(), content.size.toLong()),
+            metadata = metadata(
+                server.url("/ifrange-ignored.bin").toString(),
+                content.size.toLong(),
+                supportsRanges = true,
+            ),
+            destination = files.destination,
+        ) as DirectTransferResult.Completed
+
+        assertEquals(content.size.toLong(), result.bytesWritten)
+        assertArrayEquals(content, files.completed.readBytes())
+        val requests = List(server.requestCount) { server.takeRequest() }
+        // Ranges were given up on only for the validator, never for the bytes: every request asked
+        // for a range, and the ones without If-Range came back 206.
+        assertTrue(requests.all { it.getHeader("Range") != null })
+        assertTrue(requests.any { it.getHeader("If-Range") == null })
+    }
+
+    @Test
+    fun `the If-Range validator is a quoted strong tag or an HTTP-date`() {
+        val unquoted = "54c147500b0dfbab8baa25ff5f52dca4"
+        assertEquals("\"$unquoted\"", ifRangeValidator(unquoted, null))
+        assertEquals("\"fixture-v1\"", ifRangeValidator(ETAG, null))
+        // A weak validator may not guard a range: the date is used instead.
+        assertEquals(
+            "Sat, 03 Oct 2020 18:30:53 GMT",
+            ifRangeValidator("W/\"weak-v1\"", "Sat, 03 Oct 2020 18:30:53 GMT"),
+        )
+        // A value that cannot be an entity-tag, and no date: no If-Range at all.
+        assertNull(ifRangeValidator("bad\"tag", null))
+        assertNull(ifRangeValidator(null, "3 October 2020"))
+        assertNull(ifRangeValidator(null, null))
     }
 
     @Test

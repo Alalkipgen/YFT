@@ -80,8 +80,8 @@ class FreshLinksTest {
     }
 
     @Test
-    fun thePlayersVideoOfTheSameLengthIsTriedAndAnAdOrATriedLinkNever() {
-        val failed = group(candidate(scriptLink, CandidateSource.DOM, durationMillis = 600_000))
+    fun afterAnAdThePlayersVideoOfThePagesLengthIsTriedAndAnAdOrATriedLinkNever() {
+        val first = group(candidate(scriptLink, CandidateSource.DOM, durationMillis = 15_000))
         val ad = MediaGroup(
             "ad",
             null,
@@ -125,16 +125,51 @@ class FreshLinksTest {
             ),
         )
 
-        val chosen = FreshLinks.playerVideo(
-            failed,
+        val chosen = FreshLinks.playerVideoAfterAd(
+            first,
             listOf(ad, preview, tried, video),
             tried = setOf("https://cdn.example.test/dead.mp4"),
+            facts = PageVideoFacts(600_000, "Harbour"),
         )
 
         assertEquals(
             listOf("https://cdn.example.test/v5/full.mp4"),
             chosen?.candidates?.map { it.mediaUrl },
         )
+    }
+
+    @Test
+    fun aLiveCameraAskedForLastIsNotThePlayersVideoAfterAnAd() {
+        // Live stream set aside: on a page with a camera strip, the camera's playlist is asked
+        // for every few seconds, after the page's own video; it has no end and no length.
+        val ad = group(candidate("https://ads.example.test/clip.mp4", CandidateSource.REQUEST, 1))
+        val main = MediaGroup(
+            "main",
+            null,
+            listOf(
+                candidate("https://cdn.example.test/v5/index.m3u8", CandidateSource.REQUEST, 20)
+                    .copy(kind = MediaKind.HLS),
+            ),
+        )
+        val camera = MediaGroup(
+            "camera",
+            null,
+            listOf(
+                candidate("https://cams.example.test/c1/chunklist.m3u8", CandidateSource.REQUEST, 90)
+                    .copy(
+                        kind = MediaKind.HLS,
+                        streamPieces = StreamPieces.of(
+                            live = true,
+                            listOf("https://cams.example.test/c1/p41.ts"),
+                        ),
+                    ),
+            ),
+        )
+
+        val chosen = FreshLinks.playerVideoAfterAd(ad, listOf(camera, main), emptySet())
+
+        assertEquals("main", chosen?.key)
+        assertNull(FreshLinks.playerVideoAfterAd(ad, listOf(camera), emptySet()))
     }
 
     @Test
@@ -145,7 +180,7 @@ class FreshLinksTest {
             null,
             listOf(candidate("https://cdn.example.test/o.mp4", CandidateSource.DOM)),
         )
-        assertNull(FreshLinks.playerVideo(failed, listOf(other), emptySet()))
+        assertNull(FreshLinks.playerVideoAfterAd(failed, listOf(other), emptySet()))
     }
 
     @Test

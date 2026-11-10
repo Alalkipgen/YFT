@@ -172,13 +172,14 @@ internal fun mergeStageLabel(stage: DownloadStage, destination: DownloadDestinat
 
 /**
  * "61 of 96 MB", or "800 KB of 96 MB" when the units differ; an [estimated] total has a "~"
- * before it: "205 of ~236 MB".
+ * before it and says so: "205 of ~236 MB (estimated)".
  */
 internal fun amountOf(downloaded: Long, total: Long, estimated: Boolean = false): String {
     val done = YftFormat.bytes(downloaded)
     val all = YftFormat.bytes(total).let { if (estimated) "~$it" else it }
     val sameUnit = done.substringAfter(' ') == all.substringAfter(' ')
-    return if (sameUnit) "${done.substringBefore(' ')} of $all" else "$done of $all"
+    val amount = if (sameUnit) "${done.substringBefore(' ')} of $all" else "$done of $all"
+    return if (estimated) "$amount (estimated)" else amount
 }
 
 /**

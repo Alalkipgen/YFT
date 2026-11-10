@@ -1,5 +1,7 @@
 package com.alal.yft.feature.quickdownload
 
+import com.alal.yft.core.download.EndedLiveSizes
+import com.alal.yft.core.download.FinishedStreamSizes
 import com.alal.yft.core.model.media.AudioFromVideo
 import com.alal.yft.core.model.media.MediaAsset
 import com.alal.yft.core.model.media.MediaCandidate
@@ -9,7 +11,6 @@ import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.Mp3Variants
-import com.alal.yft.core.model.media.PlausibleSize
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.settings.QualityPreference
@@ -57,6 +58,11 @@ data class SheetOption(
     val rankHeight: Int? = null,
     /** The line under the title, "Clear view and quick play" or "Plays everywhere". */
     val description: String? = null,
+    /**
+     * Ended live size sample and Finished stream size sample: true while the row's pieces are
+     * being read for its size; the row says "Estimating size…" instead of "Size unknown".
+     */
+    val sizePending: Boolean = false,
 )
 
 /**
@@ -116,6 +122,12 @@ object QuickDownloadChoices {
 
     /** Merge: on a 2K or 4K row whose picture this phone has no decoder for. */
     const val MAY_NOT_PLAY = "May not play on this phone"
+
+    /**
+     * Ended live size sample and Finished stream size sample: on a row whose "~" size was read
+     * from a sample of its pieces.
+     */
+    const val ROUGH_ESTIMATE = "Rough estimate"
 
     fun of(
         group: MediaGroup,
@@ -282,6 +294,108 @@ object QuickDownloadChoices {
         )
     }
 
+    /**
+     * Ended live size sample: the files of the rows that state no size and are all a live
+     * broadcast's ([EndedLiveSizes.isLiveFile]): a video and its sound, or an M4A. A row made on
+     * the phone (MP3, the video's own sound) has no file of its own.
+     */
+    fun endedLiveTracks(choices: QuickChoices): List<EndedLiveSizes.Track> =
+        sampledTracks(choices, SampledFiles.ENDED_LIVE)
+
+    /**
+     * Finished stream size sample: the playlists of the HLS rows that state no size (the master
+     * states `BANDWIDTH` only), a quality's and its separate sound's. Whether a playlist is
+     * finished is read by the sample; a live one keeps "Size unknown".
+     */
+    fun finishedStreamTracks(choices: QuickChoices): List<EndedLiveSizes.Track> =
+        sampledTracks(choices, SampledFiles.FINISHED_STREAM)
+
+    private fun sampledTracks(
+        choices: QuickChoices,
+        kind: SampledFiles,
+    ): List<EndedLiveSizes.Track> =
+        choices.options.filter { it.size == null || ROUGH_ESTIMATE in it.chips }
+            .mapNotNull { option -> sampledFilesOf(option)?.takeIf { it.first == kind }?.second }
+            .flatten()
+            .distinctBy { it.url }
+
+    /**
+     * Ended live size sample and Finished stream size sample: each row whose files all have a
+     * sampled size states their sum, "~63 MB" with [ROUGH_ESTIMATE]: a video with its sound
+     * counts each once. A row whose files are still being read ([sampling]) is
+     * [SheetOption.sizePending]. Rows with a size of their own, and the variant a download gets,
+     * are left as they are.
+     */
+    fun withSampledSizes(
+        choices: QuickChoices,
+        sizes: Map<String, EndedLiveSizes.Size>,
+        sampling: Set<String>,
+    ): QuickChoices {
+        fun update(option: SheetOption): SheetOption {
+            val ours = ROUGH_ESTIMATE in option.chips
+            if (option.size != null && !ours) return option.copy(sizePending = false)
+            val files = sampledFilesOf(option)?.second ?: return option.copy(sizePending = false)
+            val sampled = files.map { sizes[it.url] }
+            if (sampled.all { it != null }) {
+                val bytes = sampled.sumOf { it!!.bytes }
+                return option.copy(
+                    size = "~${YftFormat.bytes(bytes)}",
+                    chips = option.chips.filterNot { it == ROUGH_ESTIMATE } + ROUGH_ESTIMATE,
+                    sizePending = false,
+                )
+            }
+            return option.copy(
+                size = if (ours) null else option.size,
+                chips = option.chips.filterNot { it == ROUGH_ESTIMATE },
+                sizePending = files.any { it.url in sampling },
+            )
+        }
+        return choices.copy(
+            audio = choices.audio.map(::update),
+            video = choices.video.map(::update),
+        )
+    }
+
+    /** Which sample sizes a row's files. */
+    private enum class SampledFiles { ENDED_LIVE, FINISHED_STREAM }
+
+    /**
+     * A row's own files, the video's before its sound's, and the sample that sizes them: a live
+     * broadcast's files ([EndedLiveSizes.isLiveFile]), or an HLS quality's playlists
+     * ([FinishedStreamSizes.isPlaylist]); null for anything else.
+     */
+    private fun sampledFilesOf(
+        option: SheetOption,
+    ): Pair<SampledFiles, List<EndedLiveSizes.Track>>? {
+        val variant = option.variant
+        if (variant.mp3 != null || variant.audioFromVideo) return null
+        val sound = option.section == OptionSection.AUDIO ||
+            variant.trackType == MediaTrackType.AUDIO
+        val own = EndedLiveSizes.Track(
+            url = variant.playbackUrl,
+            requestContext = variant.requestContext,
+            sound = sound,
+            bitrateBitsPerSecond = variant.bitrateBitsPerSecond,
+            mimeType = variant.mimeType,
+        )
+        val companion = variant.audioCompanion?.let { audio ->
+            EndedLiveSizes.Track(
+                url = audio.mediaUrl,
+                requestContext = audio.requestContext,
+                sound = true,
+                bitrateBitsPerSecond = audio.bitrateBitsPerSecond,
+                mimeType = audio.mimeType,
+            )
+        }
+        val files = listOfNotNull(own, companion)
+        if (files.all { file -> EndedLiveSizes.isLiveFile(file.url) }) {
+            return SampledFiles.ENDED_LIVE to files
+        }
+        val playlists = variant.kind == MediaKind.HLS &&
+            (companion == null || FinishedStreamSizes.isPlaylist(companion.mimeType))
+        return if (playlists) SampledFiles.FINISHED_STREAM to files else null
+    }
+
     /** The standard height for a picture of [width] × [height]: nearest to its short side. */
     fun standardHeight(width: Int?, height: Int): Int =
         YftQualityNames.standardHeight(width, height)
@@ -304,24 +418,14 @@ object QuickDownloadChoices {
     }
 
     /**
-     * The stated size, else an estimate from the bitrate and the length ("~54 MB", a merge's sound
-     * included), else null for "Size unknown"; a row never disappears for it. A stated size too
-     * small for the length counts as not stated ([PlausibleSize]).
+     * The size the source states, else null for "Size unknown"; a row never disappears for it.
+     * A guess from the bitrate and the length is not shown here: a number the file may not have
+     * would read as its size. A stated size too small for the length counts as not stated
+     * ([MediaVariant.sizeText]).
      */
     private fun sizeOf(variant: MediaVariant, length: Long?): String? {
         val duration = variant.durationMillis?.takeIf { it > 0 } ?: length
-        variant.sizeText(duration)?.let { return it }
-        val picture = YftQualityNames.estimatedBytes(variant.bitrateBitsPerSecond, duration)
-            ?: return null
-        val companion = variant.audioCompanion
-        val sound = when {
-            companion == null -> 0L
-            else -> PlausibleSize.of(companion.contentLengthBytes, duration)
-                ?: YftQualityNames.estimatedBytes(companion.bitrateBitsPerSecond, duration)
-                ?: return null
-        }
-        if (picture > Long.MAX_VALUE - sound) return null
-        return "~${YftFormat.bytes(picture + sound)}"
+        return variant.sizeText(duration)
     }
 
     private fun withSound(options: List<SheetOption>): SheetOption =

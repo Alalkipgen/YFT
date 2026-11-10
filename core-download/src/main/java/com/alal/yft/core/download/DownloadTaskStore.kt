@@ -59,6 +59,12 @@ data class StoredDownloadTask(
      * stream that has ended. In memory only: it is not saved, and null when there is none.
      */
     val estimatedTotalBytes: Long? = null,
+    /**
+     * Where the download came from, as the app wrote it: its page and the facts that name the
+     * same file there, so a download the app closed can get a fresh link. The store keeps the
+     * text as it is and never reads it; null when the app had nothing to save.
+     */
+    val renewalSource: String? = null,
 ) {
     init {
         require(id.isNotBlank())
@@ -110,6 +116,8 @@ data class StoredDownloadTask(
         append(failureReason)
         append(", failureStage=")
         append(failure?.stage)
+        append(", renewalSourcePresent=")
+        append(!renewalSource.isNullOrBlank())
         append(')')
     }
 }
@@ -185,6 +193,7 @@ class RoomDownloadTaskStore(
             createdAtEpochMs = record.createdAtEpochMs,
             updatedAtEpochMs = record.updatedAtEpochMs,
             failure = FailureDetailCodec.decode(failureReason, record.lastErrorDetail),
+            renewalSource = record.renewalSourcePayload?.takeIf(String::isNotBlank),
         )
     }
 
@@ -255,6 +264,7 @@ class RoomDownloadTaskStore(
             lastErrorDetail = FailureDetailCodec.encode(
                 failure?.takeIf { it.reason == failureReason },
             ),
+            renewalSourcePayload = renewalSource,
         )
     }
 

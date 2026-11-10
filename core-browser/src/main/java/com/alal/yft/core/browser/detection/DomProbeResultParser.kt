@@ -47,7 +47,17 @@ class DomProbeResultParser(
                 // An Open Graph or Twitter stream that is a media file is the page's video.
                 val named = item.optNullableString("element") == "meta" &&
                     candidate.kind != MediaKind.UNKNOWN && candidate.pageRole == null
-                add(if (named) candidate.copy(pageRole = PageMediaRole.MAIN) else candidate)
+                // The page's own picture and player group for this file: a `<source>` names its
+                // quality in `data-width`/`data-height`, and the files of one element are that
+                // element's alternatives — one video, listed as its qualities.
+                add(
+                    candidate.copy(
+                        pageRole = if (named) PageMediaRole.MAIN else candidate.pageRole,
+                        width = item.optInt("width").takeIf { it > 0 } ?: candidate.width,
+                        height = item.optInt("height").takeIf { it > 0 } ?: candidate.height,
+                        pageVideoKey = item.optNullableString("group") ?: candidate.pageVideoKey,
+                    ),
+                )
             }
         }
     }

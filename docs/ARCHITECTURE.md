@@ -77,13 +77,20 @@ checked by the toolkit drift check.
    - Any other page: the page video finder reads the page's own video (tags, scripts, manifests,
      the playing video) and the ad filter drops ads.
    - In the browser, `core-browser` watches the page and keeps candidates per page (at most 200 raw
-     observations; metadata probes for at most 20 different addresses per page).
+     observations; metadata probes for at most 20 different addresses per page). The Stream piece
+     filter (`StreamPieces`, `PageCandidateStore`) keeps the pieces a read HLS playlist names out
+     of that list and out of the probes; when the list is full, pieces go first. A playlist with
+     no end moves under "Other videos on this page" while the page has another video.
 3. **Master may answer** if main fails or fill a weak answer (see "Main and Master").
 4. **The Download sheet** shows the qualities. The row check tests a row's first bytes before it is
    shown. The user picks a row; Lookup details shows how the rows were found.
+   When a site's answer identifies several post video items, All items lets the user select and
+   queue them in post order at the default quality. Each becomes its own download; photos are not
+   downloaded. Items without a usable video row are not offered.
 5. **The download queue** plans and runs the download in the foreground service: direct, DASH, HLS
    or live. Separate video and sound tracks are merged (fast merge for long videos). Sound can be
-   turned into MP3. An expired link gets a fresh link and resumes.
+   turned into MP3. An expired link gets a fresh link of the same file and resumes; the Same-file
+   check (`SameFile` in core-model) decides from addresses whether a fresh link is that file.
 6. **The file is saved** to the save folder (MediaStore or a folder the user chose) and shows in
    Downloads and the Library.
 
@@ -173,6 +180,37 @@ tracks, resolution, frame rate, codec and bitrate; sizes it cannot know stay unk
 as estimates. A video-only stream with a separate sound track plays as a merged pair. The preview
 player is created lazily and released with its screen.
 
+An HLS average-rate estimate needs that quality's finished playlist and duration. Separate sound
+also needs a finished playlist within 50 ms and 0.1% of the picture. If the sound cannot be paired,
+the combined-rate estimate is not shown on the silent row. The resolver attempts at most six playlist
+lookups under a shared five-second coroutine timeout, reading up to 256 KiB plus one byte from each
+response. Blocking response-body reads can outlast that timeout; redirects and browser retries may
+add requests, and a browser retry uses the general manifest limit. Unknown or unfinished cases stay
+unknown. It does not sample or download HLS media pieces to estimate a size. Playlist read-ahead
+(`PlaylistReadAhead`) reads up to three of those playlists at once. It starts a read early only when
+the one-at-a-time loop is sure to make it whatever the open reads answer, so the playlists read and
+the estimates match reading in order. Browser retries can then arrive together; the WebView reader
+takes them one at a time.
+
+A recently ended YouTube live states no sizes. The Ended live size sample (`EndedLiveSampler` in
+core-download, run by the sheet's view model) reads the first 8 KB of a spread sample of each
+MP4 quality's pieces: piece 0 names the newest piece, 64 pieces size the lightest video, 24 of
+the same pieces size each other video against it and 4 size each sound. A piece counts only when
+its boxes (one `moof` whose samples fill its `mdat`) and its `Content-Range` agree on its length.
+It reads 6 at a time with the row's request context, stops at 400 asks, 5 MB, a 403 or 429, or a
+server that ignores the range, and logs one line without addresses. Rows show "~X MB" with
+"Rough estimate"; the download's variant and space check are not changed.
+
+An HLS master that states only `BANDWIDTH` (a peak) gives its qualities no size. The Finished
+stream size sample (`FinishedStreamSampler` in core-download, run by the same view model for the
+HLS rows `QuickDownloadChoices.finishedStreamTracks` names) reads each quality's playlist with
+the download's own parser (`HlsDownloadManifestParser`: finished, no key), then asks 48 pieces,
+the middle one of each equal stretch, for one byte and takes their lengths from `Content-Range`.
+A playlist whose pieces all state byte ranges is added up without asks. A file's size is its
+start pieces plus the mean piece times the piece count. It shares the 6-at-a-time gate across
+files, stops at 400 asks, 8 MB, a 403 or 429, or a server that ignores the range, and gives no
+size when under half of the asks were read or the spread is too wide.
+
 ## Downloads
 
 - The download queue runs transfers in a foreground service with a notification. Room keeps task
@@ -181,6 +219,8 @@ player is created lazily and released with its screen.
 - Direct files download in resumable ranges. DASH and HLS download the chosen tracks' pieces. A
   video-only file with a sound file is planned as a merge of two tracks, each cut into resumable
   chunks of at most 10 MiB.
+- HLS keeps a bounded pool of piece downloads. Each finished piece is synced and checkpointed;
+  the pieces are assembled in playlist order, not in the order they finish.
 - Requests to `googlevideo.com` are kept small, because larger single requests slow down.
 - Merge uses Android's media APIs; long videos use fast merge (stream copy, no re-encode). There is
   no FFmpeg.

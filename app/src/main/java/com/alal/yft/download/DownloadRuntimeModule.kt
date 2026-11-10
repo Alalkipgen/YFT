@@ -21,14 +21,19 @@ import com.alal.yft.core.download.DownloadQueue
 import com.alal.yft.core.download.DownloadTaskStore
 import com.alal.yft.core.download.DownloadTransferDispatcher
 import com.alal.yft.core.download.DownloadWorkspaces
+import com.alal.yft.core.download.EndedLiveSampler
+import com.alal.yft.core.download.EndedLiveSizes
+import com.alal.yft.core.download.FinishedStreamSampler
+import com.alal.yft.core.download.FinishedStreamSizes
 import com.alal.yft.core.download.HlsTransferEngine
 import com.alal.yft.core.download.HlsTransferRunner
 import com.alal.yft.core.download.LocalAudioVideoMuxer
-import com.alal.yft.core.download.PlaylistTrackTransferRunner
 import com.alal.yft.core.download.LocalMp3Transcoder
 import com.alal.yft.core.download.Mp3ConvertingTransferDispatcher
+import com.alal.yft.core.download.PlaylistTrackTransferRunner
 import com.alal.yft.core.download.RoomDownloadTaskStore
 import com.alal.yft.core.media.resolver.VariantResolver
+import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.media.BrowserReads
 import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.detection.Av1MergeSwitch
@@ -55,6 +60,7 @@ import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
@@ -62,6 +68,15 @@ import okhttp3.OkHttpClient
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class DownloadApplicationScope
+
+/**
+ * Fresh link renewal: a download in one of these states needs no source read back from its record;
+ * one that was never tried, failed or needs a fresh link does, so its row can renew it.
+ */
+private val NOT_RESTORED = setOf(
+    DownloadTaskStatus.COMPLETED,
+    DownloadTaskStatus.CANCELLED,
+)
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -109,6 +124,17 @@ object DownloadRuntimeModule {
         client = trial.around(client),
         workspaceRoot = File(context.noBackupFilesDir, DASH_WORKSPACE_DIRECTORY),
     )
+
+    /** Ended live size sample: the sheet's sizes for a recently ended live's rows. */
+    @Provides
+    @Singleton
+    fun provideEndedLiveSizes(client: OkHttpClient): EndedLiveSizes = EndedLiveSampler(client)
+
+    /** Finished stream size sample: the sheet's sizes for HLS rows stating no average rate. */
+    @Provides
+    @Singleton
+    fun provideFinishedStreamSizes(client: OkHttpClient): FinishedStreamSizes =
+        FinishedStreamSampler(client)
 
     @Provides
     @Singleton
@@ -216,6 +242,7 @@ object DownloadRuntimeModule {
         changes: NetworkChanges,
         browserPages: BrowserPageReader,
         client: OkHttpClient,
+        destinations: DownloadDestinationProvider,
     ): SiteLinkRenewal = SiteLinkRenewal(
         sources = sources,
         coordinator = { coordinator.get() },
@@ -223,6 +250,7 @@ object DownloadRuntimeModule {
         probe = probe,
         sessions = sessions,
         networkChanges = { changes.value },
+        destinations = destinations,
         pageReaders = PageReaders(
             browser = browserPages,
             home = TabPageReader(
@@ -250,8 +278,21 @@ object DownloadRuntimeModule {
         scope = scope,
         linkRenewal = renewal,
     ).also { queue ->
-        // A source goes when its download completes, is cancelled or removed.
-        scope.launch { queue.tasks.collect(sources::prune) }
+        // A source goes when its download completes, is cancelled or removed. Each source is also
+        // saved with its download's record, so a Retry after the app closed gets a fresh link of
+        // the same file and goes on from the bytes it kept; a source the app no longer holds takes
+        // its saved card with it (Clear browsing data, a finished download, a removed row).
+        scope.launch {
+            combine(queue.tasks, sources.renewals) { tasks, _ -> tasks }.collect { tasks ->
+                tasks.filter { it.status !in NOT_RESTORED && it.renewalSource != null }
+                    .forEach { task -> sources.restored(task.id, task.renewalSource!!) }
+                sources.prune(tasks)
+                tasks.forEach { task ->
+                    val card = sources.card(task.id)
+                    if (card != task.renewalSource) queue.setRenewalSource(task.id, card)
+                }
+            }
+        }
     }
 
     @Provides

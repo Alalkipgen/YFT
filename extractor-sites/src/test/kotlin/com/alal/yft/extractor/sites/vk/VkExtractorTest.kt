@@ -11,6 +11,7 @@ import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SiteExtractionRequest
 import com.alal.yft.extractor.api.SiteExtractionResult
 import com.alal.yft.extractor.api.SitePageIdentity
+import com.alal.yft.extractor.sites.vk.ScriptedVkHttp.Companion.json
 import com.alal.yft.extractor.sites.vk.ScriptedVkHttp.Companion.page
 import com.alal.yft.extractor.sites.vk.ScriptedVkHttp.Companion.status
 import com.alal.yft.extractor.sites.vk.ScriptedVkHttp.Companion.text
@@ -149,11 +150,15 @@ class VkExtractorTest {
     @Test
     fun `vkvideo_ru pages and home lookups send no cookie to either host`() = runTest {
         listOf("https://vkvideo.ru/video-50883936_456244102", null).forEach { pageUrl ->
-            val http = ScriptedVkHttp(embeds = mapOf(COM to shells(), RU to shells()))
+            val http = ScriptedVkHttp(
+                embeds = mapOf(COM to shells(), RU to shells()),
+                api = movedFiles(),
+            )
 
             extractor(http).extract(request(VIDEO_LINK, page = pageUrl, PAGE_COOKIE))
 
-            assertEquals("$pageUrl", 3, http.requests.size)
+            // Three embeds, then path D's token and video.get: no cookie on any of them.
+            assertEquals("$pageUrl", 5, http.requests.size)
             assertTrue("$pageUrl", http.requests.none { "Cookie" in it.headers })
         }
     }
@@ -187,19 +192,6 @@ class VkExtractorTest {
             extractor(second).extract(request(VIDEO_LINK)) is SiteExtractionResult.Success,
         )
         assertEquals(listOf(COM, COM), second.requests.map { it.host })
-    }
-
-    @Test
-    fun `shells on every try are a failure that lets the generic detector look`() = runTest {
-        val http = ScriptedVkHttp(embeds = mapOf(COM to shells(), RU to shells()))
-
-        val result = extractor(http).extract(request(VIDEO_LINK)) as SiteExtractionResult.Failure
-
-        assertEquals(SiteExtractionFailure.RESPONSE_CHANGED, result.reason)
-        assertTrue(result.allowsGenericFallback)
-        assertNull(result.message)
-        assertEquals(3, http.requests.size)
-        assertEquals(listOf(COM, COM, RU), http.requests.map { it.host })
     }
 
     @Test
@@ -552,6 +544,20 @@ class VkExtractorTest {
     )
 
     private fun shells() = listOf(page(VkFixtures.shell()))
+
+    /** Path D's token, and a `video.get` whose files sit on the host VK moved them to. */
+    private fun movedFiles(): Map<String, List<ExtractorHttpResult>> = mapOf(
+        TOKEN_HOST to listOf(json(VkApiPages.token())),
+        API_HOST to listOf(
+            json(
+                VkApiPages.videoGet(
+                    VkPages.item(
+                        files = "\"mp4_720\":\"https://vk6-13.vkuser.net/mp4_720/F?expires=$EXPIRES_MS\"",
+                    ),
+                ),
+            ),
+        ),
+    )
 
     private fun manifestsOnly(): String =
         VkPages.embed(VkPages.item(files = VkPages.files("hls", "dash_sep")))

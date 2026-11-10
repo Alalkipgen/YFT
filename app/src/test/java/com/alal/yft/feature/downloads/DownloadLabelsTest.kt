@@ -123,20 +123,23 @@ class DownloadLabelsTest {
     }
 
     @Test
-    fun anEstimatedTotalHasATildeAndTheSameRowFormat() {
-        assertEquals("205 of ~236 MB", amountOf(214_958_080, 247_463_936, estimated = true))
-        assertEquals("800 KB of ~1.2 MB", amountOf(819_200, 1_258_291, estimated = true))
+    fun anEstimatedTotalSaysSoAndKeepsTheRowFormat() {
+        assertEquals("205 of ~236 MB (estimated)", amountOf(214_958_080, 247_463_936, true))
+        assertEquals("800 KB of ~1.2 MB (estimated)", amountOf(819_200, 1_258_291, true))
         val running = row(
             DownloadTaskStatus.RUNNING,
             downloaded = 214_958_080,
             bytesPerSecond = 2_516_582,
         ).copy(estimatedTotalBytes = 247_463_936, progressPercent = 86)
 
-        assertEquals("205 of ~236 MB · 2.4 MB/s · 13 s left", progressDetail(running))
-        assertEquals("205 of ~236 MB · 13 s left", progressDetail(running, withSpeed = false))
+        assertEquals("205 of ~236 MB (estimated) · 2.4 MB/s · 13 s left", progressDetail(running))
+        assertEquals(
+            "205 of ~236 MB (estimated) · 13 s left",
+            progressDetail(running, withSpeed = false),
+        )
         assertEquals("86%", percentLabel(running))
         assertEquals(
-            "205 of ~236 MB · Paused",
+            "205 of ~236 MB (estimated) · Paused",
             progressDetail(running.copy(status = DownloadTaskStatus.PAUSED)),
         )
     }

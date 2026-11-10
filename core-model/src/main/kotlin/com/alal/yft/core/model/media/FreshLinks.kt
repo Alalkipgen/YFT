@@ -86,10 +86,11 @@ object FreshLinks {
 
     /**
      * [group] with the addresses the page's player asked for before the links the page's script
-     * names: a script link gives way to the player's request of the same file (the same address
-     * without its query; the newest request first), and within the group to a player request of
-     * the same picture height. What the script stated (title, length, height, the setup's key)
-     * stays with the player's address. A site adapter's video is never touched.
+     * names: a script link gives way to the player's request of the same file (the Same-file
+     * check's [FileMatch.RESIGNED]: only its signature changed; the newest request first), and
+     * within the group to a player request of the same picture height. What the script stated
+     * (title, length, height, the setup's key) stays with the player's address. A site adapter's
+     * video is never touched.
      */
     fun playerFirst(group: MediaGroup, pageCandidates: List<MediaCandidate>): MediaGroup {
         if (group.candidates.any { it.videoId != null }) return group
@@ -99,8 +100,7 @@ object FreshLinks {
         val replaced = members.map { candidate ->
             if (isPlayerRequest(candidate)) return@map candidate
             val request = requests.firstOrNull { request ->
-                request.mediaUrl != candidate.mediaUrl &&
-                    unsigned(request.mediaUrl) == unsigned(candidate.mediaUrl)
+                SameFile.match(candidate.mediaUrl, request.mediaUrl) == FileMatch.RESIGNED
             } ?: return@map candidate
             request.stating(candidate)
         }
@@ -114,24 +114,28 @@ object FreshLinks {
     }
 
     /**
-     * The video the page's player asked for, to try when [failed]'s script links are gone:
-     * a group of [videos] with a player request that shares no
-     * address with [tried], is not marked or shaped like an ad or a preview, and has
-     * [failed]'s length (or the length the page states, [facts]) when both are known; the
-     * matching length first, then the newest request. Null when the player asked for none.
+     * Ad filter: after the video first tapped proved an ad ([ad]), the video the page's player
+     * asked for: a group of [videos] with a player request that shares no address with [tried],
+     * is not marked or shaped like an ad or a preview, and has the length the page states
+     * ([facts]) when both are known; the matching length first, then the newest request. Null when
+     * the player asked for none. Never used after a video whose link failed: a fresh link of that
+     * video must be the same file ([SameFile]), and a similar length is no proof of that. A live
+     * stream ([StreamPieces.isLive]) is never it: its playlist is asked for again and again, so it
+     * is always the newest request, and YFT can't save it (Live stream set aside).
      */
-    fun playerVideo(
-        failed: MediaGroup,
+    fun playerVideoAfterAd(
+        ad: MediaGroup,
         videos: List<MediaGroup>,
         tried: Set<String>,
         facts: PageVideoFacts? = null,
     ): MediaGroup? {
-        if (failed.candidates.any { it.videoId != null }) return null
-        val length = failed.durationMillis ?: facts?.durationMillis
+        if (ad.candidates.any { it.videoId != null }) return null
+        val length = facts?.durationMillis
         val offered = videos.filter { video ->
             video.candidates.none { it.videoId != null || it.mediaUrl in tried } &&
                 video.candidates.any { isPlayerRequest(it) && it.isPlayable() } &&
                 !video.looksLikeAd(facts) &&
+                !StreamPieces.isLive(video) &&
                 (length == null || video.durationMillis == null ||
                     abs(video.durationMillis!! - length) <= LENGTH_MATCH_MILLIS)
         }

@@ -35,6 +35,11 @@ data class PreparedDestination(
      * so the file goes to the default place instead; its row says so.
      */
     val folderUnavailable: Boolean = false,
+    /**
+     * A file in app storage: the name of its `.part` file, the only way to find its bytes again
+     * after the app closed (a public file is known by [DownloadDestinationSpec.uri]).
+     */
+    val partialName: String? = null,
 )
 
 /** Creates a safe staging destination that stays unpublished until the transfer is verified. */
@@ -50,6 +55,13 @@ interface DownloadDestinationProvider {
         location: DownloadLocation = DownloadLocation.SHARED_DOWNLOADS,
         folder: SaveFolder? = null,
     ): PreparedDestination
+
+    /**
+     * The file of a download the app closed, reopened where its bytes are ([saved]), so a fresh
+     * link goes on from them. Null when it cannot be opened again: the bytes are gone, the
+     * document is no longer there, or the record does not say where they are.
+     */
+    fun reopen(saved: SavedDestination): DownloadDestination? = null
 }
 
 /** Narrow probe boundary so enqueue logic stays testable without network access. */
@@ -212,7 +224,16 @@ class DownloadEnqueuer(
     ) {
         suspend fun <T> around(prepared: PreparedDestination, enqueue: suspend () -> T): T {
             val sources = sources ?: return enqueue()
-            origin?.let { sources.remember(taskId, it, asset, variant, prepared.fileName) }
+            origin?.let {
+                sources.remember(
+                    taskId = taskId,
+                    origin = it,
+                    asset = asset,
+                    variant = variant,
+                    fileName = prepared.fileName,
+                    saved = SavedDestination.of(prepared),
+                )
+            }
             pickedQuality(variant)?.let { sources.picked(taskId, it) }
             if (prepared.folderUnavailable) sources.folderUnavailable(taskId)
             return try {

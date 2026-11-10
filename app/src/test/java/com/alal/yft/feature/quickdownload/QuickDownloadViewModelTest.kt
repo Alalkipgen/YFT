@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
+import com.alal.yft.core.download.EndedLiveSizes
+import com.alal.yft.core.download.FinishedStreamSizes
 import com.alal.yft.core.media.resolver.VariantResolver
 import com.alal.yft.core.media.session.PreviewSelectionStore
 import com.alal.yft.core.model.download.DownloadFailureReason
@@ -709,8 +711,10 @@ class QuickDownloadViewModelTest {
             mediaUrl = "https://media.example.test/mov_bbb.ogg",
             mimeType = "video/ogg",
             codecs = emptyList(),
+            pageVideoKey = "element-0",
         )
-        val mp4 = video(null, label = null, videoId = null, index = 2).copy(codecs = emptyList())
+        val mp4 = video(null, label = null, videoId = null, index = 2)
+            .copy(codecs = emptyList(), pageVideoKey = "element-0")
         resolver.heights[mp4.mediaUrl] = 176
         fun picked(byUser: Boolean): String? {
             val gate = CompletableDeferred<Unit>()
@@ -1337,9 +1341,10 @@ class QuickDownloadViewModelTest {
     }
 
     @Test
-    fun aGoneLinkTriesThePlayersOwnVideoBeforeThePagesNextVideo() = runTest {
-        // Fresh link renewal: the script's link is gone; the video the player asked for (same
-        // length) comes before the next video, as the same video from a fresh link.
+    fun aGoneLinkNeverTakesThePlayersOtherFileOfTheSameLength() = runTest {
+        // Fresh link renewal, Same-file check: the script's link is gone and the player asked for
+        // another file of nearly the same length. A similar length is no proof that it is the same
+        // video, so it is not prepared: the error stays and offers "Reload page and try again".
         val page = "https://clips.example.test/watch/5"
         val script = generic(1, 25 * MIB, page, lengthMillis = 600_000)
             .copy(sources = setOf(CandidateSource.DOM))
@@ -1356,30 +1361,89 @@ class QuickDownloadViewModelTest {
         advanceUntilIdle()
 
         val state = sheet.uiState.value
+        assertEquals(REFUSED_410, state.failure)
+        assertTrue(state.canReload)
+        assertFalse(state.freshLink)
+        assertNull(state.choices)
+        assertEquals(listOf(script.mediaUrl), resolver.requested.map { it.mediaUrl })
+    }
+
+    @Test
+    fun aPageReadAgainWithAnotherContentValueIsNotTheSameVideo() = runTest {
+        // Same-file check: the page read again names one path for every video and tells them apart
+        // by `video=`; only the signature may change. A file of another `video=` value of the same
+        // length is never prepared, and the same value under a fresh signature is.
+        val page = "https://clips.example.test/watch/5"
+        val dead = generic(1, 25 * MIB, page, lengthMillis = 600_000).copy(
+            mediaUrl = "https://media.example.test/play?video=one&hash=old",
+            sources = setOf(CandidateSource.DOM),
+        )
+        val other = dead.copy(
+            mediaUrl = "https://media.example.test/play?video=two&hash=new",
+            sources = setOf(CandidateSource.PAGE_REREAD),
+        )
+        val again = dead.copy(
+            mediaUrl = "https://media.example.test/play?hash=new&video=one",
+            sources = setOf(CandidateSource.PAGE_REREAD),
+        )
+        resolver.answer = { candidate -> gone(410).takeIf { candidate.mediaUrl == dead.mediaUrl } }
+        store.publish(page, "Harbour lights", listOf(dead))
+        store.select(MediaGroups.of(listOf(dead)).single())
+
+        val reader = FakePageReader(
+            PageReread.Found(listOf(other), facts = null),
+            PageReread.Found(listOf(other, again), facts = null),
+        )
+        val sheet = viewModel(pageReader = reader)
+        advanceUntilIdle()
+
+        val state = sheet.uiState.value
         assertNull(state.failure)
         assertTrue(state.freshLink)
-        assertEquals(
-            listOf(script.mediaUrl, player.mediaUrl),
-            resolver.requested.map { it.mediaUrl },
+        assertEquals(2, reader.asked.size)
+        assertEquals(listOf(dead.mediaUrl, again.mediaUrl), resolver.requested.map { it.mediaUrl })
+        assertEquals(listOf("Page read again", "Status: no new link"),
+            state.attemptDetails.drop(7).take(2))
+        sheet.download()
+        advanceUntilIdle()
+        assertEquals(listOf(again.mediaUrl), starter.variants.map { it.playbackUrl })
+    }
+
+    @Test
+    fun twoFilesThatOnlyShareThePathAreNotGuessedBetween() = runTest {
+        // Same-file check: a value the check cannot name changed (`x=`). One such file of the same
+        // length is the video; two are not guessed between, and the error says why in Details.
+        val page = "https://clips.example.test/watch/5"
+        val dead = generic(1, 25 * MIB, page, lengthMillis = 600_000).copy(
+            mediaUrl = "https://media.example.test/v5/720.mp4?x=1",
+            sources = setOf(CandidateSource.DOM),
         )
-        assertEquals(
-            listOf(
-                "First video",
-                "Step: file check",
-                "Host: media.example.test",
-                "Status: HTTP 410",
-                "Link from: page script",
-                "Link age: unknown",
-                "Link expiry: none",
-                "Player's link",
-                "Host: media.example.test",
-                "Status: ready",
-                "Link from: player request",
-                "Link age: unknown",
-                "Link expiry: none",
-            ),
-            state.attemptDetails,
+        val first = dead.copy(
+            mediaUrl = "https://media.example.test/v5/720.mp4?x=2",
+            sources = setOf(CandidateSource.PAGE_REREAD),
         )
+        val second = first.copy(mediaUrl = "https://media.example.test/v5/720.mp4?x=3")
+        resolver.answer = { candidate -> gone(410).takeIf { candidate.mediaUrl == dead.mediaUrl } }
+        store.publish(page, "Harbour lights", listOf(dead))
+        store.select(MediaGroups.of(listOf(dead)).single())
+        val both = PageReread.Found(listOf(first, second), facts = null)
+
+        val sheet = viewModel(pageReader = FakePageReader(both, both))
+        advanceUntilIdle()
+
+        val state = sheet.uiState.value
+        assertEquals(REFUSED_410, state.failure)
+        assertTrue(state.canReload)
+        assertEquals(listOf(dead.mediaUrl), resolver.requested.map { it.mediaUrl })
+        assertEquals(
+            listOf("Page read again", QuickDownloadViewModel.UNCONFIRMED),
+            state.failureDetails.takeLast(2),
+        )
+
+        val one = viewModel(pageReader = FakePageReader(PageReread.Found(listOf(first), null)))
+        advanceUntilIdle()
+        assertNull(one.uiState.value.failure)
+        assertEquals(first.mediaUrl, resolver.requested.last().mediaUrl)
     }
 
     @Test
@@ -1552,6 +1616,151 @@ class QuickDownloadViewModelTest {
         assertTrue(reader.asked.isEmpty())
     }
 
+    @Test
+    fun anEndedLiveSheetShowsItsSampledSizesWithoutTouchingTheDownload() = runTest {
+        val sound = "https://rr1.media.test/videoplayback?itag=140&source=yt_live_broadcast"
+        fun live(height: Int) = video(height, merged = true).let {
+            it.copy(
+                mediaUrl = "https://rr1.media.test/videoplayback?itag=$height" +
+                    "&source=yt_live_broadcast",
+                audioCompanion = it.audioCompanion!!.copy(
+                    mediaUrl = sound,
+                    contentLengthBytes = null,
+                ),
+            )
+        }
+        select(listOf(live(720), live(144)))
+        val gate = CompletableDeferred<Unit>()
+        val sampler = GatedSizes(gate, mapOf(sound to 42, live(720).mediaUrl to 346))
+
+        val viewModel = viewModel(endedLiveSizes = sampler)
+        advanceUntilIdle()
+
+        val reading = viewModel.uiState.value.choices!!.video
+        assertTrue(reading.all { it.size == null && it.sizePending })
+        // The sound both videos share is one file: three files, asked once.
+        assertEquals(listOf(3), sampler.asked.map { it.size })
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        val rows = viewModel.uiState.value.choices!!.video
+        val row720 = rows.first { it.rankHeight == 720 }
+        assertEquals("~388 MB", row720.size)
+        assertTrue(QuickDownloadChoices.ROUGH_ESTIMATE in row720.chips)
+        // 144p's video got no size: it stays "Size unknown", no longer pending.
+        val row144 = rows.first { it.rankHeight == 144 }
+        assertNull(row144.size)
+        assertFalse(rows.any { it.sizePending })
+        // The background size checks came back too, and nothing was sampled again.
+        assertEquals(1, sampler.asked.size)
+
+        viewModel.download()
+        advanceUntilIdle()
+        // The download gets the row's own variant: the estimate is never its size.
+        assertNull(starter.variants.single().sizeBytes)
+    }
+
+    @Test
+    fun aPeakRateMasterShowsItsSampledSizesWithoutTouchingTheDownload() = runTest {
+        // Finished stream size sample: Roshy's master (2026-11-08) states BANDWIDTH only.
+        val master = video(null, kind = MediaKind.HLS, videoId = null, label = null, index = 1)
+        select(listOf(master))
+        val playlist = { height: Int -> "https://cdn.example.test/hls/index-$height.m3u8" }
+        resolver.answer = { candidate ->
+            val ladder = listOf(1080 to 3_122_112L, 720 to 1_674_457L, 480 to 786_895L)
+            VariantResolutionResult.Success(
+                MediaAsset(
+                    sourcePageUrl = candidate.pageUrl,
+                    title = "Video",
+                    thumbnailUrl = null,
+                    durationMillis = 8_840_700,
+                    variants = ladder.map { (height, bandwidth) ->
+                        MediaVariant(
+                            id = "hls-stream-$height",
+                            playbackUrl = playlist(height),
+                            kind = MediaKind.HLS,
+                            trackType = MediaTrackType.AUDIO_VIDEO,
+                            requestContext = BrowserRequestContext(candidate.pageUrl, null, null),
+                            mimeType = "application/x-mpegURL",
+                            container = "HLS",
+                            codecs = listOf("avc1.64001f", "mp4a.40.2"),
+                            width = height * 16 / 9,
+                            height = height,
+                            bitrateBitsPerSecond = bandwidth,
+                            durationMillis = 8_840_700,
+                        )
+                    },
+                    resolvedAtEpochMs = 0,
+                ),
+            )
+        }
+        val gate = CompletableDeferred<Unit>()
+        val sampler = GatedStreamSizes(gate, mapOf(playlist(720) to 1_855L))
+
+        val viewModel = viewModel(finishedStreamSizes = sampler)
+        advanceUntilIdle()
+
+        val reading = viewModel.uiState.value.choices!!.video
+        assertEquals(3, reading.size)
+        assertTrue(reading.all { it.size == null && it.sizePending })
+        assertEquals(listOf(3), sampler.asked.map { it.size })
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        val rows = viewModel.uiState.value.choices!!.video
+        val row720 = rows.first { it.rankHeight == 720 }
+        assertEquals("~1.8 GB", row720.size)
+        assertTrue(QuickDownloadChoices.ROUGH_ESTIMATE in row720.chips)
+        // The other playlists gave no size: "Size unknown", no longer pending, asked once.
+        assertNull(rows.first { it.rankHeight == 1080 }.size)
+        assertFalse(rows.any { it.sizePending })
+        assertEquals(1, sampler.asked.size)
+
+        viewModel.download()
+        advanceUntilIdle()
+        // The download gets the row's own variant: the estimate is never its size.
+        assertNull(starter.variants.single().sizeBytes)
+    }
+
+    /** Finished stream size sample: sizes ([mib] by playlist) given once [gate] opens. */
+    private class GatedStreamSizes(
+        gate: CompletableDeferred<Unit>,
+        mib: Map<String, Long>,
+    ) : FinishedStreamSizes {
+        private val sizes = GatedSizes(gate, mib)
+        val asked get() = sizes.asked
+
+        override suspend fun estimate(
+            tracks: List<EndedLiveSizes.Track>,
+            onSize: (String, EndedLiveSizes.Size) -> Unit,
+        ): EndedLiveSizes.Outcome = sizes.estimate(tracks, onSize)
+    }
+
+    /** Ended live size sample: sizes ([mib] by file) given once [gate] opens. */
+    private class GatedSizes(
+        private val gate: CompletableDeferred<Unit>,
+        private val mib: Map<String, Long>,
+    ) : EndedLiveSizes {
+        val asked = mutableListOf<List<EndedLiveSizes.Track>>()
+
+        override suspend fun estimate(
+            tracks: List<EndedLiveSizes.Track>,
+            onSize: (String, EndedLiveSizes.Size) -> Unit,
+        ): EndedLiveSizes.Outcome {
+            asked += tracks
+            gate.await()
+            val sizes = tracks.mapNotNull { track ->
+                mib[track.url]?.let {
+                    track.url to EndedLiveSizes.Size(it * MIB, it * MIB, it * MIB, 4, 545)
+                }
+            }.toMap()
+            sizes.forEach { (url, size) -> onSize(url, size) }
+            return EndedLiveSizes.Outcome(sizes)
+        }
+    }
+
     /** A sheet opened on Home's lookup of a link, before the video came. */
     private fun waitingSheet(
         preferences: DownloadPreferences = DownloadPreferences(confirmOnMeteredNetwork = false),
@@ -1597,6 +1806,8 @@ class QuickDownloadViewModelTest {
         playback: VideoPlaybackSupport = VideoPlaybackSupport.ANY,
         snapshot: StateFlow<NetworkSnapshot> = MutableStateFlow(network),
         pageReader: BrowserPageReader = BrowserPageReader.None,
+        endedLiveSizes: EndedLiveSizes = EndedLiveSizes.None,
+        finishedStreamSizes: FinishedStreamSizes = FinishedStreamSizes.None,
     ) = QuickDownloadViewModel(
         store = store,
         selectionStore = selection,
@@ -1615,6 +1826,8 @@ class QuickDownloadViewModelTest {
         downloadThumbnails = thumbnails,
         lookups = lookups,
         pageReader = pageReader,
+        endedLiveSizes = endedLiveSizes,
+        finishedStreamSizes = finishedStreamSizes,
     )
 
     /** A sheet whose [ViewModelStore] the test clears, as closing the sheet does. */

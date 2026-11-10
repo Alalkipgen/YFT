@@ -48,6 +48,111 @@ class HtmlMediaScannerTest {
     }
 
     @Test
+    fun twoElementsKeepTheirOwnFormatAlternativesEvenAtEqualDuration() {
+        val html = """
+            <video><source src="https://cdn.example.com/a.mp4" type="video/mp4">
+              <source src="https://cdn.example.com/a.ogg" type="video/ogg"></video>
+            <video><source src="https://cdn.example.com/b.mp4" type="video/mp4">
+              <source src="https://cdn.example.com/b.ogg" type="video/ogg"></video>
+        """.trimIndent()
+        val found = scanner.scan(html, page, observedAtEpochMs = 0).candidates
+            .map { it.copy(durationMillis = 61_000) }
+        val groups = MediaGroups.of(found)
+        assertEquals(listOf(2, 2), groups.map { it.candidates.size })
+        assertEquals(listOf("video/mp4", "video/ogg"), groups[0].candidates.map { it.mimeType })
+        assertEquals(listOf("video/mp4", "video/ogg"), groups[1].candidates.map { it.mimeType })
+    }
+
+    @Test
+    fun aQualitysOwnPictureNamesItAsWikimediaCommonsStatesIt() {
+        // The owner's Commons page: the player's <source> children state each transcode's picture
+        // in data-width/data-height, so the sheet names the rows 1080p, 480p and 240p instead of
+        // three unnamed files.
+        val html = """
+            <html><body><video id="mwe_player_0" width="800" height="450" controls>
+              <source src="https://upload.wikimedia.org/transcoded/clip.480p.vp9.webm"
+                type="video/webm; codecs=&quot;vp9, opus&quot;" data-width="854" data-height="480">
+              <source src="https://upload.wikimedia.org/transcoded/clip.1080p.vp9.webm"
+                type="video/webm; codecs=&quot;vp9, opus&quot;" data-width="1920" data-height="1080">
+            </video></body></html>
+        """.trimIndent()
+
+        val result = scanner.scan(html, "https://commons.wikimedia.org/wiki/File:Clip.webm", 7)
+
+        assertEquals(
+            listOf(480, 1080),
+            result.candidates.map { it.height },
+        )
+    }
+
+    @Test
+    fun onePlayersSourcesAreOneVideoAndThePagesOwnAddressIsNoFile() {
+        // The owner's Commons page as its player and its JSON-LD state it: four transcodes the
+        // player lists as alternatives, the original file the JSON-LD states, its own embed
+        // address, and the same original written again with HTML entities in the query.
+        val page = "https://commons.wikimedia.org/wiki/File:Big_Buck_Bunny_4K.webm"
+        val html = """
+            <div class="fullImageLink" id="file"><span><video id="mwe_player_0" width="800"
+              height="450" controls preload="none" data-durationhint="635">
+              <source src="https://upload.wikimedia.org/wikipedia/commons/transcoded/c/c0/Big_Buck_Bunny_4K.webm/Big_Buck_Bunny_4K.webm.480p.vp9.webm" type="video/webm; codecs=&quot;vp9, opus&quot;" data-width="854" data-height="480">
+              <source src="https://upload.wikimedia.org/wikipedia/commons/transcoded/c/c0/Big_Buck_Bunny_4K.webm/Big_Buck_Bunny_4K.webm.1080p.vp9.webm" type="video/webm; codecs=&quot;vp9, opus&quot;" data-width="1920" data-height="1080">
+              <source src="https://upload.wikimedia.org/wikipedia/commons/transcoded/c/c0/Big_Buck_Bunny_4K.webm/Big_Buck_Bunny_4K.webm.240p.vp9.webm" type="video/webm; codecs=&quot;vp9, opus&quot;" data-width="426" data-height="240">
+              <track src="/w/api.php?action=timedtext&amp;title=File%3AClip.webm&amp;lang=en" kind="subtitles">
+            </video></span></div>
+            <a href="https://upload.wikimedia.org/wikipedia/commons/c/c0/Big_Buck_Bunny_4K.webm?utm_source=commons.wikimedia.org&amp;utm_campaign=index">Original file</a>
+            <script type="application/ld+json">
+            {"@context":"https://schema.org","@type":"VideoObject","name":"Big Buck Bunny 4K",
+             "contentUrl":"https:\/\/upload.wikimedia.org\/wikipedia\/commons\/c\/c0\/Big_Buck_Bunny_4K.webm?utm_source=commons.wikimedia.org&utm_campaign=index",
+             "duration":"PT10M34S","contentSize":2964839055,"encodingFormat":"video\/webm",
+             "embedUrl":"https:\/\/commons.wikimedia.org\/wiki\/File:Big_Buck_Bunny_4K.webm?embedplayer=true"}
+            </script>
+        """.trimIndent()
+
+        val result = scanner.scan(html, page, observedAtEpochMs = 7)
+
+        // The three transcodes and the one original: the page's own address, also as its embed
+        // address, is not a file, and the entity-written link is the same original.
+        assertEquals(
+            listOf(
+                "https://upload.wikimedia.org/wikipedia/commons/transcoded/c/c0/Big_Buck_Bunny_4K.webm/Big_Buck_Bunny_4K.webm.480p.vp9.webm",
+                "https://upload.wikimedia.org/wikipedia/commons/transcoded/c/c0/Big_Buck_Bunny_4K.webm/Big_Buck_Bunny_4K.webm.1080p.vp9.webm",
+                "https://upload.wikimedia.org/wikipedia/commons/transcoded/c/c0/Big_Buck_Bunny_4K.webm/Big_Buck_Bunny_4K.webm.240p.vp9.webm",
+                "https://upload.wikimedia.org/wikipedia/commons/c/c0/Big_Buck_Bunny_4K.webm" +
+                    "?utm_source=commons.wikimedia.org&utm_campaign=index",
+            ),
+            result.candidates.map { it.mediaUrl },
+        )
+        // One element's sources are one video, named by the picture the page states for each.
+        val qualities = result.candidates.filter { it.pageVideoKey != null }
+        assertEquals(3, qualities.size)
+        assertEquals(setOf("element-0"), qualities.mapNotNull { it.pageVideoKey }.toSet())
+        assertEquals(listOf(854, 1920, 426), qualities.map { it.width })
+        assertEquals(listOf(480, 1080, 240), qualities.map { it.height })
+
+        // The player's qualities are the page's videos, never demoted to previews beside the
+        // original the page states, and the original is a video of its own.
+        val list = MediaGroups.ofPage(MediaGroups.pageVideos(result.candidates), result.facts)
+        assertEquals(2, list.videos.size)
+        assertTrue(list.previews.isEmpty())
+        val player = list.videos.first { video -> video.candidates.size == 3 }
+        assertEquals(listOf(1080, 480, 240), player.candidates.mapNotNull { it.height }.sortedDescending())
+    }
+
+    @Test
+    fun twoPlayersOnOnePageStayTwoVideos() {
+        val html = """
+            <video controls src="https://cdn.example.com/a.mp4"></video>
+            <video controls src="https://cdn.example.com/b.mp4"></video>
+        """.trimIndent()
+
+        val result = scanner.scan(html, page, observedAtEpochMs = 0)
+
+        // An element with no <source> children states no alternatives: its own file is its own.
+        assertEquals(listOf(null, null), result.candidates.map { it.pageVideoKey })
+        assertEquals(2, MediaGroups.of(result.candidates).size)
+    }
+
+    @Test
     fun openGraphStreamsCountButHtmlPlayerPagesDoNot() {
         val html = """
             <meta property="og:title" content="Launch replay">

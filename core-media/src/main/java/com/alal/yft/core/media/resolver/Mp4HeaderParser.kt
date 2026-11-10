@@ -2,25 +2,6 @@ package com.alal.yft.core.media.resolver
 
 import java.util.Locale
 
-/**
- * What the boxes at the start of an MP4 file say about its picture and sound.
- *
- * Only values the file states are returned; anything it does not state stays null.
- */
-data class Mp4Header(
-    val width: Int? = null,
-    val height: Int? = null,
-    val framesPerSecond: Double? = null,
-    val durationMillis: Long? = null,
-    /** The video sample entry, for example `avc1`, `hvc1` or `av01`. */
-    val videoCodec: String? = null,
-    /** The audio sample entry, `mp4a.40.2` for AAC-LC. */
-    val audioCodec: String? = null,
-    val audioBitrateBitsPerSecond: Long? = null,
-    val hasVideo: Boolean = false,
-    val hasAudio: Boolean = false,
-)
-
 /** Reads [length] bytes of one file from [offset]; null when the range cannot be read. */
 fun interface RangeReader {
     suspend fun read(offset: Long, length: Int): ByteArray?
@@ -38,7 +19,7 @@ object Mp4HeaderParser {
     const val NEXT_READ_BYTES = 32 * 1_024
     const val MAX_READS = 6
 
-    suspend fun parse(reader: RangeReader, totalBytes: Long?): Mp4Header? {
+    suspend fun parse(reader: RangeReader, totalBytes: Long?): FileHeader? {
         val file = CachedFile(reader, totalBytes)
         val first = file.header(0) ?: return null
         if (first.type !in FIRST_BOX_TYPES) return null
@@ -133,7 +114,7 @@ object Mp4HeaderParser {
             }
         }
 
-        suspend fun moov(moov: Box): Mp4Header? {
+        suspend fun moov(moov: Box): FileHeader? {
             var movieTimescale: Long? = null
             var movieDuration: Long? = null
             val tracks = mutableListOf<Track>()
@@ -157,7 +138,7 @@ object Mp4HeaderParser {
             val duration = movieDuration?.let { units ->
                 movieTimescale?.takeIf { it > 0 }?.let { units * MILLIS / it }
             } ?: (video ?: audio)?.durationMillis()
-            return Mp4Header(
+            return FileHeader(
                 width = video?.let { it.width ?: it.entryWidth },
                 height = video?.let { it.height ?: it.entryHeight },
                 framesPerSecond = video?.framesPerSecond(),

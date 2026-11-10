@@ -113,12 +113,17 @@ class VkExtractor(
             }
             val second = ask("B2", other, cookie = null)
             (stop(second) ?: afterAdult(second))?.let { return it }
+            // VK's embed page is its app's shell now: when no embed listed a file, path D asks
+            // VK's API, as it does after the adult answer. A page that gave a real answer (a
+            // not-found text, changed markup) still ends the lookup below.
+            if (answers.isNotEmpty() && answers.all { it == Answer.Shell }) return pathD()
             return end()
         }
 
         /**
          * The embed's adult answer, on either host, opens path D; no further embed is asked
          * (both hosts gave the same answer, with and without `list`, when this was checked).
+         * VK's shell on every embed opens it too ([run]): the shell lists no file by its design.
          */
         private suspend fun afterAdult(answer: Answer): SiteExtractionResult? =
             if (answer == Answer.Adult) pathD() else null

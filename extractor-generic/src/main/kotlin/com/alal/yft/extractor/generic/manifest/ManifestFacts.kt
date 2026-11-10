@@ -17,7 +17,23 @@ data class ManifestFacts(
     val master: Boolean = false,
     /** An HLS master's first video playlist, as an absolute address; null otherwise. */
     val firstPlaylistUrl: String? = null,
-)
+    /** A master's explicitly named variant playlists, bounded and in manifest order. */
+    val variantPlaylistUrls: List<String> = emptyList(),
+    /** A media playlist that names pieces but has no end: a live stream, still growing. */
+    val live: Boolean = false,
+    /**
+     * Stream piece filter: the pieces a media playlist names (its init file too), as absolute
+     * addresses, bounded and in playlist order; empty for a master.
+     */
+    val pieceUrls: List<String> = emptyList(),
+) {
+    // Playlist addresses may contain signed queries; never put them in diagnostics.
+    override fun toString(): String =
+        "ManifestFacts(durationMillis=$durationMillis, width=$width, height=$height, " +
+            "master=$master, hasFirstPlaylist=${firstPlaylistUrl != null}, " +
+            "variantPlaylistCount=${variantPlaylistUrls.size}, live=$live, " +
+            "pieceCount=${pieceUrls.size})"
+}
 
 /** Pure readers of [ManifestFacts]; unit-tested on fixture manifests. */
 object ManifestReader {
@@ -30,6 +46,7 @@ object ManifestReader {
         var ended = false
         var pendingStream: String? = null
         val streams = mutableListOf<Pair<String, String>>()
+        val pieces = linkedSetOf<String>()
         lines.drop(1).forEach { line ->
             when {
                 line.startsWith(STREAM_INF, ignoreCase = true) ->
@@ -37,6 +54,14 @@ object ManifestReader {
                 pendingStream != null && !line.startsWith('#') -> {
                     streams += checkNotNull(pendingStream) to line
                     pendingStream = null
+                }
+                !line.startsWith('#') -> if (pieces.size < MAX_PIECE_URLS) {
+                    resolve(manifestUrl, line)?.let(pieces::add)
+                }
+                line.startsWith(MAP, ignoreCase = true) -> if (pieces.size < MAX_PIECE_URLS) {
+                    MAP_URI.find(line)?.groupValues?.get(1)
+                        ?.let { resolve(manifestUrl, it) }
+                        ?.let(pieces::add)
                 }
                 line.startsWith(EXTINF, ignoreCase = true) -> line.substringAfter(':')
                     .substringBefore(',')
@@ -61,11 +86,20 @@ object ManifestReader {
                 height = tallest?.second,
                 master = true,
                 firstPlaylistUrl = resolve(manifestUrl, first.second),
+                variantPlaylistUrls = streams.asSequence()
+                    .mapNotNull { (_, uri) -> resolve(manifestUrl, uri) }
+                    .distinct()
+                    .take(MAX_VARIANT_PLAYLISTS)
+                    .toList(),
             )
         }
         val duration = (seconds * MILLIS_PER_SECOND).toLong()
             .takeIf { sawPiece && ended && it > 0 }
-        return ManifestFacts(durationMillis = duration)
+        return ManifestFacts(
+            durationMillis = duration,
+            live = sawPiece && !ended,
+            pieceUrls = pieces.toList(),
+        )
     }
 
     /** The facts of a DASH manifest, or null when [text] is not one. A live one has no length. */
@@ -128,6 +162,12 @@ object ManifestReader {
         runCatching { URI(base).resolve(reference.trim()).toString() }.getOrNull()
             ?.takeIf { it.startsWith("https://", true) || it.startsWith("http://", true) }
 
+    private const val MAX_VARIANT_PLAYLISTS = 50
+
+    /** A two-hour video in 2 s pieces names 3,600; more are not kept. */
+    private const val MAX_PIECE_URLS = 5_000
+    private const val MAP = "#EXT-X-MAP:"
+    private val MAP_URI = Regex("""(?i)URI="([^"]+)"""")
     private const val BYTE_ORDER_MARK = "\uFEFF"
     private const val STREAM_INF = "#EXT-X-STREAM-INF:"
     private const val EXTINF = "#EXTINF:"

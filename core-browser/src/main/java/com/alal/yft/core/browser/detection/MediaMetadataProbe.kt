@@ -5,6 +5,7 @@ import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.StreamPieces
 import com.alal.yft.extractor.generic.classifier.MediaUrlClassifier
 import com.alal.yft.extractor.generic.manifest.ManifestReader
 import java.io.IOException
@@ -104,14 +105,22 @@ class MediaMetadataProbe(
             ManifestReader.dash(text)
         } ?: return null
         var duration = facts.durationMillis
+        var media = facts.takeUnless { it.master }
         val playlist = facts.firstPlaylistUrl?.toSafeHttpUrl()
         if (duration == null && playlist != null) {
-            duration = fetchText(candidate, manifestUrl, playlist)
+            media = fetchText(candidate, manifestUrl, playlist)
                 ?.let { (url, body) -> ManifestReader.hls(body, url.toString()) }
-                ?.durationMillis
+            duration = media?.durationMillis
         }
-        if (duration == null && facts.height == null) return null
+        // Stream piece filter: the pieces its (first) media playlist names, and whether it is
+        // live; a master's pieces are its first quality's.
+        val pieces = media?.let { StreamPieces.of(it.live, it.pieceUrls) }
+        if (duration == null && facts.height == null && facts.variantPlaylistUrls.isEmpty() &&
+            pieces == null
+        ) return null
         return candidate.copy(
+            hlsVariantPlaylists = facts.variantPlaylistUrls,
+            streamPieces = candidate.streamPieces ?: pieces,
             durationMillis = candidate.durationMillis ?: duration,
             width = candidate.width ?: facts.width.takeIf { candidate.height == null },
             height = candidate.height ?: facts.height,

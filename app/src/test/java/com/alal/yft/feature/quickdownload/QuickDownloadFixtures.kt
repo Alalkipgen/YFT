@@ -144,9 +144,9 @@ internal object QuickDownloadFixtures {
      */
     fun otherSite(): List<SheetSource> {
         val master = video(null, kind = MediaKind.HLS, videoId = null, label = null, index = 1)
-            .copy(pageUrl = OTHER_PAGE)
+            .copy(pageUrl = OTHER_PAGE, pageVideoKey = "player-1")
         val file = video(720, 30 * MIB, videoId = null, label = null, index = 2)
-            .copy(pageUrl = OTHER_PAGE, codecs = emptyList())
+            .copy(pageUrl = OTHER_PAGE, codecs = emptyList(), pageVideoKey = "player-1")
         val stated = resolvedAsset(master).variants.single()
         val ladder = listOf(1080 to 4_000_000L, 720 to 2_500_000L, 480 to 1_200_000L)
             .map { (height, bitrate) ->

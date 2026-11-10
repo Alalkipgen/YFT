@@ -46,18 +46,64 @@ class MediaGroupsTest {
     }
 
     @Test
-    fun filesOfOnePageWithTheSameLengthAreOneVideo() {
+    fun equalLengthAloneDoesNotCombineVideos() {
         val groups = MediaGroups.of(
             listOf(
-                candidate("https://cdn.test/a.mp4", "Clip — 720p", durationMillis = 61_200),
-                candidate("https://cdn.test/b.mp4", "Clip — 480p", durationMillis = 61_900),
+                candidate("https://cdn.test/a.mp4", "First", durationMillis = 61_200),
+                candidate("https://cdn.test/b.mp4", "Second", durationMillis = 61_900),
                 candidate("https://cdn.test/c.mp4", "Other", durationMillis = 30_000),
             ),
         )
 
+        assertEquals(listOf(1, 1, 1), groups.map { it.candidates.size })
+        assertEquals(listOf("First", "Second", "Other"), groups.map(MediaGroup::title))
+        assertEquals(61_200L, groups.first().durationMillis)
+    }
+
+    @Test
+    fun aPageNamedPlayerStillGroupsItsQualityAlternatives() {
+        val qualities = listOf(
+            candidate("https://cdn.test/a.mp4", "Clip — 720p", durationMillis = 61_200),
+            candidate("https://cdn.test/b.mp4", "Clip — 480p", durationMillis = 61_900),
+        ).map { it.copy(pageVideoKey = "player-1") }
+        val other = candidate("https://cdn.test/c.mp4", "Other", durationMillis = 61_200)
+            .copy(pageVideoKey = "player-2")
+
+        val groups = MediaGroups.of(qualities + other)
+
         assertEquals(listOf(2, 1), groups.map { it.candidates.size })
         assertEquals(listOf("Clip", "Other"), groups.map(MediaGroup::title))
-        assertEquals(61_200L, groups.first().durationMillis)
+        assertEquals(qualities, groups.first().candidates)
+    }
+
+    @Test
+    fun onlyAnExplicitlyNamedHlsPlaylistJoinsItsMaster() {
+        val url = "https://cdn.test/video/720.m3u8?track=1"
+        val master = candidate("https://cdn.test/master.m3u8", kind = MediaKind.HLS)
+            .copy(hlsVariantPlaylists = listOf(url))
+        val child = candidate(url, kind = MediaKind.HLS)
+        val other = candidate("https://cdn.test/video/720.m3u8?track=2", kind = MediaKind.HLS)
+        val groups = MediaGroups.of(listOf(child, other, master))
+        assertEquals(listOf(listOf(child, master), listOf(other)), groups.map { it.candidates })
+    }
+
+    @Test
+    fun aManifestReferenceCannotJoinConflictingPlayersAdsOrOtherPages() {
+        val url = "https://cdn.test/video.m3u8"
+        val master = candidate("https://cdn.test/master.m3u8", kind = MediaKind.HLS)
+            .copy(pageVideoKey = "player-1", hlsVariantPlaylists = listOf(url))
+        val child = candidate(url, kind = MediaKind.HLS)
+        val otherPlayer = child.copy(pageVideoKey = "player-2")
+        val otherPage = child.copy(pageUrl = "https://other.test/watch")
+        val ad = child.copy(adSign = AdSign.AD_HOST)
+        val preview = child.copy(pageRole = PageMediaRole.PREVIEW)
+        for (candidate in listOf(otherPlayer, otherPage, ad, preview)) {
+            assertEquals(2, MediaGroups.of(listOf(master, candidate)).size)
+        }
+        val namedA = master.copy(videoId = "first")
+        val namedB = child.copy(videoId = "second")
+        assertEquals(2, MediaGroups.of(listOf(namedA, namedB)).size)
+        assertEquals(1, MediaGroups.of(listOf(master, child)).size)
     }
 
     @Test

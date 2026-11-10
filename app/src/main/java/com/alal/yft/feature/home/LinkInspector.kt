@@ -145,13 +145,23 @@ class HeadlessLinkInspector internal constructor(
         val now = clock()
         MediaUrlClassifier.classify(url)?.let { kind ->
             val candidate = directCandidate(url, kind, mimeType = null, length = null, now)
-            val probed = when (val result = probeMedia(candidate)) {
-                is MediaMetadataProbe.Result.Detected -> result.candidate
-                is MediaMetadataProbe.Result.Failed,
-                is MediaMetadataProbe.Result.NotMedia,
-                -> candidate
+            when (val result = probeMedia(candidate)) {
+                is MediaMetadataProbe.Result.Detected -> return LinkInspection.Found(
+                    url,
+                    pageTitle = null,
+                    candidates = listOf(result.candidate),
+                )
+                // The address is a page whose name ends in a media extension (Wikimedia Commons'
+                // File:Big_Buck_Bunny_4K.webm is a page, and its own files are its video). The
+                // page is read like any other page below, so Home offers the files it names.
+                is MediaMetadataProbe.Result.NotMedia -> Unit
+                // A file the probe could not read keeps its address: the sheet says why it failed.
+                is MediaMetadataProbe.Result.Failed -> return LinkInspection.Found(
+                    url,
+                    pageTitle = null,
+                    candidates = listOf(candidate),
+                )
             }
-            return LinkInspection.Found(url, pageTitle = null, candidates = listOf(probed))
         }
 
         var adapterMessage: String? = null

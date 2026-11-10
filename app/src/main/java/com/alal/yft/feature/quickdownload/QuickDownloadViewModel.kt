@@ -3,6 +3,8 @@ package com.alal.yft.feature.quickdownload
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
+import com.alal.yft.core.download.EndedLiveSizes
+import com.alal.yft.core.download.FinishedStreamSizes
 import com.alal.yft.core.media.resolver.VariantResolver
 import com.alal.yft.core.media.session.PreviewSelectionStore
 import com.alal.yft.core.model.media.AdRule
@@ -22,6 +24,8 @@ import com.alal.yft.core.model.media.Mp3Variants
 import com.alal.yft.core.model.media.PageVideoFacts
 import com.alal.yft.core.model.media.PageVideoProof
 import com.alal.yft.core.model.media.ResolutionStep
+import com.alal.yft.core.model.media.SameFile
+import com.alal.yft.core.model.media.SameVideo
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.media.VideoProof
@@ -82,6 +86,14 @@ data class SheetHeader(
 
 /** One video item of a post in the sheet's item picker: "Video 2 of 4". */
 data class PostItemChoice(val key: String, val number: Int, val label: String)
+
+/** A queueing result is distinct from a download's later transfer result. */
+sealed interface PostQueueResult {
+    data object Queued : PostQueueResult
+    data class Rejected(val message: String) : PostQueueResult
+    /** An exception can happen after the queue accepted a task. Do not retry it blindly. */
+    data object Unknown : PostQueueResult
+}
 
 data class QuickDownloadUiState(
     /** Null when there is no video to show (the sheet then says so). */
@@ -165,6 +177,9 @@ data class QuickDownloadUiState(
      */
     val postItems: List<PostItemChoice> = emptyList(),
     val postItemKey: String? = null,
+    val postSelection: Set<String> = emptySet(),
+    val postResults: Map<String, PostQueueResult> = emptyMap(),
+    val postQueueing: Boolean = false,
     /**
      * Zawgyi titles: "Use original title" is on: the sheet shows, and a Download takes, the Zawgyi
      * title the sheet's Unicode title was converted from ([QuickChoices.zawgyi]).
@@ -200,6 +215,7 @@ data class QuickDownloadUiState(
 
     val canDownload: Boolean
         get() = (selectedOption != null || waitsForQualities && !startsWhenReady) &&
+            !postQueueing &&
             downloadStatus != PreviewDownloadStatus.Enqueuing &&
             downloadStatus != PreviewDownloadStatus.ConfirmMetered
 }
@@ -231,6 +247,10 @@ class QuickDownloadViewModel @Inject constructor(
     private val pageReader: BrowserPageReader = BrowserPageReader.None,
     /** The merges this phone makes, for the rows of a post's other items. */
     private val merges: MergeSupport = MergeSupport { true },
+    /** Ended live size sample: sizes for the rows of a recently ended live. */
+    private val endedLiveSizes: EndedLiveSizes = EndedLiveSizes.None,
+    /** Finished stream size sample: sizes for HLS rows whose master states no average rate. */
+    private val finishedStreamSizes: FinishedStreamSizes = FinishedStreamSizes.None,
 ) : ViewModel() {
     /**
      * A sheet opened for a lookup (Home's link, a feed's video on screen) waits on it even when the
@@ -271,6 +291,15 @@ class QuickDownloadViewModel @Inject constructor(
     val uiState: StateFlow<QuickDownloadUiState> = mutableUiState.asStateFlow()
     private var loading: Job? = null
     private val sizeProbes = Semaphore(2)
+
+    /**
+     * Ended live size sample: the sizes read for this sheet's files, by address; the files being
+     * read; and every file asked once, so a file is sampled once a sheet.
+     */
+    private val sampledSizes = mutableMapOf<String, EndedLiveSizes.Size>()
+    private val sampling = mutableSetOf<String>()
+    private val sampledFiles = mutableSetOf<String>()
+    private var pendingPostQueue = false
 
     /** The user said yes to mobile data when tapping Download before the qualities came. */
     private var earlyMeteredConfirmed = false
@@ -457,6 +486,142 @@ class QuickDownloadViewModel @Inject constructor(
         load()
     }
 
+    /** Select only items not already queued, or whose enqueue result is uncertain. */
+    fun togglePostSelection(key: String) {
+        mutableUiState.update { state ->
+            if (!state.canChangeSelection || state.postItems.none { it.key == key } ||
+                state.postResults[key] is PostQueueResult.Queued ||
+                state.postResults[key] is PostQueueResult.Unknown
+            ) return@update state
+            val selection = state.postSelection.toMutableSet()
+            if (!selection.add(key)) selection.remove(key)
+            state.copy(postSelection = selection)
+        }
+    }
+
+    fun toggleAllPostSelection() {
+        mutableUiState.update { state ->
+            if (!state.canChangeSelection) return@update state
+            val available = state.postItems.map { it.key }.filter {
+                state.postResults[it] !is PostQueueResult.Queued &&
+                    state.postResults[it] !is PostQueueResult.Unknown
+            }.toSet()
+            state.copy(
+                postSelection = if (available.isNotEmpty() &&
+                    state.postSelection.containsAll(available)
+                ) emptySet() else available,
+            )
+        }
+    }
+
+    /** Queues one default-quality video per selected post item, in post order. */
+    fun queuePostSelection() {
+        val state = mutableUiState.value
+        if (!state.canChangeSelection || state.postSelection.isEmpty()) return
+        setStatus(PreviewDownloadStatus.Enqueuing)
+        viewModelScope.launch {
+            val preferences = currentPreferences()
+            if (needsMeteredConfirmation(preferences)) {
+                pendingPostQueue = true
+                setStatus(PreviewDownloadStatus.ConfirmMetered)
+            } else {
+                queuePostItems(preferences)
+            }
+        }
+    }
+
+    private suspend fun queuePostItems(
+        preferences: DownloadPreferences,
+        meteredConfirmed: Boolean = false,
+    ) {
+        val selected = mutableUiState.value.postSelection
+        val items = postItems.filter { it.key in selected }.sortedBy { item ->
+            item.candidates.firstNotNullOfOrNull { it.postItem?.number } ?: Int.MAX_VALUE
+        }
+        mutableUiState.update {
+            it.copy(postQueueing = true, downloadStatus = PreviewDownloadStatus.Idle)
+        }
+        try {
+            for (item in items) {
+                if (!meteredConfirmed && needsMeteredConfirmation(preferences)) {
+                    pendingPostQueue = true
+                    setStatus(PreviewDownloadStatus.ConfirmMetered)
+                    return
+                }
+                val result = queuePostItem(item, preferences, meteredConfirmed)
+                if (result == null) {
+                    pendingPostQueue = true
+                    setStatus(PreviewDownloadStatus.ConfirmMetered)
+                    return
+                }
+                mutableUiState.update { state ->
+                    state.copy(
+                        postResults = state.postResults + (item.key to result),
+                        postSelection = if (result is PostQueueResult.Rejected) {
+                            state.postSelection
+                        } else {
+                            state.postSelection - item.key
+                        },
+                    )
+                }
+            }
+        } finally {
+            mutableUiState.update { it.copy(postQueueing = false) }
+        }
+    }
+
+    private suspend fun queuePostItem(
+        item: MediaGroup,
+        preferences: DownloadPreferences,
+        meteredConfirmed: Boolean,
+    ): PostQueueResult? {
+        val (option, prepared) = try {
+            val sources = item.candidates.take(MAX_SOURCES).map { candidate ->
+                val source = SheetSource(candidate, stated(candidate), resolved = false)
+                if (needsSizeProbe(source)) inspectSize(source) else source
+            }
+            val choices = QuickDownloadChoices.of(item, sources, playback)
+                ?: return PostQueueResult.Rejected("No video quality could be read.")
+            val videoChoices = choices.copy(audio = emptyList())
+            val option = QuickDownloadChoices.preselect(videoChoices, preferences.defaultQuality)
+                ?: return PostQueueResult.Rejected("No video quality could be read.")
+            val prepared = when (val result = prepare(option, choices.title)) {
+                is Prepared.Failed -> return PostQueueResult.Rejected(result.message)
+                is Prepared.Ready -> result
+            }
+            option to prepared
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Exception) {
+            return PostQueueResult.Rejected("This video could not be prepared. Try again.")
+        }
+        // The network can change while the item's formats are being read.
+        if (!meteredConfirmed && needsMeteredConfirmation(preferences)) return null
+        // The queue might have accepted a task before an exception reaches this caller.
+        val result = try {
+            downloadStarter.enqueue(prepared.asset, prepared.variant, origin(option, prepared.base))
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Exception) {
+            return PostQueueResult.Unknown
+        }
+        return when (result) {
+            is EnqueueResult.Rejected -> {
+                if (result.reason in SiteLookupCache.LINK_FAILURES) forgetLinks(option)
+                PostQueueResult.Rejected(result.message)
+            }
+            is EnqueueResult.Started -> {
+                item.header().thumbnailUrl?.let { url ->
+                    runCatching { downloadThumbnails.saveFrom(result.taskId, url) }
+                }
+                lookupVideoId(option.source.candidate)?.let { videoId ->
+                    runCatching { lookups.rememberDownload(result.taskId, videoId) }
+                }
+                PostQueueResult.Queued
+            }
+        }
+    }
+
     /** The Audio or the Video placeholder picked while the qualities are still coming. */
     fun pickEarly(section: OptionSection) {
         mutableUiState.update { state ->
@@ -503,6 +668,12 @@ class QuickDownloadViewModel @Inject constructor(
     fun confirmMeteredDownload() {
         val state = mutableUiState.value
         if (state.downloadStatus != PreviewDownloadStatus.ConfirmMetered) return
+        if (pendingPostQueue) {
+            pendingPostQueue = false
+            setStatus(PreviewDownloadStatus.Enqueuing)
+            viewModelScope.launch { queuePostItems(currentPreferences(), meteredConfirmed = true) }
+            return
+        }
         if (state.startsWhenReady) {
             // Yes to mobile data before the qualities came; their arrival starts it.
             earlyMeteredConfirmed = true
@@ -517,6 +688,7 @@ class QuickDownloadViewModel @Inject constructor(
 
     fun dismissMeteredDownload() {
         if (mutableUiState.value.downloadStatus != PreviewDownloadStatus.ConfirmMetered) return
+        pendingPostQueue = false
         // No to mobile data also drops a Download queued before the qualities came.
         mutableUiState.update {
             it.copy(
@@ -911,11 +1083,13 @@ class QuickDownloadViewModel @Inject constructor(
 
     /**
      * Fresh link renewal: what to prepare after [target]'s links were gone, in this order. On the
-     * browser's page: the same video's newest links the page has now (the player's first), the
-     * video the player itself asked for, then the page read again quietly, at most
-     * [BrowserPageReader.rereads] times and one at a time (a page without player data — a notice or
-     * a check — is not used). Never another video of the page: the sheet shows the page's own video
-     * or says why not. Null when nothing is left.
+     * browser's page: the same video's newest links the page has now (the player's first), then
+     * the page read again quietly, at most [BrowserPageReader.rereads] times and one at a time (a
+     * page without player data — a notice or a check — is not used). The same video is the one
+     * the Same-file check ([SameFile]) proves; a similar length never is. Never another video of
+     * the page: the sheet shows the page's own video or says why not, and offers
+     * "Reload page and try again". After an ad, the video the player asked for comes before the
+     * page read again. Null when nothing is left.
      */
     private suspend fun nextAttempt(
         target: MediaGroup,
@@ -926,12 +1100,17 @@ class QuickDownloadViewModel @Inject constructor(
             val requests = page.candidates.filter { it.isSavable && it.mediaUrl !in deadLinks }
             // Ad filter: an ad's newest link is the same ad.
             if (!firstWasAd) {
-                sameVideo(target, videos)
+                val same = SameFile.videoIn(target, videos)
+                (same as? SameVideo.Found)?.videos.orEmpty()
                     .mapNotNull { FreshLinks.playerFirst(it, requests).untried() }
                     .firstOrNull { offered(it, Attempt.NEWEST, proofOf(page)) }
                     ?.let { return it to Attempt.NEWEST }
+                if (same == SameVideo.Unconfirmed) {
+                    attempts += listOf(Attempt.NEWEST.label, UNCONFIRMED)
+                }
+            } else {
+                playerVideo(target, videos, page)?.let { return it to Attempt.PLAYER }
             }
-            playerVideo(target, videos, page)?.let { return it to Attempt.PLAYER }
             reread(target, page)?.let { return it to Attempt.REREAD }
         }
         return pageVideoAfterAd(target, page)?.let { it to Attempt.PAGE_VIDEO }
@@ -961,41 +1140,35 @@ class QuickDownloadViewModel @Inject constructor(
     }
 
     /**
-     * Fresh link renewal, Ad filter: the video the page's player asked for
-     * ([FreshLinks.playerVideo]) that passes [PageVideoProof]; at most [MAX_SKIPPED_ADS] ads it
-     * fetched are skipped on the way. After an ad, the ad's length says nothing about the page's
-     * video.
+     * Fresh link renewal, Ad filter: after the video first tapped proved an ad, the video the
+     * page's player asked for ([FreshLinks.playerVideoAfterAd]) that passes [PageVideoProof]; at
+     * most [MAX_SKIPPED_ADS] ads it fetched are skipped on the way. The ad's length says nothing
+     * about the page's video.
      */
     private fun playerVideo(
         target: MediaGroup,
         videos: List<MediaGroup>,
         page: DetectedPage,
     ): MediaGroup? {
-        val failed = if (firstWasAd) target.withoutLengths() else target
         repeat(MAX_SKIPPED_ADS) {
-            val video = FreshLinks.playerVideo(failed, videos, deadLinks + skippedAds, page.facts)
-                ?.untried() ?: return null
+            val video = FreshLinks.playerVideoAfterAd(
+                target,
+                videos,
+                deadLinks + skippedAds,
+                page.facts,
+            )?.untried() ?: return null
             if (offered(video, Attempt.PLAYER, proofOf(page))) return video
         }
         return null
     }
 
-    private fun MediaGroup.withoutLengths(): MediaGroup =
-        copy(candidates = candidates.map { it.copy(durationMillis = null) })
-
     /**
-     * Fresh link renewal: the page's [videos] that are [target] itself: those with one of its
-     * addresses or the same address under another signature (the script's and the player's copies
-     * of one file); else the one [MediaGroups.refreshed] finds by its length.
+     * Fresh link renewal: the page's [videos] that are [target] itself, as the Same-file check
+     * ([SameFile.videoIn]) proves: one of its addresses, or one of its files under a fresh
+     * signature (the script's and the player's copies of one file).
      */
-    private fun sameVideo(target: MediaGroup, videos: List<MediaGroup>): List<MediaGroup> {
-        val urls = target.candidates.map { it.mediaUrl }.toSet()
-        val unsigned = FreshLinks::unsigned
-        val paths = target.candidates.map { unsigned(it.mediaUrl) }.toSet()
-        return videos.filter { video ->
-            video.candidates.any { it.mediaUrl in urls || unsigned(it.mediaUrl) in paths }
-        }.ifEmpty { listOfNotNull(MediaGroups.refreshed(target, videos)) }
-    }
+    private fun sameVideo(target: MediaGroup, videos: List<MediaGroup>): List<MediaGroup> =
+        (SameFile.videoIn(target, videos) as? SameVideo.Found)?.videos.orEmpty()
 
     /**
      * Fresh link renewal: [target] in the page read again, with a link this sheet did not try yet.
@@ -1010,13 +1183,17 @@ class QuickDownloadViewModel @Inject constructor(
                     val facts = read.facts ?: page.facts
                     val videos = MediaGroups.pageVideos(read.candidates.filter { it.isSavable })
                     // Ad filter: after an ad, the page's own video, not the ad again.
+                    val same = if (firstWasAd) null else SameFile.videoIn(target, videos)
                     val again = if (firstWasAd) {
                         pageVideoIn(videos, facts)
                     } else {
-                        MediaGroups.refreshed(target, videos)?.untried()
+                        (same as? SameVideo.Found)?.videos.orEmpty()
+                            .firstNotNullOfOrNull { it.untried() }
                     }
                     if (again == null) {
-                        attempts += listOf(Attempt.REREAD.label, "Status: no new link")
+                        val status = if (same == SameVideo.Unconfirmed) UNCONFIRMED else
+                            "Status: no new link"
+                        attempts += listOf(Attempt.REREAD.label, status)
                     } else {
                         val proof = proofOf(page, page.candidates + read.candidates, facts)
                         if (offered(again, Attempt.REREAD, proof)) {
@@ -1224,7 +1401,11 @@ class QuickDownloadViewModel @Inject constructor(
             source.candidate.videoId?.startsWith("facebook:") == true &&
             source.candidate.bitrateBitsPerSecond != null
 
-    private fun showChoices(choices: QuickChoices?, sources: List<SheetSource>, waiting: Boolean) {
+    private fun showChoices(rows: QuickChoices?, sources: List<SheetSource>, waiting: Boolean) {
+        // Ended live size sample: a row keeps the size its pieces gave while its file states none.
+        val choices = rows?.let {
+            QuickDownloadChoices.withSampledSizes(it, sampledSizes, sampling)
+        }
         mutableUiState.update { state ->
             val picture = state.header?.thumbnailUrl
                 ?: sources.firstNotNullOfOrNull { ThumbnailUrls.https(it.asset?.thumbnailUrl) }
@@ -1264,7 +1445,57 @@ class QuickDownloadViewModel @Inject constructor(
                 },
             )
         }
+        choices?.let(::sampleSizes)
         startWhenReady()
+    }
+
+    /**
+     * Ended live size sample and Finished stream size sample: the rows of a recently ended live,
+     * and HLS rows whose master states no average rate, state no size, so a sample of their files'
+     * pieces is read once, by itself, and each row shows its size as it comes.
+     */
+    private fun sampleSizes(choices: QuickChoices) {
+        sample(QuickDownloadChoices.endedLiveTracks(choices), endedLiveSizes::estimate)
+        sample(QuickDownloadChoices.finishedStreamTracks(choices), finishedStreamSizes::estimate)
+    }
+
+    private fun sample(
+        found: List<EndedLiveSizes.Track>,
+        estimate: suspend (
+            List<EndedLiveSizes.Track>,
+            (String, EndedLiveSizes.Size) -> Unit,
+        ) -> EndedLiveSizes.Outcome,
+    ) {
+        val tracks = found.filter { sampledFiles.add(it.url) }
+        if (tracks.isEmpty()) return
+        val files = tracks.map { it.url }.toSet()
+        sampling += files
+        viewModelScope.launch {
+            try {
+                estimate(tracks) { url, size ->
+                    sampledSizes[url] = size
+                    refreshSampledSizes()
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                // A sample that breaks leaves its rows "Size unknown"; the download is not touched.
+            } finally {
+                sampling -= files
+                refreshSampledSizes()
+            }
+        }
+        refreshSampledSizes()
+    }
+
+    private fun refreshSampledSizes() {
+        mutableUiState.update { state ->
+            state.copy(
+                choices = state.choices?.let {
+                    QuickDownloadChoices.withSampledSizes(it, sampledSizes, sampling)
+                },
+            )
+        }
     }
 
     /** A failed background size check keeps the stated row, including its honest estimate. */
@@ -1413,9 +1644,11 @@ class QuickDownloadViewModel @Inject constructor(
      * and the option's conversion (MP3, or the video's sound kept as M4A) is applied to the
      * resolved file. The asset is named after the video and the variant after its quality.
      */
-    private suspend fun prepare(option: SheetOption): Prepared {
+    private suspend fun prepare(
+        option: SheetOption,
+        title: String? = mutableUiState.value.downloadTitle,
+    ): Prepared {
         // Zawgyi titles: the Unicode title, or the original after "Use original title".
-        val title = mutableUiState.value.downloadTitle
         val resolved = when (val result = resolveForDownload(option.source.candidate)) {
             is VariantResolutionResult.Failure -> {
                 if (result.httpStatusCode in LINK_GONE_STATUSES ||
@@ -1610,7 +1843,7 @@ class QuickDownloadViewModel @Inject constructor(
             downloadStatus != PreviewDownloadStatus.Idle
 
     private val QuickDownloadUiState.canChangeSelection: Boolean
-        get() = downloadStatus != PreviewDownloadStatus.Enqueuing &&
+        get() = !postQueueing && downloadStatus != PreviewDownloadStatus.Enqueuing &&
             downloadStatus != PreviewDownloadStatus.ConfirmMetered
 
     private fun MediaGroup.header(): SheetHeader = SheetHeader(
@@ -1660,6 +1893,12 @@ class QuickDownloadViewModel @Inject constructor(
 
         /** Ad filter: nothing on the page passed as its video; no ad is offered instead. */
         const val ONLY_AD_FOUND = "Only an ad was found, not the page's video."
+
+        /**
+         * Fresh link renewal: a file of the page shares the failed one's path, but nothing
+         * proves it is the same video (Same-file check), so it is not offered.
+         */
+        const val UNCONFIRMED = "Status: same video not confirmed"
 
         /** Ad filter: the ads the sheet skips in one step before it gives up on that step. */
         private const val MAX_SKIPPED_ADS = 4

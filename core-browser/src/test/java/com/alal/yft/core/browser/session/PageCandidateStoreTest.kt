@@ -5,11 +5,13 @@ import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.PageVideoFacts
+import com.alal.yft.core.model.media.StreamPieces
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -106,6 +108,44 @@ class PageCandidateStoreTest {
 
         assertEquals(3, store.candidates.value.size)
         assertTrue(store.candidates.value.none { it.mediaUrl.endsWith("/0.mp4") })
+    }
+
+    @Test
+    fun aStreamsPiecesAndRefreshesNeverCrowdOutThePagesVideo() = runTest {
+        // Two live widgets refresh their playlists every 2 s and fetch a piece a second; the
+        // page's own master was asked once, minutes earlier.
+        val page = "https://example.test/watch"
+        val store = PageCandidateStore(scope = this, debounceMillis = 10, maxRawObservations = 20)
+        store.beginPage(page)
+        val master = candidate(page, "https://vod.test/hls/5/master.m3u8", 1)
+            .copy(kind = MediaKind.HLS, confidence = CandidateConfidence.HIGH)
+        store.submit(master)
+        val playlist = candidate(page, "https://cam.test/b-hls-03/41/41_240p.m3u8", 2)
+            .copy(kind = MediaKind.HLS, confidence = CandidateConfidence.HIGH)
+        repeat(50) { store.submit(playlist.copy(observedAtEpochMs = 10L + it)) }
+        // Numbered .ts pieces of the page's own stream, before its playlist was read.
+        repeat(30) { store.submit(candidate(page, "https://vod.test/hls/5/seg-$it-v1.ts", 100L + it)) }
+        advanceTimeBy(10)
+        runCurrent()
+
+        val urls = store.candidates.value.map { it.mediaUrl }
+        assertTrue(master.mediaUrl in urls)
+        assertTrue(playlist.mediaUrl in urls)
+        assertEquals(59L, store.candidates.value.first { it.mediaUrl == playlist.mediaUrl }.observedAtEpochMs)
+
+        // Once the widget's playlist is read, its newer pieces are not kept and need no probe.
+        val live = StreamPieces.of(true, listOf("https://cam.test/b-hls-03/41/Zx81Qa.mp4"))
+        store.submit(playlist.copy(streamPieces = live, observedAtEpochMs = 200))
+        val piece = candidate(page, "https://cam.test/b-hls-03/41/Pq72Lm.mp4", 201)
+        assertTrue(store.isStreamPiece(piece))
+        store.submit(piece)
+        assertTrue(store.isStreamPiece(candidate(page, "https://vod.test/hls/5/seg-99-v1.ts", 202)))
+        assertFalse(store.isStreamPiece(candidate(page, "https://vod.test/hls/5/720p.mp4", 203)))
+        assertFalse(store.isStreamPiece(candidate("https://example.test/other", piece.mediaUrl, 204)))
+        advanceTimeBy(10)
+        runCurrent()
+        assertTrue(store.candidates.value.none { it.mediaUrl == piece.mediaUrl })
+        assertTrue(master.mediaUrl in store.candidates.value.map { it.mediaUrl })
     }
 
     private fun candidate(pageUrl: String, mediaUrl: String, observedAt: Long) = MediaCandidate(

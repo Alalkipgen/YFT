@@ -54,6 +54,30 @@ class BrowserObservationMapperTest {
         assertEquals(whole, BrowserObservationMapper.forMetadataProbe(piece)?.mediaUrl)
     }
 
+    /**
+     * A jav.guru capture (2026-11-08): a cam's low-latency playlist was asked for 232 times in
+     * 77 seconds under 61 addresses that differ only by `_HLS_msn` and `_HLS_part`; without
+     * them 7 addresses were left. One playlist is one candidate and one probe.
+     */
+    @Test
+    fun aLowLatencyPlaylistAskedForAgainIsOnePlaylist() {
+        val playlist = "https://edge.cam.test/live/abc/chunklist.m3u8?session=s1&token=t"
+        val asks = listOf(
+            "https://edge.cam.test/live/abc/chunklist.m3u8?session=s1&_HLS_msn=41&token=t",
+            "https://edge.cam.test/live/abc/chunklist.m3u8?session=s1&_HLS_msn=41&_HLS_part=2&token=t",
+            "https://edge.cam.test/live/abc/chunklist.m3u8?_HLS_msn=42&_HLS_part=0&session=s1&token=t",
+        ).map { request(it, method = "GET") }
+
+        assertEquals(
+            setOf(playlist),
+            asks.mapNotNull { BrowserObservationMapper.fromRequest(it)?.mediaUrl }.toSet(),
+        )
+        assertEquals(
+            setOf(playlist),
+            asks.mapNotNull { BrowserObservationMapper.forMetadataProbe(it)?.mediaUrl }.toSet(),
+        )
+    }
+
     @Test
     fun metadataProbeMappingAllowsStrongOpaqueHintsButRejectsOrdinaryAssets() {
         val opaqueStream = request("https://cdn.test/api/video/stream?id=7", method = "GET")
@@ -122,6 +146,61 @@ class BrowserObservationMapperTest {
         // Whole folders only: a video about the vast ocean is no ad.
         assertNull(role("https://cdn.test/the-vast-ocean/1.mp4"))
         assertNull(role("https://cdn.test/downloads/1.mp4"))
+    }
+
+    @Test
+    fun thePagesOwnAddressIsNoFileEvenWhenItEndsInAMediaExtension() {
+        // The owner's README run: Wikimedia Commons' File:…webm page was read as the media itself,
+        // so the sheet offered the page's address and the download failed as an invalid address.
+        // The page is HTML; only the probe's answer can tell.
+        val commons = "https://commons.wikimedia.org/wiki/File:Big_Buck_Bunny_4K.webm"
+        val navigation = request(commons, method = "GET").copy(pageUrl = commons)
+
+        assertNull(BrowserObservationMapper.fromRequest(navigation))
+        assertEquals(MediaKind.DIRECT, BrowserObservationMapper.forMetadataProbe(navigation)?.kind)
+        // A fragment is the same page, and a trailing query keeps the extension in its path.
+        assertNull(
+            BrowserObservationMapper.fromRequest(
+                request("$commons#filehistory", method = "GET").copy(pageUrl = commons),
+            ),
+        )
+        // The page's own files are still candidates.
+        val file = request(
+            "https://upload.wikimedia.org/wikipedia/commons/c/c0/Big_Buck_Bunny_4K.webm" +
+                "?utm_source=fixture",
+            method = "GET",
+        ).copy(pageUrl = commons)
+        assertEquals(MediaKind.DIRECT, BrowserObservationMapper.fromRequest(file)?.kind)
+    }
+
+    @Test
+    fun aFileOpenedDirectlyIsStillItsFile() {
+        // A pasted or opened .mp4/.webm address: the page is the file, so the answer names it.
+        val fileUrl = "https://cdn.test/clip.webm"
+        val download = DownloadObservation(
+            pageUrl = fileUrl,
+            mediaUrl = fileUrl,
+            userAgent = "YFT-Test",
+            contentDisposition = null,
+            mimeType = "video/webm",
+            contentLengthBytes = 1_000,
+            cookie = null,
+            observedAtEpochMs = 30,
+        )
+
+        assertEquals(MediaKind.DIRECT, BrowserObservationMapper.fromDownload(download)?.kind)
+        assertEquals(
+            MediaKind.DIRECT,
+            BrowserObservationMapper.forMetadataProbe(
+                request(fileUrl, method = "GET").copy(pageUrl = fileUrl),
+            )?.kind,
+        )
+        // The page's own load is still no candidate; the download listener's answer is the file.
+        assertNull(
+            BrowserObservationMapper.fromRequest(
+                request(fileUrl, method = "GET").copy(pageUrl = fileUrl),
+            ),
+        )
     }
 
     private fun request(url: String, method: String) = RequestObservation(

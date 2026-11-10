@@ -25,19 +25,12 @@ internal object QuickDownloadMetadata {
         if (!audio && (!originalMime.startsWith("video/") ||
                 candidate.height == null && candidate.videoId == null)) return null
         val mime = if (audio && originalMime == "video/mp4") "audio/mp4" else originalMime
-        val known = candidate.contentLengthBytes?.takeIf { it > 0 }
-        val videoEstimate = estimate(candidate.bitrateBitsPerSecond, candidate.durationMillis)
+        // The size is the size the source states, and nothing else. A bitrate and a length are not
+        // a size: YouTube states a live format's encoder rate, not what the replay weighs, and the
+        // sheet read ~1.7 times the file on the owner's phone. A row the source states no size for
+        // says "Size unknown" until its file states one.
+        val size = candidate.contentLengthBytes?.takeIf { it > 0 }
         val companion = candidate.audioCompanion
-        val audioEstimate = companion?.let {
-            it.contentLengthBytes ?: estimate(it.bitrateBitsPerSecond, candidate.durationMillis)
-        }
-        val guessed = when {
-            companion == null -> videoEstimate
-            videoEstimate != null && audioEstimate != null &&
-                videoEstimate <= Long.MAX_VALUE - audioEstimate -> videoEstimate + audioEstimate
-            else -> null
-        }
-        val size = known ?: guessed
         val facebookEstimate = candidate.videoId?.startsWith("facebook:") == true &&
             candidate.bitrateBitsPerSecond != null
         val variant = MediaVariant(
@@ -62,8 +55,7 @@ internal object QuickDownloadMetadata {
             sizeBytes = size,
             sizeAccuracy = when {
                 size == null -> null
-                known == null || companion != null || facebookEstimate ->
-                    MediaSizeAccuracy.ESTIMATED
+                companion != null || facebookEstimate -> MediaSizeAccuracy.ESTIMATED
                 else -> MediaSizeAccuracy.EXACT
             },
             expiresAtEpochMs = candidate.expiresAtEpochMs,
@@ -77,11 +69,5 @@ internal object QuickDownloadMetadata {
             variants = listOf(variant),
             resolvedAtEpochMs = now,
         )
-    }
-
-    private fun estimate(bitrate: Long?, duration: Long?): Long? {
-        if (bitrate == null || bitrate <= 0 || duration == null || duration <= 0) return null
-        val bytes = bitrate.toDouble() * (duration / 8_000.0)
-        return bytes.takeIf { it.isFinite() && it > 0 && it < Long.MAX_VALUE.toDouble() }?.toLong()
     }
 }

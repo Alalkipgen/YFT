@@ -19,6 +19,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -42,7 +43,9 @@ class DashPiecesSoundTest {
         assertEquals(listOf("M4A"), rows.audio.map(SheetOption::title))
         val m4a = rows.audio.single()
         assertEquals("67 kbps", m4a.detail)
-        assertEquals("~5.1 MB", m4a.size)
+        // The manifest states @bandwidth, the peak of a channel the sound can be delivered on, not
+        // the file's size: 67 kbps over the length would be ~5.1 MB, which the file need not weigh.
+        assertNull(m4a.size)
         assertEquals("bbb_a64k", m4a.variant.manifestVariantId)
         assertEquals(EXPECTED.keys.toList(), rows.video.map(SheetOption::title))
         rows.video.forEach { row ->

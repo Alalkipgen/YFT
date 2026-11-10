@@ -5,6 +5,7 @@ import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.MediaGroups
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
@@ -226,17 +227,32 @@ class MediaMetadataProbeTest {
         assertEquals(754_500L, read.durationMillis)
         assertEquals(1080, read.height)
         assertEquals(1920, read.width)
+        assertEquals(
+            listOf(server.url("/v42/720p/index.m3u8").toString(), server.url("/v42/1080p/index.m3u8").toString()),
+            read.hlsVariantPlaylists,
+        )
+        val variant = candidate(server.url("/v42/720p/index.m3u8").toString(), requestContext())
+            .copy(kind = MediaKind.HLS)
+        val other = candidate(server.url("/v42/other.m3u8").toString(), requestContext())
+            .copy(kind = MediaKind.HLS, durationMillis = read.durationMillis)
+        assertEquals(listOf(2, 1), MediaGroups.of(listOf(read, variant, other)).map { it.candidates.size })
         val first = server.takeRequest()
         assertEquals("GET", first.method)
         assertEquals("https://page.test/watch", first.getHeader("Referer"))
         assertEquals("https://page.test", first.getHeader("Origin"))
         assertEquals("/v42/720p/index.m3u8", server.takeRequest().path)
 
-        // A live stream has no length to read, and a file is not read at all.
+        // A live stream has no length to read, only its pieces (Stream piece filter); a file is
+        // not read at all.
         server.enqueue(MockResponse().setBody("#EXTM3U\n#EXTINF:6,\na.ts"))
-        assertNull(probe.readManifest(master.copy(mediaUrl = server.url("/live.m3u8").toString())))
+        val live = probe.readManifest(master.copy(mediaUrl = server.url("/live/p.m3u8").toString()))!!
+        assertNull(live.durationMillis)
+        assertTrue(live.streamPieces!!.live)
+        assertTrue(live.streamPieces!!.names(server.url("/live/b.ts").toString()))
         assertNull(probe.readManifest(master.copy(kind = MediaKind.DIRECT)))
         assertEquals(3, server.requestCount)
+        // A master's pieces are its first quality's: finished here.
+        assertEquals(false, read.streamPieces?.live)
     }
 
     private fun candidate(

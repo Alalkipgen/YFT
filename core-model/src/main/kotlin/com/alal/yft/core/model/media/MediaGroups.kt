@@ -46,21 +46,56 @@ data class PageVideoList(
  * Groups a page's candidates by video. Pure, so the rules are unit-tested.
  *
  * Candidates are one video when a site adapter named the same video ([MediaCandidate.videoId]),
- * when the page's player setup lists them as qualities of one video
- * ([MediaCandidate.pageVideoKey]), or when they come from the same page and state the same
- * length. Anything else stays on its
- * own: two files of unknown length on one page may well be two videos. Order follows the first
- * candidate of each video.
+ * when the page itself names them as one video's files ([MediaCandidate.pageVideoKey]: its player
+ * setup's qualities, a media element's `<source>` alternatives, or the whole file it states for
+ * that video). Otherwise files stay on their own: equal duration does not prove that two files
+ * are the same video. An HLS master and the exact variant playlists it names may also group,
+ * unless their stated identities or ad/preview signs conflict. Order follows the first candidate.
  */
 object MediaGroups {
     fun of(candidates: List<MediaCandidate>): List<MediaGroup> {
-        val groups = LinkedHashMap<String, MutableList<MediaCandidate>>()
+        val keyed = LinkedHashMap<String, MutableList<Int>>()
         candidates.forEachIndexed { index, candidate ->
-            groups.getOrPut(keyOf(candidate, index)) { mutableListOf() }.add(candidate)
+            keyed.getOrPut(keyOf(candidate, index)) { mutableListOf() }.add(index)
         }
-        return groups.map { (key, members) ->
-            MediaGroup(key = key, title = titleOf(members), candidates = members)
+        val groups = keyed.values.toMutableList()
+        // A master explicitly names its variant playlists. An exact address match on the same
+        // page is evidence; equal duration, host, path without query, or request timing is not.
+        candidates.forEachIndexed { masterIndex, master ->
+            if (master.kind != MediaKind.HLS || master.hlsVariantPlaylists.isEmpty()) return@forEachIndexed
+            val named = master.hlsVariantPlaylists.toSet()
+            candidates.forEachIndexed child@{ childIndex, child ->
+                if (childIndex == masterIndex || child.kind != MediaKind.HLS ||
+                    child.pageUrl != master.pageUrl || child.mediaUrl !in named
+                ) return@child
+                val left = groups.indexOfFirst { masterIndex in it }
+                val right = groups.indexOfFirst { childIndex in it }
+                if (left == right || left < 0 || right < 0) return@child
+                val a = groups[left].map(candidates::get)
+                val b = groups[right].map(candidates::get)
+                if (!canJoinManifestGroups(a, b)) return@child
+                val first = minOf(left, right)
+                val last = maxOf(left, right)
+                groups[first].addAll(groups[last])
+                groups[first].sort()
+                groups.removeAt(last)
+            }
         }
+        return groups.map { indices ->
+            val members = indices.map(candidates::get)
+            MediaGroup(key = keyOf(members.first(), indices.first()), title = titleOf(members), candidates = members)
+        }
+    }
+
+    private fun canJoinManifestGroups(a: List<MediaCandidate>, b: List<MediaCandidate>): Boolean {
+        // An ad or preview marker must not cause a main video to disappear with it.
+        if ((a + b).any { it.adSign != null || it.pageRole == PageMediaRole.PREVIEW }) return false
+        val idsA = a.mapNotNull { it.videoId?.trim()?.takeIf(String::isNotEmpty) }.toSet()
+        val idsB = b.mapNotNull { it.videoId?.trim()?.takeIf(String::isNotEmpty) }.toSet()
+        if (idsA.isNotEmpty() && idsB.isNotEmpty() && idsA != idsB) return false
+        val keysA = a.mapNotNull { it.pageVideoKey?.trim()?.takeIf(String::isNotEmpty)?.let { key -> it.pageUrl to key } }.toSet()
+        val keysB = b.mapNotNull { it.pageVideoKey?.trim()?.takeIf(String::isNotEmpty)?.let { key -> it.pageUrl to key } }.toSet()
+        return keysA.isEmpty() || keysB.isEmpty() || keysA == keysB
     }
 
     /**
@@ -176,23 +211,12 @@ object MediaGroups {
     }
 
     /**
-     * The page's current files of [group], for Try again: the video in [videos] that shares
-     * a file with it, the same address without its signed query, or else its length (within
-     * 2 s). Null when the page no longer has it.
+     * The page's current files of [group], for Try again and a fresh link: the video in [videos]
+     * that the Same-file check ([SameFile.videoIn]) proves holds one of its files. A similar
+     * length alone never does. Null when the page no longer has it or nothing proves which one.
      */
-    fun refreshed(group: MediaGroup, videos: List<MediaGroup>): MediaGroup? {
-        val urls = group.candidates.map { it.mediaUrl }.toSet()
-        videos.firstOrNull { video -> video.candidates.any { it.mediaUrl in urls } }
-            ?.let { return it }
-        val paths = group.candidates.map { unsigned(it.mediaUrl) }.toSet()
-        videos.firstOrNull { video -> video.candidates.any { unsigned(it.mediaUrl) in paths } }
-            ?.let { return it }
-        val length = group.durationMillis ?: return null
-        return videos.filter { it.lengthGap(length) <= LENGTH_MATCH_MILLIS }
-            .minByOrNull { it.lengthGap(length) }
-    }
-
-    private fun unsigned(url: String): String = url.substringBefore('?').substringBefore('#')
+    fun refreshed(group: MediaGroup, videos: List<MediaGroup>): MediaGroup? =
+        (SameFile.videoIn(group, videos) as? SameVideo.Found)?.video
 
     /**
      * Whether [video] looks like a preview or an ad rather than [page]'s own video: the page
@@ -200,8 +224,11 @@ object MediaGroups {
      * ad's file), their addresses say so (`preview`, `thumb`, `teaser`, `sprite`), or it is not
      * known to be a minute or more long while the page names another video as its own
      * ([PageMediaRole.MAIN]) or, being shorter, has a video of a minute or more. A video a site
-     * adapter named, or one the page names as its own, never is. With the page's [facts], a
-     * video of the stated length never is, and one under half of it is.
+     * adapter named, or one the page names as its own, never is — and neither is a video the page
+     * itself names as one video's files ([MediaCandidate.pageVideoKey]: a media element's
+     * `<source>` alternatives, which state no length of their own). With the page's [facts], a
+     * video of the stated length never is, and one under half of it is. A live stream
+     * ([StreamPieces.isLive]: YFT can't save it) is, while the page has another video.
      */
     fun looksLikePreview(
         video: MediaGroup,
@@ -210,6 +237,11 @@ object MediaGroups {
     ): Boolean {
         val files = video.candidates
         if (files.any { it.videoId != null || it.pageRole == PageMediaRole.MAIN }) return false
+        // Live stream set aside: a live stream YFT can't save is not the page's video while the
+        // page has another one.
+        if (StreamPieces.isLive(video)) {
+            return page.any { other -> other !== video && !StreamPieces.isLive(other) }
+        }
         val length = video.durationMillis
         // The length the page states is its video's, whatever an ad list says.
         if (facts?.matchesLength(length) == true) return false
@@ -217,6 +249,9 @@ object MediaGroups {
         if (files.all { isPreviewAddress(it.mediaUrl) }) return true
         // Far shorter than the length the page states: the ad before its video.
         if (facts?.isFarShorter(length) == true) return true
+        // The page's own player lists these files as one video's qualities, and none of them is
+        // proven a preview or an ad: that is its video, not what plays around it.
+        if (files.any { it.pageVideoKey != null }) return false
         if (length != null && length >= LONG_VIDEO_MILLIS) return false
         return page.any { other ->
             other !== video && (
@@ -401,16 +436,13 @@ object MediaGroups {
 
     private fun keyOf(candidate: MediaCandidate, index: Int): String {
         candidate.videoId?.trim()?.takeIf(String::isNotEmpty)?.let { return "id:$it" }
-        // The qualities a page's player setup lists are one video.
+        // The files a page names as one video are one video: its player setup's qualities, a
+        // media element's <source> alternatives, or the whole file it states for that video.
         candidate.pageVideoKey?.trim()?.takeIf(String::isNotEmpty)?.let {
             return "setup:${candidate.pageUrl}#$it"
         }
-        // Two previews of one length are two clips, not two qualities of one video.
-        if (candidate.pageRole == PageMediaRole.PREVIEW) {
-            return "item:$index:${candidate.mediaUrl.hashCode()}"
-        }
-        val seconds = candidate.durationMillis?.takeIf { it > 0 }?.let { it / MILLIS_PER_SECOND }
-        if (seconds != null) return "page:${candidate.pageUrl}#$seconds"
+        // Without a shared identity, equal lengths do not show whether these are qualities
+        // of one video or separate videos.
         return "item:$index:${candidate.mediaUrl.hashCode()}"
     }
 
@@ -430,7 +462,6 @@ object MediaGroups {
     }
 
     private const val LABEL_SEPARATOR = " — "
-    private const val MILLIS_PER_SECOND = 1_000L
 
     /** A video of a minute or more is long; a clip under it next to one is a preview. */
     private const val LONG_VIDEO_MILLIS = 60_000L

@@ -563,8 +563,11 @@ fun BrowserScreen(
         MediaGroups.pageVideos(savable, adapterSite = uiState.sitePage)
     }
     // Page video finder: the count and the button's label count the page's videos; its previews
-    // follow them under "Other videos on this page". A video proven an ad is not listed at all.
-    val pageList = remember(videos) { MediaGroups.ofPage(videos, hideAds = true) }
+    // follow them under "Other videos on this page". A video proven an ad is not listed at all,
+    // unless its length is the one the page states.
+    val pageList = remember(videos, uiState.pageFacts) {
+        MediaGroups.ofPage(videos, uiState.pageFacts, hideAds = true)
+    }
     var sheetExpanded by rememberSaveable { mutableStateOf(initialSheetExpanded) }
     var editingAddress by remember { mutableStateOf(false) }
     LaunchedEffect(savable.isEmpty()) {

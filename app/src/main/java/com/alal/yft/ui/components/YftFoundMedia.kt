@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaGroup
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.StreamPieces
 import com.alal.yft.thumbnail.ThumbnailUrls
 import com.alal.yft.thumbnail.rememberRemoteThumbnail
 import com.alal.yft.ui.format.YftFormat
@@ -232,7 +233,10 @@ fun MediaCandidate.isAudio(): Boolean {
  */
 fun MediaCandidate.factLabels(): List<String> = buildList {
     formatLabel()?.let(::add)
-    if (kind == MediaKind.HLS || kind == MediaKind.DASH) {
+    if (streamPieces?.live == true && durationMillis == null) {
+        // Live stream set aside: it has no end, so it has no size or length.
+        add(LIVE)
+    } else if (kind == MediaKind.HLS || kind == MediaKind.DASH) {
         add("Auto quality")
     } else {
         qualityName()?.let(::add)
@@ -257,24 +261,15 @@ private fun MediaCandidate.qualityName(): String? {
 }
 
 /**
- * The size the Download sheet shows: a lone file's stated size; a merge's two files, or a file's
- * bitrate × length, as an estimate ("~54 MB"); nothing when it is not known.
+ * The size the Download sheet shows: a lone file's stated size, or a merge's two stated sizes
+ * added; nothing when it is not known, so a row never shows a number the file may not have.
  */
 private fun MediaCandidate.sizeName(): String? {
-    val known = contentLengthBytes?.takeIf { it > 0 }
-    val companion = audioCompanion
-    if (known != null && companion == null) return YftFormat.bytes(known)
-    if (kind != MediaKind.DIRECT && kind != MediaKind.UNKNOWN) return null
-    val picture = known ?: YftQualityNames.estimatedBytes(bitrateBitsPerSecond, durationMillis)
-        ?: return null
-    val sound = when {
-        companion == null -> 0L
-        else -> companion.contentLengthBytes
-            ?: YftQualityNames.estimatedBytes(companion.bitrateBitsPerSecond, durationMillis)
-            ?: if (known != null) 0L else return null
-    }
-    if (picture > Long.MAX_VALUE - sound) return null
-    return "~${YftFormat.bytes(picture + sound)}"
+    val known = contentLengthBytes?.takeIf { it > 0 } ?: return null
+    val companion = audioCompanion ?: return YftFormat.bytes(known)
+    val sound = companion.contentLengthBytes?.takeIf { it > 0 } ?: return null
+    if (known > Long.MAX_VALUE - sound) return null
+    return YftFormat.bytes(known + sound)
 }
 
 /**
@@ -286,10 +281,17 @@ fun MediaGroup.factLabels(): List<String> {
     return buildList {
         candidates.mapNotNull { it.formatLabel() }.distinct().take(MAX_GROUP_FORMATS)
             .forEach(::add)
-        add(SEVERAL_QUALITIES)
-        durationMillis?.let { add(YftFormat.duration(it)) }
+        if (StreamPieces.isLive(this@factLabels)) {
+            add(LIVE)
+        } else {
+            add(SEVERAL_QUALITIES)
+            durationMillis?.let { add(YftFormat.duration(it)) }
+        }
     }
 }
+
+/** Live stream set aside: a found row's word for a live stream. */
+const val LIVE = "Live"
 
 fun MediaCandidate.formatLabel(): String? = when (kind) {
     MediaKind.HLS -> "HLS"

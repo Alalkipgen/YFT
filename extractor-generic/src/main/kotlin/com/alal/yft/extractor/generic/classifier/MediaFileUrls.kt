@@ -11,6 +11,11 @@ import java.util.Locale
  * drops it and the URL names the whole file again. Numbered pieces of one HLS stream
  * (`seg-12.ts`) share one [segmentFamily]. Distinct files keep distinct URLs: numbered whole
  * files such as `clip-1.mp4` and `clip-2.mp4` are never merged.
+ *
+ * A low-latency HLS player asks for the same playlist again and again with delivery directives
+ * (`_HLS_msn=12&_HLS_part=3`, query names the HLS rules keep for this). They ask the server to
+ * hold the answer until that piece exists; they never name another stream, so [wholeFile] drops
+ * them too (one cam playlist gave 54 addresses in 77 seconds, one stream).
  */
 object MediaFileUrls {
     private val BYTE_PARAMETERS = setOf("bytestart", "byteend")
@@ -19,6 +24,7 @@ object MediaFileUrls {
     private val PIECE_PARAMETERS = setOf("bytes")
     private val CLOSED_RANGE = Regex("^[0-9]{1,15}-[0-9]{1,15}$")
     private val DIGITS = Regex("[0-9]+")
+    private const val DELIVERY_DIRECTIVE_PREFIX = "_HLS_"
 
     /** A file name the site generated: long, opaque and with a media extension. */
     private val OPAQUE_FILE = Regex("^[A-Za-z0-9_-]{24,}\\.([A-Za-z0-9]{2,4})$")
@@ -26,12 +32,15 @@ object MediaFileUrls {
     /** Extensions of the pieces HLS streams are cut into. */
     private val STREAM_PIECE_EXTENSIONS = setOf("aac", "ts")
 
-    /** [url] without byte-range parameters; [url] itself when it has none or cannot be read. */
+    /**
+     * [url] without byte-range parameters and HLS delivery directives; [url] itself when it has
+     * none or cannot be read.
+     */
     fun wholeFile(url: String): String {
         val fragmentStart = url.indexOf('#').takeIf { it >= 0 } ?: url.length
         val queryStart = url.indexOf('?').takeIf { it in 0 until fragmentStart } ?: return url
         val parameters = url.substring(queryStart + 1, fragmentStart).split('&')
-        val kept = parameters.filterNot(::isByteRange)
+        val kept = parameters.filterNot { isByteRange(it) || isDeliveryDirective(it) }
         if (kept.size == parameters.size) return url
         val query = kept.filter(String::isNotEmpty).joinToString("&")
         return buildString {
@@ -42,7 +51,11 @@ object MediaFileUrls {
     }
 
     /** True when [url] asks for a piece of a file by its byte range. */
-    fun hasByteRange(url: String): Boolean = wholeFile(url) != url
+    fun hasByteRange(url: String): Boolean {
+        val fragmentStart = url.indexOf('#').takeIf { it >= 0 } ?: url.length
+        val queryStart = url.indexOf('?').takeIf { it in 0 until fragmentStart } ?: return false
+        return url.substring(queryStart + 1, fragmentStart).split('&').any(::isByteRange)
+    }
 
     /**
      * VK's pack proof (a retest, 2026-10-26): true when [url] names a piece of a file by a
@@ -97,6 +110,10 @@ object MediaFileUrls {
             else -> false
         }
     }
+
+    /** An HLS delivery directive: the HLS rules keep query names starting `_HLS_` for them. */
+    private fun isDeliveryDirective(parameter: String): Boolean =
+        parameter.startsWith(DELIVERY_DIRECTIVE_PREFIX)
 
     private fun fileName(url: String): String? =
         runCatching { URI(url) }.getOrNull()

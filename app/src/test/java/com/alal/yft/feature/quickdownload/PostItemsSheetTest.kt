@@ -2,6 +2,7 @@ package com.alal.yft.feature.quickdownload
 
 import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
 import com.alal.yft.core.media.session.PreviewSelectionStore
+import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaAsset
 import com.alal.yft.core.model.media.MediaCandidate
@@ -32,6 +33,7 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -171,6 +173,139 @@ class PostItemsSheetTest {
         assertEquals(TITLE, state.header?.title)
     }
 
+    @Test
+    fun selectedVideosQueueOnceInPostOrderUsingOneDefaultQualityEach() = runTest {
+        open(post())
+        val sheet = sheet()
+        sheet.togglePostSelection("$KEY_PREFIX$POST:1")
+        assertEquals(setOf("$KEY_PREFIX$POST:1"), sheet.uiState.value.postSelection)
+        sheet.togglePostSelection("$KEY_PREFIX$POST:1")
+        assertTrue(sheet.uiState.value.postSelection.isEmpty())
+        sheet.toggleAllPostSelection()
+        assertEquals(3, sheet.uiState.value.postSelection.size)
+        sheet.toggleAllPostSelection()
+        assertTrue(sheet.uiState.value.postSelection.isEmpty())
+        sheet.toggleAllPostSelection()
+
+        sheet.queuePostSelection()
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf("$POST:1", POST, "$POST:5"),
+            starter.origins.map { it?.candidate?.videoId?.removePrefix("instagram:") },
+        )
+        // The resolver fake reports 720p for every file; the picked candidates are the
+        // default-quality rows of three distinct items.
+        assertEquals(listOf(720, 640, 480), starter.origins.map { it?.candidate?.height })
+        assertEquals(3, sheet.uiState.value.postResults.size)
+        assertTrue(sheet.uiState.value.postResults.values.all { it is PostQueueResult.Queued })
+        assertTrue(sheet.uiState.value.postSelection.isEmpty())
+        sheet.toggleAllPostSelection()
+        sheet.queuePostSelection()
+        advanceUntilIdle()
+        assertEquals("already queued items are not queued twice", 3, starter.assets.size)
+    }
+
+    @Test
+    fun individuallySelectedVideosQueueWithoutUnselectedItems() = runTest {
+        open(post())
+        val sheet = sheet()
+        sheet.togglePostSelection("$KEY_PREFIX$POST:5")
+        sheet.togglePostSelection("$KEY_PREFIX$POST:1")
+        sheet.queuePostSelection()
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf("$POST:1", "$POST:5"),
+            starter.origins.map { it?.candidate?.videoId?.removePrefix("instagram:") },
+        )
+        assertEquals(2, sheet.uiState.value.postResults.size)
+        assertFalse(sheet.uiState.value.postResults.containsKey("$KEY_PREFIX$POST"))
+    }
+
+    @Test
+    fun aRejectedItemCanBeRetriedWithoutRepeatingTheOtherItems() = runTest {
+        open(post())
+        starter.rejectedIds += "instagram:$POST:1"
+        val sheet = sheet()
+        sheet.toggleAllPostSelection()
+        sheet.queuePostSelection()
+        advanceUntilIdle()
+
+        assertTrue(sheet.uiState.value.postResults["$KEY_PREFIX$POST:1"] is PostQueueResult.Rejected)
+        assertEquals(setOf("$KEY_PREFIX$POST:1"), sheet.uiState.value.postSelection)
+        assertEquals(listOf(POST, "$POST:5"), starter.origins.map {
+            it?.candidate?.videoId?.removePrefix("instagram:")
+        })
+
+        starter.rejectedIds.clear()
+        sheet.queuePostSelection()
+        advanceUntilIdle()
+        assertEquals(3, starter.assets.size)
+        assertEquals(3, sheet.uiState.value.postResults.values.count { it is PostQueueResult.Queued })
+    }
+
+    @Test
+    fun anUncertainEnqueueIsNotAutomaticallyRetried() = runTest {
+        open(post())
+        starter.uncertainIds += "instagram:$POST:1"
+        val sheet = sheet()
+        sheet.toggleAllPostSelection()
+        sheet.queuePostSelection()
+        advanceUntilIdle()
+        assertTrue(sheet.uiState.value.postResults["$KEY_PREFIX$POST:1"] is PostQueueResult.Unknown)
+        sheet.togglePostSelection("$KEY_PREFIX$POST:1")
+        sheet.toggleAllPostSelection()
+        sheet.queuePostSelection()
+        advanceUntilIdle()
+        assertEquals(1, starter.attempts.count { it == "instagram:$POST:1" })
+    }
+
+    @Test
+    fun aBatchAsksAboutMobileDataBeforeQueueing() = runTest {
+        open(post())
+        val sheet = sheet(
+            preferences = DownloadPreferences(confirmOnMeteredNetwork = true),
+            network = NetworkSnapshot(connected = true, validated = true, unmetered = false),
+        )
+        sheet.toggleAllPostSelection()
+        sheet.queuePostSelection()
+        advanceUntilIdle()
+        assertEquals(PreviewDownloadStatus.ConfirmMetered, sheet.uiState.value.downloadStatus)
+        assertTrue(starter.assets.isEmpty())
+        sheet.dismissMeteredDownload()
+        assertTrue(starter.assets.isEmpty())
+        sheet.queuePostSelection()
+        advanceUntilIdle()
+        sheet.confirmMeteredDownload()
+        advanceUntilIdle()
+        assertEquals(3, starter.assets.size)
+    }
+
+    @Test
+    fun aBatchStopsAndAsksWhenWifiChangesToMobileData() = runTest {
+        open(post())
+        val network = MutableStateFlow(
+            NetworkSnapshot(connected = true, validated = true, unmetered = true),
+        )
+        starter.afterEnqueue = {
+            network.value = NetworkSnapshot(connected = true, validated = true, unmetered = false)
+        }
+        val sheet = sheet(
+            preferences = DownloadPreferences(confirmOnMeteredNetwork = true),
+            networkState = network,
+        )
+        sheet.toggleAllPostSelection()
+        sheet.queuePostSelection()
+        advanceUntilIdle()
+        assertEquals(1, starter.assets.size)
+        assertEquals(PreviewDownloadStatus.ConfirmMetered, sheet.uiState.value.downloadStatus)
+        assertEquals(2, sheet.uiState.value.postSelection.size)
+        sheet.confirmMeteredDownload()
+        advanceUntilIdle()
+        assertEquals(3, starter.assets.size)
+    }
+
     /** The lookup's answer: item 3 of 4 linked; item 1 (a file, a merge), item 4 (a merge). */
     private fun post(): List<MediaCandidate> {
         val others = listOf(
@@ -217,6 +352,7 @@ class PostItemsSheetTest {
         merges: MergeSupport = MergeSupport { true },
         preferences: DownloadPreferences = DownloadPreferences(confirmOnMeteredNetwork = false),
         network: NetworkSnapshot = NetworkSnapshot(connected = true, validated = true, unmetered = true),
+        networkState: StateFlow<NetworkSnapshot> = MutableStateFlow(network),
     ) = QuickDownloadViewModel(
         store = store,
         selectionStore = selection,
@@ -230,7 +366,7 @@ class PostItemsSheetTest {
             ) = Unit
         },
         network = object : NetworkStatusSource {
-            override val snapshot: StateFlow<NetworkSnapshot> = MutableStateFlow(network)
+            override val snapshot: StateFlow<NetworkSnapshot> = networkState
         },
         playback = VideoPlaybackSupport.ANY,
         lookups = lookups,
@@ -239,19 +375,32 @@ class PostItemsSheetTest {
 
     private class RecordingStarter : PreviewDownloadStarter {
         val assets = mutableListOf<MediaAsset>()
+        val variants = mutableListOf<MediaVariant>()
         val origins = mutableListOf<DownloadOrigin?>()
+        val rejectedIds = mutableSetOf<String>()
+        val uncertainIds = mutableSetOf<String>()
+        val attempts = mutableListOf<String?>()
+        var afterEnqueue: (() -> Unit)? = null
 
         override suspend fun enqueue(
             asset: MediaAsset,
             variant: MediaVariant,
             origin: DownloadOrigin?,
         ): EnqueueResult {
+            val id = origin?.candidate?.videoId
+            attempts += id
+            if (id in uncertainIds) error("queue result unknown")
+            if (id in rejectedIds) {
+                return EnqueueResult.Rejected(DownloadFailureReason.NETWORK, "Try again.")
+            }
             origins += origin
             return enqueue(asset, variant)
         }
 
         override suspend fun enqueue(asset: MediaAsset, variant: MediaVariant): EnqueueResult {
             assets += asset
+            variants += variant
+            afterEnqueue?.invoke()
             return EnqueueResult.Started("task-${assets.size}", "${asset.title}.mp4")
         }
     }

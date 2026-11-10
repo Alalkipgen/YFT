@@ -22,17 +22,17 @@ KOTLIN_DAEMON_JVMARGS = "-Xmx2g -XX:MaxMetaspaceSize=512m"
 WRITTEN = f"org.gradle.jvmargs={GRADLE_JVMARGS}\nkotlin.daemon.jvmargs={KOTLIN_DAEMON_JVMARGS}\n"
 RUN = "bash scripts/ci-gradle-memory.sh"
 SETUP_GRADLE = re.compile(r"^(\s*)- uses: gradle/actions/setup-gradle@", re.MULTILINE)
-# Each workflow that sets up Gradle, including the README screenshots workflow.
-# The three workflows that a push to a work branch does not start are
-# (release-draft.yml, phase0-validation.yml, master-optin-debug-apk.yml's two jobs).
+# Each workflow that sets up Gradle, including the README screenshots workflow, per job that
+# runs Gradle (the emulator smoke workflow's API 34 job and its Android 9 save-path job).
+# The workflows that a push to a work branch does not start are release-draft.yml and
+# master-optin-debug-apk.yml's two jobs.
 USES = {
     "checkpoint-validation.yml": 1,
-    "emulator-smoke.yml": 1,
+    "emulator-smoke.yml": 2,
     "readme-screenshots.yml": 1,
     "preview-apk.yml": 1,
     "minified-check.yml": 1,
     "release-draft.yml": 1,
-    "phase0-validation.yml": 1,
     "master-optin-debug-apk.yml": 2,
 }
 
@@ -203,7 +203,7 @@ class WorkflowTest(unittest.TestCase):
         self.assertEqual(set(USES), runs_gradle)
 
     def test_a_workflow_with_a_paths_filter_starts_when_the_script_changes(self):
-        for name in ("emulator-smoke.yml", "preview-apk.yml", "minified-check.yml", "phase0-validation.yml"):
+        for name in ("emulator-smoke.yml", "preview-apk.yml", "minified-check.yml"):
             with self.subTest(workflow=name):
                 text = workflow(name)
                 self.assertEqual(text.count("    paths:\n"), text.count('      - "scripts/ci-gradle-memory.sh"\n'))

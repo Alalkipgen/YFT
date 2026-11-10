@@ -38,6 +38,10 @@ internal object LiveOriginFile {
     /** The last byte of a Content-Range, null when it has none. */
     fun rangeEnd(header: String?): Long? = range(header, 2)
 
+    /** The whole length a Content-Range states ("bytes 0-8191/1021861"), null when none. */
+    fun rangeTotal(header: String?): Long? =
+        header?.substringAfterLast('/', missingDelimiterValue = "")?.trim()?.toLongOrNull()
+
     private fun range(header: String?, group: Int): Long? =
         header?.trim()?.let(RANGE::find)?.groupValues?.get(group)?.toLongOrNull()
 

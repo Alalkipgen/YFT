@@ -29,6 +29,7 @@ import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.core.model.settings.SaveFolder
+import com.alal.yft.detection.VideoPlaybackSupport
 import com.alal.yft.download.policy.NetworkSnapshot
 import com.alal.yft.download.policy.NetworkStatusSource
 import kotlinx.coroutines.flow.Flow
@@ -454,6 +455,52 @@ class PreviewViewModelTest {
             )
         }
 
+    @Test
+    fun aPictureThisPhoneHasNoDecoderForSaysSoAndThatTheFileStillDownloads() = runTest {
+        val store = PreviewSelectionStore().apply { select(candidate()) }
+        val original = variant("video", height = 2250).copy(width = 4000, codecs = listOf("vp8"))
+        val resolver = FakeResolver(VariantResolutionResult.Success(asset(listOf(original))))
+        val viewModel = viewModel(resolver, store, playback = VideoPlaybackSupport { false })
+        runCurrent()
+
+        viewModel.onPlaybackError(original.id)
+        val ready = viewModel.uiState.value as PreviewUiState.Ready
+
+        assertEquals(
+            "This phone has no decoder for this picture: 4000 × 2250 (VP8). " +
+                "Another quality plays here; this file still downloads.",
+            ready.playbackError,
+        )
+    }
+
+    @Test
+    fun aPictureThisPhonePlaysKeepsTheGenericMessage() = runTest {
+        val store = PreviewSelectionStore().apply { select(candidate()) }
+        val quality = variant("video", height = 1080).copy(width = 1920, codecs = listOf("vp9"))
+        val resolver = FakeResolver(VariantResolutionResult.Success(asset(listOf(quality))))
+        val viewModel = viewModel(resolver, store, playback = VideoPlaybackSupport { true })
+        runCurrent()
+
+        viewModel.onPlaybackError(quality.id)
+        val ready = viewModel.uiState.value as PreviewUiState.Ready
+
+        assertEquals("This variant could not be played. Try another variant.", ready.playbackError)
+    }
+
+    @Test
+    fun aVariantWhosePictureIsNotKnownKeepsTheGenericMessage() = runTest {
+        val store = PreviewSelectionStore().apply { select(candidate()) }
+        val unknown = variant("video").copy(codecs = listOf("vp8"))
+        val resolver = FakeResolver(VariantResolutionResult.Success(asset(listOf(unknown))))
+        val viewModel = viewModel(resolver, store, playback = VideoPlaybackSupport { false })
+        runCurrent()
+
+        viewModel.onPlaybackError(unknown.id)
+        val ready = viewModel.uiState.value as PreviewUiState.Ready
+
+        assertEquals("This variant could not be played. Try another variant.", ready.playbackError)
+    }
+
     private class SwitchableFolders(var usable: Boolean) : SaveFolders {
         override fun take(treeUri: String): SaveFolder? = null
 
@@ -470,6 +517,7 @@ class PreviewViewModelTest {
         networkSnapshot: NetworkSnapshot = WIFI,
         preferences: DownloadPreferencesRepository = FakePreferences(prefs),
         saveFolders: SaveFolders = SaveFolders.None,
+        playback: VideoPlaybackSupport = VideoPlaybackSupport.ANY,
     ): PreviewViewModel {
         val context = ApplicationProvider.getApplicationContext<Context>()
         return PreviewViewModel(
@@ -484,6 +532,7 @@ class PreviewViewModelTest {
                     MutableStateFlow(networkSnapshot)
             },
             saveFolders = saveFolders,
+            playback = playback,
         )
     }
 

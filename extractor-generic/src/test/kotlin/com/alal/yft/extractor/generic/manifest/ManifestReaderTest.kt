@@ -1,6 +1,7 @@
 package com.alal.yft.extractor.generic.manifest
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -8,6 +9,61 @@ import org.junit.Test
 /** Lengths and pictures read from a manifest's text, so a page's video can be ranked. */
 class ManifestReaderTest {
     private val masterUrl = "https://stream.example.test/v42/master.m3u8?token=fixture"
+
+    @Test
+    fun manifestFactsDoNotPrintPlaylistAddresses() {
+        val facts = ManifestFacts(
+            firstPlaylistUrl = "https://private.example.test/path/index.m3u8?token=fixture",
+            variantPlaylistUrls = listOf("https://private.example.test/other.m3u8?sig=fixture"),
+        )
+        val text = facts.toString()
+        assertFalse(text.contains("private.example.test"))
+        assertFalse(text.contains("fixture"))
+    }
+
+    @Test
+    fun aLivePlaylistNamesItsPiecesAndHasNoLength() {
+        // A live widget's fMP4 playlist: an init file and opaque piece names, no end.
+        val live = """
+            #EXTM3U
+            #EXT-X-VERSION:6
+            #EXT-X-TARGETDURATION:2
+            #EXT-X-MEDIA-SEQUENCE:9120
+            #EXT-X-MAP:URI="init_240p.mp4"
+            #EXTINF:2.000,
+            Zx81Qa.mp4?sig=fixture
+            #EXTINF:2.000,
+            https://cam.example.test/b-hls-03/41/Pq72Lm.mp4
+        """.trimIndent()
+
+        val facts = ManifestReader.hls(live, "https://cam.example.test/b-hls-03/41/41_240p.m3u8")!!
+
+        assertTrue(facts.live)
+        assertNull(facts.durationMillis)
+        assertEquals(
+            listOf(
+                "https://cam.example.test/b-hls-03/41/init_240p.mp4",
+                "https://cam.example.test/b-hls-03/41/Zx81Qa.mp4?sig=fixture",
+                "https://cam.example.test/b-hls-03/41/Pq72Lm.mp4",
+            ),
+            facts.pieceUrls,
+        )
+        assertFalse(facts.toString().contains("fixture"))
+        assertTrue(facts.toString().contains("pieceCount=3"))
+    }
+
+    @Test
+    fun aFinishedPlaylistIsNotLiveAndAMasterNamesNoPieces() {
+        val vod = "#EXTM3U\n#EXTINF:6,\nseg-1.ts\n#EXTINF:4,\nseg-2.ts\n#EXT-X-ENDLIST"
+        val facts = ManifestReader.hls(vod, "https://cdn.example.test/v/9/index.m3u8")!!
+
+        assertFalse(facts.live)
+        assertEquals(10_000L, facts.durationMillis)
+        assertEquals(2, facts.pieceUrls.size)
+        val master = ManifestReader.hls("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\na.m3u8", masterUrl)!!
+        assertFalse(master.live)
+        assertTrue(master.pieceUrls.isEmpty())
+    }
 
     @Test
     fun anHlsMasterNamesItsTallestPictureAndTheFirstVideoPlaylist() {

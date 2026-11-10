@@ -8,6 +8,113 @@ release's tag: a stable X.Y.Z is X·1000000 + Y·10000 + Z·100 (1.0.0 = 1000000
 a prerelease just below its version's (1.0.0-rc.1 = 999901). Android refuses to install a lower
 one.
 
+## [Unreleased]
+
+## [1.0.3]
+
+### Added
+
+- **All items**: select the available videos of one post and queue them at the default quality.
+  Each video is a separate download; photos are not downloaded.
+- **Ended live size sample**: a recently ended YouTube live's rows, which state no size, now show
+  "Estimating size…" and then "~63 MB" with "Rough estimate". The sheet reads only the start of a
+  spread sample of the replay's pieces (on the owner's replay: 189 small asks, 1.5 MB, 144p
+  within 0.2% of its joined pieces). It stops at 400 asks or 5 MB, on a refusal, or when a
+  server ignores the range. The estimate is never used as the download's size; WebM rows, and
+  rows whose pieces vary too much, stay "Size unknown".
+- **Finished stream size sample**: an HLS quality whose master states only a peak rate
+  (`BANDWIDTH`) and whose playlist is finished now shows "Estimating size…" and then "~X MB" with
+  "Rough estimate" instead of "Size unknown" (Pornhub, Roshy and jav.guru Stream VO on the owner's
+  phone). The sheet asks 48 of each playlist's pieces for one byte and reads their lengths; on the
+  host's measured playlists the estimate stayed within 4.9% of all pieces. A live playlist, a
+  locked one, a refusal or a server that ignores the range keeps "Size unknown"; the estimate is
+  never used as the download's size.
+
+### Changed
+
+- **HLS download**: the next piece can start when a download slot is free, without waiting for
+  every piece in the preceding group.
+- **Download sheet**: an HLS master's quality playlists for `~` size estimates are read up to three
+  at a time (Playlist read-ahead). A read starts early only when the one-at-a-time order is sure
+  to make it, so the same playlists, the six-read limit and the estimates stay the same.
+
+### Fixed
+
+- **Sizes**: a size that rounds to 1024 of a unit shows as the next unit: "~1 GB", not "~1024 MB"
+  (jav.guru's 720p row on the owner's phone).
+- **Found list (Stream piece filter)**: the pieces an HLS playlist names are no longer listed as
+  videos of their own and no longer spend size checks. A live camera's pieces kept adding to the
+  count on a page with a camera strip (91 to 268 media requests a minute on one page). A
+  playlist asked again with low-latency delivery settings (`_HLS_msn`, `_HLS_part`) is one
+  playlist: 61 addresses in 77 seconds were 7 playlists.
+- **Found list (Live stream set aside)**: a playlist with no end (a live stream YFT can't save)
+  moves under "Other videos on this page" while the page has another video, so the page's own
+  video stays first.
+  Main videos, a page's quality files and several real videos are never set aside for this.
+  Its row carries a "Live" chip. After an ad, the sheet no longer takes a live camera's playlist,
+  asked for again every few seconds, as the video the page's player asked for.
+- **Ad filter**: the Found list and the Found button now use the length the page states, so a
+  video an ad list matches is still listed when its length is the page's video's.
+- **Fresh link renewal**: a fresh link must now be proven to be the same file (Same-file check).
+  Only a link's signature, expiry or cache values may change; a query value that names the content
+  (`id`, `video`, `file`, `quality`, …) must stay the same. A similar length alone, another file
+  the page's player asked for, or one of several files that only share the path is never taken.
+  When nothing proves it, the sheet shows its error with "Reload page and try again", and a
+  download keeps its bytes with "Fresh link: the page did not prove it is the same video; open the
+  page and download it again".
+- **Page video finder**: files are no longer grouped as one video solely because their durations
+  match. The page or adapter must identify alternatives as belonging to the same video.
+- **HLS download**: a silent row no longer shows the master’s combined video-and-sound
+  average-rate estimate when its separate sound cannot be paired.
+- **HLS download**: an ended quality with separate sound can show its source's average-rate size
+  estimate when their playlist lengths differ only slightly. The value is still marked with `~`.
+- **HLS download**: a live playlist window is no longer treated as the length of a completed
+  recording when estimating its size. A quality with separate sound needs both playlists to end.
+- **Downloads**: a download keeps the bytes it has when the file server states its `ETag` without
+  quotes. Wikimedia Commons' upload hosts do, and YFT sent that value as `If-Range` unchanged: the
+  server cannot read an unquoted value as an entity-tag, so it answered the whole file (200) to
+  every ranged request, and the download started again from 0% (the owner's 287 MB WEBM went back
+  to the start twice). The tag is now sent quoted, a weak tag falls back to `Last-Modified`, and a
+  server that still ignores the range is asked once more without `If-Range` before YFT gives ranges
+  up, so the bytes already written are not thrown away.
+- **Home**: a page whose address ends in a media extension is read as a page, not as a file.
+  Wikimedia Commons' `File:Big_Buck_Bunny_4K.webm` ended as "This video's address can't be
+  downloaded" (file check, range GET, address not supported); its own files are now offered. A
+  direct `.mp4` or `.webm` link is still read as the file it is.
+- **VK**: a link whose embed page is VK's own app (a page that lists no file) now gets its
+  qualities from VK's API instead of ending as an unsupported page. Files on the `vkuser.net`
+  servers VK moved them to are read as before, and a video VK does not play says so.
+- **Downloads**: a download the app closed goes on from the bytes it kept when you tap Retry, also
+  when its link has expired: YFT looks the same file up again and opens the file it was writing.
+  When it cannot (the page no longer offers the video, or the bytes are gone), the row says why and
+  keeps them.
+- **Browser**: a page whose own address ends in a media extension is no longer read as the file.
+  Wikimedia Commons' `File:Big_Buck_Bunny_4K.webm` page is HTML, and its address was offered as the
+  video, so the download failed as an invalid address; now only the page's own files are offered. A
+  file opened or pasted directly is still read as the file.
+- **Sizes**: a row shows a size only when the source states one, with `~` when the source marks it
+  an estimate; a size YFT would have to guess is not shown, and the row reads **Size unknown**. The
+  ended YouTube live that read ~515 MB for a 371 MB file is one of them, and so is a replay that
+  read ~689 MB in the sheet while its download said ~390 MB. The sheet no longer multiplies a
+  bitrate by a length to fill a row, and a DASH `@bandwidth` or an HLS `BANDWIDTH` — both the peak
+  of a channel, not the file's average — no longer stands in for a size; an HLS master's
+  `AVERAGE-BANDWIDTH` still is one. A download whose total is an estimate says so under the bar:
+  **205 of ~236 MB (estimated)**.
+
+- **Home**: a page's own player lists one video's qualities. Wikimedia Commons' page names four
+  `<source>` files (240p, 360p, 480p, 1080p) and states its 4K original in the page's data; YFT took
+  the stated original for the page's only video and pushed the player's four files aside as
+  previews, so the sheet showed one row, "Quality unknown · WebM · 2.8 GB", and no quality to pick.
+  The player's files are now that video's qualities and the stated original is a row of its own.
+- **Browser**: the same page's four files are one item with four qualities, named by the picture the
+  page states for each (1080p, 480p, 360p, 240p), instead of four items reading "Quality unknown".
+- **Qualities**: a WebM file the page does not describe names its own row from its header — picture,
+  frame rate, length and codec — so a WebM reads "1080p · 30 fps · VP9" instead of "Quality
+  unknown".
+- **Preview**: a quality the phone's own decoders do not cover says which picture and codec it could
+  not play ("This phone has no decoder for this picture: 4000 × 2250 (VP8)") and that the file still
+  downloads, instead of "This variant could not be played."
+
 ## [1.0.2]
 
 Not dated yet: the date is added when 1.0.2 is published.

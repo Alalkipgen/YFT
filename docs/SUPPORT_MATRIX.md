@@ -33,23 +33,28 @@ YFT never signs in to a site. The user's own browser session is sent only to tha
 
 ## Media and downloads
 
+All items offers only post video items the site's answer identifies and supplies with usable rows.
+The Instagram and X adapters carry these items when their answers include them. Photos are skipped;
+an inaccessible or missing item is not inferred. This does not add playlist or photo downloads.
+
 | Feature | Status | Notes |
 | --- | --- | --- |
 | Direct MP4, WebM and audio files | Supported | Byte-range pieces of one file count as that one file. Three or more numbered `.ts` or `.aac` pieces count as one stream. |
 | HTML5 `video`, `audio` and `source` tags | Supported | A read-only page script lists them. |
 | Browser downloads | Supported | The WebView's download events give the type, file name, size and request. |
-| HLS (`.m3u8`) | Supported | Preview and HLS download, without DRM. A separate audio playlist is downloaded too and merged into one MP4 (AVC with AAC; VP9 with AAC only at heights with no AVC sound, from Android 10). |
+| HLS (`.m3u8`) | Supported | Preview and HLS download, without DRM. A separate audio playlist is downloaded too and merged into one MP4 (AVC with AAC; VP9 with AAC only at heights with no AVC sound, from Android 10). A size from a stated average rate requires completed playlists; peak-only or unreadable rows remain unknown. |
 | DASH (`.mpd`) | Supported | Preview and DASH download, without DRM. |
 | Separate video and sound tracks | Supported | Merge joins AVC and AAC into MP4. VP9 with Opus or Vorbis becomes WebM from Android 10. A track that is one whole file (as on YouTube) downloads in resumable pieces of at most 10 MiB. Other codecs are refused before the download starts. |
 | MP3 conversion | Supported | MP3 320, 192 and 128 kbps from an AAC track, with LAME 3.100. Works on arm64-v8a, armeabi-v7a and x86_64; 32-bit x86 fails with a clear message. Opus, WebM, HLS and DASH sound is not converted. The LGPL notice is in About → Licenses. |
 | M4A from an MP4 video | Supported | The MP4's own AAC track is copied without re-encoding. |
 | Ended YouTube live (Live download) | Supported | MP4 qualities only: the pieces are joined into one file. WebM qualities say to pick an MP4 quality. Pieces not ready yet: "YouTube still preparing this live video, try later". A file up to 2 minutes short is saved with a note in Details. |
-| Signed or expiring links | Supported | A known expiry fails clearly. Fresh link renewal gets a new link for an expired download and resumes it. |
+| Signed or expiring links | Supported | A known expiry fails clearly. Fresh link renewal gets a new link for an expired download and resumes it when the Same-file check proves it is the same file; otherwise the download keeps its bytes and asks to open the page again. |
 | Cookie- or header-protected media | Supported | Sent again to the same origin only. Cross-origin requests get no credentials. |
 | `blob:` addresses | Not a file | The real HTTP(S) file or manifest behind it is found instead. |
 | DRM (Widevine) | Not supported | Detected and refused. |
 | Recording a live stream | Not supported | |
-| Playlists and batch downloads | Not supported | |
+| All items | Supported | Select available video items in one post and queue one default-quality download per item. No photos or playlists. |
+| Playlists | Not supported | |
 
 ## App, browser and backup
 

@@ -105,11 +105,78 @@ Old records stay in git history. Feature names follow [GLOSSARY.md](GLOSSARY.md)
 
 ## Downloads
 
+- **All items is video only.** Offer the video items a public post exposes, including videos in
+  a post that also has photos. Do not add photo or TikTok slideshow downloads. (2026-11-07)
+- **Download performance.** Measure HLS and MP3 conversion before changing them; make an
+  optimization only when evidence supports it and the download's integrity is kept. (2026-11-07)
 - **Fresh link renewal.** A 401, 403, 410 or expired link starts one fresh lookup (VK's 400 only
   after bytes); at most 3 per download; never another quality. Why: long downloads outlive links.
   (2026-10-27)
-- **Renewal limits.** Not after the app's process died. Why: that needs saved page addresses.
-  (2026-10-27)
+- **Fresh link identity.** A fresh link is the video whose link failed only when its address
+  proves it (Same-file check): the same address, or the same host and path where only signature,
+  expiry or cache values changed. A similar length never proves it, and a query value that names
+  the content tells two videos apart. When the evidence is not enough, nothing is downloaded and
+  the user is told to reload the page or open it again. Why: the owner asked that retry never pick
+  a different video, even if that means a refresh that used to work by length now fails.
+  (2026-11-08)
+- **Parallel size lookups.** The sheet may read an HLS master's quality playlists at the same time
+  only when it reads the playlists the one-at-a-time loop reads, inside the same six-read limit
+  (Playlist read-ahead), so no row loses its estimate. Why: an earlier draft that reserved its reads
+  in advance gave three estimates where reading in order gave four, and the owner asked that
+  speed never cost estimate coverage. (2026-11-08)
+- **Renewal after the app closed.** A download keeps the app's text about where it came from (its
+  page and the facts that name the same file there, and where its bytes are) in its record, and a
+  Retry after a restart asks for a fresh link of the same file and reopens the file it was writing,
+  so it goes on from the bytes it kept. Why: the owner asked for it, and the facts the old rule
+  named as missing (the page's address and the file's place) are the download's own. The text is
+  never shown, goes with the download's record, and Clear browsing data removes it, as it removes
+  the sources in memory. (2026-11-07)
+
+- **Android 9 has its own CI run.** The save path there (YFT's own storage, no public Downloads
+  row) is checked by an instrumented test on an API 28 emulator, not only by unit tests. Why: no
+  API 28 device is at hand, and the version's storage rules are the ones that differ. (2026-11-07)
+- **The download service keeps its type.** A `dataSync` foreground service on Android 10+ (with
+  `mediaProcessing` on Android 15+ while a merge, MP3 conversion or save runs) stays the way
+  downloads run; user-initiated data transfer jobs are not used. Why: the service is the supported
+  path and already reports Android 15's 6-hour limit as a notice; a job would replace the queue's
+  own progress, Pause and Resume for one limit that a single download rarely meets. Revisit only
+  with a phone run of a download longer than 6 hours. (2026-11-07)
+- **A page's own address is no file.** The request that made the page is never a media candidate,
+  also when its address ends in a media extension; only the answer's content type can tell, so it
+  goes to the probe. A file opened or pasted directly is the page, so it is probed and kept when the
+  answer is media. Why: Wikimedia Commons' `File:Big_Buck_Bunny_4K.webm` page was offered as the
+  video and the download failed as an invalid address. The same holds on Home: a pasted link whose
+  address ends in `.webm` is probed first, and when the answer is a page (`NotMedia`) the page is
+  read like any other page and its own files are offered, instead of the sheet ending at
+  "address not supported". A direct file link still answers media and stays the file. (2026-11-07)
+- **One player's `<source>` children are one video.** A `<source>` child states one of the files
+  its media element picks from, so the page's own player lists them as one video's qualities, never
+  as previews beside the file the page states for that video. The element's own `src` is not one of
+  them — it is what the element plays, and on a page whose player setup names the qualities it can
+  be the ad — so it joins the group only when the element also lists sources. Why: Wikimedia
+  Commons' page names four `<source>` files and states its 4K original in its data; YFT took the
+  stated original for the page's only video, and the owner's sheet showed one row, "Quality
+  unknown · WebM · 2.8 GB", with no quality to pick. (2026-11-07)
+- **A WebM names its own row.** A WebM or Matroska file's picture, frame rate, length and codecs are
+  read from its own header: the EBML `Info` and `Tracks` inside the first 256 KiB, one ranged read,
+  the read an MP4 header already needs. A frame rate is stated only when `DefaultDuration` is a
+  plausible frame duration (1–240 fps): Wikimedia's original states 16666 ns, which would be 60002
+  fps, so its frame rate stays unknown rather than made up. Why: the Browser's items and Home's row
+  for the page's stated original had no picture at all. (2026-11-07)
+- **A preview that cannot play says why.** A quality whose picture the phone's own decoders do not
+  cover says which picture and codec ("This phone has no decoder for this picture: 4000 × 2250
+  (VP8)") and that the file still downloads; a preview that fails never blocks the download. Why:
+  Wikimedia's 4K original is VP8, which many phones do not decode, and "This variant could not be
+  played" read as if the file or the app were broken. (2026-11-07)
+- **An If-Range validator is quoted.** The ETag a file server states is sent as `If-Range` quoted
+  (RFC 7233 §3.2 wants a strong entity-tag, which is quoted), an unquoted value from the server is
+  quoted here, a weak (`W/…`) or unusable tag falls back to `Last-Modified` when it is an
+  HTTP-date, and otherwise no `If-Range` is sent. A ranged request the server still answers with
+  200 is asked once more without `If-Range` before ranges are given up, and the bytes already
+  written stay. Why: Wikimedia's upload hosts state the ETag unquoted, so every ranged request of
+  the owner's 287 MB WEBM was answered with the whole file (200), YFT treated that as "the server
+  ignores ranges", truncated the file and started again from 0% twice. Measured 2026-11-07: the
+  same request is 200 unquoted and 206 quoted. (2026-11-07)
 - **YouTube fast start.** A 1 MiB first piece, 4 pieces at once per track. Why: progress from the
   first seconds. (2026-10-09)
 - **Delete file** asks first. Why: a deleted file cannot come back. (2026-10-09)
@@ -119,6 +186,43 @@ Old records stay in git history. Feature names follow [GLOSSARY.md](GLOSSARY.md)
   phone. (2026-10-31)
 - **Quality names.** The nearest standard height names a row, so 640 × 640 stays "720p · HD". Why:
   one rule for every site. (2026-10-31)
+- **Size estimates need evidence and a clear label.** The owner wants exact sizes where available,
+  and estimates or rough ranges only when their basis is known. Do not present an estimate as
+  exact or invent a number. Investigate a bounded sample before adding it. A progress total that
+  is an estimate says "(estimated)". The old replay guess read ~251 MB for a 145 MB file.
+  (2026-11-07)
+- **A peak rate is not an average.** DASH `@bandwidth`, HLS `BANDWIDTH` and YouTube live format
+  rates are not used as average rates. HLS `AVERAGE-BANDWIDTH` and a finished playlist's duration
+  can give a size marked `~`; a live window is not a finished recording. When sound is separate,
+  both playlists must finish and state the same duration before the combined average is used.
+  Unavailable or insufficient evidence stays "Size unknown". (2026-11-07)
+- **Ended live size sample, by itself.** The owner chose (2026-11-08) sizes for a recently ended
+  live's rows without a button: the sheet reads the start (8 KB) of a spread sample of the
+  replay's own pieces and shows "~X MB" with "Rough estimate". A piece's boxes give its exact
+  length, so the sample measures, it does not guess from a rate. On the owner's replay (545
+  pieces): 189 asks, 1.5 MB, about 33 s on the host's browser; 144p 22.90 MB against 22.85 MB
+  measured, sound within 0.03%; 144p with sound came to 63.4 MiB, as its download (63 MB). It
+  stops at 400 asks or 5 MB; a file unlikely within 25% (90 in 100) gets no size. The estimate
+  is shown only: the download's size, space check and progress are not changed by it. This
+  amends "Size estimates need evidence" with the bounded sample it asked for. (2026-11-08)
+- **Finished stream size sample, by itself.** On the owner's phone (Preview 213, 2026-11-08)
+  Pornhub, Roshy and jav.guru's Stream VO rows read "Size unknown" where 1.0.2 showed a size:
+  their masters state `BANDWIDTH` only. A quality whose playlist is finished (it ends, no key) and
+  states no average rate now gets a size from its own pieces: the sheet asks 48 pieces, spread over
+  the playlist, for one byte each, takes each length from `Content-Range`, and shows "~X MB" with
+  "Rough estimate". On the host (not the phone) every piece of Roshy's three qualities (885 each),
+  jav.guru VO (597) and JW Tears of Steel's five (184) was measured: over 200 placements of 48
+  pieces each estimate stayed within 4.9% of the pieces' total, 90 in 100 within 3.4%. `BANDWIDTH`
+  times the length, as 1.0.2 showed, was 2.4% to 9% under those totals and 1.7 times over on the
+  owner's YouTube replays, so it stays unused. The estimate counts the pieces as fetched; an MP4
+  made from Roshy's TS pieces was about 2% smaller. It stops at 400 asks, 8 MB, a refusal or a
+  server that ignores the range, and it is shown only. This amends "A peak rate is not an average"
+  for finished playlists. (2026-11-08)
+- **Stream pieces are not videos.** The pieces an HLS playlist names are part of that stream:
+  they are not listed and spend no size check. A playlist with no end moves under "Other videos
+  on this page" while the page has another video; nothing is hidden for a short length, an
+  outside host or the Found count alone. Why: a camera strip filled the list with pieces; the page's video must stay
+  first. (2026-11-08)
 
 ## Signed recipe config
 

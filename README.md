@@ -127,7 +127,7 @@ the screenshots above on an emulator.
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Modules, data flow, main and Master, build flags, security |
 | [docs/DESIGN.md](docs/DESIGN.md) | The design system and the rules the screens follow |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Decisions already made |
-| [docs/PLAN.md](docs/PLAN.md) | What is open: owner decisions, known issues, backlog, risks |
+| [docs/PLAN.md](docs/PLAN.md) | What is open: owner decisions, backlog, risks |
 | [docs/TESTING.md](docs/TESTING.md) | Test commands, CI workflows, phone tools, runbooks |
 | [docs/RELEASE.md](docs/RELEASE.md) | Release identity, signing, preview builds, publishing |
 | [docs/SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md) | What each site and feature supports |

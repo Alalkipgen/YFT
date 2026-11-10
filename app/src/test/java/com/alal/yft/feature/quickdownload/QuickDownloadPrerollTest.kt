@@ -72,19 +72,17 @@ class QuickDownloadPrerollTest {
 
         val state = sheet.uiState.value
         assertNull(state.failure)
-        // Never the 0:30 pre-roll: the page's video from the links the page read again has.
+        // Never the 0:30 pre-roll: the page's video from the links the page read again has. The
+        // pre-roll is another file, so the fresh-link chain never even asks for it.
         assertTrue(state.offered().toString(), state.offered().isNotEmpty())
         assertTrue(state.offered().toString(), state.offered().all { it.endsWith("hash=again") })
         assertEquals(MAIN_LENGTH, state.header?.durationMillis)
         assertTrue(state.freshLink)
         val details = state.attemptDetails
-        assertTrue(details.toString(), "skipped: 0:30 ad (short)" in details)
-        assertTrue(details.toString(), "chosen: named by the page's player" in details)
-        assertTrue(details.toString(), "length 10:03 matches the page (10:05)" in details)
-        assertEquals(
-            listOf("Player's link", "skipped: 0:30 ad (short)", "Page read again"),
-            details.dropWhile { it != "Player's link" }.take(3),
-        )
+        assertTrue(details.toString(), details.none { it.startsWith("skipped") })
+        assertTrue(details.toString(), "Player's link" !in details)
+        assertEquals("Page read again", details.dropWhile { it != "Page read again" }.first())
+        assertTrue(harness.resolver.requested.none { it.mediaUrl == ad.mediaUrl })
         assertEquals(1, reader.asked.size)
 
         sheet.download()
@@ -144,8 +142,11 @@ class QuickDownloadPrerollTest {
     }
 
     @Test
-    fun thePlayersNewestRequestIsMeasuredAndItsPrerollSkippedForItsOwnVideo() = runTest {
-        // The script's link is gone; the player asked for its video, then for the pre-roll.
+    fun thePlayersOtherFileOfThePagesLengthIsNotTakenForTheVideoWhoseLinkIsGone() = runTest {
+        // The script's link is gone; the player asked for another file (hd.mp4, of the page's
+        // length), then for the pre-roll. Same-file check: neither is proven the same video as
+        // the script's 720.mp4, so neither is offered; the error offers "Reload page and try
+        // again".
         val player = requested("https://media.example.test/v43/hd.mp4?hash=player", at = 9)
         val preroll = ad.copy(observedAtEpochMs = 12)
         harness.resolver.answers += mapOf(
@@ -160,14 +161,10 @@ class QuickDownloadPrerollTest {
         advanceUntilIdle()
 
         val state = sheet.uiState.value
-        assertNull(state.failure)
-        assertEquals(listOf(player.mediaUrl), state.offered().distinct())
-        assertEquals(MAIN_LENGTH, state.header?.durationMillis)
-        assertTrue(state.freshLink)
-        assertEquals(
-            listOf("Player's link", "skipped: 0:30 ad (short)", "Player's link"),
-            state.attemptDetails.dropWhile { it != "Player's link" }.take(3),
-        )
+        assertTrue(state.offered().isEmpty())
+        assertTrue(state.canReload)
+        assertFalse(state.freshLink)
+        assertEquals(listOf(mp4.mediaUrl), harness.resolver.requested.map { it.mediaUrl })
     }
 
     @Test
