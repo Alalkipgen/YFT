@@ -483,7 +483,8 @@ Before a release counts a site's backup steps, the site needs three passing cens
 - One session may run all sites.
 - Pass: wrong rows 0, and nothing worse than main's baseline census run.
 - TikTok runs through the VPN's New York exit.
-- For 1.0.2: verify the final configuration, including weak-answer fill. VK has not passed.
+- Verify the final configuration, including weak-answer fill. VK passed three owner-reported
+  census runs for slots 1–6; their results and recipe note are in [SESSION_STATE.md](SESSION_STATE.md).
 
 ## Phone checklist for a release
 
@@ -555,7 +556,7 @@ off). If anything fails, open Details → Copy details and send it.
   says "Live video saved N s short of …".
 - **VK:** each of the owner's three links opens a sheet with its qualities (one keeps its files on
   `vk6-13.vkuser.net`); the 720p row downloads merged with sound and plays; the clip link says VK
-  does not play it. VK stays unpassed until its three promotion runs pass.
+  does not play it. VK promotion results are in [SESSION_STATE.md](SESSION_STATE.md).
 - **Weak-answer fill** (census APK or previews with Show details on): lines
   `master: facebook B+ (main's rows: no HD): Master added N: 720p` or `… added none (…)`. VK rows
   without a height get no such line. Strong answers stay unchanged. The best-first order shows

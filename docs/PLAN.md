@@ -10,17 +10,11 @@ What is open now: where things stand, the owner's open decisions, the backlog an
   and no pull request is open.
 - Weak-answer fill and Instagram's best-first order are enabled in release and previews by the
   owner. Facebook, Instagram and X passed promotion on the census build.
-- VK has not passed promotion: it needs fresh promotion runs on a phone before its fill is
-  released. The embed page loads VK's own app and carries no media addresses, so an embed that
-  lists no file now opens the API path (`vk D`); its rules already take
-  `vk{N}-{N}.vkuser.net`, where the moved clips' files sit. The API answered for the three links
-  the owner sent; the fourth, a clip, is one VK says it does not play.
-- The VK fixes, the size fix (the sheet's own bitrate guess and DASH/HLS peak rates no longer stand
-  in for a size), the Wikimedia fixes (the page's own address is no file, the quoted `If-Range`, one
-  player's sources as one video's qualities, a WebM's own header naming its row, and the preview
-  message for a picture the phone cannot decode), the download that goes on after the app closed,
-  and Android 9's save path in CI are on `work/phase-v102-easy`; they wait on a phone run, so none
-  is passed. Next is the phone checklist in [TESTING.md](TESTING.md), then VK's promotion runs.
+- VK passed three owner-reported promotion census runs for slots 1–6. See [SESSION_STATE.md](SESSION_STATE.md)
+  for the results and recipe note. The VK fixes, size and Wikimedia fixes, download recovery after
+  app closure, and Android 9's save path in CI are on `work/phase-v102-easy`. The owner reports
+  the requested phone tests passed. Review the final release configuration and open decisions
+  before a release; merge and publishing need the owner's approval.
 
 ## Open owner decisions
 

@@ -28,6 +28,13 @@ Overwrite this file at each checkpoint (40 lines at most). Never append. History
   validation 42498215302, emulator 42498215444, minified 42498215214, preview 42498215280
   passed. Preview 214 is the APK for the phone checks (artifact `yft-preview-apk`; the gh sign-in
   on this host had expired, so its sha256 was not read here).
-- Owner reports the requested phone tests passed. Review the promotion run records separately;
-  the phone test report alone does not establish the required three promotion runs.
+- Owner reports the requested phone tests passed. VK promotion: three owner-reported census runs
+  on 2026-11-08 19:42, 2026-11-09 06:52 and 2026-11-10 13:35 UTC passed for the six owner
+  slots (1–6). Each had main V pass 6, Master trial V pass 6, same video 6, wrong 0 and
+  unknown 0. Runs 2 and 3 had no change against their baselines. The first-to-last span was
+  41 h 53 min; successive gaps were 11 h 10 min and 30 h 43 min. Run 2 reported bundled
+  recipes not yet asked; runs 1 and 3 reported signed remote version 10. The reports do not
+  identify the APK hash. The census APK provided for these runs was built from `155ed36`
+  (code at `734b363`), APK SHA-256 `18e8ed37b8df322cbb0b674e3f630b001a663cadc25a02beadce7bdf413c51b1`.
+- Next: review the release configuration and open decisions; prepare a PR after owner approval.
 - No merge or release without the owner's approval.
