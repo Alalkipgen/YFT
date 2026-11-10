@@ -7,14 +7,14 @@ What is open now: where things stand, the owner's open decisions, the backlog an
 
 - 1.0.1 is released (2026-10-29) and 1.0.2 is released (2026-11-03).
 - `main` holds 1.0.2 and the README screenshots change. Work continues on `work/phase-v102-easy`,
-  and no pull request is open.
+  and PR #16 is open for 1.0.3.
 - Weak-answer fill and Instagram's best-first order are enabled in release and previews by the
   owner. Facebook, Instagram and X passed promotion on the census build.
 - VK passed three owner-reported promotion census runs for slots 1–6. See [SESSION_STATE.md](SESSION_STATE.md)
   for the results and recipe note. The VK fixes, size and Wikimedia fixes, download recovery after
   app closure, and Android 9's save path in CI are on `work/phase-v102-easy`. The owner reports
-  the requested phone tests passed. Review the final release configuration and open decisions
-  before a release; merge and publishing need the owner's approval.
+  the requested phone tests passed and approved merge and release as 1.0.3. Keep the existing
+  release configuration; verify CI and the signed release draft before publishing.
 
 ## Open owner decisions
 

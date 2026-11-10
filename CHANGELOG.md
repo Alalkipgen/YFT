@@ -10,6 +10,8 @@ one.
 
 ## [Unreleased]
 
+## [1.0.3]
+
 ### Added
 
 - **All items**: select the available videos of one post and queue them at the default quality.

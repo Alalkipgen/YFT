@@ -36,5 +36,5 @@ Overwrite this file at each checkpoint (40 lines at most). Never append. History
   recipes not yet asked; runs 1 and 3 reported signed remote version 10. The reports do not
   identify the APK hash. The census APK provided for these runs was built from `155ed36`
   (code at `734b363`), APK SHA-256 `18e8ed37b8df322cbb0b674e3f630b001a663cadc25a02beadce7bdf413c51b1`.
-- Next: review the release configuration and open decisions; prepare a PR after owner approval.
-- No merge or release without the owner's approval.
+- Owner approved 1.0.3 and PR #16. Green CI, then merge and verify the signed release draft.
+- The owner approved merge and release; the existing release configuration stays unchanged.
